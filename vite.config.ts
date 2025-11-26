@@ -1,15 +1,9 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-
 export default defineConfig({
-  // `./` gives you relative asset paths, good for GitHub Pages
-  base: "./",
+  base: "/MoviNesta/",    // <-- REPO name inside slashes
   plugins: [react()],
-  server: {
-    port: 5173,
-  },
   build: {
-    outDir: "docs",              // 👈 add this
-    chunkSizeWarningLimit: 2000, // keep your existing option
+    outDir: "dist",       // default build folder
+    chunkSizeWarningLimit: 2000,
   },
+  // server config is fine only for dev
 });
