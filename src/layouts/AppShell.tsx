@@ -1,8 +1,8 @@
 import React from "react";
-import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
+import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Flame, MessageCircle, Search, BookOpen, ChevronDown } from "lucide-react";
 import movinestaLogoNeon from "../assets/brand/movinesta-logo-neon.png";
-import { useUIStore } from "../lib/ui-store";
+import { applyThemePreference, syncSystemThemePreference, useUIStore } from "../lib/ui-store";
 import { useAuth } from "../modules/auth/AuthProvider";
 
 const bottomTabs = [
@@ -27,9 +27,28 @@ function getTitleFromPath(pathname: string): string {
 const AppShell: React.FC = () => {
   const location = useLocation();
   const title = getTitleFromPath(location.pathname);
-  const { setLastVisitedTab } = useUIStore();
+  const navigate = useNavigate();
+  const { setLastVisitedTab, startTab, theme } = useUIStore();
   const { user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const hasAppliedStartTab = React.useRef(false);
+
+  React.useEffect(() => {
+    applyThemePreference(theme);
+    const cleanup = syncSystemThemePreference();
+    return cleanup;
+  }, [theme]);
+
+  React.useEffect(() => {
+    if (hasAppliedStartTab.current) return;
+    if (location.pathname === "/" && startTab !== "home") {
+      const target = startTab === "swipe" ? "/swipe" : "/diary";
+      navigate(target, { replace: true });
+      setLastVisitedTab(startTab);
+      hasAppliedStartTab.current = true;
+    }
+    hasAppliedStartTab.current = true;
+  }, [location.pathname, navigate, setLastVisitedTab, startTab]);
 
   const isConversationRoute =
     location.pathname.startsWith("/messages/") && location.pathname !== "/messages";

@@ -130,8 +130,9 @@ const SettingsAccountPage: React.FC = () => {
 
           <div className="flex flex-col gap-2 rounded-md border border-mn-border-subtle/70 bg-mn-bg/60 px-3 py-2">
             <p className="text-[11px] text-mn-text-secondary">
-              We&apos;ll email a secure link to <span className="font-mono">{user.email}</span> so you can
-              choose a new password.
+              We&apos;ll email a secure link to <span className="font-mono">{user.email}</span>
+              <br />
+              so you can choose a new password.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <button

@@ -436,9 +436,15 @@ SPA • React + TypeScript • Vite • Tailwind • Supabase
 **Settings**
 
 - [ ] `/settings/profile` – edit display name, bio, username, avatar, privacy toggles.
-- [ ] `/settings/account` – show email, link to password reset/change.
+- [x] `/settings/account` – show email, link to password reset/change.
+  - Completed: 2025-05-28 12:00 (local)
+  - Summary: Added a Supabase-powered password reset flow with in-place feedback and linked into the forgot-password screen while keeping account info and sign-out flows consistent.
+  - Next improvements: Add password change for logged-in users and support multi-factor options when backend is ready.
 - [ ] `/settings/notifications` – toggles for follows, comments, replies, reactions, mentions.
-- [ ] `/settings/app` – theme (dark/light/system), language.
+- [x] `/settings/app` – theme (dark/light/system), language.
+  - Completed: 2025-05-28 12:00 (local)
+  - Summary: Implemented persistent app preferences via the UI store, including start tab, full theme switcher with system/light/dark, language selector, and reduce motion toggle.
+  - Next improvements: Hook language into real localization and expose reduce-motion to animation components.
 
 ---
 
