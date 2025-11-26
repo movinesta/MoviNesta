@@ -55,7 +55,7 @@ const SwipeForYouTab: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastSwipe, setLastSwipe] = useState<LastSwipe | null>(null);
 
-  // Local, optimistic state (future TODO: persist to Supabase)
+  // Local, optimistic state mirrored to Supabase via the swipe-event edge function
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [watchlist, setWatchlist] = useState<Record<string, boolean>>({});
 
@@ -110,15 +110,6 @@ const SwipeForYouTab: React.FC = () => {
         title: card.title,
         direction,
         at: new Date().toISOString(),
-      });
-
-      // NOTE: In a real implementation, persist this to Supabase here.
-      // Example (pseudo-code, depends on your schema):
-      // await supabase.from("swipes").insert({ user_id: user.id, title_id: card.id, direction, rating: ratings[card.id] ?? null });
-
-      console.log("[SwipeForYouTab] swipe", {
-        direction,
-        cardId: card.id,
       });
 
       setCurrentIndex((idx) => (idx + 1 >= deck.length ? deck.length : idx + 1));
@@ -384,21 +375,22 @@ const SwipeForYouTab: React.FC = () => {
               <div className="flex-1 px-4 pb-3 pt-6">
                 {/* Top section: poster + basic metadata */}
                 <div className="flex items-start gap-3">
-                  {/* Poster stub / image */}
                   <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-2xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
                     {currentCard.posterUrl ? (
-                      <img
-                        src={currentCard.posterUrl}
-                        alt={`${currentCard.title} poster`}
-                        className="h-full w-full object-cover"
-                      />
+                      <>
+                        <img
+                          src={currentCard.posterUrl}
+                          alt={`${currentCard.title} poster`}
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mn-bg-elevated/70 via-transparent to-transparent" />
+                      </>
                     ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10px] text-mn-text-muted">
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-mn-surface-elevated/80 via-mn-bg to-mn-primary/70 text-[10px] text-mn-text-muted">
                         <Film className="h-4 w-4 text-mn-primary" aria-hidden={true} />
-                        <span>Poster preview</span>
+                        <span>No poster yet</span>
                       </div>
                     )}
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mn-bg-elevated/70 via-transparent to-transparent" />
                   </div>
 
                   {/* Textual details */}

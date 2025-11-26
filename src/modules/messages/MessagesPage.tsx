@@ -8,7 +8,7 @@ import { useConversations } from "./useConversations";
 
 const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { data, isLoading, isError, error } = useConversations();
+  const { data, isLoading, isError, error, refetch, isFetching } = useConversations();
   const [query, setQuery] = useState("");
 
   const queryClient = useQueryClient();
@@ -137,6 +137,20 @@ const MessagesPage: React.FC = () => {
                 {error?.message ??
                   "We couldn&apos;t load your messages. Please try again in a moment."}
               </p>
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-mn-border-subtle/80 bg-mn-bg px-3 py-1.5 text-[11px] font-medium text-mn-text-primary shadow-mn-soft transition hover:border-mn-border-strong/70 hover:bg-mn-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:opacity-60"
+                >
+                  <Loader2
+                    className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : "text-mn-text-muted"}`}
+                    aria-hidden="true"
+                  />
+                  <span>{isFetching ? "Retrying…" : "Try again"}</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -172,7 +186,11 @@ const MessagesPage: React.FC = () => {
                   <li key={conv.id} className="py-0.5 sm:py-1">
                     <Link
                       to={`/messages/${conv.id}`}
-                      className="group flex items-center gap-3 rounded-mn-card border border-transparent px-3 py-2.5 transition hover:border-mn-border-subtle hover:bg-mn-bg-elevated/80 hover:shadow-mn-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                      className={`group flex items-center gap-3 rounded-mn-card border px-3 py-2.5 transition hover:border-mn-border-subtle hover:bg-mn-bg-elevated/80 hover:shadow-mn-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg ${
+                        conv.hasUnread
+                          ? "border-mn-border-subtle/80 bg-mn-bg/70 shadow-mn-soft"
+                          : "border-transparent"
+                      }`}
                     >
                       {/* Avatar(s) */}
                       <div className="relative flex h-10 w-10 items-center justify-center">

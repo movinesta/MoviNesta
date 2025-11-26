@@ -81,9 +81,9 @@ Priorities are rough guidelines:
 - Give the screen more breathing room: {In progress: 2025-11-25 15:00 — Added outer padding to the Messages screen; list spacing still tweakable later.}
   - Consistent padding around the edges. {Done: 2025-11-25 15:00 — Added consistent horizontal padding (px-3/4/6) so content no longer touches the edges.}
   - Consistent spacing between elements (title, search, list). {Done: 2025-11-25 15:00 — Spacing between title, search, and list adjusted via gap utilities for a clearer rhythm.}
-- Make empty and error states easy to understand: {}
-  - Empty: a friendly icon or illustration plus a short message (“No messages yet”). {}
-  - Error: a clear message and a visible “Try again” or “Reload” action. {}
+- Make empty and error states easy to understand: {Done: 2025-05-28 13:10 (local) — Added a friendly empty state with iconography and a retry button with spinner for errors so users can reload conversations without refreshing the page.}
+    - Empty: a friendly icon or illustration plus a short message (“No messages yet”). {Done: 2025-05-28 13:10 (local) — Added icon-backed empty copy inviting users to start a conversation.}
+    - Error: a clear message and a visible “Try again” or “Reload” action. {Done: 2025-05-28 13:10 (local) — Inline retry button now refreshes the conversations query with loading feedback.}
 
 ---
 
@@ -101,9 +101,9 @@ Priorities are rough guidelines:
   - Right: {Done: 2025-11-25 15:00 — Right-hand side is reserved for timestamp + unread indicator.}
     - Time of the last message. {Done: 2025-11-25 15:00 — Last message time is shown as a compact label on the right.}
     - Unread badge or dot if there are unread messages. {Done: 2025-11-25 15:00 — Unread dot appears for any conversation with hasUnread = true.}
-- For unread conversations: {In progress: 2025-11-25 15:00 — Bold names + unread dot are in; background emphasis is still TODO.}
+- For unread conversations: {Done: 2025-05-28 13:10 (local) — Unread threads now get a subtle elevated background plus the existing bold text and dot so they stand out in the list.}
   - Make the name bold. {Done: 2025-11-25 15:00 — Unread conversations render with a bolder title weight.}
-  - Use a slightly brighter or different background. {}
+  - Use a slightly brighter or different background. {Done: 2025-05-28 13:10 (local) — Applied a darker-elevated surface and border highlight on unread list rows.}
   - Show a clear unread dot or a tiny count badge. {Done: 2025-11-25 15:00 — Clear unread dot is shown; tiny count badge can be layered in later if needed.}
 
 ---
