@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, MessageCircle, Plus, Search as SearchIcon, Users } from "lucide-react";
@@ -16,24 +15,20 @@ const MessagesPage: React.FC = () => {
 
   // Realtime: refresh conversations list whenever a new message is inserted
   useEffect(() => {
-    const channel = supabase
-      .channel("supabase_realtime_messages_publication:messages-list")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
-        (payload) => {
-          // eslint-disable-next-line no-console
-          console.log("[MessagesPage] Realtime message for list", payload);
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
-        },
-      );
+    const channel = supabase.channel("supabase_realtime_messages_publication:messages-list").on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      (payload) => {
+        console.log("[MessagesPage] Realtime message for list", payload);
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      },
+    );
 
     channel.subscribe((status) => {
-      // eslint-disable-next-line no-console
       console.log("[MessagesPage] Realtime channel status (list)", status);
     });
 
@@ -53,9 +48,7 @@ const MessagesPage: React.FC = () => {
           conv.subtitle,
           conv.lastMessagePreview ?? "",
           ...conv.participants.map((p) => p.displayName),
-          ...conv.participants
-            .map((p) => p.username)
-            .filter((u): u is string => Boolean(u)),
+          ...conv.participants.map((p) => p.username).filter((u): u is string => Boolean(u)),
         ]
           .join(" ")
           .toLowerCase();
@@ -83,7 +76,8 @@ const MessagesPage: React.FC = () => {
               Pick up the conversation.
             </h1>
             <p className="mt-1 text-[11px] text-mn-text-secondary">
-              Chat with friends about what you&apos;re watching, plan movie nights, and share recommendations.
+              Chat with friends about what you&apos;re watching, plan movie nights, and share
+              recommendations.
             </p>
           </div>
 
@@ -140,7 +134,8 @@ const MessagesPage: React.FC = () => {
             <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 px-4 py-6 text-[12px] text-mn-text-secondary">
               <p className="font-medium text-mn-text-primary">Something went wrong.</p>
               <p className="text-[11px] text-mn-text-muted">
-                {error?.message ?? "We couldn&apos;t load your messages. Please try again in a moment."}
+                {error?.message ??
+                  "We couldn&apos;t load your messages. Please try again in a moment."}
               </p>
             </div>
           )}
@@ -192,9 +187,9 @@ const MessagesPage: React.FC = () => {
                                   loading="lazy"
                                 />
                               ) : (
-                                conv.participants[0]?.displayName?.[0]?.toUpperCase() ??
+                                (conv.participants[0]?.displayName?.[0]?.toUpperCase() ??
                                 conv.participants[0]?.username?.[0]?.toUpperCase() ??
-                                "?"
+                                "?")
                               )}
                             </div>
                             <div className="absolute bottom-0 right-0 inline-flex h-7 w-7 items-center justify-center rounded-full bg-mn-bg-elevated text-[11px] font-semibold text-mn-primary ring-2 ring-mn-bg">
@@ -206,9 +201,9 @@ const MessagesPage: React.FC = () => {
                                   loading="lazy"
                                 />
                               ) : (
-                                conv.participants[1]?.displayName?.[0]?.toUpperCase() ??
+                                (conv.participants[1]?.displayName?.[0]?.toUpperCase() ??
                                 conv.participants[1]?.username?.[0]?.toUpperCase() ??
-                                "+"
+                                "+")
                               )}
                             </div>
                           </>
@@ -247,9 +242,11 @@ const MessagesPage: React.FC = () => {
                                 {conv.lastMessageAtLabel}
                               </span>
                             )}
-                            {conv.lastMessageIsFromSelf && conv.lastMessageSeenByOthers && !conv.hasUnread && (
-                              <span className="shrink-0 text-[9px] text-mn-text-muted">Seen</span>
-                            )}
+                            {conv.lastMessageIsFromSelf &&
+                              conv.lastMessageSeenByOthers &&
+                              !conv.hasUnread && (
+                                <span className="shrink-0 text-[9px] text-mn-text-muted">Seen</span>
+                              )}
                           </div>
                         </div>
                         {conv.subtitle && (
@@ -268,7 +265,10 @@ const MessagesPage: React.FC = () => {
                       {/* Unread badge */}
                       <div className="ml-2 flex items-center">
                         {conv.hasUnread ? (
-                          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-mn-primary" aria-hidden="true" />
+                          <span
+                            className="inline-flex h-2.5 w-2.5 rounded-full bg-mn-primary"
+                            aria-hidden="true"
+                          />
                         ) : null}
                       </div>
                     </Link>

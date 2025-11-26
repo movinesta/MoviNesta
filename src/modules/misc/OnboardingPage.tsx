@@ -22,13 +22,11 @@ const OnboardingPage: React.FC = () => {
           </div>
 
           <div className="max-w-md space-y-2">
-            <h1 className="text-2xl font-heading font-semibold">
-              Your movie life, in one nest.
-            </h1>
+            <h1 className="text-2xl font-heading font-semibold">Your movie life, in one nest.</h1>
             <p className="text-sm text-mn-text-secondary">
-              MoviNesta keeps your watchlist, recommendations, and movie
-              memories in a single cozy, cinematic space. Swipe to discover,
-              log what you watch, and see what your friends are into.
+              MoviNesta keeps your watchlist, recommendations, and movie memories in a single cozy,
+              cinematic space. Swipe to discover, log what you watch, and see what your friends are
+              into.
             </p>
           </div>
         </div>

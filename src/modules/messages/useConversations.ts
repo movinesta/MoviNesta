@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
@@ -84,7 +83,6 @@ export const useConversations = () => {
         .eq("user_id", userId);
 
       if (participantsError) {
-        // eslint-disable-next-line no-console
         console.error("[useConversations] Failed to load participants", participantsError);
         throw new Error(participantsError.message);
       }
@@ -113,7 +111,6 @@ export const useConversations = () => {
         .order("updated_at", { ascending: false });
 
       if (conversationsError) {
-        // eslint-disable-next-line no-console
         console.error("[useConversations] Failed to load conversations", conversationsError);
         throw new Error(conversationsError.message);
       }
@@ -127,8 +124,10 @@ export const useConversations = () => {
         .in("conversation_id", conversationIds);
 
       if (allParticipantsError) {
-        // eslint-disable-next-line no-console
-        console.error("[useConversations] Failed to load conversation participants", allParticipantsError);
+        console.error(
+          "[useConversations] Failed to load conversation participants",
+          allParticipantsError,
+        );
         throw new Error(allParticipantsError.message);
       }
 
@@ -136,15 +135,18 @@ export const useConversations = () => {
 
       // 4) Collect all user ids we need profiles for
       const userIds = Array.from(
-        new Set(
-          allParticipants.map((row) => row.user_id as string).filter((id) => Boolean(id)),
-        ),
+        new Set(allParticipants.map((row) => row.user_id as string).filter((id) => Boolean(id))),
       );
 
       // 5) Fetch profiles for participants
       let profilesById = new Map<
         string,
-        { id: string; username: string | null; displayName: string | null; avatarUrl: string | null }
+        {
+          id: string;
+          username: string | null;
+          displayName: string | null;
+          avatarUrl: string | null;
+        }
       >();
       if (userIds.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
@@ -153,7 +155,6 @@ export const useConversations = () => {
           .in("id", userIds);
 
         if (profilesError) {
-          // eslint-disable-next-line no-console
           console.error("[useConversations] Failed to load profiles", profilesError);
           throw new Error(profilesError.message);
         }
@@ -179,7 +180,6 @@ export const useConversations = () => {
         .order("created_at", { ascending: false });
 
       if (messagesError) {
-        // eslint-disable-next-line no-console
         console.error("[useConversations] Failed to load messages", messagesError);
         throw new Error(messagesError.message);
       }
@@ -203,7 +203,6 @@ export const useConversations = () => {
         .in("conversation_id", conversationIds);
 
       if (receiptsError) {
-        // eslint-disable-next-line no-console
         console.error("[useConversations] Failed to load read receipts", receiptsError);
         throw new Error(receiptsError.message);
       }
@@ -238,16 +237,11 @@ export const useConversations = () => {
       const result: ConversationListItem[] = conversations.map((conv) => {
         const convId = conv.id as string;
         const isGroup = Boolean(conv.is_group);
-        const participantsForConv = allParticipants.filter(
-          (row) => row.conversation_id === convId,
-        );
+        const participantsForConv = allParticipants.filter((row) => row.conversation_id === convId);
 
         const participantModels: ConversationParticipant[] = participantsForConv.map((row) => {
           const profile = profilesById.get(row.user_id as string);
-          const displayName =
-            profile?.displayName ??
-            profile?.username ??
-            "Unknown user";
+          const displayName = profile?.displayName ?? profile?.username ?? "Unknown user";
 
           return {
             id: profile?.id ?? (row.user_id as string),
@@ -273,9 +267,8 @@ export const useConversations = () => {
                   .map((p) => p.displayName)
                   .join(", ")
               : "Group conversation");
-          subtitle = others.length > 0
-            ? `${participantModels.length} participants`
-            : "Group conversation";
+          subtitle =
+            others.length > 0 ? `${participantModels.length} participants` : "Group conversation";
         } else {
           const primaryOther = others[0] ?? participantModels[0];
           title = primaryOther?.displayName ?? "Direct message";
@@ -290,10 +283,9 @@ export const useConversations = () => {
         const convMessages = messagesByConversation.get(convId) ?? [];
         const lastMessage = convMessages[0];
         const lastMessagePreview = lastMessage ? getMessagePreview(lastMessage.body) : null;
-        const lastMessageAt =
-          lastMessage
-            ? (lastMessage.created_at as string)
-            : (conv.updated_at as string | null) ?? (conv.created_at as string | null);
+        const lastMessageAt = lastMessage
+          ? (lastMessage.created_at as string)
+          : ((conv.updated_at as string | null) ?? (conv.created_at as string | null));
         const lastMessageAtLabel = formatTimeAgo(lastMessageAt);
 
         const receipt = receiptsByConversation.get(convId);
@@ -304,8 +296,7 @@ export const useConversations = () => {
           (!selfLastReadAt ||
             new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime());
 
-        const lastMessageIsFromSelf =
-          !!lastMessage && (lastMessage.sender_id as string) === userId;
+        const lastMessageIsFromSelf = !!lastMessage && (lastMessage.sender_id as string) === userId;
 
         let lastMessageSeenByOthers = false;
 
@@ -316,7 +307,11 @@ export const useConversations = () => {
           if (other?.lastReadAt) {
             const msgTime = new Date(lastMessageAt).getTime();
             const otherReadTime = new Date(other.lastReadAt).getTime();
-            if (!Number.isNaN(msgTime) && !Number.isNaN(otherReadTime) && otherReadTime >= msgTime) {
+            if (
+              !Number.isNaN(msgTime) &&
+              !Number.isNaN(otherReadTime) &&
+              otherReadTime >= msgTime
+            ) {
               lastMessageSeenByOthers = true;
             }
           }

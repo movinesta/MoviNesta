@@ -48,10 +48,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/u/:username" element={<ProfilePage />} />
           <Route path="/settings/profile" element={<SettingsProfilePage />} />
           <Route path="/settings/account" element={<SettingsAccountPage />} />
-          <Route
-            path="/settings/notifications"
-            element={<SettingsNotificationsPage />}
-          />
+          <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />
           <Route path="/settings/app" element={<SettingsAppPage />} />
         </Route>
       </Route>

@@ -18,9 +18,7 @@ export const parseMessageText = (body: string | null): string => {
     const blocks = (parsed as any).blocks;
     if (Array.isArray(blocks)) {
       const texts = blocks
-        .map((block: any) =>
-          typeof block?.text === "string" ? (block.text as string).trim() : "",
-        )
+        .map((block: any) => (typeof block?.text === "string" ? (block.text as string).trim() : ""))
         .filter(Boolean);
 
       if (texts.length > 0) {

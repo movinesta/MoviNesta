@@ -35,12 +35,7 @@ const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProfileTabKey>("activity");
 
-  const {
-    data: profile,
-    isLoading,
-    isError,
-    error,
-  } = useProfileByUsername(username ?? null);
+  const { data: profile, isLoading, isError, error } = useProfileByUsername(username ?? null);
 
   const toggleFollow = useToggleFollow();
 
@@ -241,12 +236,8 @@ const ProfilePage: React.FC = () => {
 
       {/* Tab panels */}
       <section aria-live="polite" className="flex-1">
-  {activeTab === "activity" ? (
-    <ProfileActivityTab />
-  ) : (
-    <ProfileDiaryTab />
-  )}
-</section>
+        {activeTab === "activity" ? <ProfileActivityTab /> : <ProfileDiaryTab />}
+      </section>
     </div>
   );
 };

@@ -30,7 +30,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { data, error } = await supabase.auth.getUser();
 
     if (error) {
-      // eslint-disable-next-line no-console
       console.error("Error loading auth user:", error.message);
     }
 
@@ -58,7 +57,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      // eslint-disable-next-line no-console
       console.error("Error signing out:", error.message);
     }
     setUser(null);

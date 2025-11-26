@@ -2,13 +2,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import {
-  Film,
-  Sparkles,
-  Users,
-  Clock,
-  SlidersHorizontal,
-} from "lucide-react";
+import { Film, Sparkles, Users, Clock, SlidersHorizontal } from "lucide-react";
 import HomeFeedTab from "./HomeFeedTab";
 import HomeForYouTab from "./HomeForYouTab";
 
@@ -27,16 +21,14 @@ const HOME_TABS: HomeTabConfig[] = [
     key: "feed",
     label: "Feed",
     icon: Users,
-    description:
-      "See what you and your friends have been watching, rating, and reviewing.",
+    description: "See what you and your friends have been watching, rating, and reviewing.",
     badge: "Live",
   },
   {
     key: "forYou",
     label: "For You",
     icon: Sparkles,
-    description:
-      "Lightweight recommendations based on your diary activity and library.",
+    description: "Lightweight recommendations based on your diary activity and library.",
   },
 ];
 
@@ -46,8 +38,7 @@ const HomePage: React.FC = () => {
   const [isFeedFiltersOpen, setIsFeedFiltersOpen] = useState(false);
   const navigate = useNavigate();
 
-  const activeTabConfig =
-    HOME_TABS.find((tab) => tab.key === activeTab) ?? HOME_TABS[0];
+  const activeTabConfig = HOME_TABS.find((tab) => tab.key === activeTab) ?? HOME_TABS[0];
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
@@ -63,8 +54,8 @@ const HomePage: React.FC = () => {
               Your movie &amp; anime nest
             </h1>
             <p className="text-[11px] leading-snug text-mn-text-secondary">
-              Track what you watch, build a cozy watchlist, and keep up with
-              friends—without feeling like homework.
+              Track what you watch, build a cozy watchlist, and keep up with friends—without feeling
+              like homework.
             </p>
           </div>
 
@@ -107,7 +98,7 @@ const HomePage: React.FC = () => {
       {/* Tabs header */}
       <section className="flex flex-col gap-2 px-1 sm:px-0">
         <div className="flex items-center justify-between gap-2">
-          <nav
+          <div
             className="inline-flex rounded-full bg-mn-bg-elevated/80 p-1 text-[11px]"
             role="tablist"
             aria-label="Home sections"
@@ -142,7 +133,7 @@ const HomePage: React.FC = () => {
                 </button>
               );
             })}
-          </nav>
+          </div>
 
           {activeTab === "feed" && (
             <button
@@ -164,11 +155,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Tab content */}
-      <section
-        aria-live="polite"
-        className="flex-1"
-        id={`home-tabpanel-${activeTab}`}
-      >
+      <section aria-live="polite" className="flex-1" id={`home-tabpanel-${activeTab}`}>
         {activeTab === "feed" ? (
           <HomeFeedTab
             isFiltersSheetOpen={isFeedFiltersOpen}

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   BookmarkPlus,
   Clock,
@@ -12,26 +12,6 @@ import {
 import { useSwipeDeck } from "./useSwipeDeck";
 
 type SwipeDirection = "like" | "dislike" | "skip";
-
-interface SwipeCardData {
-  id: string;
-  title: string;
-  year?: number;
-  runtimeMinutes?: number;
-  tagline?: string;
-  mood?: string;
-  vibeTag?: string;
-
-  // New fields for TODOs
-  type?: string;
-  posterUrl?: string;
-  friendLikesCount?: number;
-  topFriendName?: string;
-  topFriendInitials?: string;
-  topFriendReviewSnippet?: string;
-  initialRating?: number;
-  initiallyInWatchlist?: boolean;
-}
 
 interface LastSwipe {
   cardId: string;
@@ -68,54 +48,42 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeForYouTab: React.FC = () => {
+  const { cards, swipe } = useSwipeDeck("for-you", { limit: 40 });
 
-const {
-  cards,
-  isLoading: _isDeckLoading,
-  isError: _isDeckError,
-  swipe,
-} = useSwipeDeck("for-you", { limit: 40 });
+  const deck = useMemo(() => cards, [cards]);
 
-const deck = useMemo(() => cards, [cards]);
-
-const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [lastSwipe, setLastSwipe] = useState<LastSwipe | null>(null);
 
   // Local, optimistic state (future TODO: persist to Supabase)
   const [ratings, setRatings] = useState<Record<string, number>>({});
-const [watchlist, setWatchlist] = useState<Record<string, boolean>>({});
+  const [watchlist, setWatchlist] = useState<Record<string, boolean>>({});
 
-React.useEffect(() => {
-  if (!cards.length) return;
+  React.useEffect(() => {
+    if (!cards.length) return;
 
-  const nextRatings: Record<string, number> = {};
-  const nextWatchlist: Record<string, boolean> = {};
+    const nextRatings: Record<string, number> = {};
+    const nextWatchlist: Record<string, boolean> = {};
 
-  for (const card of cards) {
-    if (card.initialRating != null) {
-      nextRatings[card.id] = card.initialRating;
+    for (const card of cards) {
+      if (card.initialRating != null) {
+        nextRatings[card.id] = card.initialRating;
+      }
+      if (card.initiallyInWatchlist != null) {
+        nextWatchlist[card.id] = card.initiallyInWatchlist;
+      }
     }
-    if (card.initiallyInWatchlist != null) {
-      nextWatchlist[card.id] = card.initiallyInWatchlist;
-    }
-  }
 
-  setRatings(nextRatings);
-  setWatchlist(nextWatchlist);
-}, [cards]);
+    setRatings(nextRatings);
+    setWatchlist(nextWatchlist);
+  }, [cards]);
 
-const [dragX, setDragX] = useState(0);
+  const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef<number | null>(null);
 
-  const currentCard = useMemo(
-    () => deck[currentIndex] ?? null,
-    [deck, currentIndex],
-  );
-  const nextCard = useMemo(
-    () => deck[currentIndex + 1] ?? null,
-    [deck, currentIndex],
-  );
+  const currentCard = useMemo(() => deck[currentIndex] ?? null, [deck, currentIndex]);
+  const nextCard = useMemo(() => deck[currentIndex + 1] ?? null, [deck, currentIndex]);
 
   const handleSwipe = useCallback(
     (direction: SwipeDirection) => {
@@ -139,25 +107,15 @@ const [dragX, setDragX] = useState(0);
       // Example (pseudo-code, depends on your schema):
       // await supabase.from("swipes").insert({ user_id: user.id, title_id: card.id, direction, rating: ratings[card.id] ?? null });
 
-      // eslint-disable-next-line no-console
       console.log("[SwipeForYouTab] swipe", {
         direction,
         cardId: card.id,
       });
 
-      setCurrentIndex((idx) =>
-        idx + 1 >= deck.length ? deck.length : idx + 1,
-      );
+      setCurrentIndex((idx) => (idx + 1 >= deck.length ? deck.length : idx + 1));
     },
     [currentIndex, deck, swipe],
   );
-
-  const handleRestart = useCallback(() => {
-    setCurrentIndex(0);
-    setLastSwipe(null);
-    setDragX(0);
-    setIsDragging(false);
-  }, []);
 
   const hasMore = currentIndex < deck.length;
 
@@ -244,7 +202,6 @@ const [dragX, setDragX] = useState(0);
         [cardId]: next,
       };
 
-      // eslint-disable-next-line no-console
       console.log("[SwipeForYouTab] ratingChange", { cardId, rating: next });
 
       // TODO: Optimistically persist rating to Supabase here when schema is ready.
@@ -261,7 +218,6 @@ const [dragX, setDragX] = useState(0);
         [cardId]: nextValue,
       };
 
-      // eslint-disable-next-line no-console
       console.log("[SwipeForYouTab] watchlistToggle", {
         cardId,
         inWatchlist: nextValue,
@@ -283,26 +239,20 @@ const [dragX, setDragX] = useState(0);
           You&apos;re all caught up
         </h2>
         <p className="mt-1 max-w-xs text-[11px] text-mn-text-secondary">
-          You&apos;ve swiped through all your current recommendations. As you rate, log, and add titles to your watchlist, this screen will refill with more picks.
+          You&apos;ve swiped through all your current recommendations. As you rate, log, and add
+          titles to your watchlist, this screen will refill with more picks.
         </p>
         {lastSwipe && (
           <div className="mt-3 rounded-lg border border-mn-border-subtle/60 bg-mn-surface-elevated/80 px-3 py-2 text-[11px] text-mn-text-secondary">
             <p className="inline-flex flex-wrap items-center gap-1">
               <span className="text-mn-text-muted">Last swipe:</span>
-              <span
-                className={`font-medium ${directionColorClass(
-                  lastSwipe.direction,
-                )}`}
-              >
+              <span className={`font-medium ${directionColorClass(lastSwipe.direction)}`}>
                 {directionLabel(lastSwipe.direction)}
               </span>{" "}
-              <span className="font-medium text-mn-text-primary">
-                {lastSwipe.title}
-              </span>
+              <span className="font-medium text-mn-text-primary">{lastSwipe.title}</span>
             </p>
           </div>
         )}
-        
       </div>
     );
   }
@@ -317,16 +267,15 @@ const [dragX, setDragX] = useState(0);
   const currentRating = ratings[currentCard.id] ?? 0;
   const currentInWatchlist = !!watchlist[currentCard.id];
 
-  const ratingLabel =
-    currentRating === 0 ? "Not rated yet" : `${currentRating.toFixed(1)}★`;
+  const ratingLabel = currentRating === 0 ? "Not rated yet" : `${currentRating.toFixed(1)}★`;
 
   const friendLikes = currentCard.friendLikesCount ?? 0;
   const friendLikesLabel =
     friendLikes === 0
       ? "No friends have rated this yet"
       : friendLikes === 1
-      ? "1 friend liked this"
-      : `${friendLikes} friends liked this`;
+        ? "1 friend liked this"
+        : `${friendLikes} friends liked this`;
 
   return (
     <div className="flex h-full flex-col">
@@ -356,9 +305,7 @@ const [dragX, setDragX] = useState(0);
             <Clock className="h-3.5 w-3.5" aria-hidden={true} />
             <span>Right = like · Left = skip</span>
           </div>
-          <span className="text-[9px]">
-            Prefer tapping? Use the controls below.
-          </span>
+          <span className="text-[9px]">Prefer tapping? Use the controls below.</span>
         </div>
       </header>
 
@@ -445,9 +392,7 @@ const [dragX, setDragX] = useState(0);
                       {runtimeLabel ? ` · ${runtimeLabel}` : null}
                     </p>
                     {currentCard.mood && (
-                      <p className="mt-0.5 text-[10px] text-mn-text-muted">
-                        {currentCard.mood}
-                      </p>
+                      <p className="mt-0.5 text-[10px] text-mn-text-muted">{currentCard.mood}</p>
                     )}
                     {currentCard.vibeTag && (
                       <p className="mt-0.5 text-[10px] text-mn-primary-soft">
@@ -545,10 +490,7 @@ const [dragX, setDragX] = useState(0);
                         : "border-mn-border-subtle/70 bg-mn-surface-elevated/80 text-mn-text-primary hover:border-mn-primary/60 hover:bg-mn-surface-elevated"
                     }`}
                   >
-                    <BookmarkPlus
-                      className="h-3.5 w-3.5"
-                      aria-hidden={true}
-                    />
+                    <BookmarkPlus className="h-3.5 w-3.5" aria-hidden={true} />
                     <span>{currentInWatchlist ? "In Watchlist" : "Add to Watchlist"}</span>
                   </button>
                 </div>
@@ -599,9 +541,7 @@ const [dragX, setDragX] = useState(0);
                 >
                   <span>{directionLabel(lastSwipe.direction)}</span>
                 </span>
-                <span className="truncate text-mn-text-primary">
-                  {lastSwipe.title}
-                </span>
+                <span className="truncate text-mn-text-primary">{lastSwipe.title}</span>
               </div>
               <span className="hidden text-[9px] text-mn-text-muted sm:inline">
                 Swipe to keep tuning your For You picks

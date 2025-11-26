@@ -58,10 +58,7 @@ const DiaryPage: React.FC = () => {
 
       {/* Tabs */}
       <section className="px-2">
-        <nav
-          className="mt-1 flex items-center justify-between gap-3"
-          aria-label="Diary tabs"
-        >
+        <nav className="mt-1 flex items-center justify-between gap-3" aria-label="Diary tabs">
           <div
             role="tablist"
             aria-orientation="horizontal"

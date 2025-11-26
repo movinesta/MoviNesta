@@ -49,9 +49,7 @@ const SettingsOverviewPage: React.FC = () => {
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
           Settings
         </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
-          All settings
-        </h1>
+        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">All settings</h1>
         <p className="text-[11px] text-mn-text-secondary">
           Tune MoviNesta to match how you like to watch and track movies.
         </p>
@@ -75,9 +73,7 @@ const SettingsOverviewPage: React.FC = () => {
                     <p className="text-sm font-heading font-semibold text-mn-text-primary">
                       {item.title}
                     </p>
-                    <p className="text-[11px] text-mn-text-secondary">
-                      {item.description}
-                    </p>
+                    <p className="text-[11px] text-mn-text-secondary">{item.description}</p>
                   </div>
                   <ChevronRight
                     className="h-4 w-4 flex-none text-mn-text-muted"

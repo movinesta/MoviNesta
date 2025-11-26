@@ -118,9 +118,7 @@ const SettingsProfilePage: React.FC = () => {
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
           Settings
         </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
-          Profile
-        </h1>
+        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">Profile</h1>
         <p className="text-[11px] text-mn-text-secondary">
           Update how your profile looks across MoviNesta.
         </p>

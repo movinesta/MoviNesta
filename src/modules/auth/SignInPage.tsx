@@ -38,14 +38,10 @@ const SignInPage: React.FC = () => {
   const location = useLocation();
 
   // If RequireAuth redirected the user here, it passes the previous location in state
-  const from =
-    (location.state as { from?: { pathname?: string } } | null)?.from
-      ?.pathname ?? "/";
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/";
 
   const isFormValid =
-    !!email &&
-    !!password &&
-    Object.keys(validateSignIn(email, password)).length === 0;
+    !!email && !!password && Object.keys(validateSignIn(email, password)).length === 0;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -80,11 +76,8 @@ const SignInPage: React.FC = () => {
       // AuthProvider will pick up the new session via onAuthStateChange
       navigate(from, { replace: true });
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err);
-      setFormError(
-        "Something went wrong while signing you in. Please try again."
-      );
+      setFormError("Something went wrong while signing you in. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -137,10 +130,7 @@ const SignInPage: React.FC = () => {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="text-xs font-medium text-mn-text-secondary"
-              >
+              <label htmlFor="password" className="text-xs font-medium text-mn-text-secondary">
                 Password
               </label>
               <Link
@@ -178,9 +168,7 @@ const SignInPage: React.FC = () => {
               }}
               disabled={submitting}
               aria-invalid={!!fieldErrors.password}
-              aria-describedby={
-                fieldErrors.password ? "signin-password-error" : undefined
-              }
+              aria-describedby={fieldErrors.password ? "signin-password-error" : undefined}
             />
             {fieldErrors.password && (
               <p id="signin-password-error" className="text-xs text-mn-error">
@@ -201,10 +189,7 @@ const SignInPage: React.FC = () => {
 
         <div className="mt-4 text-center text-xs text-mn-text-muted">
           <span>Don&apos;t have an account? </span>
-          <Link
-            to="/auth/signup"
-            className="font-medium text-mn-primary hover:underline"
-          >
+          <Link to="/auth/signup" className="font-medium text-mn-primary hover:underline">
             Create one
           </Link>
         </div>

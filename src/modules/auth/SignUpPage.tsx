@@ -52,9 +52,7 @@ const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from =
-    (location.state as { from?: { pathname?: string } } | null)?.from
-      ?.pathname ?? "/";
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/";
 
   const isFormValid =
     !!email &&
@@ -85,17 +83,14 @@ const SignUpPage: React.FC = () => {
       });
 
       if (error) {
-        setError(
-          error.message ||
-            "Sign-up failed. Please check your details and try again."
-        );
+        setError(error.message || "Sign-up failed. Please check your details and try again.");
         return;
       }
 
       // If email confirmation is required, there will be no active session yet.
       if (!data.session) {
         setInfo(
-          "Almost there! Check your email inbox for a confirmation link to activate your account."
+          "Almost there! Check your email inbox for a confirmation link to activate your account.",
         );
         return;
       }
@@ -103,7 +98,6 @@ const SignUpPage: React.FC = () => {
       // Otherwise, user is already signed in
       navigate(from, { replace: true });
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err);
       setError("Something went wrong while creating your account.");
     } finally {
@@ -199,10 +193,7 @@ const SignUpPage: React.FC = () => {
               }
             />
             {!fieldErrors.password && (
-              <p
-                id="signup-password-hint"
-                className="text-xs text-mn-text-muted"
-              >
+              <p id="signup-password-hint" className="text-xs text-mn-text-muted">
                 At least {MIN_PASSWORD_LENGTH} characters.
               </p>
             )}
@@ -242,9 +233,7 @@ const SignUpPage: React.FC = () => {
               }}
               disabled={submitting}
               aria-invalid={!!fieldErrors.confirm}
-              aria-describedby={
-                fieldErrors.confirm ? "signup-confirm-error" : undefined
-              }
+              aria-describedby={fieldErrors.confirm ? "signup-confirm-error" : undefined}
             />
             {fieldErrors.confirm && (
               <p id="signup-confirm-error" className="text-xs text-mn-error">
@@ -265,10 +254,7 @@ const SignUpPage: React.FC = () => {
 
         <div className="mt-4 text-center text-xs text-mn-text-muted">
           <span>Already have an account? </span>
-          <Link
-            to="/auth/signin"
-            className="font-medium text-mn-primary hover:underline"
-          >
+          <Link to="/auth/signin" className="font-medium text-mn-primary hover:underline">
             Sign in instead
           </Link>
         </div>

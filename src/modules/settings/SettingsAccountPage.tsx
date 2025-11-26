@@ -44,9 +44,7 @@ const SettingsAccountPage: React.FC = () => {
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
           Settings
         </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
-          Account
-        </h1>
+        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">Account</h1>
         <p className="text-[11px] text-mn-text-secondary">
           Manage the account you use to sign in to MoviNesta.
         </p>
@@ -60,9 +58,7 @@ const SettingsAccountPage: React.FC = () => {
               <Mail className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-                Email
-              </h2>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Email</h2>
               <p className="text-[11px] text-mn-text-secondary">
                 This is the email you use to sign in.
               </p>
@@ -108,8 +104,7 @@ const SettingsAccountPage: React.FC = () => {
           </div>
 
           <p className="text-[11px] text-mn-text-muted">
-            TODO: Wire up password reset using Supabase auth (e.g. magic links or email
-            reset flow).
+            TODO: Wire up password reset using Supabase auth (e.g. magic links or email reset flow).
           </p>
         </div>
 
@@ -117,9 +112,7 @@ const SettingsAccountPage: React.FC = () => {
         <div className="space-y-2 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-4 shadow-mn-card">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-                Sign out
-              </h2>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Sign out</h2>
               <p className="text-[11px] text-mn-text-secondary">
                 You&apos;ll need to sign in again to use MoviNesta on this device.
               </p>

@@ -104,8 +104,8 @@ export const useDiaryStats = () => {
           typeof row.rating === "number"
             ? row.rating
             : row.rating == null
-            ? null
-            : Number(row.rating);
+              ? null
+              : Number(row.rating);
 
         if (raw == null || Number.isNaN(raw)) return;
 
@@ -133,19 +133,13 @@ export const useDiaryStats = () => {
         watchByMonthMap.set(key, (watchByMonthMap.get(key) ?? 0) + 1);
       });
 
-      const watchCountByMonth: WatchCountPoint[] = Array.from(
-        watchByMonthMap.entries(),
-      )
+      const watchCountByMonth: WatchCountPoint[] = Array.from(watchByMonthMap.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([month, count]) => ({ month, count }));
 
       // Top genres
       const titleIds = Array.from(
-        new Set(
-          watchedRows
-            .map((row) => row.title_id)
-            .filter((id): id is string => Boolean(id)),
-        ),
+        new Set(watchedRows.map((row) => row.title_id).filter((id): id is string => Boolean(id))),
       );
 
       let topGenres: GenreStat[] = [];
@@ -175,11 +169,8 @@ export const useDiaryStats = () => {
               .in("id", genreIds);
 
             if (!genresError && genres) {
-              genresById = new Map(
-                (genres as GenreRow[]).map((g) => [g.id, g.name]),
-              );
+              genresById = new Map((genres as GenreRow[]).map((g) => [g.id, g.name]));
             } else if (genresError) {
-              // eslint-disable-next-line no-console
               console.warn("[useDiaryStats] Failed to load genres", genresError.message);
             }
           }
@@ -197,7 +188,6 @@ export const useDiaryStats = () => {
             .slice(0, 8)
             .map(([genre, count]) => ({ genre, count }));
         } else if (tgError) {
-          // eslint-disable-next-line no-console
           console.warn("[useDiaryStats] Failed to load title_genres", tgError.message);
         }
       }

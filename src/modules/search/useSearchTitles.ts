@@ -29,10 +29,7 @@ export interface TitleSearchResult {
  * This is intentionally small and side-effect free so it can be reused by different
  * search experiences later.
  */
-export const useSearchTitles = (params: {
-  query: string;
-  filters?: TitleSearchFilters;
-}) => {
+export const useSearchTitles = (params: { query: string; filters?: TitleSearchFilters }) => {
   const { query, filters } = params;
   const trimmedQuery = query.trim();
 
@@ -42,9 +39,7 @@ export const useSearchTitles = (params: {
     queryFn: async () => {
       let builder = supabase
         .from("titles")
-        .select(
-          "id, title, year, type, poster_url, original_language, age_rating",
-        )
+        .select("id, title, year, type, poster_url, original_language, age_rating")
         .order("year", { ascending: false })
         .limit(20);
 
@@ -99,15 +94,17 @@ export const useSearchTitles = (params: {
         return searchExternalTitles(trimmedQuery);
       }
 
-      return rows.map((row: any): TitleSearchResult => ({
-        id: row.id as string,
-        title: (row.title as string | null) ?? "Untitled",
-        year: (row.year as number | null) ?? null,
-        type: (row.type as TitleType | null) ?? null,
-        posterUrl: (row.poster_url as string | null) ?? null,
-        originalLanguage: (row.original_language as string | null) ?? null,
-        ageRating: (row.age_rating as string | null) ?? null,
-      }));
+      return rows.map(
+        (row: any): TitleSearchResult => ({
+          id: row.id as string,
+          title: (row.title as string | null) ?? "Untitled",
+          year: (row.year as number | null) ?? null,
+          type: (row.type as TitleType | null) ?? null,
+          posterUrl: (row.poster_url as string | null) ?? null,
+          originalLanguage: (row.original_language as string | null) ?? null,
+          ageRating: (row.age_rating as string | null) ?? null,
+        }),
+      );
     },
   });
 };

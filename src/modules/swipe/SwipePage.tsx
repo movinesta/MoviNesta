@@ -82,10 +82,7 @@ const SwipePage: React.FC = () => {
       </header>
 
       {/* Tabs */}
-      <nav
-        className="mt-1 flex items-center justify-between gap-3 px-1"
-        aria-label="Swipe tabs"
-      >
+      <nav className="mt-1 flex items-center justify-between gap-3 px-1" aria-label="Swipe tabs">
         <div
           role="tablist"
           aria-orientation="horizontal"

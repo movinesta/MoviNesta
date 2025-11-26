@@ -83,11 +83,7 @@ export const useDiaryTimeline = () => {
       if (!rows.length) return [];
 
       const titleIds = Array.from(
-        new Set(
-          rows
-            .map((row) => row.title_id)
-            .filter((id): id is string => Boolean(id)),
-        ),
+        new Set(rows.map((row) => row.title_id).filter((id): id is string => Boolean(id))),
       );
 
       let titlesById = new Map<string, TitleRow>();
@@ -99,17 +95,14 @@ export const useDiaryTimeline = () => {
           .in("id", titleIds);
 
         if (!titlesError && titles) {
-          titlesById = new Map(
-            (titles as TitleRow[]).map((t) => [t.id, t]),
-          );
+          titlesById = new Map((titles as TitleRow[]).map((t) => [t.id, t]));
         } else if (titlesError) {
-          // eslint-disable-next-line no-console
           console.warn("[useDiaryTimeline] Failed to load titles", titlesError.message);
         }
       }
 
       return rows.map((row) => {
-        const title = row.title_id ? titlesById.get(row.title_id) ?? null : null;
+        const title = row.title_id ? (titlesById.get(row.title_id) ?? null) : null;
         const kind = mapEventTypeToDiaryKind(row.event_type);
         const payload = row.payload ?? {};
 

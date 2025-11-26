@@ -30,7 +30,6 @@ function useTrailerForTitle(title?: string | null, year?: number | null) {
       });
 
       if (error) {
-        // eslint-disable-next-line no-console
         console.warn("[TitleDetailPage] trailer fetch error:", error);
         return null;
       }
@@ -41,16 +40,10 @@ function useTrailerForTitle(title?: string | null, year?: number | null) {
   });
 }
 
-
 const TitleDetailPage: React.FC = () => {
   const { titleId } = useParams<{ titleId: string }>();
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-  } = useQuery<TitleRow | null, Error>({
+  const { data, isLoading, isError } = useQuery<TitleRow | null, Error>({
     queryKey: ["title-detail", titleId],
     enabled: Boolean(titleId),
     queryFn: async () => {
@@ -72,7 +65,6 @@ const TitleDetailPage: React.FC = () => {
 
   const trailerQuery = useTrailerForTitle(data?.title ?? null, data?.year ?? null);
   const trailer = trailerQuery.data;
-
 
   if (!titleId) {
     return (
@@ -97,10 +89,7 @@ const TitleDetailPage: React.FC = () => {
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="max-w-md text-center text-sm text-mn-text-secondary">
           <p>We couldn&apos;t find that title.</p>
-          <Link
-            to="/search"
-            className="mt-2 inline-block text-mn-primary underline"
-          >
+          <Link to="/search" className="mt-2 inline-block text-mn-primary underline">
             Back to search
           </Link>
         </div>
@@ -146,9 +135,7 @@ const TitleDetailPage: React.FC = () => {
               {data.title ?? "Untitled"}
             </h1>
             {metaPieces.length > 0 && (
-              <p className="mt-1 text-sm text-mn-text-secondary">
-                {metaPieces.join(" · ")}
-              </p>
+              <p className="mt-1 text-sm text-mn-text-secondary">{metaPieces.join(" · ")}</p>
             )}
           </div>
 
@@ -169,8 +156,8 @@ const TitleDetailPage: React.FC = () => {
           )}
 
           <p className="text-xs text-mn-text-muted">
-            This is the early version of the title page. Over time it will show your rating,
-            diary entry, where to watch, and what your friends think about it.
+            This is the early version of the title page. Over time it will show your rating, diary
+            entry, where to watch, and what your friends think about it.
           </p>
         </div>
       </div>

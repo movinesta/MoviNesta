@@ -45,7 +45,6 @@ export const useBlockStatus = (otherUserId: string | null) => {
         );
 
       if (error) {
-        // eslint-disable-next-line no-console
         console.error("[useBlockStatus] Failed to load block status", error);
         throw new Error(error.message);
       }
@@ -80,7 +79,6 @@ export const useBlockStatus = (otherUserId: string | null) => {
       );
 
       if (error) {
-        // eslint-disable-next-line no-console
         console.error("[useBlockStatus] Failed to block user", error);
         throw new Error(error.message);
       }
@@ -103,7 +101,6 @@ export const useBlockStatus = (otherUserId: string | null) => {
         .eq("blocked_id", otherUserId);
 
       if (error) {
-        // eslint-disable-next-line no-console
         console.error("[useBlockStatus] Failed to unblock user", error);
         throw new Error(error.message);
       }

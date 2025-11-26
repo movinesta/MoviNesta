@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Film, Star, Clock, SlidersHorizontal } from "lucide-react";
+import { Film, Star, SlidersHorizontal } from "lucide-react";
 import { useSearchTitles, type TitleSearchFilters } from "./useSearchTitles";
 
 interface SearchTitlesTabProps {
@@ -20,8 +20,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
     return (
       <div className="space-y-3">
         <p className="text-[12px] text-mn-text-secondary">
-          Start typing a title, director, or genre to search the catalog. As you wire
-          Supabase search, results will appear here.
+          Start typing a title, director, or genre to search the catalog. As you wire Supabase
+          search, results will appear here.
         </p>
 
         <div className="space-y-1.5">
@@ -50,8 +50,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
             <span>Trending this week</span>
           </p>
           <p className="text-[11px] text-mn-text-muted">
-            Once analytics are wired up, you can show what your friends and the community
-            are watching the most here.
+            Once analytics are wired up, you can show what your friends and the community are
+            watching the most here.
           </p>
         </div>
       </div>
@@ -67,7 +67,6 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
         </div>
         <div className="space-y-1.5 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2.5">
           {[0, 1, 2].map((idx) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div key={idx} className="flex items-center gap-3 rounded-xl px-1 py-1.5">
               <div className="h-9 w-9 rounded-lg bg-mn-border-subtle/40" />
               <div className="flex-1 space-y-1">
@@ -135,10 +134,10 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
               item.type === "movie"
                 ? "Movie"
                 : item.type === "series"
-                ? "Series"
-                : item.type === "anime"
-                ? "Anime"
-                : "Short",
+                  ? "Series"
+                  : item.type === "anime"
+                    ? "Anime"
+                    : "Short",
             );
           }
           if (item.ageRating) {

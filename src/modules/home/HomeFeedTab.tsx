@@ -34,10 +34,7 @@ interface FeedUser {
 
 type MaybeString = string | null | undefined;
 
-function buildAvatarInitials(
-  displayName?: MaybeString,
-  username?: MaybeString,
-): string {
+function buildAvatarInitials(displayName?: MaybeString, username?: MaybeString): string {
   const source = (displayName ?? username ?? "").trim();
 
   if (!source) {
@@ -105,12 +102,15 @@ const avatarColorClassName: Record<AvatarColorKey, string> = {
   orange: "bg-mn-primary/20 text-mn-primary",
 };
 
-
 const getFriendlyFeedErrorMessage = (error: Error): string => {
   const raw = error?.message ?? "";
   const lowered = raw.toLowerCase();
 
-  if (lowered.includes("network") || lowered.includes("failed to fetch") || lowered.includes("fetch")) {
+  if (
+    lowered.includes("network") ||
+    lowered.includes("failed to fetch") ||
+    lowered.includes("fetch")
+  ) {
     return "We couldn’t reach the server to load your feed. Check your connection and try again in a moment.";
   }
 
@@ -120,7 +120,6 @@ const getFriendlyFeedErrorMessage = (error: Error): string => {
 
   return "Something went wrong while loading your feed. Please try again.";
 };
-
 
 const buildGroupedItems = (events: FeedEvent[]): FeedItem[] => {
   const groupsByTitle = new Map<string, FeedGroup>();
@@ -176,7 +175,6 @@ const buildGroupedItems = (events: FeedEvent[]): FeedItem[] => {
 
   return items;
 };
-
 
 const FEED_PAGE_SIZE = 80;
 
@@ -261,17 +259,6 @@ const formatTimeAgo = (iso: string): string => {
   return `${diffYears} yr${diffYears === 1 ? "" : "s"} ago`;
 };
 
-const buildInitials = (nameOrUsername: string | null | undefined): string => {
-  if (!nameOrUsername) return "MN";
-  const cleaned = nameOrUsername.trim();
-  if (!cleaned) return "MN";
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-};
-
 const pickAvatarColor = (id: string): AvatarColorKey => {
   let sum = 0;
   for (let i = 0; i < id.length; i += 1) {
@@ -294,18 +281,14 @@ const fetchHomeFeed = async (
     .eq("follower_id", userId);
 
   if (followsError) {
-    // eslint-disable-next-line no-console
     console.warn("[HomeFeedTab] Failed to load follows", followsError.message);
   }
 
-  const friendIds =
-    (followsData ?? [])
-      .map((row) => row.followed_id)
-      .filter((id): id is string => Boolean(id));
+  const friendIds = (followsData ?? [])
+    .map((row) => row.followed_id)
+    .filter((id): id is string => Boolean(id));
 
-  const scopedUserIds = Array.from(
-    new Set<string>([userId, ...friendIds]),
-  );
+  const scopedUserIds = Array.from(new Set<string>([userId, ...friendIds]));
 
   if (scopedUserIds.length === 0) {
     return { items: [], nextCursor: null, hasMore: false };
@@ -322,9 +305,7 @@ const fetchHomeFeed = async (
     eventsQuery = eventsQuery.lt("created_at", cursor);
   }
 
-  const { data: eventsData, error: eventsError } = await eventsQuery.limit(
-    FEED_PAGE_SIZE + 1,
-  );
+  const { data: eventsData, error: eventsError } = await eventsQuery.limit(FEED_PAGE_SIZE + 1);
 
   if (eventsError) {
     throw new Error(eventsError.message);
@@ -340,11 +321,7 @@ const fetchHomeFeed = async (
   const pageRows = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
 
   const titleIds = Array.from(
-    new Set(
-      pageRows
-        .map((row) => row.title_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
+    new Set(pageRows.map((row) => row.title_id).filter((id): id is string => Boolean(id))),
   );
 
   const actorUserIds = Array.from(
@@ -357,10 +334,7 @@ const fetchHomeFeed = async (
 
   const [titlesResult, profilesResult] = await Promise.all([
     titleIds.length
-      ? supabase
-          .from("titles")
-          .select("id, title, year, poster_url")
-          .in("id", titleIds)
+      ? supabase.from("titles").select("id, title, year, poster_url").in("id", titleIds)
       : Promise.resolve({ data: [] as TitleRow[], error: null }),
     actorUserIds.length
       ? supabase
@@ -371,12 +345,10 @@ const fetchHomeFeed = async (
   ]);
 
   if (titlesResult.error) {
-    // eslint-disable-next-line no-console
     console.warn("[HomeFeedTab] Failed to load titles for feed", titlesResult.error.message);
   }
 
   if (profilesResult.error) {
-    // eslint-disable-next-line no-console
     console.warn("[HomeFeedTab] Failed to load profiles for feed", profilesResult.error.message);
   }
 
@@ -400,13 +372,10 @@ const fetchHomeFeed = async (
 
     const actorProfile = profilesById.get(row.user_id) ?? null;
     const targetProfile = row.related_user_id
-      ? profilesById.get(row.related_user_id) ?? null
+      ? (profilesById.get(row.related_user_id) ?? null)
       : null;
 
-    const displayName =
-      actorProfile?.display_name ??
-      actorProfile?.username ??
-      "Someone";
+    const displayName = actorProfile?.display_name ?? actorProfile?.username ?? "Someone";
 
     const username = actorProfile?.username ?? actorProfile?.display_name ?? "";
 
@@ -418,7 +387,7 @@ const fetchHomeFeed = async (
       avatarColor: pickAvatarColor(row.user_id),
     };
 
-    const titleRow = row.title_id ? titlesById.get(row.title_id) ?? null : null;
+    const titleRow = row.title_id ? (titlesById.get(row.title_id) ?? null) : null;
     const title: FeedTitle | undefined = titleRow
       ? {
           id: row.title_id as string,
@@ -433,7 +402,7 @@ const fetchHomeFeed = async (
     let rating: number | undefined;
     let reviewSnippet: string | undefined;
     let extra: string | undefined = payload.extra;
-    let emoji: string | undefined = payload.emoji;
+    const emoji: string | undefined = payload.emoji;
 
     if (feedType === "rating" || feedType === "review") {
       rating = typeof payload.rating === "number" ? payload.rating : undefined;
@@ -444,10 +413,7 @@ const fetchHomeFeed = async (
       if (row.related_user_id === userId) {
         extra = "started following you";
       } else if (targetProfile) {
-        const targetName =
-          targetProfile.display_name ??
-          targetProfile.username ??
-          "someone";
+        const targetName = targetProfile.display_name ?? targetProfile.username ?? "someone";
         extra = `started following ${targetName}`;
       } else if (!extra) {
         extra = "started following someone";
@@ -469,9 +435,7 @@ const fetchHomeFeed = async (
   });
 
   const items = buildGroupedItems(events);
-  const nextCursor = hasMore
-    ? pageRows[pageRows.length - 1]?.created_at ?? null
-    : null;
+  const nextCursor = hasMore ? (pageRows[pageRows.length - 1]?.created_at ?? null) : null;
 
   return { items, nextCursor, hasMore };
 };
@@ -479,34 +443,21 @@ const fetchHomeFeed = async (
 const useFeed = (): UseFeedResult => {
   const { user } = useAuth();
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-    fetchNextPage,
-    isFetchingNextPage,
-    hasNextPage,
-  } = useInfiniteQuery<
-    { items: FeedItem[]; nextCursor: string | null; hasMore: boolean },
-    Error
-  >({
-    queryKey: ["home-feed", user?.id],
-    enabled: Boolean(user?.id),
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      if (!user?.id) {
-        return { items: [], nextCursor: null, hasMore: false };
-      }
-      return fetchHomeFeed(user.id, pageParam);
-    },
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
-  });
+  const { data, isLoading, isFetching, error, fetchNextPage, isFetchingNextPage, hasNextPage } =
+    useInfiniteQuery<{ items: FeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
+      queryKey: ["home-feed", user?.id],
+      enabled: Boolean(user?.id),
+      initialPageParam: null as string | null,
+      queryFn: async ({ pageParam }) => {
+        if (!user?.id) {
+          return { items: [], nextCursor: null, hasMore: false };
+        }
+        return fetchHomeFeed(user.id, pageParam);
+      },
+      getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
+    });
 
-  const flatItems = useMemo(
-    () => (data?.pages ?? []).flatMap((page) => page.items),
-    [data],
-  );
+  const flatItems = useMemo(() => (data?.pages ?? []).flatMap((page) => page.items), [data]);
 
   const effectiveItems = useMemo(() => {
     if (flatItems.length > 0) {
@@ -518,7 +469,6 @@ const useFeed = (): UseFeedResult => {
   const friendlyError = error ? getFriendlyFeedErrorMessage(error) : null;
 
   if (error) {
-    // eslint-disable-next-line no-console
     console.error("[HomeFeedTab] Failed to load feed", error);
   }
 
@@ -628,25 +578,37 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
         </div>
 
         <p className="text-[11px] text-mn-text-muted">
-          {isLoading ? "Loading your feed…" : `${filteredItems.length} story${filteredItems.length === 1 ? "" : "ies"}`}
+          {isLoading
+            ? "Loading your feed…"
+            : `${filteredItems.length} story${filteredItems.length === 1 ? "" : "ies"}`}
         </p>
       </div>
       {isFiltersSheetOpen && (
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Close filters"
           className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 sm:items-center"
-          onClick={() => onFiltersSheetOpenChange?.(false)}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              onFiltersSheetOpenChange?.(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === "Escape" || event.key === " ") {
+              onFiltersSheetOpenChange?.(false);
+            }
+          }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Filter home feed"
             className="w-full max-w-sm rounded-t-3xl bg-mn-bg-elevated p-3 pb-4 shadow-mn-soft sm:rounded-3xl"
-            onClick={(event) => event.stopPropagation()}
+            tabIndex={-1}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-[12px] font-semibold text-mn-text-primary">
-                Feed filters
-              </h2>
+              <h2 className="text-[12px] font-semibold text-mn-text-primary">Feed filters</h2>
               <button
                 type="button"
                 onClick={() => onFiltersSheetOpenChange?.(false)}
@@ -768,13 +730,12 @@ const TitleFeedCard: React.FC<TitleFeedCardProps> = ({ group }) => {
 
   return (
     <article className="flex gap-3 rounded-mn-card border border-mn-border-subtle/85 bg-mn-bg-elevated/85 p-3 text-[11px] shadow-mn-card">
-            {/* Poster */}
+      {/* Poster */}
       <Link
         to={`/title/${group.title.id}`}
         className="relative flex h-24 w-16 shrink-0 overflow-hidden rounded-mn-card bg-mn-bg/80 shadow-mn-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
       >
         {group.title.posterUrl ? (
-          // eslint-disable-next-line jsx-a11y/alt-text
           <img
             src={group.title.posterUrl}
             alt={group.title.name}
@@ -823,7 +784,8 @@ const TitleFeedCard: React.FC<TitleFeedCardProps> = ({ group }) => {
 
           {secondaryEvents.length > 0 && (
             <p className="text-[10px] text-mn-text-muted">
-              +{secondaryEvents.length} more activity item{secondaryEvents.length === 1 ? "" : "s"} on this title
+              +{secondaryEvents.length} more activity item{secondaryEvents.length === 1 ? "" : "s"}{" "}
+              on this title
             </p>
           )}
         </div>
@@ -916,8 +878,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   if (event.type === "review") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span>{" "}
-        logged a review
+        <span className="font-medium text-mn-text-primary">{user.displayName}</span> logged a review
       </>
     );
     highlight = (
@@ -934,8 +895,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   } else if (event.type === "rating") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span>{" "}
-        rated it
+        <span className="font-medium text-mn-text-primary">{user.displayName}</span> rated it
       </>
     );
     highlight = (
@@ -947,23 +907,18 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   } else if (event.type === "watchlist") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span>{" "}
-        added this to their Watchlist
+        <span className="font-medium text-mn-text-primary">{user.displayName}</span> added this to
+        their Watchlist
       </>
     );
-    highlight = (
-      <BookmarkPlus className="h-3.5 w-3.5 text-mn-primary" aria-hidden="true" />
-    );
+    highlight = <BookmarkPlus className="h-3.5 w-3.5 text-mn-primary" aria-hidden="true" />;
   } else if (event.type === "recommendation") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">MoviNesta</span> recommends this
-        title
+        <span className="font-medium text-mn-text-primary">MoviNesta</span> recommends this title
       </>
     );
-    highlight = (
-      <Sparkles className="h-3.5 w-3.5 text-mn-primary" aria-hidden="true" />
-    );
+    highlight = <Sparkles className="h-3.5 w-3.5 text-mn-primary" aria-hidden="true" />;
     meta = event.extra ? (
       <p className="mt-0.5 text-[10px] text-mn-text-secondary">{event.extra}</p>
     ) : null;
@@ -1044,7 +999,6 @@ const FeedSkeleton: React.FC = () => {
     <div className="space-y-3">
       {[0, 1, 2].map((idx) => (
         <div
-          // eslint-disable-next-line react/no-array-index-key
           key={idx}
           className="flex animate-pulse gap-3 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-3"
         >
