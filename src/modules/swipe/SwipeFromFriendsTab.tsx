@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { BookmarkPlus, Clock, Film, Star, ThumbsDown, ThumbsUp, Users } from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
 
@@ -39,7 +39,7 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeFromFriendsTab: React.FC = () => {
-  const { cards, swipe } = useSwipeDeck("from-friends", { limit: 40 });
+  const { cards, swipe, swipeAsync } = useSwipeDeck("from-friends", { limit: 40 });
 
   const deck = useMemo(() => cards, [cards]);
 
@@ -84,7 +84,16 @@ const SwipeFromFriendsTab: React.FC = () => {
       const card = deck[currentIndex];
       if (!card) return;
 
-      swipe({ cardId: card.id, direction });
+      const ratingForCard = ratings[card.id] ?? card.initialRating ?? null;
+      const watchlistForCard =
+        watchlist[card.id] ?? card.initiallyInWatchlist ?? undefined;
+
+      swipe({
+        cardId: card.id,
+        direction,
+        rating: ratingForCard,
+        inWatchlist: watchlistForCard,
+      });
 
       setLastSwipe({
         cardId: card.id,
@@ -93,18 +102,9 @@ const SwipeFromFriendsTab: React.FC = () => {
         at: new Date().toISOString(),
       });
 
-      // TODO: Persist swipe to Supabase (`from_friends` feed / friendship graph).
-      // Example pseudo-code:
-      // supabase.from("swipes").insert({ source: "friends", title_id: card.id, direction, rating: ratings[card.id] ?? null });
-
-      console.log("[SwipeFromFriendsTab] swipe", {
-        direction,
-        cardId: card.id,
-      });
-
       setCurrentIndex((idx) => (idx + 1 >= deck.length ? deck.length : idx + 1));
     },
-    [currentIndex, deck, swipe],
+    [currentIndex, deck, ratings, swipe, watchlist],
   );
 
   const hasMore = currentIndex < deck.length;
@@ -192,9 +192,17 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: next,
       };
 
-      console.log("[SwipeFromFriendsTab] ratingChange", { cardId, rating: next });
-
-      // TODO: Persist rating to Supabase (friend-specific library / diary).
+      swipeAsync({
+        cardId,
+        direction: next === 0 ? "skip" : "like",
+        rating: next === 0 ? null : next,
+        inWatchlist: watchlist[cardId] ?? undefined,
+      }).catch(() => {
+        setRatings((currentState) => ({
+          ...currentState,
+          [cardId]: current,
+        }));
+      });
 
       return nextState;
     });
@@ -202,18 +210,24 @@ const SwipeFromFriendsTab: React.FC = () => {
 
   const toggleWatchlist = (cardId: string) => {
     setWatchlist((prev) => {
-      const nextValue = !prev[cardId];
+      const previous = !!prev[cardId];
+      const nextValue = !previous;
       const nextState = {
         ...prev,
         [cardId]: nextValue,
       };
 
-      console.log("[SwipeFromFriendsTab] watchlistToggle", {
+      swipeAsync({
         cardId,
+        direction: "skip",
+        rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+      }).catch(() => {
+        setWatchlist((currentState) => ({
+          ...currentState,
+          [cardId]: previous,
+        }));
       });
-
-      // TODO: Persist watchlist change to Supabase.
 
       return nextState;
     });

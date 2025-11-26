@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   BookmarkPlus,
   Clock,
@@ -48,7 +48,7 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeForYouTab: React.FC = () => {
-  const { cards, swipe } = useSwipeDeck("for-you", { limit: 40 });
+  const { cards, swipe, swipeAsync } = useSwipeDeck("for-you", { limit: 40 });
 
   const deck = useMemo(() => cards, [cards]);
 
@@ -94,7 +94,16 @@ const SwipeForYouTab: React.FC = () => {
       const card = deck[currentIndex];
       if (!card) return;
 
-      swipe({ cardId: card.id, direction });
+      const ratingForCard = ratings[card.id] ?? card.initialRating ?? null;
+      const watchlistForCard =
+        watchlist[card.id] ?? card.initiallyInWatchlist ?? undefined;
+
+      swipe({
+        cardId: card.id,
+        direction,
+        rating: ratingForCard,
+        inWatchlist: watchlistForCard,
+      });
 
       setLastSwipe({
         cardId: card.id,
@@ -114,7 +123,7 @@ const SwipeForYouTab: React.FC = () => {
 
       setCurrentIndex((idx) => (idx + 1 >= deck.length ? deck.length : idx + 1));
     },
-    [currentIndex, deck, swipe],
+    [currentIndex, deck, ratings, swipe, watchlist],
   );
 
   const hasMore = currentIndex < deck.length;
@@ -202,9 +211,17 @@ const SwipeForYouTab: React.FC = () => {
         [cardId]: next,
       };
 
-      console.log("[SwipeForYouTab] ratingChange", { cardId, rating: next });
-
-      // TODO: Optimistically persist rating to Supabase here when schema is ready.
+      swipeAsync({
+        cardId,
+        direction: next === 0 ? "skip" : "like",
+        rating: next === 0 ? null : next,
+        inWatchlist: watchlist[cardId] ?? undefined,
+      }).catch(() => {
+        setRatings((currentState) => ({
+          ...currentState,
+          [cardId]: current,
+        }));
+      });
 
       return nextState;
     });
@@ -212,18 +229,24 @@ const SwipeForYouTab: React.FC = () => {
 
   const toggleWatchlist = (cardId: string) => {
     setWatchlist((prev) => {
-      const nextValue = !prev[cardId];
+      const previous = !!prev[cardId];
+      const nextValue = !previous;
       const nextState = {
         ...prev,
         [cardId]: nextValue,
       };
 
-      console.log("[SwipeForYouTab] watchlistToggle", {
+      swipeAsync({
         cardId,
+        direction: "skip",
+        rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+      }).catch(() => {
+        setWatchlist((currentState) => ({
+          ...currentState,
+          [cardId]: previous,
+        }));
       });
-
-      // TODO: Persist watchlist change to Supabase here.
 
       return nextState;
     });

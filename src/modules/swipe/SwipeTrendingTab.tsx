@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   BookmarkPlus,
   Clock,
@@ -48,7 +48,7 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeTrendingTab: React.FC = () => {
-  const { cards, swipe } = useSwipeDeck("trending", { limit: 40 });
+  const { cards, swipe, swipeAsync } = useSwipeDeck("trending", { limit: 40 });
 
   const deck = useMemo(() => cards, [cards]);
 
@@ -93,7 +93,16 @@ const SwipeTrendingTab: React.FC = () => {
       const card = deck[currentIndex];
       if (!card) return;
 
-      swipe({ cardId: card.id, direction });
+      const ratingForCard = ratings[card.id] ?? card.initialRating ?? null;
+      const watchlistForCard =
+        watchlist[card.id] ?? card.initiallyInWatchlist ?? undefined;
+
+      swipe({
+        cardId: card.id,
+        direction,
+        rating: ratingForCard,
+        inWatchlist: watchlistForCard,
+      });
 
       setLastSwipe({
         cardId: card.id,
@@ -102,18 +111,9 @@ const SwipeTrendingTab: React.FC = () => {
         at: new Date().toISOString(),
       });
 
-      // TODO: Persist swipe to Supabase (`trending` source).
-      // Example pseudo-code:
-      // supabase.from("swipes").insert({ source: "trending", title_id: card.id, direction, rating: ratings[card.id] ?? null });
-
-      console.log("[SwipeTrendingTab] swipe", {
-        direction,
-        cardId: card.id,
-      });
-
       setCurrentIndex((idx) => (idx + 1 >= deck.length ? deck.length : idx + 1));
     },
-    [currentIndex, deck, swipe],
+    [currentIndex, deck, ratings, swipe, watchlist],
   );
 
   const hasMore = currentIndex < deck.length;
@@ -201,9 +201,17 @@ const SwipeTrendingTab: React.FC = () => {
         [cardId]: next,
       };
 
-      console.log("[SwipeTrendingTab] ratingChange", { cardId, rating: next });
-
-      // TODO: Persist rating to Supabase.
+      swipeAsync({
+        cardId,
+        direction: next === 0 ? "skip" : "like",
+        rating: next === 0 ? null : next,
+        inWatchlist: watchlist[cardId] ?? undefined,
+      }).catch(() => {
+        setRatings((currentState) => ({
+          ...currentState,
+          [cardId]: current,
+        }));
+      });
 
       return nextState;
     });
@@ -211,18 +219,24 @@ const SwipeTrendingTab: React.FC = () => {
 
   const toggleWatchlist = (cardId: string) => {
     setWatchlist((prev) => {
-      const nextValue = !prev[cardId];
+      const previous = !!prev[cardId];
+      const nextValue = !previous;
       const nextState = {
         ...prev,
         [cardId]: nextValue,
       };
 
-      console.log("[SwipeTrendingTab] watchlistToggle", {
+      swipeAsync({
         cardId,
+        direction: "skip",
+        rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+      }).catch(() => {
+        setWatchlist((currentState) => ({
+          ...currentState,
+          [cardId]: previous,
+        }));
       });
-
-      // TODO: Persist watchlist change to Supabase.
 
       return nextState;
     });
