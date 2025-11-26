@@ -499,17 +499,21 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
       </div>
 
       <div className="flex gap-3">
-        {/* Poster stub */}
         <Link
           to={`/title/${pick.id}`}
           className="relative flex h-28 w-20 shrink-0 overflow-hidden rounded-mn-card bg-mn-bg/80 shadow-mn-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
         >
           {pick.posterUrl ? (
-            <img src={pick.posterUrl} alt={pick.name} className="h-full w-full object-cover" />
+            <>
+              <img src={pick.posterUrl} alt={pick.name} className="h-full w-full object-cover" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+            </>
           ) : (
-            <div className="h-full w-full bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-mn-surface-elevated/80 via-mn-bg to-mn-primary/70 text-[10px] text-mn-text-muted">
+              <Film className="h-4 w-4 text-mn-primary" aria-hidden="true" />
+              <span>No poster yet</span>
+            </div>
           )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
           <div className="pointer-events-none absolute bottom-1 left-1 right-1 space-y-0.5 px-1.5">
             <span className="inline-flex items-center rounded-full bg-mn-bg/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-mn-primary-soft">
               {pick.year}
@@ -638,9 +642,16 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
     >
       <div className="relative h-32 overflow-hidden">
         {item.posterUrl ? (
-          <img src={item.posterUrl} alt={item.name} className="h-full w-full object-cover" />
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
+          <>
+            <img src={item.posterUrl} alt={item.name} className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
+          </>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-mn-surface-elevated/80 via-mn-bg to-mn-primary/70 text-[10px] text-mn-text-muted">
+            <Film className="h-4 w-4 text-mn-primary" aria-hidden="true" />
+            <span>Poster missing</span>
+          </div>
+        )}
         <div className="relative flex h-full flex-col justify-between p-2.5">
           <div className="space-y-0.5">
             <p className="line-clamp-2 text-[11px] font-heading font-semibold text-mn-text-primary">

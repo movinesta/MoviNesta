@@ -357,22 +357,23 @@ const SwipeTrendingTab: React.FC = () => {
 
             <div className="flex h-full flex-col">
               <div className="flex-1 px-4 pb-3 pt-6">
-                {/* Top section: poster + basic metadata */}
                 <div className="flex items-start gap-3">
                   <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-2xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
                     {currentCard.posterUrl ? (
-                      <img
-                        src={currentCard.posterUrl}
-                        alt={`${currentCard.title} poster`}
-                        className="h-full w-full object-cover"
-                      />
+                      <>
+                        <img
+                          src={currentCard.posterUrl}
+                          alt={`${currentCard.title} poster`}
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mn-bg-elevated/70 via-transparent to-transparent" />
+                      </>
                     ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10px] text-mn-text-muted">
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-mn-surface-elevated/80 via-mn-bg to-mn-primary/70 text-[10px] text-mn-text-muted">
                         <Film className="h-4 w-4 text-mn-primary" aria-hidden={true} />
-                        <span>Trending poster</span>
+                        <span>No poster yet</span>
                       </div>
                     )}
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mn-bg-elevated/70 via-transparent to-transparent" />
                   </div>
 
                   <div className="min-w-0 flex-1">

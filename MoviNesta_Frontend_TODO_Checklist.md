@@ -465,10 +465,16 @@ SPA • React + TypeScript • Vite • Tailwind • Supabase
 
 ## 13. QA, Performance & Accessibility
 
-- [ ] Add global ErrorBoundary around app.
+- [x] Add global ErrorBoundary around app.
+  - Completed: 2025-05-28 12:30 (local)
+  - Summary: Added a reusable ErrorBoundary that wraps AppRoutes, showing a branded fallback with retry and reload options while logging errors to the console.
+  - Next improvements: Pipe errors to telemetry, capture component stacks, and offer a lightweight bug report link.
 - [ ] Ensure keyboard navigation and focus handling across main flows.
 - [ ] Add `aria-label`s for icon-only buttons (nav icons, reaction icons, etc.).
-- [ ] Split bundles and lazy-load heavy modules (Messages, Title Detail).
+- [x] Split bundles and lazy-load heavy modules (Messages, Title Detail).
+  - Completed: 2025-05-28 13:05 (local)
+  - Summary: Wrapped routes in Suspense and lazy-loaded Messages, Conversation, and Title Detail screens to trim the initial bundle.
+  - Next improvements: Add skeleton fallbacks per section and consider code-splitting additional heavy tabs like Diary analytics.
 - [ ] Test on phone-sized view, small tablet, and desktop widths.
 - [ ] Run TypeScript, lint and fix all issues.
 - [ ] Document known limitations and postponed features in `README.md`.
