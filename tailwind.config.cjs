@@ -15,6 +15,13 @@ module.exports = {
         // Accents
         "mn-accent-teal": "#14b8a6",
         "mn-accent-violet": "#a855f7",
+        "mn-accent-amber": "#fb923c",
+        "mn-accent-rose": "#fb7185",
+        "mn-accent-emerald": "#22c55e",
+
+        // Surfaces
+        "mn-surface": "#0b1024",
+        "mn-surface-strong": "#0f172a",
 
         // Text
         "mn-text-primary": "#e5e7eb",
@@ -37,10 +44,13 @@ module.exports = {
       backgroundImage: {
         "mn-hero":
           "linear-gradient(135deg, #a855f7 0%, #22c55e 40%, #f97316 100%)",
+        "mn-grid":
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)",
       },
       boxShadow: {
         "mn-soft": "0 18px 45px rgba(15, 23, 42, 0.75)",
         "mn-card": "0 14px 35px rgba(15, 23, 42, 0.9)",
+        "mn-glow": "0 15px 60px rgba(249, 115, 22, 0.25)",
       },
       borderRadius: {
         "mn-card": "1.5rem",
