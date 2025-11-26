@@ -1,6 +1,16 @@
 import React from "react";
 import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Flame, MessageCircle, Search, BookOpen, ChevronDown } from "lucide-react";
+import {
+  Home,
+  Flame,
+  MessageCircle,
+  Search,
+  BookOpen,
+  ChevronDown,
+  SunMedium,
+  MoonStar,
+  Sparkles,
+} from "lucide-react";
 import movinestaLogoNeon from "../assets/brand/movinesta-logo-neon.png";
 import { applyThemePreference, syncSystemThemePreference, useUIStore } from "../lib/ui-store";
 import { useAuth } from "../modules/auth/AuthProvider";
@@ -28,7 +38,7 @@ const AppShell: React.FC = () => {
   const location = useLocation();
   const title = getTitleFromPath(location.pathname);
   const navigate = useNavigate();
-  const { setLastVisitedTab, startTab, theme } = useUIStore();
+  const { setLastVisitedTab, startTab, theme, setTheme } = useUIStore();
   const { user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const hasAppliedStartTab = React.useRef(false);
@@ -52,6 +62,10 @@ const AppShell: React.FC = () => {
 
   const isConversationRoute =
     location.pathname.startsWith("/messages/") && location.pathname !== "/messages";
+
+  const handleThemeCycle = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   const shellContentClassName = isConversationRoute
     ? "relative z-10 mx-auto flex h-screen w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0 sm:px-0 sm:pb-0"
@@ -77,7 +91,7 @@ const AppShell: React.FC = () => {
       <div className={shellContentClassName}>
         {/* Top header */}
         {!isConversationRoute && (
-          <header className="mb-3 flex items-center justify-between gap-3 rounded-full border border-mn-border-subtle/60 bg-mn-bg-elevated/70 px-3 py-2 shadow-mn-soft backdrop-blur">
+          <header className="mb-3 flex flex-col gap-3 rounded-[22px] border border-mn-border-subtle/60 bg-mn-bg-elevated/70 px-3 py-3 shadow-mn-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Link
                 to="/"
@@ -103,62 +117,97 @@ const AppShell: React.FC = () => {
               </Link>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden text-xs text-mn-text-secondary sm:block">
-                <span className="font-medium text-mn-text-primary">{title}</span>
+            <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+              <div className="hidden flex-1 items-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-1.5 text-sm text-mn-text-secondary shadow-inner sm:flex">
+                <label htmlFor="shell-search" className="sr-only">
+                  Search movies, lists, or friends
+                </label>
+                <Search className="h-4 w-4 text-mn-text-muted" aria-hidden="true" />
+                <input
+                  id="shell-search"
+                  type="search"
+                  placeholder="Search movies, lists, or friends"
+                  className="w-full bg-transparent text-sm text-mn-text-primary placeholder:text-mn-text-muted focus-visible:outline-none"
+                />
+                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 text-[11px] font-semibold text-mn-text-muted">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  Ctrl / Cmd + K
+                </span>
               </div>
 
-              {/* Avatar menu */}
-              <div className="relative">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="hidden text-xs text-mn-text-secondary sm:block">
+                  <span className="font-medium text-mn-text-primary">{title}</span>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setMenuOpen((open) => !open)}
-                  className="flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg-elevated/80 px-2 py-1 text-xs shadow-mn-soft transition hover:border-mn-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                  onClick={handleThemeCycle}
+                  className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-2.5 py-1 text-[11px] font-semibold text-mn-text-secondary transition hover:border-mn-border-strong hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                  aria-label="Toggle theme"
                 >
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-mn-accent-violet/30 text-[11px] font-semibold text-mn-text-primary">
-                    {user?.email?.[0]?.toUpperCase() ?? "M"}
+                  {theme === "dark" ? (
+                    <SunMedium className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <MoonStar className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {theme === "dark" ? "Light" : "Dark"} mode
                   </span>
-                  <span className="hidden text-[11px] font-medium text-mn-text-secondary sm:inline">
-                    {user?.email ?? "Guest"}
-                  </span>
-                  <ChevronDown className="h-3 w-3 text-mn-text-muted" aria-hidden="true" />
                 </button>
 
-                {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-44 rounded-xl border border-mn-border-subtle bg-mn-bg-elevated/95 p-1 text-xs shadow-mn-card">
-                    <Link
-                      to="/settings/profile"
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-mn-text-secondary transition hover:bg-mn-border-subtle/40 hover:text-mn-text-primary"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span>Profile</span>
-                    </Link>
-                    <Link
-                      to="/settings/app"
-                      className="mt-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-mn-text-secondary transition hover:bg-mn-border-subtle/40 hover:text-mn-text-primary"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span>App settings</span>
-                    </Link>
-                    <button
-                      type="button"
-                      className="mt-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-mn-error transition hover:bg-mn-error/10"
-                      onClick={async () => {
-                        setMenuOpen(false);
-                        await signOut();
-                      }}
-                    >
-                      <span>Sign out</span>
-                    </button>
-                  </div>
-                )}
+                {/* Avatar menu */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((open) => !open)}
+                    className="flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg-elevated/80 px-2 py-1 text-xs shadow-mn-soft transition hover:border-mn-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                  >
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-mn-accent-violet/30 text-[11px] font-semibold text-mn-text-primary">
+                      {user?.email?.[0]?.toUpperCase() ?? "M"}
+                    </span>
+                    <span className="hidden text-[11px] font-medium text-mn-text-secondary sm:inline">
+                      {user?.email ?? "Guest"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-mn-text-muted" aria-hidden="true" />
+                  </button>
+
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-2 w-44 rounded-xl border border-mn-border-subtle bg-mn-bg-elevated/95 p-1 text-xs shadow-mn-card">
+                      <Link
+                        to="/settings/profile"
+                        className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-mn-text-secondary transition hover:bg-mn-border-subtle/40 hover:text-mn-text-primary"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span>Profile</span>
+                      </Link>
+                      <Link
+                        to="/settings/app"
+                        className="mt-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-mn-text-secondary transition hover:bg-mn-border-subtle/40 hover:text-mn-text-primary"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span>App settings</span>
+                      </Link>
+                      <button
+                        type="button"
+                        className="mt-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-mn-error transition hover:bg-mn-error/10"
+                        onClick={async () => {
+                          setMenuOpen(false);
+                          await signOut();
+                        }}
+                      >
+                        <span>Sign out</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </header>
         )}
 
         {/* Main route content */}
-        <main className="flex-1">
+        <main id="main-content" className="flex-1">
           <Outlet />
         </main>
       </div>
