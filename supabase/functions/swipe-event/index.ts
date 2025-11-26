@@ -15,6 +15,8 @@ interface SwipeEventPayload {
   titleId: string;
   direction: SwipeDirection;
   source?: "for-you" | "from-friends" | "trending" | string;
+  rating?: number | null;
+  inWatchlist?: boolean | null;
 }
 
 function buildSupabaseClient(req: Request) {
@@ -63,7 +65,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { titleId, direction, source } = body;
+  const { titleId, direction, source, rating, inWatchlist } = body;
 
   if (!titleId || !["like", "dislike", "skip"].includes(direction)) {
     return new Response("Invalid payload", {
@@ -72,14 +74,23 @@ Deno.serve(async (req) => {
     });
   }
 
-  let ratingValue: number | null = null;
+  let ratingValue: number | null = rating ?? null;
   let libraryStatus: string | null = null;
+  const explicitWatchlistChange = inWatchlist !== undefined && inWatchlist !== null;
 
-  if (direction === "like") {
-    ratingValue = 4.0;
+  if (ratingValue === null) {
+    if (direction === "like") {
+      ratingValue = 4.0;
+    } else if (direction === "dislike") {
+      ratingValue = 1.0;
+    }
+  }
+
+  if (explicitWatchlistChange) {
+    libraryStatus = inWatchlist ? "want_to_watch" : null;
+  } else if (direction === "like") {
     libraryStatus = "want_to_watch";
   } else if (direction === "dislike") {
-    ratingValue = 1.0;
     libraryStatus = "dropped";
   }
 
@@ -155,6 +166,15 @@ Deno.serve(async (req) => {
         console.error("[swipe-event] insert library error:", insertLibError);
       }
     }
+  } else if (explicitWatchlistChange === true) {
+    const { error: deleteLibError } = await supabase
+      .from("library_entries")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("title_id", titleId);
+    if (deleteLibError) {
+      console.error("[swipe-event] delete library error:", deleteLibError);
+    }
   }
 
   const eventType =
@@ -170,6 +190,7 @@ Deno.serve(async (req) => {
         source: source ?? "swipe",
         direction,
         rating: ratingValue,
+        watchlist: explicitWatchlistChange ? inWatchlist : undefined,
       },
     });
 

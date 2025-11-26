@@ -30,6 +30,8 @@ interface SwipeDeckResponse {
 interface SwipeEventPayload {
   cardId: string;
   direction: SwipeDirection;
+  rating?: number | null;
+  inWatchlist?: boolean | null;
 }
 
 export function useSwipeDeck(kind: SwipeDeckKind, options?: { limit?: number }) {
@@ -61,9 +63,9 @@ export function useSwipeDeck(kind: SwipeDeckKind, options?: { limit?: number }) 
 
   // SEND SWIPE → swipe-event
   const swipeMutation = useMutation({
-    mutationFn: async ({ cardId, direction }: SwipeEventPayload) => {
+    mutationFn: async ({ cardId, direction, rating, inWatchlist }: SwipeEventPayload) => {
       const { error } = await supabase.functions.invoke("swipe-event", {
-        body: { titleId: cardId, direction, source: kind },
+        body: { titleId: cardId, direction, source: kind, rating, inWatchlist },
       });
 
       if (error) {
@@ -77,5 +79,6 @@ export function useSwipeDeck(kind: SwipeDeckKind, options?: { limit?: number }) 
     isLoading: deckQuery.isLoading,
     isError: deckQuery.isError,
     swipe: swipeMutation.mutate,
+    swipeAsync: swipeMutation.mutateAsync,
   };
 }
