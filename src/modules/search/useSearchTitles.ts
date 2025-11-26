@@ -9,7 +9,7 @@ export interface TitleSearchFilters {
   minYear?: number;
   maxYear?: number;
   originalLanguage?: string;
-  // TODO: genreIds: number[]; // requires join on title_genres/genres
+  genreIds?: number[];
 }
 
 export interface TitleSearchResult {
@@ -37,9 +37,14 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
     queryKey: ["search", "titles", { query: trimmedQuery, filters }],
     enabled: trimmedQuery.length > 0,
     queryFn: async () => {
+      const columns = "id, title, year, type, poster_url, original_language, age_rating";
       let builder = supabase
         .from("titles")
-        .select("id, title, year, type, poster_url, original_language, age_rating")
+        .select(
+          filters?.genreIds?.length
+            ? `${columns}, title_genres!inner(genre_id)`
+            : columns,
+        )
         .order("year", { ascending: false })
         .limit(20);
 
@@ -78,6 +83,10 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
 
       if (filters?.originalLanguage) {
         builder = builder.eq("original_language", filters.originalLanguage);
+      }
+
+      if (filters?.genreIds?.length) {
+        builder = builder.in("title_genres.genre_id", filters.genreIds);
       }
 
       const { data, error } = await builder;
