@@ -20,6 +20,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // eslint-disable-next-line no-console
     console.error("MoviNesta ErrorBoundary caught an error", error, errorInfo);
   }
 

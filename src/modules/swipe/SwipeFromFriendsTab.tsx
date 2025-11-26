@@ -85,7 +85,8 @@ const SwipeFromFriendsTab: React.FC = () => {
       if (!card) return;
 
       const ratingForCard = ratings[card.id] ?? card.initialRating ?? null;
-      const watchlistForCard = watchlist[card.id] ?? card.initiallyInWatchlist ?? undefined;
+      const watchlistForCard =
+        watchlist[card.id] ?? card.initiallyInWatchlist ?? undefined;
 
       swipe({
         cardId: card.id,

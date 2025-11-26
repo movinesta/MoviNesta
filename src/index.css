@@ -26,19 +26,3 @@ body {
   outline: 2px solid #f97316;
   outline-offset: 2px;
 }
-
-::selection {
-  background: rgba(249, 115, 22, 0.24);
-  color: #fefefe;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
