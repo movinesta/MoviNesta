@@ -6,6 +6,12 @@
 
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
 if (!OMDB_API_KEY) {
   console.error("Missing OMDB_API_KEY for omdb-search function");
 }
@@ -17,28 +23,35 @@ type OmdbSearchRequest = {
 };
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
   }
 
   if (!OMDB_API_KEY) {
-    return new Response("OMDb not configured", { status: 500 });
+    return new Response("OMDb not configured", { status: 500, headers: corsHeaders });
   }
 
   let payload: OmdbSearchRequest;
   try {
     payload = await req.json();
   } catch {
-    return new Response("Invalid JSON body", { status: 400 });
+    return new Response("Invalid JSON body", { status: 400, headers: corsHeaders });
   }
 
-  const rawQuery = (payload.query ?? "").trim();
-  if (!rawQuery) {
-    return new Response(
-      JSON.stringify({ Response: "False", Error: "Empty query" }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    );
-  }
+    const rawQuery = (payload.query ?? "").trim();
+    if (!rawQuery) {
+      return new Response(
+        JSON.stringify({ Response: "False", Error: "Empty query" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
   try {
     const url = new URL("https://www.omdbapi.com/");
@@ -56,7 +69,7 @@ Deno.serve(async (req) => {
 
     if (!omdbRes.ok) {
       console.error("[omdb-search] OMDb error:", omdbRes.status, await omdbRes.text());
-      return new Response("OMDb upstream error", { status: 502 });
+      return new Response("OMDb upstream error", { status: 502, headers: corsHeaders });
     }
 
     const json = await omdbRes.json();
@@ -64,10 +77,10 @@ Deno.serve(async (req) => {
     // Just pass through OMDb JSON to the client.
     return new Response(JSON.stringify(json), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[omdb-search] Unexpected error:", err);
-    return new Response("Internal error", { status: 500 });
+    return new Response("Internal error", { status: 500, headers: corsHeaders });
   }
 });
