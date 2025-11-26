@@ -38,13 +38,12 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
     enabled: trimmedQuery.length > 0,
     queryFn: async () => {
       const columns = "id, title, year, type, poster_url, original_language, age_rating";
+      const selectColumns = filters?.genreIds?.length
+        ? `${columns}, title_genres!inner(genre_id, genres(id, name))`
+        : columns;
       let builder = supabase
         .from("titles")
-        .select(
-          filters?.genreIds?.length
-            ? `${columns}, title_genres!inner(genre_id)`
-            : columns,
-        )
+        .select(selectColumns, { distinct: true })
         .order("year", { ascending: false })
         .limit(20);
 

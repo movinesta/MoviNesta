@@ -1,48 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { Monitor, Film, Moon, SunMedium, AlertCircle, CheckCircle2 } from "lucide-react";
-
-const STORAGE_KEY = "moviNesta.appSettings";
+import { useUIStore } from "../../lib/ui-store";
 
 type StartTabOption = "home" | "swipe" | "diary";
 
-interface AppSettings {
-  startTab: StartTabOption;
-  theme: "system" | "dark";
-  reduceMotion: boolean;
-}
-
-const defaultSettings: AppSettings = {
-  startTab: "home",
-  theme: "dark",
-  reduceMotion: false,
-};
-
 const SettingsAppPage: React.FC = () => {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const {
+    startTab,
+    setStartTab,
+    theme,
+    setTheme,
+    reduceMotion,
+    setReduceMotion,
+    language,
+    setLanguage,
+  } = useUIStore();
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as AppSettings;
-        setSettings({ ...defaultSettings, ...parsed });
-      }
-    } catch {
-      // ignore parse errors
-    }
-  }, []);
-
-  const updateField =
-    <K extends keyof AppSettings>(field: K) =>
-    (value: AppSettings[K]) => {
-      setSettings((prev) => ({ ...prev, [field]: value }));
-      setStatus("idle");
-    };
+    setStatus("idle");
+  }, [language, reduceMotion, startTab, theme]);
 
   const handleSave = () => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       setStatus("saved");
     } catch {
       setStatus("error");
@@ -85,12 +65,12 @@ const SettingsAppPage: React.FC = () => {
               { key: "swipe" as StartTabOption, label: "Swipe" },
               { key: "diary" as StartTabOption, label: "Diary" },
             ].map((option) => {
-              const isActive = settings.startTab === option.key;
+              const isActive = startTab === option.key;
               return (
                 <button
                   key={option.key}
                   type="button"
-                  onClick={() => updateField("startTab")(option.key)}
+                  onClick={() => setStartTab(option.key)}
                   className={`flex items-center justify-center gap-1 rounded-full border px-3 py-1.5 text-xs transition ${
                     isActive
                       ? "border-mn-accent bg-mn-accent/20 text-mn-accent"
@@ -116,7 +96,7 @@ const SettingsAppPage: React.FC = () => {
             <div className="space-y-0.5">
               <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Theme</h2>
               <p className="text-[11px] text-mn-text-secondary">
-                MoviNesta currently runs in dark mode. Light mode can be added later.
+                Choose how MoviNesta should follow your device theme.
               </p>
             </div>
           </div>
@@ -124,9 +104,9 @@ const SettingsAppPage: React.FC = () => {
           <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
             <button
               type="button"
-              onClick={() => updateField("theme")("system")}
+              onClick={() => setTheme("system")}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                settings.theme === "system"
+                theme === "system"
                   ? "border-mn-accent bg-mn-accent/20 text-mn-accent"
                   : "border-mn-border-subtle/80 bg-mn-bg text-mn-text-secondary hover:border-mn-border-strong/80 hover:bg-mn-bg-elevated"
               }`}
@@ -136,9 +116,9 @@ const SettingsAppPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => updateField("theme")("dark")}
+              onClick={() => setTheme("dark")}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                settings.theme === "dark"
+                theme === "dark"
                   ? "border-mn-accent bg-mn-accent/20 text-mn-accent"
                   : "border-mn-border-subtle/80 bg-mn-bg text-mn-text-secondary hover:border-mn-border-strong/80 hover:bg-mn-bg-elevated"
               }`}
@@ -146,9 +126,64 @@ const SettingsAppPage: React.FC = () => {
               <Moon className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Always dark</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
+                theme === "light"
+                  ? "border-mn-accent bg-mn-accent/20 text-mn-accent"
+                  : "border-mn-border-subtle/80 bg-mn-bg text-mn-text-secondary hover:border-mn-border-strong/80 hover:bg-mn-bg-elevated"
+              }`}
+            >
+              <SunMedium className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Light</span>
+            </button>
           </div>
           <p className="mt-1 text-[10px] text-mn-text-muted">
-            TODO: Wire this into a real theme switcher once light mode is supported.
+            Your choice is saved on this device and updates immediately.
+          </p>
+        </div>
+
+        {/* Language */}
+        <div className="space-y-3 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-4 shadow-mn-card">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-mn-border-subtle/50">
+              <Monitor className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
+            </span>
+            <div className="space-y-0.5">
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Language</h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                Choose a preferred language. More translations are coming soon.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+            {["system", "en", "es"].map((option) => {
+              const labels: Record<string, string> = {
+                system: "Match system",
+                en: "English",
+                es: "Español",
+              };
+              const isActive = language === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setLanguage(option as typeof language)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
+                    isActive
+                      ? "border-mn-accent bg-mn-accent/20 text-mn-accent"
+                      : "border-mn-border-subtle/80 bg-mn-bg text-mn-text-secondary hover:border-mn-border-strong/80 hover:bg-mn-bg-elevated"
+                  }`}
+                >
+                  <span>{labels[option]}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-[10px] text-mn-text-muted">
+            We&apos;ll remember this preference for future localization updates.
           </p>
         </div>
 
@@ -175,8 +210,8 @@ const SettingsAppPage: React.FC = () => {
             </div>
             <input
               type="checkbox"
-              checked={settings.reduceMotion}
-              onChange={(e) => updateField("reduceMotion")(e.target.checked)}
+              checked={reduceMotion}
+              onChange={(e) => setReduceMotion(e.target.checked)}
               className="h-4 w-4 rounded border-mn-border-subtle bg-mn-bg text-mn-accent"
               aria-label="Reduce motion"
             />
