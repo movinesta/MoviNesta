@@ -1,9 +1,11 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react-swc";
+
 export default defineConfig({
-  base: "/MoviNesta/",    // <-- REPO name inside slashes
+  base: "/MoviNesta/",
   plugins: [react()],
   build: {
-    outDir: "dist",       // default build folder
+    outDir: "dist",
     chunkSizeWarningLimit: 2000,
   },
-  // server config is fine only for dev
 });
