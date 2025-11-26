@@ -1,0 +1,150 @@
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Mail, KeyRound, LogOut, AlertCircle } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
+
+const SettingsAccountPage: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [signingOut, setSigningOut] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const createdAt = user?.created_at ? new Date(user.created_at) : null;
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    setError(null);
+    try {
+      await signOut();
+      navigate("/auth/signin");
+    } catch (err) {
+      setError((err as Error).message ?? "Something went wrong while signing out.");
+      setSigningOut(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
+        <div className="max-w-md rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-4 py-6 text-center text-sm text-mn-text-primary shadow-mn-card">
+          <h1 className="text-base font-heading font-semibold">You&apos;re signed out</h1>
+          <p className="mt-2 text-xs text-mn-text-secondary">
+            Sign in to view and manage your account.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
+      {/* Header */}
+      <header className="space-y-1 px-4 pt-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
+          Settings
+        </p>
+        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
+          Account
+        </h1>
+        <p className="text-[11px] text-mn-text-secondary">
+          Manage the account you use to sign in to MoviNesta.
+        </p>
+      </header>
+
+      <section className="space-y-4 px-4 pb-24">
+        {/* Email + account info */}
+        <div className="space-y-3 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-4 shadow-mn-card">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-mn-border-subtle/50">
+              <Mail className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
+            </span>
+            <div className="space-y-0.5">
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                Email
+              </h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                This is the email you use to sign in.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-dashed border-mn-border-subtle/70 bg-mn-bg/40 px-3 py-2 text-[11px] text-mn-text-secondary">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-xs text-mn-text-primary">
+                {user.email ?? "No email on file"}
+              </span>
+              <span className="rounded-full bg-mn-bg px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-mn-text-muted">
+                Primary
+              </span>
+            </div>
+            {createdAt && (
+              <p className="mt-1 text-[10px] text-mn-text-muted">
+                Joined on{" "}
+                {createdAt.toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "2-digit",
+                })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Password / security (placeholder for future implementation) */}
+        <div className="space-y-3 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-4 shadow-mn-card">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-mn-border-subtle/50">
+              <KeyRound className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
+            </span>
+            <div className="space-y-0.5">
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                Password &amp; security
+              </h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                Password resets and more advanced security can be wired up here later.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-mn-text-muted">
+            TODO: Wire up password reset using Supabase auth (e.g. magic links or email
+            reset flow).
+          </p>
+        </div>
+
+        {/* Sign out */}
+        <div className="space-y-2 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-4 shadow-mn-card">
+          <div className="flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                Sign out
+              </h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                You&apos;ll need to sign in again to use MoviNesta on this device.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="inline-flex items-center gap-1.5 rounded-full border border-mn-border-subtle/80 px-3 py-1.5 text-xs font-medium text-mn-text-secondary transition hover:border-mn-error/70 hover:bg-mn-error/10 hover:text-mn-error disabled:opacity-70"
+            >
+              <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{signingOut ? "Signing out…" : "Sign out"}</span>
+            </button>
+          </div>
+
+          {error && (
+            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-mn-error">
+              <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{error}</span>
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default SettingsAccountPage;
