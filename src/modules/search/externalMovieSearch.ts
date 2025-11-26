@@ -60,18 +60,13 @@ async function fallbackDirectOmdbSearch(query: string): Promise<ExternalTitleRes
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[externalMovieSearch] OMDb fallback returned HTTP error:",
-      response.status,
-    );
+    console.warn("[externalMovieSearch] OMDb fallback returned HTTP error:", response.status);
     return [];
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
     const text = await response.text();
-    // eslint-disable-next-line no-console
     console.warn(
       "[externalMovieSearch] OMDb fallback returned non-JSON response:",
       text.slice(0, 120),
@@ -99,19 +94,15 @@ export async function searchExternalTitles(query: string): Promise<ExternalTitle
   if (!trimmed) return [];
 
   try {
-    const { data, error } = await supabase.functions.invoke<OmdbSearchResponse>(
-      "omdb-search",
-      {
-        method: "POST",
-        body: {
-          query: trimmed,
-          type: "movie",
-        },
+    const { data, error } = await supabase.functions.invoke<OmdbSearchResponse>("omdb-search", {
+      method: "POST",
+      body: {
+        query: trimmed,
+        type: "movie",
       },
-    );
+    });
 
     if (error) {
-      // eslint-disable-next-line no-console
       console.warn("[externalMovieSearch] edge function error:", error);
       return fallbackDirectOmdbSearch(trimmed);
     }
@@ -122,7 +113,6 @@ export async function searchExternalTitles(query: string): Promise<ExternalTitle
 
     return data.Search.map(mapOmdbItemToResult);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn("[externalMovieSearch] unexpected error, falling back to direct OMDb:", err);
     return fallbackDirectOmdbSearch(trimmed);
   }

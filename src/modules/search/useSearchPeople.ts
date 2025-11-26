@@ -33,9 +33,7 @@ export const useSearchPeople = (query: string) => {
       const profilesResult = await supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, bio")
-        .or(
-          `username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`,
-        )
+        .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
         .limit(20);
 
       if (profilesResult.error) {
@@ -57,11 +55,7 @@ export const useSearchPeople = (query: string) => {
 
         if (statsResult.error) {
           // Not fatal; log and continue without stats.
-          // eslint-disable-next-line no-console
-          console.warn(
-            "[useSearchPeople] Failed to load user_stats",
-            statsResult.error.message,
-          );
+          console.warn("[useSearchPeople] Failed to load user_stats", statsResult.error.message);
         } else {
           statsByUserId = new Map(
             (statsResult.data ?? []).map((row: any) => [
@@ -100,7 +94,6 @@ export const useSearchPeople = (query: string) => {
 
       if (followsResult.error) {
         // Not fatal for the search itself; log and continue.
-        // eslint-disable-next-line no-console
         console.warn(
           "[useSearchPeople] Failed to load follows for current user",
           followsResult.error.message,

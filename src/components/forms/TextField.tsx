@@ -1,7 +1,6 @@
 import React from "react";
 
-interface TextFieldProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   id: string;
   label: string;
   containerClassName?: string;

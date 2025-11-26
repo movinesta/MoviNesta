@@ -25,15 +25,11 @@ const ResetPasswordPage: React.FC = () => {
         if (cancelled) return;
 
         if (error || !data.user) {
-          setError(
-            "This password reset link is invalid or has expired. Please request a new one."
-          );
+          setError("This password reset link is invalid or has expired. Please request a new one.");
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError(
-            "We couldn&apos;t verify your reset link. Please request a new one."
-          );
+          setError("We couldn&apos;t verify your reset link. Please request a new one.");
         }
       } finally {
         if (!cancelled) {
@@ -55,9 +51,7 @@ const ResetPasswordPage: React.FC = () => {
     setInfo(null);
 
     if (!password || password.length < MIN_PASSWORD_LENGTH) {
-      setError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`
-      );
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
       return;
     }
 
@@ -72,10 +66,7 @@ const ResetPasswordPage: React.FC = () => {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        setError(
-          error.message ||
-            "We couldn&apos;t update your password. Please try again."
-        );
+        setError(error.message || "We couldn&apos;t update your password. Please try again.");
         return;
       }
 
@@ -86,7 +77,6 @@ const ResetPasswordPage: React.FC = () => {
         navigate("/auth/signin");
       }, 2500);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err);
       setError("Something went wrong while updating your password.");
     } finally {
@@ -97,9 +87,7 @@ const ResetPasswordPage: React.FC = () => {
   if (checking) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-mn-bg px-4">
-        <p className="text-sm text-mn-text-secondary">
-          Checking your reset link…
-        </p>
+        <p className="text-sm text-mn-text-secondary">Checking your reset link…</p>
       </div>
     );
   }
@@ -160,10 +148,7 @@ const ResetPasswordPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label
-                htmlFor="reset-confirm"
-                className="text-xs font-medium text-mn-text-secondary"
-              >
+              <label htmlFor="reset-confirm" className="text-xs font-medium text-mn-text-secondary">
                 Confirm new password
               </label>
               <input
@@ -191,10 +176,7 @@ const ResetPasswordPage: React.FC = () => {
         )}
 
         <div className="mt-4 text-center text-xs text-mn-text-muted">
-          <Link
-            to="/auth/signin"
-            className="font-medium text-mn-primary hover:underline"
-          >
+          <Link to="/auth/signin" className="font-medium text-mn-primary hover:underline">
             Back to sign in
           </Link>
         </div>

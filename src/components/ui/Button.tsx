@@ -3,8 +3,7 @@ import React from "react";
 type ButtonVariant = "primary" | "secondary" | "ghost" | "subtle";
 type ButtonSize = "xs" | "sm" | "md" | "lg" | "icon";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
 }
@@ -38,12 +37,7 @@ export const Button: React.FC<ButtonProps> = ({
   className = "",
   ...props
 }) => {
-  const classes = [
-    baseClasses,
-    variantClasses[variant],
-    sizeClasses[size],
-    className,
-  ]
+  const classes = [baseClasses, variantClasses[variant], sizeClasses[size], className]
     .filter(Boolean)
     .join(" ");
 

@@ -56,9 +56,7 @@ const SettingsAppPage: React.FC = () => {
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
           Settings
         </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
-          App
-        </h1>
+        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">App</h1>
         <p className="text-[11px] text-mn-text-secondary">
           Customize how MoviNesta behaves on this device.
         </p>
@@ -116,9 +114,7 @@ const SettingsAppPage: React.FC = () => {
               <Monitor className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-                Theme
-              </h2>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Theme</h2>
               <p className="text-[11px] text-mn-text-secondary">
                 MoviNesta currently runs in dark mode. Light mode can be added later.
               </p>
@@ -163,9 +159,7 @@ const SettingsAppPage: React.FC = () => {
               <Moon className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-                Motion
-              </h2>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Motion</h2>
               <p className="text-[11px] text-mn-text-secondary">
                 Reduce some of the more cinematic animations.
               </p>
@@ -184,6 +178,7 @@ const SettingsAppPage: React.FC = () => {
               checked={settings.reduceMotion}
               onChange={(e) => updateField("reduceMotion")(e.target.checked)}
               className="h-4 w-4 rounded border-mn-border-subtle bg-mn-bg text-mn-accent"
+              aria-label="Reduce motion"
             />
           </label>
         </div>

@@ -23,13 +23,11 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const handleStartConversation = async (targetUserId: string) => {
     if (!user?.id) {
       // Shouldn't normally happen because search is behind auth, but guard just in case.
-      // eslint-disable-next-line no-alert
       alert("You need to be signed in to start a conversation.");
       return;
     }
 
     if (user.id === targetUserId) {
-      // eslint-disable-next-line no-alert
       alert("You can't start a conversation with yourself.");
       return;
     }
@@ -68,11 +66,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
         }
 
         const sharedConversationIds = Array.from(
-          new Set(
-            (theirParticipantRows ?? []).map(
-              (row: any) => row.conversation_id as string,
-            ),
-          ),
+          new Set((theirParticipantRows ?? []).map((row: any) => row.conversation_id as string)),
         );
 
         if (sharedConversationIds.length > 0) {
@@ -141,12 +135,9 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
 
       navigate(`/messages/${directConversationId}`);
     } catch (err: any) {
-      // eslint-disable-next-line no-console
       console.error("[SearchPeopleTab] Failed to start conversation", err);
-      // eslint-disable-next-line no-alert
       alert(
-        err?.message ??
-          "Something went wrong while starting the conversation. Please try again.",
+        err?.message ?? "Something went wrong while starting the conversation. Please try again.",
       );
     } finally {
       setStartingConversationFor(null);
@@ -231,7 +222,6 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-[14px] font-semibold text-mn-text-primary">
                   {person.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={person.avatarUrl}
                       alt={displayName}
@@ -247,9 +237,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                   <p className="truncate text-[13px] font-medium text-mn-text-primary">
                     {displayName}
                   </p>
-                  {handle && (
-                    <p className="mt-0.5 text-[11px] text-mn-text-muted">{handle}</p>
-                  )}
+                  {handle && <p className="mt-0.5 text-[11px] text-mn-text-muted">{handle}</p>}
                   {person.bio && (
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-mn-text-secondary">
                       {person.bio}
@@ -265,9 +253,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                         </span>
                       )}
                       {typeof person.followersCount === "number" &&
-                        typeof person.followingCount === "number" && (
-                          <span>{" · "}</span>
-                        )}
+                        typeof person.followingCount === "number" && <span>{" · "}</span>}
                       {typeof person.followingCount === "number" && (
                         <span>following {person.followingCount}</span>
                       )}

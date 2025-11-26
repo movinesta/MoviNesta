@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
-interface PasswordFieldProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
+interface PasswordFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   id: string;
   label: string;
   containerClassName?: string;

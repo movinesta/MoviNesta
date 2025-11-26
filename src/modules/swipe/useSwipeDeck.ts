@@ -39,19 +39,16 @@ export function useSwipeDeck(kind: SwipeDeckKind, options?: { limit?: number }) 
     kind === "for-you"
       ? "swipe-for-you"
       : kind === "from-friends"
-      ? "swipe-from-friends"
-      : "swipe-trending";
+        ? "swipe-from-friends"
+        : "swipe-trending";
 
   // LOAD CARDS
   const deckQuery = useQuery({
     queryKey: ["swipe-deck", kind, { limit }],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(
-        fnName,
-        {
-          body: { limit },
-        },
-      );
+      const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
+        body: { limit },
+      });
 
       if (error) {
         console.warn("[useSwipeDeck] error from", fnName, error);

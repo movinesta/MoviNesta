@@ -34,8 +34,7 @@ const SettingsNotificationsPage: React.FC = () => {
   }, []);
 
   const updateField =
-    (field: keyof NotificationPrefs) =>
-    (event: React.ChangeEvent<HTMLInputElement>) => {
+    (field: keyof NotificationPrefs) => (event: React.ChangeEvent<HTMLInputElement>) => {
       setPrefs((prev) => ({ ...prev, [field]: event.target.checked }));
       setStatus("idle");
     };
@@ -56,9 +55,7 @@ const SettingsNotificationsPage: React.FC = () => {
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
           Settings
         </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
-          Notifications
-        </h1>
+        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">Notifications</h1>
         <p className="text-[11px] text-mn-text-secondary">
           Control how MoviNesta keeps in touch with you.
         </p>
@@ -72,9 +69,7 @@ const SettingsNotificationsPage: React.FC = () => {
               <Inbox className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-                Email
-              </h2>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">Email</h2>
               <p className="text-[11px] text-mn-text-secondary">
                 Occasional updates from MoviNesta in your inbox.
               </p>
@@ -94,6 +89,7 @@ const SettingsNotificationsPage: React.FC = () => {
                 checked={prefs.emailActivity}
                 onChange={updateField("emailActivity")}
                 className="mt-1 h-4 w-4 rounded border-mn-border-subtle bg-mn-bg text-mn-accent"
+                aria-label="Email activity notifications"
               />
             </label>
 
@@ -109,6 +105,7 @@ const SettingsNotificationsPage: React.FC = () => {
                 checked={prefs.emailRecommendations}
                 onChange={updateField("emailRecommendations")}
                 className="mt-1 h-4 w-4 rounded border-mn-border-subtle bg-mn-bg text-mn-accent"
+                aria-label="Email recommendations"
               />
             </label>
           </div>
@@ -143,6 +140,7 @@ const SettingsNotificationsPage: React.FC = () => {
                 checked={prefs.inAppSocial}
                 onChange={updateField("inAppSocial")}
                 className="mt-1 h-4 w-4 rounded border-mn-border-subtle bg-mn-bg text-mn-accent"
+                aria-label="In-app social notifications"
               />
             </label>
 
@@ -158,6 +156,7 @@ const SettingsNotificationsPage: React.FC = () => {
                 checked={prefs.inAppSystem}
                 onChange={updateField("inAppSystem")}
                 className="mt-1 h-4 w-4 rounded border-mn-border-subtle bg-mn-bg text-mn-accent"
+                aria-label="In-app system messages"
               />
             </label>
           </div>

@@ -2,11 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Film, ListFilter, Star } from "lucide-react";
 import type { TitleType } from "../search/useSearchTitles";
-import {
-  useDiaryLibrary,
-  useDiaryLibraryMutations,
-  type DiaryStatus,
-} from "./useDiaryLibrary";
+import { useDiaryLibrary, useDiaryLibraryMutations, type DiaryStatus } from "./useDiaryLibrary";
 
 type StatusFilter = DiaryStatus | "all";
 type TypeFilter = TitleType | "all";
@@ -66,7 +62,6 @@ const DiaryLibraryTab: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 6 }).map((_, idx) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div
               key={idx}
               className="overflow-hidden rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 shadow-mn-card"
@@ -184,7 +179,6 @@ const DiaryLibraryTab: React.FC = () => {
               <Link to={titleUrl} className="relative block">
                 <div className="aspect-[2/3] w-full overflow-hidden bg-mn-bg/80">
                   {entry.posterUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
                     <img
                       src={entry.posterUrl}
                       alt={entry.title}
@@ -228,10 +222,10 @@ const DiaryLibraryTab: React.FC = () => {
                     {entry.status === "want_to_watch"
                       ? "Want to Watch"
                       : entry.status === "watching"
-                      ? "Watching"
-                      : entry.status === "watched"
-                      ? "Watched"
-                      : "Dropped"}
+                        ? "Watching"
+                        : entry.status === "watched"
+                          ? "Watched"
+                          : "Dropped"}
                   </button>
 
                   <div className="flex items-center gap-0.5">
@@ -239,7 +233,6 @@ const DiaryLibraryTab: React.FC = () => {
                       const value = idx + 1;
                       const isFilled = (entry.rating ?? 0) >= value;
                       return (
-                        // eslint-disable-next-line react/no-array-index-key
                         <button
                           key={idx}
                           type="button"
@@ -249,9 +242,7 @@ const DiaryLibraryTab: React.FC = () => {
                         >
                           <Star
                             className={`h-3.5 w-3.5 ${
-                              isFilled
-                                ? "fill-yellow-400 text-yellow-300"
-                                : "text-mn-text-muted"
+                              isFilled ? "fill-yellow-400 text-yellow-300" : "text-mn-text-muted"
                             }`}
                           />
                         </button>

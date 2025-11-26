@@ -5,11 +5,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   if (import.meta.env.DEV) {
-    throw new Error(
-      "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Check your .env file.",
-    );
+    throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Check your .env file.");
   } else {
-    // eslint-disable-next-line no-console
     console.warn(
       "Supabase environment variables are missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env (or .env.local) file.",
     );
@@ -26,23 +23,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * This is important for making sure sessions feel stable and users stay logged in
  * while using the app.
  */
-export const supabase = createClient(
-  supabaseUrl ?? "",
-  supabaseAnonKey ?? "",
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-    db: {
-      schema: "public",
-    },
-    realtime: {
-      params: {
-        // tune as needed
-        eventsPerSecond: 10,
-      },
+export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  db: {
+    schema: "public",
+  },
+  realtime: {
+    params: {
+      // tune as needed
+      eventsPerSecond: 10,
     },
   },
-);
-
+});

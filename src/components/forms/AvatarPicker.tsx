@@ -63,11 +63,7 @@ const AvatarPicker: React.FC<AvatarPickerProps> = ({
 
   return (
     <div className={wrapperClass}>
-      {label && (
-        <p className="text-[11px] font-medium text-mn-text-secondary">
-          {label}
-        </p>
-      )}
+      {label && <p className="text-[11px] font-medium text-mn-text-secondary">{label}</p>}
 
       <div className="mt-2 flex items-center gap-3">
         <button
@@ -78,22 +74,14 @@ const AvatarPicker: React.FC<AvatarPickerProps> = ({
           aria-label="Upload avatar"
         >
           {previewUrl ? (
-            <img
-              src={previewUrl}
-              alt="Avatar preview"
-              className="h-full w-full object-cover"
-            />
+            <img src={previewUrl} alt="Avatar preview" className="h-full w-full object-cover" />
           ) : (
-            <span className="select-none text-lg">
-              {fallbackIcon ?? "📽️"}
-            </span>
+            <span className="select-none text-lg">{fallbackIcon ?? "📽️"}</span>
           )}
         </button>
 
         {description && (
-          <div className="text-[11px] text-left text-mn-text-muted">
-            {description}
-          </div>
+          <div className="text-[11px] text-left text-mn-text-muted">{description}</div>
         )}
       </div>
 

@@ -40,10 +40,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
       }
 
       // 1) Look up the profile row by username.
-      const {
-        data: profileRow,
-        error: profileError,
-      } = await supabase
+      const { data: profileRow, error: profileError } = await supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, bio")
         .eq("username", normalizedUsername)
@@ -64,10 +61,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
       const profileId = profileRow.id as string;
 
       // 2) Grab aggregate stats for this user (followers / following).
-      const {
-        data: statsRow,
-        error: statsError,
-      } = await supabase
+      const { data: statsRow, error: statsError } = await supabase
         .from("user_stats")
         .select("followers_count, following_count")
         .eq("user_id", profileId)
@@ -84,10 +78,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
       let isFollowing = false;
 
       if (user && user.id !== profileId) {
-        const {
-          data: followRow,
-          error: followError,
-        } = await supabase
+        const { data: followRow, error: followError } = await supabase
           .from("follows")
           .select("follower_id")
           .eq("follower_id", user.id)
@@ -130,10 +121,7 @@ export const useCurrentProfile = () => {
       if (!user) return null;
 
       // 1) Fetch the profile row by auth user id.
-      const {
-        data: profileRow,
-        error: profileError,
-      } = await supabase
+      const { data: profileRow, error: profileError } = await supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, bio")
         .eq("id", user.id)
@@ -153,10 +141,7 @@ export const useCurrentProfile = () => {
       const profileId = profileRow.id as string;
 
       // 2) Pull stats for the current user.
-      const {
-        data: statsRow,
-        error: statsError,
-      } = await supabase
+      const { data: statsRow, error: statsError } = await supabase
         .from("user_stats")
         .select("followers_count, following_count")
         .eq("user_id", profileId)

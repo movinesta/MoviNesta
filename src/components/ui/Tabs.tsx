@@ -55,10 +55,7 @@ interface TabsListProps {
   children: React.ReactNode;
 }
 
-export const TabsList: React.FC<TabsListProps> = ({
-  className = "",
-  children,
-}) => {
+export const TabsList: React.FC<TabsListProps> = ({ className = "", children }) => {
   const classes =
     "flex max-w-full gap-1.5 overflow-x-auto rounded-full border border-mn-border-subtle/60 bg-mn-bg-elevated/70 p-1.5 backdrop-blur " +
     className;
@@ -70,8 +67,7 @@ export const TabsList: React.FC<TabsListProps> = ({
   );
 };
 
-interface TabsTriggerProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   value: string;
   icon?: React.ReactNode;
 }
@@ -117,20 +113,12 @@ interface TabsContentProps {
   children: React.ReactNode;
 }
 
-export const TabsContent: React.FC<TabsContentProps> = ({
-  value,
-  className = "",
-  children,
-}) => {
+export const TabsContent: React.FC<TabsContentProps> = ({ value, className = "", children }) => {
   const { value: active, idBase } = useTabs();
   if (active !== value) return null;
 
   return (
-    <div
-      role="tabpanel"
-      id={`${idBase}-tabpanel-${value}`}
-      className={className}
-    >
+    <div role="tabpanel" id={`${idBase}-tabpanel-${value}`} className={className}>
       {children}
     </div>
   );

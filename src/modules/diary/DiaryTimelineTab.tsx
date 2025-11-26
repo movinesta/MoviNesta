@@ -1,13 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import {
-  BookmarkPlus,
-  Film,
-  MessageCircle,
-  Sparkles,
-  Star,
-  Users,
-} from "lucide-react";
+import { BookmarkPlus, Film, MessageCircle, Sparkles, Star, Users } from "lucide-react";
 import { useDiaryTimeline, type DiaryTimelineItem } from "./useDiaryTimeline";
 
 const formatDateTime = (iso: string): string => {
@@ -59,7 +52,6 @@ const DiaryTimelineTab: React.FC = () => {
       <div className="px-2 pb-4">
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, idx) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div
               key={idx}
               className="flex gap-3 rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 p-3 shadow-mn-card"
@@ -101,8 +93,8 @@ const DiaryTimelineTab: React.FC = () => {
             Your diary is waiting
           </p>
           <p className="mt-1 text-[11px]">
-            As you rate titles, write reviews, and update your library, they&apos;ll show up here
-            in a cozy, chronological timeline.
+            As you rate titles, write reviews, and update your library, they&apos;ll show up here in
+            a cozy, chronological timeline.
           </p>
         </div>
       </div>
@@ -121,7 +113,6 @@ const DiaryTimelineTab: React.FC = () => {
               <article className="flex gap-3 rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 p-3 shadow-mn-card">
                 <div className="relative h-16 w-11 overflow-hidden rounded bg-mn-bg/70">
                   {item.posterUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
                     <img
                       src={item.posterUrl}
                       alt={item.title ?? ""}
@@ -174,9 +165,7 @@ const DiaryTimelineTab: React.FC = () => {
                     </p>
                   )}
 
-                  {item.extra && (
-                    <p className="text-[10px] text-mn-text-muted">{item.extra}</p>
-                  )}
+                  {item.extra && <p className="text-[10px] text-mn-text-muted">{item.extra}</p>}
                 </div>
               </article>
             </li>

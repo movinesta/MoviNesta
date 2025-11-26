@@ -1,23 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ChevronRight,
-  Clock,
-  Film,
-  ListChecks,
-  Play,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
-type RecommendationSectionKind =
-  | "friends-trending"
-  | "because-you-liked"
-  | "anime"
-  | "continue";
+type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue";
 
 interface RecommendationItem {
   id: string;
@@ -60,7 +48,11 @@ const getFriendlyRecommendationsErrorMessage = (error: Error): string => {
   const raw = error?.message ?? "";
   const lowered = raw.toLowerCase();
 
-  if (lowered.includes("network") || lowered.includes("failed to fetch") || lowered.includes("fetch")) {
+  if (
+    lowered.includes("network") ||
+    lowered.includes("failed to fetch") ||
+    lowered.includes("fetch")
+  ) {
     return "We couldn’t reach the server to load your recommendations. Check your connection and try again.";
   }
 
@@ -70,7 +62,6 @@ const getFriendlyRecommendationsErrorMessage = (error: Error): string => {
 
   return "Something went wrong while loading your recommendations. Please try again.";
 };
-
 
 /**
  * Hook powering the For You tab.
@@ -104,13 +95,14 @@ interface FollowsRow {
 
 const fetchHomeRecommendations = async (
   userId: string,
-): Promise<{ tonightPick: TonightPick | null; sections: RecommendationSection[]; hasPartialData: boolean }> => {
+): Promise<{
+  tonightPick: TonightPick | null;
+  sections: RecommendationSection[];
+  hasPartialData: boolean;
+}> => {
   // Load some basic context in parallel.
   const [followsResult, ratingsResult, libraryResult] = await Promise.all([
-    supabase
-      .from("follows")
-      .select("followed_id")
-      .eq("follower_id", userId),
+    supabase.from("follows").select("followed_id").eq("follower_id", userId),
     supabase
       .from("ratings")
       .select("title_id, rating, created_at")
@@ -129,7 +121,6 @@ const fetchHomeRecommendations = async (
   // surface a subtle warning in the UI while still showing core recommendations.
   let hasPartialData = false;
 
-
   if (ratingsResult.error) {
     throw new Error(ratingsResult.error.message);
   }
@@ -141,7 +132,6 @@ const fetchHomeRecommendations = async (
   const followsError = followsResult.error;
   if (followsError) {
     hasPartialData = true;
-    // eslint-disable-next-line no-console
     console.warn("[HomeForYouTab] Failed to load follows", followsError.message);
   }
 
@@ -150,13 +140,9 @@ const fetchHomeRecommendations = async (
 
   const follows = (followsResult.data ?? []) as FollowsRow[];
   const friendIds =
-    follows.map((row) => row.followed_id).filter((value): value is string => Boolean(value)) ??
-    [];
+    follows.map((row) => row.followed_id).filter((value): value is string => Boolean(value)) ?? [];
 
-  const seedRating =
-    ratings.find((row) => (row.rating ?? 0) >= 4.0) ??
-    ratings[0] ??
-    null;
+  const seedRating = ratings.find((row) => (row.rating ?? 0) >= 4.0) ?? ratings[0] ?? null;
 
   const seedTitleId = seedRating?.title_id ?? null;
 
@@ -175,16 +161,11 @@ const fetchHomeRecommendations = async (
 
     if (friendRatingsError) {
       hasPartialData = true;
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[HomeForYouTab] Failed to load friend ratings",
-        friendRatingsError.message,
-      );
+      console.warn("[HomeForYouTab] Failed to load friend ratings", friendRatingsError.message);
     }
 
     friendRatings = friendRatingsData ?? [];
   }
-
 
   const trendingTitleIds: string[] = [];
   friendRatings.forEach((row) => {
@@ -211,10 +192,7 @@ const fetchHomeRecommendations = async (
 
   const continueTitleIds: string[] = [];
   libraryEntries.forEach((entry) => {
-    if (
-      entry.title_id &&
-      (entry.status === "watching" || entry.status === "want_to_watch")
-    ) {
+    if (entry.title_id && (entry.status === "watching" || entry.status === "want_to_watch")) {
       if (!continueTitleIds.includes(entry.title_id)) {
         continueTitleIds.push(entry.title_id);
       }
@@ -231,7 +209,6 @@ const fetchHomeRecommendations = async (
 
   if (animeResult.error) {
     hasPartialData = true;
-    // eslint-disable-next-line no-console
     console.warn("[HomeForYouTab] Failed to load anime titles", animeResult.error.message);
   }
 
@@ -292,9 +269,7 @@ const fetchHomeRecommendations = async (
         t.type === "anime"
           ? "Animated, emotional, and perfect for a late-night binge."
           : "Feels like the right vibe for tonight based on your recent watches.",
-      friendsWatchingCount: friendRatings.filter(
-        (row) => row.title_id === seedTitleId,
-      ).length,
+      friendsWatchingCount: friendRatings.filter((row) => row.title_id === seedTitleId).length,
       posterUrl: t.poster_url ?? null,
     };
   }
@@ -310,9 +285,7 @@ const fetchHomeRecommendations = async (
     const t = titlesById.get(titleId);
     if (!t) return;
 
-    const friendsWatchingCount = friendRatings.filter(
-      (row) => row.title_id === titleId,
-    ).length;
+    const friendsWatchingCount = friendRatings.filter((row) => row.title_id === titleId).length;
 
     trendingItems.push({
       id: t.id,
@@ -395,9 +368,7 @@ const fetchHomeRecommendations = async (
     const t = titlesById.get(titleId);
     if (!t) return;
 
-    const libraryEntry = libraryEntries.find(
-      (entry) => entry.title_id === titleId,
-    );
+    const libraryEntry = libraryEntries.find((entry) => entry.title_id === titleId);
 
     let matchReason: string | undefined;
     if (libraryEntry?.status === "watching") {
@@ -433,12 +404,10 @@ const fetchHomeRecommendations = async (
 const useRecommendations = (): UseRecommendationsResult => {
   const { user } = useAuth();
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-  } = useQuery<{ tonightPick: TonightPick | null; sections: RecommendationSection[]; hasPartialData: boolean }, Error>({
+  const { data, isLoading, isFetching, error } = useQuery<
+    { tonightPick: TonightPick | null; sections: RecommendationSection[]; hasPartialData: boolean },
+    Error
+  >({
     queryKey: ["home-for-you", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
@@ -452,7 +421,6 @@ const useRecommendations = (): UseRecommendationsResult => {
   const friendlyError = error ? getFriendlyRecommendationsErrorMessage(error) : null;
 
   if (error) {
-    // eslint-disable-next-line no-console
     console.error("[HomeForYouTab] Failed to load recommendations", error);
   }
 
@@ -500,7 +468,8 @@ const HomeForYouTab: React.FC = () => {
 
       {!isLoading && hasPartialData && !error && (
         <p className="rounded-2xl border border-mn-border-soft bg-mn-surface-soft px-3 py-2 text-[11px] text-mn-text-secondary">
-          Some rows might be missing while we catch up on your follows and anime data, but your main recommendations are still here.
+          Some rows might be missing while we catch up on your follows and anime data, but your main
+          recommendations are still here.
         </p>
       )}
 
@@ -519,7 +488,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="inline-flex items-center gap-1 rounded-full bg-mn-primary/15 px-2.5 py-0.5 text-[10px] font-medium text-mn-primary">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Tonight's pick for you</span>
+          <span>Tonight&apos;s pick for you</span>
         </div>
         {pick.runtimeMinutes ? (
           <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-muted">
@@ -531,30 +500,25 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
 
       <div className="flex gap-3">
         {/* Poster stub */}
-          <Link
-    to={`/title/${pick.id}`}
-    className="relative flex h-28 w-20 shrink-0 overflow-hidden rounded-mn-card bg-mn-bg/80 shadow-mn-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-  >
-    {pick.posterUrl ? (
-      // eslint-disable-next-line jsx-a11y/alt-text
-      <img
-        src={pick.posterUrl}
-        alt={pick.name}
-        className="h-full w-full object-cover"
-      />
-    ) : (
-      <div className="h-full w-full bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
-    )}
-    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
-    <div className="pointer-events-none absolute bottom-1 left-1 right-1 space-y-0.5 px-1.5">
-      <span className="inline-flex items-center rounded-full bg-mn-bg/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-mn-primary-soft">
-        {pick.year}
-      </span>
-      <span className="block text-[11px] font-heading font-semibold text-mn-bg line-clamp-3 drop-shadow">
-        {pick.name}
-      </span>
-    </div>
-  </Link>
+        <Link
+          to={`/title/${pick.id}`}
+          className="relative flex h-28 w-20 shrink-0 overflow-hidden rounded-mn-card bg-mn-bg/80 shadow-mn-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+        >
+          {pick.posterUrl ? (
+            <img src={pick.posterUrl} alt={pick.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
+          )}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+          <div className="pointer-events-none absolute bottom-1 left-1 right-1 space-y-0.5 px-1.5">
+            <span className="inline-flex items-center rounded-full bg-mn-bg/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-mn-primary-soft">
+              {pick.year}
+            </span>
+            <span className="block text-[11px] font-heading font-semibold text-mn-bg line-clamp-3 drop-shadow">
+              {pick.name}
+            </span>
+          </div>
+        </Link>
 
         <div className="min-w-0 flex-1 space-y-1">
           <h2 className="text-[13px] font-heading font-semibold text-mn-text-primary">
@@ -563,9 +527,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
           {pick.logline && (
             <p className="text-[11px] text-mn-text-secondary line-clamp-3">{pick.logline}</p>
           )}
-          {pick.moodLine && (
-            <p className="text-[10px] text-mn-text-muted">{pick.moodLine}</p>
-          )}
+          {pick.moodLine && <p className="text-[10px] text-mn-text-muted">{pick.moodLine}</p>}
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
@@ -645,11 +607,7 @@ const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ sec
       <div className="-mx-1 overflow-x-auto pb-1">
         <div className="flex snap-x snap-mandatory gap-2 px-1">
           {section.items.map((item) => (
-            <RecommendationCard
-              key={item.id}
-              item={item}
-              sectionKind={section.kind}
-            />
+            <RecommendationCard key={item.id} item={item} sectionKind={section.kind} />
           ))}
         </div>
       </div>
@@ -678,26 +636,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
       to={`/title/${item.id}`}
       className="group flex w-[160px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/90 text-[11px] text-mn-text-secondary shadow-mn-soft no-underline outline-none ring-offset-2 ring-offset-mn-bg focus-visible:ring-2 focus-visible:ring-mn-primary"
     >
-          <div className="relative h-32 overflow-hidden">
-      {item.posterUrl ? (
-        // eslint-disable-next-line jsx-a11y/alt-text
-        <img
-          src={item.posterUrl}
-          alt={item.name}
-          className="h-full w-full object-cover"
-        />
-      ) : null}
-      <div className="absolute inset-0 bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
-      <div className="relative flex h-full flex-col justify-between p-2.5">
-
+      <div className="relative h-32 overflow-hidden">
+        {item.posterUrl ? (
+          <img src={item.posterUrl} alt={item.name} className="h-full w-full object-cover" />
+        ) : null}
+        <div className="absolute inset-0 bg-gradient-to-br from-mn-accent-violet/45 via-mn-bg/40 to-mn-primary/75" />
+        <div className="relative flex h-full flex-col justify-between p-2.5">
           <div className="space-y-0.5">
             <p className="line-clamp-2 text-[11px] font-heading font-semibold text-mn-text-primary">
               {item.name}
             </p>
             {item.matchReason && (
-              <p className="line-clamp-2 text-[9px] text-mn-text-secondary">
-                {item.matchReason}
-              </p>
+              <p className="line-clamp-2 text-[9px] text-mn-text-secondary">{item.matchReason}</p>
             )}
           </div>
         </div>
@@ -705,9 +655,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
 
       <div className="flex flex-1 flex-col justify-between gap-1 px-2.5 py-2">
         {metaPieces.length > 0 && (
-          <p className="line-clamp-1 text-[9px] text-mn-text-muted">
-            {metaPieces.join(" • ")}
-          </p>
+          <p className="line-clamp-1 text-[9px] text-mn-text-muted">{metaPieces.join(" • ")}</p>
         )}
 
         <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
@@ -725,10 +673,10 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
               {sectionKind === "friends-trending"
                 ? "Friends"
                 : sectionKind === "because-you-liked"
-                ? "Match"
-                : sectionKind === "anime"
-                ? "Anime"
-                : "Continue"}
+                  ? "Match"
+                  : sectionKind === "anime"
+                    ? "Anime"
+                    : "Continue"}
             </span>
           </span>
 
@@ -769,13 +717,11 @@ const CarouselsSkeleton: React.FC = () => {
   return (
     <div className="space-y-3">
       {[0, 1].map((rowIndex) => (
-        // eslint-disable-next-line react/no-array-index-key
         <section key={rowIndex} className="space-y-2">
           <div className="h-4 w-40 rounded-full bg-mn-border-subtle/60" />
           <div className="-mx-1 overflow-x-hidden pb-1">
             <div className="flex gap-2 px-1">
               {[0, 1, 2].map((cardIdx) => (
-                // eslint-disable-next-line react/no-array-index-key
                 <div
                   key={cardIdx}
                   className="h-40 w-[160px] shrink-0 rounded-2xl border border-mn-border-subtle/60 bg-mn-bg-elevated/80"
@@ -800,8 +746,8 @@ const EmptyTonightPickState: React.FC = () => {
           Smart picks arrive as you watch
         </h2>
         <p className="mt-1 text-[11px] text-mn-text-secondary">
-          Once you've logged a few titles and swiped through recommendations, MoviNesta will
-          start surfacing a single "tonight's pick" tuned to your taste.
+          Once you&apos;ve logged a few titles and swiped through recommendations, MoviNesta will
+          start surfacing a single “tonight&apos;s pick” tuned to your taste.
         </p>
         <p className="mt-2 text-[10px] text-mn-text-muted">
           For now, head to <span className="font-medium text-mn-text-primary">Swipe</span> or{" "}

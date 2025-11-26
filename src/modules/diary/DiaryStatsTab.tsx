@@ -19,7 +19,6 @@ const DiaryStatsTab: React.FC = () => {
       <div className="px-2 pb-4">
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, idx) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div
               key={idx}
               className="rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 p-3 shadow-mn-card"
@@ -27,7 +26,6 @@ const DiaryStatsTab: React.FC = () => {
               <div className="mb-2 h-3 w-1/3 rounded bg-mn-bg/70" />
               <div className="flex gap-1.5">
                 {Array.from({ length: 6 }).map((__, jdx) => (
-                  // eslint-disable-next-line react/no-array-index-key
                   <div key={jdx} className="h-10 flex-1 rounded bg-mn-bg/70" />
                 ))}
               </div>
@@ -64,9 +62,7 @@ const DiaryStatsTab: React.FC = () => {
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-mn-primary/15">
             <Sparkles className="h-5 w-5 text-mn-primary" aria-hidden="true" />
           </div>
-          <p className="font-heading text-sm font-semibold text-mn-text-primary">
-            No stats yet
-          </p>
+          <p className="font-heading text-sm font-semibold text-mn-text-primary">No stats yet</p>
           <p className="mt-1 text-[11px]">
             Once you start rating titles and marking them as watched, you&apos;ll see your rating
             distribution, top genres, and watch streaks here.
@@ -95,9 +91,7 @@ const DiaryStatsTab: React.FC = () => {
             <span className="text-[11px] text-mn-text-secondary">Watched</span>
             <Film className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg font-semibold text-mn-text-primary">
-            {stats.totalWatched}
-          </p>
+          <p className="mt-1 text-lg font-semibold text-mn-text-primary">{stats.totalWatched}</p>
           <p className="mt-0.5 text-[10px] text-mn-text-muted">
             Titles marked as <span className="font-medium text-mn-text-primary">Watched</span>.
           </p>
@@ -108,9 +102,7 @@ const DiaryStatsTab: React.FC = () => {
             <span className="text-[11px] text-mn-text-secondary">Rated</span>
             <BarChart3 className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg font-semibold text-mn-text-primary">
-            {stats.totalRated}
-          </p>
+          <p className="mt-1 text-lg font-semibold text-mn-text-primary">{stats.totalRated}</p>
           <p className="mt-0.5 text-[10px] text-mn-text-muted">
             Ratings you&apos;ve logged across movies, series, and anime.
           </p>
@@ -148,10 +140,7 @@ const DiaryStatsTab: React.FC = () => {
               const height =
                 maxRatingBucket > 0 ? Math.max((bucket.count / maxRatingBucket) * 52, 6) : 6;
               return (
-                <div
-                  key={bucket.rating}
-                  className="flex flex-1 flex-col items-center gap-1"
-                >
+                <div key={bucket.rating} className="flex flex-1 flex-col items-center gap-1">
                   <div
                     className="w-full rounded-t bg-mn-primary/25"
                     style={{ height }}
@@ -214,10 +203,7 @@ const DiaryStatsTab: React.FC = () => {
                 const height =
                   maxWatchCount > 0 ? Math.max((point.count / maxWatchCount) * 52, 6) : 6;
                 return (
-                  <div
-                    key={point.month}
-                    className="flex flex-1 flex-col items-center gap-1"
-                  >
+                  <div key={point.month} className="flex flex-1 flex-col items-center gap-1">
                     <div
                       className="w-full rounded-t bg-mn-primary/20"
                       style={{ height }}

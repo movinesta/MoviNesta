@@ -86,7 +86,6 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters) => {
             (ratings as RatingRow[]).map((row) => [row.title_id, row.rating]),
           );
         } else if (ratingsError) {
-          // eslint-disable-next-line no-console
           console.warn(
             "[useDiaryLibrary] Failed to load ratings for library entries",
             ratingsError.message,
@@ -150,19 +149,17 @@ export const useDiaryLibraryMutations = () => {
     mutationFn: async ({ titleId, status }: UpdateStatusArgs) => {
       if (!userId) throw new Error("Not authenticated");
 
-      const { error } = await supabase
-        .from("library_entries")
-        .upsert(
-          {
-            user_id: userId,
-            title_id: titleId,
-            status,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "user_id,title_id",
-          },
-        );
+      const { error } = await supabase.from("library_entries").upsert(
+        {
+          user_id: userId,
+          title_id: titleId,
+          status,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,title_id",
+        },
+      );
 
       if (error) {
         throw new Error(error.message);
@@ -195,19 +192,17 @@ export const useDiaryLibraryMutations = () => {
         return { titleId, rating: null };
       }
 
-      const { error } = await supabase
-        .from("ratings")
-        .upsert(
-          {
-            user_id: userId,
-            title_id: titleId,
-            rating,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "user_id,title_id",
-          },
-        );
+      const { error } = await supabase.from("ratings").upsert(
+        {
+          user_id: userId,
+          title_id: titleId,
+          rating,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,title_id",
+        },
+      );
 
       if (error) throw new Error(error.message);
 

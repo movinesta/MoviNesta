@@ -29,9 +29,7 @@ const ForgotPasswordPage: React.FC = () => {
 
     try {
       const redirectTo =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/auth/reset-password`
-          : undefined;
+        typeof window !== "undefined" ? `${window.location.origin}/auth/reset-password` : undefined;
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo,
@@ -39,17 +37,15 @@ const ForgotPasswordPage: React.FC = () => {
 
       if (error) {
         setError(
-          error.message ||
-            "We couldn't send the reset email. Please try again in a moment."
+          error.message || "We couldn't send the reset email. Please try again in a moment.",
         );
         return;
       }
 
       setInfo(
-        "If an account exists for that email, we just sent a password reset link. Please check your inbox."
+        "If an account exists for that email, we just sent a password reset link. Please check your inbox.",
       );
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err);
       setError("Something went wrong while requesting the reset link.");
     } finally {
@@ -65,8 +61,7 @@ const ForgotPasswordPage: React.FC = () => {
             Forgot your password?
           </h1>
           <p className="mt-2 text-sm text-mn-text-secondary">
-            Enter the email you use for MoviNesta and we&apos;ll send you a reset
-            link.
+            Enter the email you use for MoviNesta and we&apos;ll send you a reset link.
           </p>
         </div>
 
@@ -90,10 +85,7 @@ const ForgotPasswordPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <label
-              htmlFor="forgot-email"
-              className="text-xs font-medium text-mn-text-secondary"
-            >
+            <label htmlFor="forgot-email" className="text-xs font-medium text-mn-text-secondary">
               Email address
             </label>
             <input
@@ -119,10 +111,7 @@ const ForgotPasswordPage: React.FC = () => {
         </form>
 
         <div className="mt-4 text-center text-xs text-mn-text-muted">
-          <Link
-            to="/auth/signin"
-            className="font-medium text-mn-primary hover:underline"
-          >
+          <Link to="/auth/signin" className="font-medium text-mn-primary hover:underline">
             Back to sign in
           </Link>
         </div>

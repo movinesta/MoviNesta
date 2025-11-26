@@ -16,8 +16,7 @@ const SearchPage: React.FC = () => {
 
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [titleFilters, setTitleFilters] = useState<TitleSearchFilters>({
+  const [titleFilters] = useState<TitleSearchFilters>({
     type: "all",
     minYear: undefined,
     maxYear: undefined,
@@ -46,16 +45,16 @@ const SearchPage: React.FC = () => {
               Find the right movie – or the right people.
             </h1>
             <p className="mt-1 text-[11px] text-mn-text-secondary">
-              Start typing a title, director, or a friend&apos;s name. Use tabs to
-              switch between titles and people.
+              Start typing a title, director, or a friend&apos;s name. Use tabs to switch between
+              titles and people.
             </p>
           </div>
 
           <div className="hidden shrink-0 rounded-mn-pill border border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft sm:flex sm:flex-col sm:items-start">
             <p className="font-medium text-mn-text-primary">Pro tip</p>
             <p className="mt-0.5 text-[10px] text-mn-text-muted">
-              Tap <span className="rounded border border-mn-border-subtle px-1">/</span> to
-              jump to search from anywhere.
+              Tap <span className="rounded border border-mn-border-subtle px-1">/</span> to jump to
+              search from anywhere.
             </p>
           </div>
         </div>
@@ -63,10 +62,7 @@ const SearchPage: React.FC = () => {
 
       {/* Search bar + filters */}
       <section className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-3 py-2 shadow-mn-soft">
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-2 sm:flex-row sm:items-center"
-        >
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg px-3 py-2 text-[13px] shadow-mn-soft focus-within:border-mn-primary/70">
             <SearchIcon className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
             <input
