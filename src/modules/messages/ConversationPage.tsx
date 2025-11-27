@@ -615,38 +615,43 @@ const ConversationPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full min-h-[60vh] flex-1 flex-col items-stretch bg-gradient-to-b from-mn-bg-elevated/80 to-mn-bg">
-      <div className="mx-auto flex h-full w-full max-w-2xl flex-1 flex-col items-stretch border-x border-mn-border-subtle/60 bg-mn-bg/95">
+    <div className="relative flex h-full min-h-[60vh] flex-1 flex-col items-stretch bg-gradient-to-b from-mn-bg to-mn-bg/60">
+      <div className="pointer-events-none absolute inset-x-10 top-4 h-32 rounded-full bg-gradient-to-r from-fuchsia-500/15 via-mn-primary/10 to-blue-500/15 blur-3xl" aria-hidden="true" />
+
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/90 shadow-xl shadow-mn-primary/5 backdrop-blur">
         {/* Header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-mn-border-subtle/70 bg-mn-bg/95 px-3 py-2.5 backdrop-blur-md">
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-mn-border-subtle/70 bg-mn-bg/85 px-4 py-3 shadow-sm backdrop-blur-md">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => navigate("/messages")}
-              className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-mn-text-primary hover:bg-mn-bg-elevated/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-primary shadow-mn-soft transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="sr-only">Back to messages</span>
             </button>
 
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated/90 ring-1 ring-mn-border-subtle">
-                {!isGroupConversation && otherParticipant ? (
-                  otherParticipant.avatarUrl ? (
-                    <img
-                      src={otherParticipant.avatarUrl}
-                      alt={otherParticipant.displayName ?? undefined}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated ring-2 ring-mn-border-subtle">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/25 via-mn-primary/20 to-blue-500/25" aria-hidden="true" />
+                <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg ring-1 ring-white/30">
+                  {!isGroupConversation && otherParticipant ? (
+                    otherParticipant.avatarUrl ? (
+                      <img
+                        src={otherParticipant.avatarUrl}
+                        alt={otherParticipant.displayName ?? undefined}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-[13px] font-semibold text-mn-text-primary">
+                        {(otherParticipant.displayName ?? "U").slice(0, 2).toUpperCase()}
+                      </span>
+                    )
                   ) : (
-                    <span className="text-[13px] font-semibold text-mn-text-primary">
-                      {(otherParticipant.displayName ?? "U").slice(0, 2).toUpperCase()}
-                    </span>
-                  )
-                ) : (
-                  <Users className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
-                )}
+                    <Users className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
+                  )}
+                </div>
               </div>
 
               <div className="min-w-0">
@@ -660,7 +665,7 @@ const ConversationPage: React.FC = () => {
                       : (conversation.subtitle ??
                         (isGroupConversation
                           ? `${conversation.participants.length} participants`
-                          : "Active"))
+                          : "Active now"))
                     : isConversationsLoading
                       ? "Loading…"
                       : "Details unavailable"}
@@ -669,11 +674,11 @@ const ConversationPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-mn-text-secondary">
+          <div className="flex items-center gap-2 text-mn-text-secondary">
             {conversation && conversation.participants.length > 1 && (
               <button
                 type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-mn-bg-elevated/80"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/70 shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg"
                 aria-label="Audio call"
               >
                 <Phone className="h-4 w-4" aria-hidden="true" />
@@ -682,7 +687,7 @@ const ConversationPage: React.FC = () => {
             {conversation && conversation.participants.length > 1 && (
               <button
                 type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-mn-bg-elevated/80"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/70 shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg"
                 aria-label="Video call"
               >
                 <Video className="h-4 w-4" aria-hidden="true" />
@@ -691,7 +696,7 @@ const ConversationPage: React.FC = () => {
             {conversation && (
               <button
                 type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-mn-bg-elevated/80"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/70 shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg"
                 aria-label="Conversation info"
               >
                 <Info className="h-4 w-4" aria-hidden="true" />
@@ -708,7 +713,7 @@ const ConversationPage: React.FC = () => {
                     block.mutate();
                   }
                 }}
-                className="ml-1 hidden items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:opacity-60 sm:inline-flex"
+                className="ml-1 hidden items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 px-3 py-1.5 text-[11px] font-semibold text-mn-text-primary ring-1 ring-mn-border-subtle/70 transition hover:-translate-y-0.5 hover:text-mn-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:opacity-60 sm:inline-flex"
               >
                 {(block.isPending || unblock.isPending) && (
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -721,8 +726,9 @@ const ConversationPage: React.FC = () => {
 
         {/* Conversation body */}
         <section className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col bg-mn-bg/95">
-            <div className="flex flex-1 flex-col overflow-y-auto px-3 py-3 text-sm">
+          <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-mn-bg/92 via-mn-bg/88 to-mn-bg/92">
+            <div className="pointer-events-none absolute inset-x-8 top-4 h-20 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl" aria-hidden="true" />
+            <div className="relative flex flex-1 flex-col overflow-y-auto px-4 py-4 text-sm">
               {isLoading && !hasMessages && (
                 <div className="flex h-full items-center justify-center">
                   <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-3 py-1.5 text-[12px] text-mn-text-secondary">
@@ -792,11 +798,11 @@ const ConversationPage: React.FC = () => {
                   index === 0 || showDateDivider ? "mt-0" : startsGroup ? "mt-3" : "mt-1.5";
 
                 const bubbleColors = isSelf
-                  ? "bg-gradient-to-r from-mn-primary to-mn-primary/80 text-mn-bg"
-                  : "border border-mn-border-subtle bg-mn-bg/95 text-mn-text-primary";
+                  ? "bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/20 ring-1 ring-white/20"
+                  : "border border-mn-border-subtle/80 bg-mn-bg/92 text-mn-text-primary shadow-mn-soft";
                 const bubbleShape = isSelf
-                  ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-lg"
-                  : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-lg";
+                  ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
+                  : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl";
 
                 const name = participant?.displayName ?? (isSelf ? "You" : "Someone");
 
@@ -810,13 +816,13 @@ const ConversationPage: React.FC = () => {
                 return (
                   <React.Fragment key={message.id}>
                     {showDateDivider && (
-                      <div className="my-3 flex items-center justify-center">
-                        <div className="inline-flex items-center gap-2 text-[11px] text-mn-text-muted">
-                          <span className="h-px w-10 bg-mn-border-subtle" aria-hidden="true" />
-                          <span className="rounded-full bg-mn-bg/95 px-2.5 py-0.5 shadow-mn-soft/50">
+                      <div className="my-4 flex items-center justify-center">
+                        <div className="inline-flex items-center gap-3 text-[11px] text-mn-text-muted">
+                          <span className="h-px w-12 bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent" aria-hidden="true" />
+                          <span className="rounded-full bg-mn-bg px-3 py-0.5 text-[11px] font-medium text-mn-text-secondary shadow-mn-soft/60 ring-1 ring-mn-border-subtle/70">
                             {formatMessageDateLabel(message.createdAt)}
                           </span>
-                          <span className="h-px w-10 bg-mn-border-subtle" aria-hidden="true" />
+                          <span className="h-px w-12 bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent" aria-hidden="true" />
                         </div>
                       </div>
                     )}
@@ -851,7 +857,7 @@ const ConversationPage: React.FC = () => {
                         )}
 
                         <div
-                          className={`inline-flex max-w-[80%] px-3 py-2 text-[13px] shadow-mn-soft ${bubbleShape} ${bubbleColors}`}
+                          className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors}`}
                         >
                           <div className="flex flex-col">
                             {text && (
@@ -929,18 +935,18 @@ const ConversationPage: React.FC = () => {
             {!isBlocked && !blockedYou && (
               <form
                 onSubmit={handleSubmit}
-                className="sticky bottom-0 z-20 border-t border-mn-border-subtle bg-mn-bg/95 px-3 py-2"
+                className="sticky bottom-0 z-20 border-t border-mn-border-subtle/70 bg-mn-bg/90 px-4 py-3 backdrop-blur"
               >
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-3">
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-mn-text-secondary hover:bg-mn-bg-elevated/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                    className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
                     aria-label="Add emoji"
                   >
                     <Smile className="h-4 w-4" aria-hidden="true" />
                   </button>
 
-                  <div className="flex min-h-[40px] max-h-[120px] flex-1 items-end rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/90 px-3 py-2">
+                  <div className="flex min-h-[44px] max-h-[140px] flex-1 items-end rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70">
                     <textarea
                       id="conversation-message"
                       value={draft}
@@ -955,11 +961,11 @@ const ConversationPage: React.FC = () => {
                       }}
                       placeholder="Message…"
                       rows={1}
-                      className="max-h-[72px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
+                      className="max-h-[92px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
                     />
                     <button
                       type="button"
-                      className="ml-1 inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-mn-text-secondary hover:bg-mn-bg/80"
+                      className="ml-2 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-mn-text-secondary transition hover:bg-mn-bg-elevated"
                       aria-label="Add attachment"
                     >
                       <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
@@ -969,7 +975,7 @@ const ConversationPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={!draft.trim() || sendMessage.isPending}
-                    className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-mn-primary text-mn-bg shadow-mn-soft transition disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Send message"
                   >
                     {sendMessage.isPending ? (
