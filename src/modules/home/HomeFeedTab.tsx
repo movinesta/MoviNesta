@@ -796,17 +796,32 @@ interface AvatarProps {
 
 const Avatar: React.FC<AvatarProps> = ({ user }) => {
   const bgClass = avatarColorClassName[user.avatarColor];
+  const profileHref = user.username ? `/u/${user.username}` : null;
 
-  return (
+  const avatarCircle = (
     <div
       className={[
         "inline-flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold",
         bgClass,
       ].join(" ")}
-      aria-hidden="true"
+      aria-hidden={Boolean(profileHref)}
     >
       {user.avatarInitials}
     </div>
+  );
+
+  if (!profileHref) {
+    return avatarCircle;
+  }
+
+  return (
+    <Link
+      to={profileHref}
+      className="inline-flex items-center rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+      aria-label={`View @${user.username}'s profile`}
+    >
+      {avatarCircle}
+    </Link>
   );
 };
 
@@ -829,6 +844,18 @@ interface EventSummaryRowProps {
 const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   const { user } = event;
 
+  const profileHref = user.username ? `/u/${user.username}` : null;
+  const UserLink = profileHref ? (
+    <Link
+      to={profileHref}
+      className="inline-flex items-center gap-1 rounded-full px-1 py-0.5 font-medium text-mn-text-primary transition hover:text-mn-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+    >
+      <span>{user.displayName}</span>
+    </Link>
+  ) : (
+    <span className="font-medium text-mn-text-primary">{user.displayName}</span>
+  );
+
   let prefix: React.ReactNode = null;
   let highlight: React.ReactNode = null;
   let meta: React.ReactNode = null;
@@ -836,7 +863,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   if (event.type === "review") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span> logged a review
+        {UserLink} logged a review
       </>
     );
     highlight = (
@@ -853,7 +880,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   } else if (event.type === "rating") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span> rated it
+        {UserLink} rated it
       </>
     );
     highlight = (
@@ -865,8 +892,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   } else if (event.type === "watchlist") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span> added this to
-        their Watchlist
+        {UserLink} added this to their Watchlist
       </>
     );
     highlight = <BookmarkPlus className="h-3.5 w-3.5 text-mn-primary" aria-hidden="true" />;
@@ -883,8 +909,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   } else if (event.type === "follow") {
     prefix = (
       <>
-        <span className="font-medium text-mn-text-primary">{user.displayName}</span>{" "}
-        {event.extra ?? "started following you"}
+        {UserLink} {event.extra ?? "started following you"}
       </>
     );
   }

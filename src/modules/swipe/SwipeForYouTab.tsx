@@ -412,7 +412,7 @@ const SwipeForYouTab: React.FC = () => {
                           !Number.isNaN(currentCard.imdbRating) &&
                           currentCard.imdbRating > 0 && (
                             <span className="mr-2">
-                              <span className="font-semibold">IMDb</span>{" "}
+                              <span className="font-semibold">IMDb Rating</span>{" "}
                               {currentCard.imdbRating.toFixed(1)}
                             </span>
                           )}
@@ -420,7 +420,7 @@ const SwipeForYouTab: React.FC = () => {
                           !Number.isNaN(currentCard.rtTomatoMeter) &&
                           currentCard.rtTomatoMeter > 0 && (
                             <span>
-                              <span className="font-semibold">RT</span> {currentCard.rtTomatoMeter}%
+                              <span className="font-semibold">Tomatometer</span> {currentCard.rtTomatoMeter}%
                             </span>
                           )}
                       </p>

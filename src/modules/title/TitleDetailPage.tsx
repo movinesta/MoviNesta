@@ -59,27 +59,34 @@ const ExternalRatingsChips: React.FC<ExternalRatingsProps> = ({ external_ratings
 
   const { imdb_rating, rt_tomato_meter, metacritic_score } = external_ratings;
 
-  if (imdb_rating === null && rt_tomato_meter === null && metacritic_score === null) {
+  const hasImdbRating =
+    typeof imdb_rating === "number" && !Number.isNaN(imdb_rating) && imdb_rating > 0;
+  const hasTomatometer =
+    typeof rt_tomato_meter === "number" && !Number.isNaN(rt_tomato_meter) && rt_tomato_meter > 0;
+  const hasMetacriticScore =
+    typeof metacritic_score === "number" && !Number.isNaN(metacritic_score) && metacritic_score > 0;
+
+  if (!hasImdbRating && !hasTomatometer && !hasMetacriticScore) {
     return null;
   }
 
   return (
     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-mn-text-muted">
-      {typeof imdb_rating === "number" && !Number.isNaN(imdb_rating) && (
+      {hasImdbRating && (
         <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
-          <span className="mr-1 font-semibold">IMDb</span>
+          <span className="mr-1 font-semibold">IMDb Rating</span>
           {imdb_rating.toFixed(1)}
         </span>
       )}
 
-      {typeof rt_tomato_meter === "number" && !Number.isNaN(rt_tomato_meter) && (
+      {hasTomatometer && (
         <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
-          <span className="mr-1 font-semibold">RT</span>
+          <span className="mr-1 font-semibold">Tomatometer</span>
           {rt_tomato_meter}%
         </span>
       )}
 
-      {typeof metacritic_score === "number" && !Number.isNaN(metacritic_score) && (
+      {hasMetacriticScore && (
         <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
           <span className="mr-1 font-semibold">MC</span>
           {metacritic_score}

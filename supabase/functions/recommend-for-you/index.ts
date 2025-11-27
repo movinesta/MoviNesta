@@ -3,9 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
+const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -28,6 +31,8 @@ type RecommendationCard = {
   type: string | null;
   posterUrl: string | null;
   reason: string;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
   scores: {
     contentSimilarity: number;
     collaborative: number;
@@ -40,6 +45,125 @@ type RecommendationCard = {
 function normalizeRating(rating: number | null | undefined): number {
   if (!rating || rating <= 0) return 0;
   return Math.max(0, Math.min(1, rating / 5));
+}
+
+async function fetchTmdbJson(path: string): Promise<any> {
+  if (!TMDB_READ_TOKEN) return null;
+
+  const res = await fetch(`https://api.themoviedb.org/3${path}`, {
+    headers: { Authorization: `Bearer ${TMDB_READ_TOKEN}` },
+  });
+
+  if (!res.ok) {
+    console.warn("[recommend-for-you] TMDb error:", res.status, path);
+    return null;
+  }
+
+  return res.json();
+}
+
+async function fetchTmdbExternalIds(tmdbId: number, mediaType: "movie" | "tv") {
+  const detailsPath = mediaType === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+  return fetchTmdbJson(detailsPath);
+}
+
+async function fetchOmdbRatings(
+  imdbId: string,
+): Promise<{ imdbRating: number | null; rtTomatoMeter: number | null } | null> {
+  if (!OMDB_API_KEY) return null;
+
+  const url = new URL("https://www.omdbapi.com/");
+  url.searchParams.set("apikey", OMDB_API_KEY);
+  url.searchParams.set("i", imdbId);
+  url.searchParams.set("plot", "short");
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    console.warn("[recommend-for-you] OMDb error", res.status, await res.text());
+    return null;
+  }
+
+  const json = await res.json();
+  if (json.Response === "False") {
+    console.warn("[recommend-for-you] OMDb returned failure:", json.Error);
+    return null;
+  }
+
+  const imdbRating =
+    json.imdbRating && json.imdbRating !== "N/A" ? Number(json.imdbRating) : null;
+
+  let rtTomatoMeter: number | null = null;
+  for (const rating of json.Ratings ?? []) {
+    if (rating.Source === "Rotten Tomatoes") {
+      const pct = rating.Value?.endsWith("%")
+        ? Number(rating.Value.replace("%", ""))
+        : null;
+      rtTomatoMeter = pct;
+    }
+  }
+
+  return { imdbRating, rtTomatoMeter };
+}
+
+async function hydrateExternalRatings(
+  supabase: ReturnType<typeof createClient>,
+  titles: any[],
+) {
+  if (!OMDB_API_KEY || !TMDB_READ_TOKEN) return titles;
+
+  for (const title of titles) {
+    const existing = title.external_ratings ?? {};
+    const hasImdb = typeof existing.imdb_rating === "number" && existing.imdb_rating > 0;
+    const hasRt =
+      typeof existing.rt_tomato_meter === "number" && existing.rt_tomato_meter > 0;
+
+    if (hasImdb && hasRt) continue;
+
+    let imdbId: string | null = title.imdb_id ?? null;
+    if (!imdbId && title.tmdb_id) {
+      const tmdb = await fetchTmdbExternalIds(
+        title.tmdb_id as number,
+        (title.type as string) === "series" ? "tv" : "movie",
+      );
+      imdbId = tmdb?.imdb_id ?? null;
+
+      if (imdbId) {
+        await supabase.from("titles").update({ imdb_id: imdbId }).eq("id", title.id);
+      }
+    }
+
+    if (!imdbId) continue;
+
+    const omdb = await fetchOmdbRatings(imdbId);
+    if (!omdb) continue;
+
+    const payload = {
+      title_id: title.id as string,
+      imdb_rating: omdb.imdbRating,
+      rt_tomato_meter: omdb.rtTomatoMeter,
+      last_synced_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("external_ratings")
+      .upsert(payload, { onConflict: "title_id" });
+
+    if (error) {
+      console.warn(
+        "[recommend-for-you] failed to upsert external_ratings",
+        error.message,
+      );
+      continue;
+    }
+
+    title.external_ratings = {
+      ...(title.external_ratings ?? {}),
+      imdb_rating: omdb.imdbRating,
+      rt_tomato_meter: omdb.rtTomatoMeter,
+    };
+  }
+
+  return titles;
 }
 
 Deno.serve(async (req) => {
@@ -227,6 +351,8 @@ Deno.serve(async (req) => {
       type,
       runtime_minutes,
       poster_url,
+      tmdb_id,
+      imdb_id,
       tmdb_popularity,
       title_stats (
         avg_rating,
@@ -244,8 +370,13 @@ Deno.serve(async (req) => {
     console.error("[recommend-for-you] titles error:", titleError.message);
   }
 
+  const hydratedTitles = await hydrateExternalRatings(
+    supabase,
+    titleRows ?? [],
+  );
+
   const metaById = new Map<string, any>();
-  for (const t of titleRows ?? []) {
+  for (const t of hydratedTitles ?? []) {
     metaById.set(t.id, t);
   }
 
@@ -301,7 +432,7 @@ Deno.serve(async (req) => {
     similarity: number;
     appRating: number;
     imdbRating: number;
-    rtMeter: number;
+    rtTomatoMeter: number;
     friendLikesCount: number;
     popularity: number;
   })[] = [];
@@ -325,7 +456,7 @@ Deno.serve(async (req) => {
 
     const appRating = Number(ts.avg_rating ?? 0) || 0;
     const imdbRating = Number(er.imdb_rating ?? 0) || 0;
-    const rtMeter = Number(er.rt_tomato_meter ?? 0) || 0;
+    const rtTomatoMeter = Number(er.rt_tomato_meter ?? 0) || 0;
     const popularity = Number(meta.tmdb_popularity ?? 0) || 0;
     const friendLikes = friendLikesByTitle.get(meta.id) ?? 0;
 
@@ -340,7 +471,7 @@ Deno.serve(async (req) => {
       similarity,
       appRating,
       imdbRating,
-      rtMeter,
+      rtTomatoMeter,
       friendLikesCount: friendLikes,
       popularity,
       scores: {
@@ -370,7 +501,7 @@ Deno.serve(async (req) => {
     const imdbScore =
       c.imdbRating > 0 ? Math.min(1, c.imdbRating / 10) : 0;
     const rtScore =
-      c.rtMeter > 0 ? Math.min(1, c.rtMeter / 100) : 0;
+      c.rtTomatoMeter > 0 ? Math.min(1, c.rtTomatoMeter / 100) : 0;
 
     const popNorm =
       c.popularity > 0 ? Math.min(1, c.popularity / maxPopularity) : 0;
