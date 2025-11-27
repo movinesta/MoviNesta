@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, KeyRound, LogOut, AlertCircle } from "lucide-react";
+import { PageHeader } from "../../components/PageChrome";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../../lib/supabase";
 
@@ -64,16 +65,10 @@ const SettingsAccountPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      {/* Header */}
-      <header className="space-y-1 px-4 pt-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
-          Settings
-        </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">Account</h1>
-        <p className="text-[11px] text-mn-text-secondary">
-          Manage the account you use to sign in to MoviNesta.
-        </p>
-      </header>
+      <PageHeader
+        title="Account"
+        description="Manage the account you use to sign in to MoviNesta."
+      />
 
       <section className="space-y-4 px-4 pb-24">
         {/* Email + account info */}

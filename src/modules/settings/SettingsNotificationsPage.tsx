@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { PageHeader } from "../../components/PageChrome";
 
 const STORAGE_KEY = "moviNesta.notifications";
 
@@ -50,16 +51,10 @@ const SettingsNotificationsPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      {/* Header */}
-      <header className="space-y-1 px-4 pt-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
-          Settings
-        </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">Notifications</h1>
-        <p className="text-[11px] text-mn-text-secondary">
-          Control how MoviNesta keeps in touch with you.
-        </p>
-      </header>
+      <PageHeader
+        title="Notifications"
+        description="Control how MoviNesta keeps in touch with you."
+      />
 
       <section className="space-y-4 px-4 pb-24">
         {/* Email */}
