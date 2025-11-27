@@ -51,9 +51,9 @@ const SwipePage: React.FC = () => {
       <TopBar title="Swipe" subtitle="Shape your recommendations" />
 
       <HeroCard
-        title="Swipe deck"
-        subtitle="Swipe to shape your recommendations."
-        badge="Curated"
+        title="Curated swipe deck"
+        subtitle="Refine your taste with a calm, focused deck built for you."
+        badge="Minimal"
         size="small"
       />
 
