@@ -11,7 +11,11 @@ interface SegmentedControlProps<T extends string> {
   onChange: (key: T) => void;
 }
 
-const SegmentedControl = <T extends string>({ segments, active, onChange }: SegmentedControlProps<T>) => {
+const SegmentedControl = <T extends string>({
+  segments,
+  active,
+  onChange,
+}: SegmentedControlProps<T>) => {
   return (
     <div
       className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/70 p-1 text-[12px] shadow-mn-soft"

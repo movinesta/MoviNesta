@@ -50,7 +50,6 @@ function useTrailerForTitle(title?: string | null, year?: number | null) {
   });
 }
 
-
 type ExternalRatingsProps = {
   external_ratings: ExternalRatingsRow | null;
 };
@@ -60,11 +59,7 @@ const ExternalRatingsChips: React.FC<ExternalRatingsProps> = ({ external_ratings
 
   const { imdb_rating, rt_tomato_meter, metacritic_score } = external_ratings;
 
-  if (
-    imdb_rating === null &&
-    rt_tomato_meter === null &&
-    metacritic_score === null
-  ) {
+  if (imdb_rating === null && rt_tomato_meter === null && metacritic_score === null) {
     return null;
   }
 
@@ -94,7 +89,6 @@ const ExternalRatingsChips: React.FC<ExternalRatingsProps> = ({ external_ratings
   );
 };
 
-
 const TitleDetailPage: React.FC = () => {
   const { titleId } = useParams<{ titleId: string }>();
 
@@ -106,7 +100,8 @@ const TitleDetailPage: React.FC = () => {
 
       const { data, error } = await supabase
         .from("titles")
-        .select(`
+        .select(
+          `
           id,
           title,
           year,
@@ -118,7 +113,8 @@ const TitleDetailPage: React.FC = () => {
             rt_tomato_meter,
             metacritic_score
           )
-        `)
+        `,
+        )
         .eq("id", titleId)
         .maybeSingle();
 
@@ -297,7 +293,6 @@ const TitleDetailPage: React.FC = () => {
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </PageSection>

@@ -41,8 +41,7 @@ export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
 
 // 👇 ADD THIS (no DEV guard)
 if (typeof window !== "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).supabase = supabase;
+  (window as typeof window & { supabase?: typeof supabase }).supabase = supabase;
   // Optional: tiny debug log so you can see it fired
   // console.log("window.supabase attached", window.supabase);
 }

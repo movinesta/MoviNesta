@@ -420,8 +420,7 @@ const SwipeForYouTab: React.FC = () => {
                           !Number.isNaN(currentCard.rtTomatoMeter) &&
                           currentCard.rtTomatoMeter > 0 && (
                             <span>
-                              <span className="font-semibold">RT</span>{" "}
-                              {currentCard.rtTomatoMeter}%
+                              <span className="font-semibold">RT</span> {currentCard.rtTomatoMeter}%
                             </span>
                           )}
                       </p>

@@ -181,7 +181,11 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
           if (item.originalLanguage) {
             metaPieces.push(item.originalLanguage.toUpperCase());
           }
-          if (typeof item.imdbRating === "number" && !Number.isNaN(item.imdbRating) && item.imdbRating > 0) {
+          if (
+            typeof item.imdbRating === "number" &&
+            !Number.isNaN(item.imdbRating) &&
+            item.imdbRating > 0
+          ) {
             metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
           }
           if (

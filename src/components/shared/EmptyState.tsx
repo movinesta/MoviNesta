@@ -9,7 +9,13 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, subtitle, actionLabel, onAction }) => {
+const EmptyState: React.FC<EmptyStateProps> = ({
+  icon,
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}) => {
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-2xl border border-mn-border-subtle/80 bg-mn-bg/90 p-6 text-center shadow-mn-card">
       {icon ? (

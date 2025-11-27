@@ -27,13 +27,14 @@ const RealtimeChatPage: React.FC = () => {
   const emailName = email ? email.split("@")[0] : null;
 
   const usernameForChat =
-    (profile && (profile.displayName || profile.username)) ||
-    emailName ||
-    "Anonymous";
+    (profile && (profile.displayName || profile.username)) || emailName || "Anonymous";
 
   return (
     <div className="relative flex flex-1 flex-col gap-4 overflow-hidden bg-gradient-to-b from-mn-bg to-mn-bg/60 px-3 pb-6 pt-3 sm:px-6 lg:px-10">
-      <div className="absolute inset-x-8 top-0 h-32 rounded-3xl bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl" aria-hidden="true" />
+      <div
+        className="absolute inset-x-8 top-0 h-32 rounded-3xl bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl"
+        aria-hidden="true"
+      />
 
       <PageHeader
         title="Live Lounge"
@@ -52,7 +53,10 @@ const RealtimeChatPage: React.FC = () => {
               Open room
             </span>
           </div>
-          <div className="h-px bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent" aria-hidden="true" />
+          <div
+            className="h-px bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent"
+            aria-hidden="true"
+          />
           <div className="flex flex-1 flex-col p-3 sm:p-4">
             <RealtimeChat roomName="global-lounge" username={usernameForChat} />
           </div>
