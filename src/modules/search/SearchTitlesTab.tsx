@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Film, Star, SlidersHorizontal } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 import { useSearchTitles, type TitleSearchFilters } from "./useSearchTitles";
 
 interface SearchTitlesTabProps {
@@ -15,6 +16,40 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
     query: trimmedQuery,
     filters,
   });
+
+  // Lazily trigger metadata sync (TMDb + OMDb) for titles that are missing external ratings.
+  // We only fire a few per search to avoid spamming the edge function.
+  const syncedIdsRef = React.useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (!data || !Array.isArray(data)) return;
+    const already = syncedIdsRef.current;
+
+    const toSync = data
+      .filter((item) => {
+        if (already.has(item.id)) return false;
+        // Only sync when we have an ID to work with and no external ratings yet.
+        if (!item.imdbId && !item.tmdbId) return false;
+        if (item.imdbRating || item.rtTomatoMeter) return false;
+        return true;
+      })
+      .slice(0, 3); // cap per render
+
+    toSync.forEach((item) => {
+      already.add(item.id);
+      supabase.functions
+        .invoke("sync-title-metadata", {
+          body: {
+            imdbId: item.imdbId ?? undefined,
+            tmdbId: item.tmdbId ?? undefined,
+            type: item.type ?? "movie",
+          },
+        })
+        .catch((err) => {
+          console.warn("[SearchTitlesTab] sync-title-metadata failed for", item.id, err);
+        });
+    });
+  }, [data]);
 
   if (!trimmedQuery) {
     return (
@@ -145,6 +180,16 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
           }
           if (item.originalLanguage) {
             metaPieces.push(item.originalLanguage.toUpperCase());
+          }
+          if (typeof item.imdbRating === "number" && !Number.isNaN(item.imdbRating) && item.imdbRating > 0) {
+            metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
+          }
+          if (
+            typeof item.rtTomatoMeter === "number" &&
+            !Number.isNaN(item.rtTomatoMeter) &&
+            item.rtTomatoMeter > 0
+          ) {
+            metaPieces.push(`RT ${item.rtTomatoMeter}%`);
           }
 
           return (

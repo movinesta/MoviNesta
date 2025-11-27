@@ -20,6 +20,10 @@ export interface TitleSearchResult {
   posterUrl: string | null;
   originalLanguage: string | null;
   ageRating: string | null;
+  imdbRating: number | null;
+  rtTomatoMeter: number | null;
+  imdbId: string | null;
+  tmdbId: number | null;
 }
 
 /**
@@ -37,7 +41,21 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
     queryKey: ["search", "titles", { query: trimmedQuery, filters }],
     enabled: trimmedQuery.length > 0,
     queryFn: async () => {
-      const columns = "id, title, year, type, poster_url, original_language, age_rating";
+      const columns = `
+        id,
+        title,
+        year,
+        type,
+        poster_url,
+        original_language,
+        age_rating,
+        imdb_id,
+        tmdb_id,
+        external_ratings (
+          imdb_rating,
+          rt_tomato_meter
+        )
+      `;
       const selectColumns = filters?.genreIds?.length
         ? `${columns}, title_genres!inner(genre_id, genres(id, name))`
         : columns;
@@ -103,15 +121,23 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
       }
 
       return rows.map(
-        (row: any): TitleSearchResult => ({
-          id: row.id as string,
-          title: (row.title as string | null) ?? "Untitled",
-          year: (row.year as number | null) ?? null,
-          type: (row.type as TitleType | null) ?? null,
-          posterUrl: (row.poster_url as string | null) ?? null,
-          originalLanguage: (row.original_language as string | null) ?? null,
-          ageRating: (row.age_rating as string | null) ?? null,
-        }),
+        (row: any): TitleSearchResult => {
+          const external = row.external_ratings ?? null;
+
+          return {
+            id: row.id as string,
+            title: (row.title as string | null) ?? "Untitled",
+            year: (row.year as number | null) ?? null,
+            type: (row.type as TitleType | null) ?? null,
+            posterUrl: (row.poster_url as string | null) ?? null,
+            originalLanguage: (row.original_language as string | null) ?? null,
+            ageRating: (row.age_rating as string | null) ?? null,
+            imdbRating: external?.imdb_rating ?? null,
+            rtTomatoMeter: external?.rt_tomato_meter ?? null,
+            imdbId: (row.imdb_id as string | null) ?? null,
+            tmdbId: (row.tmdb_id as number | null) ?? null,
+          };
+        },
       );
     },
   });
