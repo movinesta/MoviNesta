@@ -1,6 +1,8 @@
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Clapperboard, PlayCircle } from "lucide-react";
+import { PageHeader, PageSection } from "../../components/PageChrome";
 import { supabase } from "../../lib/supabase";
 
 interface TitleRow {
@@ -68,31 +70,44 @@ const TitleDetailPage: React.FC = () => {
 
   if (!titleId) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <p className="max-w-md text-center text-sm text-mn-text-secondary">
-          No title specified. Try opening this page from search, your diary, or the home feed.
-        </p>
+      <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
+        <PageHeader
+          title="Title details"
+          description="Pick something from search, your diary, or the feed to see its details."
+          icon={Clapperboard}
+        />
+
+        <PageSection>
+          <p className="text-sm text-mn-text-secondary">
+            No title was specified for this page. Try opening it from search, your diary, or the{" "}
+            home feed.
+          </p>
+        </PageSection>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <p className="text-sm text-mn-text-secondary">Loading title…</p>
+      <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
+        <PageHeader title="Loading title" icon={Clapperboard} />
+        <PageSection>
+          <p className="text-sm text-mn-text-secondary">Fetching title details…</p>
+        </PageSection>
       </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="max-w-md text-center text-sm text-mn-text-secondary">
-          <p>We couldn&apos;t find that title.</p>
-          <Link to="/search" className="mt-2 inline-block text-mn-primary underline">
+      <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
+        <PageHeader title="Title not found" icon={Clapperboard} />
+        <PageSection>
+          <p className="text-sm text-mn-text-secondary">We couldn&apos;t find that title.</p>
+          <Link to="/search" className="mt-3 inline-block text-sm text-mn-primary underline">
             Back to search
           </Link>
-        </div>
+        </PageSection>
       </div>
     );
   }
@@ -102,9 +117,9 @@ const TitleDetailPage: React.FC = () => {
   if (data.type) metaPieces.push(data.type);
 
   return (
-    <div className="mx-auto flex min-h-[60vh] max-w-4xl flex-col gap-4 px-4 py-6">
+    <div className="mx-auto flex min-h-[60vh] max-w-5xl flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
       {data.backdrop_url && (
-        <div className="relative mb-2 overflow-hidden rounded-3xl border border-mn-border-subtle bg-mn-surface-elevated">
+        <div className="relative overflow-hidden rounded-3xl border border-mn-border-subtle bg-mn-bg-elevated/80 shadow-mn-soft">
           <img
             src={data.backdrop_url}
             alt={data.title ?? "Backdrop"}
@@ -114,53 +129,62 @@ const TitleDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="flex flex-col gap-4 md:flex-row">
-        <div className="w-28 flex-shrink-0 sm:w-32 md:w-40">
-          {data.poster_url ? (
-            <img
-              src={data.poster_url}
-              alt={data.title ?? "Poster"}
-              className="aspect-[2/3] w-full rounded-mn-card object-cover shadow-mn-card"
-            />
-          ) : (
-            <div className="flex aspect-[2/3] items-center justify-center rounded-mn-card border border-dashed border-mn-border-subtle bg-mn-surface-elevated text-xs text-mn-text-muted">
-              No poster available
-            </div>
-          )}
-        </div>
+      <PageHeader
+        title={data.title ?? "Untitled"}
+        description={metaPieces.length > 0 ? metaPieces.join(" · ") : "Title details"}
+        icon={Clapperboard}
+        badge={data.type ?? undefined}
+      />
 
-        <div className="flex flex-1 flex-col gap-3">
-          <div>
-            <h1 className="text-xl font-heading font-semibold text-mn-text-primary sm:text-2xl">
-              {data.title ?? "Untitled"}
-            </h1>
-            {metaPieces.length > 0 && (
-              <p className="mt-1 text-sm text-mn-text-secondary">{metaPieces.join(" · ")}</p>
+      <PageSection>
+        <div className="flex flex-col gap-4 md:flex-row">
+          <div className="w-28 flex-shrink-0 sm:w-32 md:w-40">
+            {data.poster_url ? (
+              <img
+                src={data.poster_url}
+                alt={data.title ?? "Poster"}
+                className="aspect-[2/3] w-full rounded-mn-card object-cover shadow-mn-card"
+              />
+            ) : (
+              <div className="flex aspect-[2/3] items-center justify-center rounded-mn-card border border-dashed border-mn-border-subtle bg-mn-bg/70 text-xs text-mn-text-muted">
+                No poster available
+              </div>
             )}
           </div>
 
-          {trailerQuery.isLoading && (
-            <p className="text-xs text-mn-text-secondary">Loading trailer…</p>
-          )}
+          <div className="flex flex-1 flex-col gap-3">
+            {trailerQuery.isLoading && (
+              <p className="text-xs text-mn-text-secondary">Loading trailer…</p>
+            )}
 
-          {trailer && trailer.videoId && (
-            <div className="mt-3 aspect-video w-full max-w-2xl">
-              <iframe
-                className="h-full w-full rounded-2xl"
-                src={`https://www.youtube.com/embed/${trailer.videoId}`}
-                title={`${data.title ?? "Trailer"}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+            {trailer && trailer.videoId && (
+              <div className="mt-1 space-y-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-mn-primary/10 px-2.5 py-1 text-[11px] font-medium text-mn-primary">
+                  <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Official trailer</span>
+                </div>
+                <div className="aspect-video w-full max-w-2xl">
+                  <iframe
+                    className="h-full w-full rounded-2xl"
+                    src={`https://www.youtube.com/embed/${trailer.videoId}`}
+                    title={`${data.title ?? "Trailer"}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-dashed border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-3 text-[12px] text-mn-text-secondary">
+              <p className="font-semibold text-mn-text-primary">More coming soon</p>
+              <p className="mt-1 text-[11.5px] text-mn-text-muted">
+                This early version will grow to show where to watch, your diary entry, ratings, and
+                friends&apos; reactions.
+              </p>
             </div>
-          )}
-
-          <p className="text-xs text-mn-text-muted">
-            This is the early version of the title page. Over time it will show your rating, diary
-            entry, where to watch, and what your friends think about it.
-          </p>
+          </div>
         </div>
-      </div>
+      </PageSection>
     </div>
   );
 };

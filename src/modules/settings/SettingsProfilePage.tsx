@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
+import { PageHeader, PageSection } from "../../components/PageChrome";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
@@ -113,128 +114,123 @@ const SettingsProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      {/* Header */}
-      <header className="space-y-1 px-4 pt-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
-          Settings
-        </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">Profile</h1>
-        <p className="text-[11px] text-mn-text-secondary">
-          Update how your profile looks across MoviNesta.
-        </p>
-      </header>
+      <PageHeader
+        kicker="Settings"
+        icon={UserIcon}
+        title="Profile"
+        description="Update how your profile looks across MoviNesta."
+      />
 
       {/* Content */}
-      <section className="px-4 pb-24">
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 p-4 shadow-mn-card"
-        >
-          <div className="mb-2 flex items-start gap-3">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-mn-border-subtle/50">
-              <UserIcon className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
-            </span>
-            <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-                Public profile
-              </h2>
-              <p className="text-[11px] text-mn-text-secondary">
-                Your profile is shown on your diary, reviews, and social features.
-              </p>
+      <section className="px-1 pb-24">
+        <PageSection>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="mb-2 flex items-start gap-3">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-mn-border-subtle/50">
+                <UserIcon className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
+              </span>
+              <div className="space-y-0.5">
+                <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                  Public profile
+                </h2>
+                <p className="text-[11px] text-mn-text-secondary">
+                  Your profile is shown on your diary, reviews, and social features.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="displayName"
-                className="block text-[11px] font-medium uppercase tracking-[0.16em] text-mn-text-muted"
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="displayName"
+                  className="block text-[11px] font-medium uppercase tracking-[0.16em] text-mn-text-muted"
+                >
+                  Display name
+                </label>
+                <input
+                  id="displayName"
+                  type="text"
+                  value={form.displayName}
+                  onChange={handleChange("displayName")}
+                  maxLength={80}
+                  className="w-full rounded-md border border-mn-border-subtle bg-mn-bg px-3 py-2 text-sm text-mn-text-primary shadow-sm outline-none ring-0 placeholder:text-mn-text-muted focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/40"
+                  placeholder="How should we show your name?"
+                />
+                <p className="text-[10px] text-mn-text-muted">
+                  This is the name other people see on your profile and activity.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="bio"
+                  className="block text-[11px] font-medium uppercase tracking-[0.16em] text-mn-text-muted"
+                >
+                  Bio
+                </label>
+                <textarea
+                  id="bio"
+                  value={form.bio}
+                  onChange={handleChange("bio")}
+                  rows={4}
+                  maxLength={280}
+                  className="w-full resize-none rounded-md border border-mn-border-subtle bg-mn-bg px-3 py-2 text-sm text-mn-text-primary shadow-sm outline-none ring-0 placeholder:text-mn-text-muted focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/40"
+                  placeholder="Tell people a bit about your taste in movies."
+                />
+                <p className="text-[10px] text-mn-text-muted">
+                  You can use multiple lines. Keep it short and cinematic.
+                </p>
+              </div>
+            </div>
+
+            {/* Status */}
+            {(updateProfile.isError || updateProfile.isSuccess) && (
+              <div className="pt-1 text-[11px]">
+                {updateProfile.isError && (
+                  <div className="flex items-center gap-1.5 text-mn-error">
+                    <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{updateProfile.error?.message ?? "Couldn’t save changes."}</span>
+                  </div>
+                )}
+                {updateProfile.isSuccess && !updateProfile.isError && (
+                  <div className="flex items-center gap-1.5 text-emerald-400">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Profile updated.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                className="rounded-full border border-transparent px-3 py-1.5 text-xs font-medium text-mn-text-secondary hover:bg-mn-border-subtle/40"
+                onClick={() => {
+                  if (profile) {
+                    setForm({
+                      displayName: profile.displayName ?? "",
+                      bio: profile.bio ?? "",
+                    });
+                    updateProfile.reset();
+                  }
+                }}
               >
-                Display name
-              </label>
-              <input
-                id="displayName"
-                type="text"
-                value={form.displayName}
-                onChange={handleChange("displayName")}
-                maxLength={80}
-                className="w-full rounded-md border border-mn-border-subtle bg-mn-bg px-3 py-2 text-sm text-mn-text-primary shadow-sm outline-none ring-0 placeholder:text-mn-text-muted focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/40"
-                placeholder="How should we show your name?"
-              />
-              <p className="text-[10px] text-mn-text-muted">
-                This is the name other people see on your profile and activity.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="bio"
-                className="block text-[11px] font-medium uppercase tracking-[0.16em] text-mn-text-muted"
+                Reset
+              </button>
+              <button
+                type="submit"
+                disabled={updateProfile.isPending}
+                className="inline-flex items-center gap-1.5 rounded-full bg-mn-accent/90 px-3.5 py-1.5 text-xs font-medium text-black shadow-mn-card transition hover:bg-mn-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Bio
-              </label>
-              <textarea
-                id="bio"
-                value={form.bio}
-                onChange={handleChange("bio")}
-                rows={4}
-                maxLength={280}
-                className="w-full resize-none rounded-md border border-mn-border-subtle bg-mn-bg px-3 py-2 text-sm text-mn-text-primary shadow-sm outline-none ring-0 placeholder:text-mn-text-muted focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/40"
-                placeholder="Tell people a bit about your taste in movies."
-              />
-              <p className="text-[10px] text-mn-text-muted">
-                You can use multiple lines. Keep it short and cinematic.
-              </p>
+                {updateProfile.isPending && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                )}
+                <span>Save changes</span>
+              </button>
             </div>
-          </div>
-
-          {/* Status */}
-          {(updateProfile.isError || updateProfile.isSuccess) && (
-            <div className="pt-1 text-[11px]">
-              {updateProfile.isError && (
-                <div className="flex items-center gap-1.5 text-mn-error">
-                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>{updateProfile.error?.message ?? "Couldn’t save changes."}</span>
-                </div>
-              )}
-              {updateProfile.isSuccess && !updateProfile.isError && (
-                <div className="flex items-center gap-1.5 text-emerald-400">
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Profile updated.</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              className="rounded-full border border-transparent px-3 py-1.5 text-xs font-medium text-mn-text-secondary hover:bg-mn-border-subtle/40"
-              onClick={() => {
-                if (profile) {
-                  setForm({
-                    displayName: profile.displayName ?? "",
-                    bio: profile.bio ?? "",
-                  });
-                  updateProfile.reset();
-                }
-              }}
-            >
-              Reset
-            </button>
-            <button
-              type="submit"
-              disabled={updateProfile.isPending}
-              className="inline-flex items-center gap-1.5 rounded-full bg-mn-accent/90 px-3.5 py-1.5 text-xs font-medium text-black shadow-mn-card transition hover:bg-mn-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {updateProfile.isPending && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              )}
-              <span>Save changes</span>
-            </button>
-          </div>
-        </form>
+          </form>
+        </PageSection>
       </section>
     </div>
   );

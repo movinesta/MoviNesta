@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Clock, ListChecks, BarChart3 } from "lucide-react";
+import { PageHeader } from "../../components/PageChrome";
 
 import DiaryTimelineTab from "./DiaryTimelineTab";
 import DiaryLibraryTab from "./DiaryLibraryTab";
@@ -43,18 +44,12 @@ const DiaryPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      {/* Header */}
-      <header className="space-y-1 px-4 pt-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
-          Diary
-        </p>
-        <h1 className="text-xl font-heading font-semibold text-mn-text-primary">
-          Your movie diary
-        </h1>
-        <p className="text-[11px] text-mn-text-secondary">
-          Track what you watch, manage your library, and keep an eye on your movie habits.
-        </p>
-      </header>
+      <PageHeader
+        kicker="Diary"
+        icon={Clock}
+        title="Your movie diary"
+        description="Track what you watch, manage your library, and keep an eye on your movie habits."
+      />
 
       {/* Tabs */}
       <section className="px-2">

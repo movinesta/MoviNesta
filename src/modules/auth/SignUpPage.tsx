@@ -1,8 +1,10 @@
 import React, { FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { supabase } from "../../lib/supabase";
 import TextField from "../../components/forms/TextField";
 import PasswordField from "../../components/forms/PasswordField";
+import AuthLayout from "./AuthLayout";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -36,6 +38,7 @@ function validateSignUp(email: string, password: string, confirm: string) {
 }
 
 const SignUpPage: React.FC = () => {
+  useDocumentTitle("Create account");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -106,160 +109,154 @@ const SignUpPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-mn-bg px-4">
-      <div className="w-full max-w-md rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/95 p-6 shadow-mn-card backdrop-blur">
-        <div className="mb-6 text-center">
-          <h1 className="text-lg font-heading font-semibold text-mn-text-primary">
-            Create your MoviNesta account
-          </h1>
-          <p className="mt-2 text-sm text-mn-text-secondary">
-            Track what you watch, rate titles, and follow your friends.
-          </p>
+    <AuthLayout
+      kicker="Join MoviNesta"
+      title="Create your account"
+      description="Track what you watch, swap recommendations, and keep a cozy cinematic diary."
+      footer={
+        <span>
+          Already have an account?{" "}
+          <Link to="/auth/signin" className="font-medium text-mn-primary hover:underline">
+            Sign in instead
+          </Link>
+        </span>
+      }
+    >
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-mn-error/40 bg-mn-error/10 px-3 py-2 text-xs text-mn-error"
+        >
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-lg border border-mn-error/40 bg-mn-error/10 px-3 py-2 text-xs text-mn-error"
-          >
-            {error}
-          </div>
-        )}
+      {info && (
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-800"
+        >
+          {info}
+        </div>
+      )}
 
-        {info && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-800"
-          >
-            {info}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <TextField
+          id="signup-email"
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (fieldErrors.email) {
+              setFieldErrors((prev) => ({ ...prev, email: undefined }));
+            }
+          }}
+          onBlur={() => {
+            const errors = validateSignUp(email, password, confirm);
+            if (errors.email) {
+              setFieldErrors((prev) => ({ ...prev, email: errors.email }));
+            }
+          }}
+          disabled={submitting}
+          error={fieldErrors.email}
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <TextField
-            id="signup-email"
-            label="Email address"
-            type="email"
-            autoComplete="email"
+        <div className="space-y-1.5">
+          <PasswordField
+            id="signup-password"
+            label="Password"
+            ariaLabelBase="password"
+            autoComplete="new-password"
             required
-            value={email}
+            minLength={MIN_PASSWORD_LENGTH}
+            value={password}
             onChange={(e) => {
-              setEmail(e.target.value);
-              if (fieldErrors.email) {
-                setFieldErrors((prev) => ({ ...prev, email: undefined }));
+              setPassword(e.target.value);
+              if (fieldErrors.password) {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  password: undefined,
+                }));
               }
             }}
             onBlur={() => {
               const errors = validateSignUp(email, password, confirm);
-              if (errors.email) {
-                setFieldErrors((prev) => ({ ...prev, email: errors.email }));
+              if (errors.password) {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  password: errors.password,
+                }));
               }
             }}
             disabled={submitting}
-            error={fieldErrors.email}
+            aria-invalid={!!fieldErrors.password}
+            aria-describedby={
+              fieldErrors.password ? "signup-password-error" : "signup-password-hint"
+            }
           />
-
-          <div className="space-y-1.5">
-            <PasswordField
-              id="signup-password"
-              label="Password"
-              ariaLabelBase="password"
-              autoComplete="new-password"
-              required
-              minLength={MIN_PASSWORD_LENGTH}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (fieldErrors.password) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    password: undefined,
-                  }));
-                }
-              }}
-              onBlur={() => {
-                const errors = validateSignUp(email, password, confirm);
-                if (errors.password) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    password: errors.password,
-                  }));
-                }
-              }}
-              disabled={submitting}
-              aria-invalid={!!fieldErrors.password}
-              aria-describedby={
-                fieldErrors.password ? "signup-password-error" : "signup-password-hint"
-              }
-            />
-            {!fieldErrors.password && (
-              <p id="signup-password-hint" className="text-xs text-mn-text-muted">
-                At least {MIN_PASSWORD_LENGTH} characters.
-              </p>
-            )}
-            {fieldErrors.password && (
-              <p id="signup-password-error" className="text-xs text-mn-error">
-                {fieldErrors.password}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <PasswordField
-              id="signup-confirm"
-              label="Confirm password"
-              ariaLabelBase="password confirmation"
-              autoComplete="new-password"
-              required
-              minLength={MIN_PASSWORD_LENGTH}
-              value={confirm}
-              onChange={(e) => {
-                setConfirm(e.target.value);
-                if (fieldErrors.confirm) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    confirm: undefined,
-                  }));
-                }
-              }}
-              onBlur={() => {
-                const errors = validateSignUp(email, password, confirm);
-                if (errors.confirm) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    confirm: errors.confirm,
-                  }));
-                }
-              }}
-              disabled={submitting}
-              aria-invalid={!!fieldErrors.confirm}
-              aria-describedby={fieldErrors.confirm ? "signup-confirm-error" : undefined}
-            />
-            {fieldErrors.confirm && (
-              <p id="signup-confirm-error" className="text-xs text-mn-error">
-                {fieldErrors.confirm}
-              </p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting || !isFormValid}
-            aria-busy={submitting}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-mn-primary px-4 py-2 text-sm font-medium text-white hover:bg-mn-primary-soft disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? "Creating your account…" : "Create account"}
-          </button>
-        </form>
-
-        <div className="mt-4 text-center text-xs text-mn-text-muted">
-          <span>Already have an account? </span>
-          <Link to="/auth/signin" className="font-medium text-mn-primary hover:underline">
-            Sign in instead
-          </Link>
+          {!fieldErrors.password && (
+            <p id="signup-password-hint" className="text-xs text-mn-text-muted">
+              At least {MIN_PASSWORD_LENGTH} characters.
+            </p>
+          )}
+          {fieldErrors.password && (
+            <p id="signup-password-error" className="text-xs text-mn-error">
+              {fieldErrors.password}
+            </p>
+          )}
         </div>
-      </div>
-    </div>
+
+        <div className="space-y-1.5">
+          <PasswordField
+            id="signup-confirm"
+            label="Confirm password"
+            ariaLabelBase="password confirmation"
+            autoComplete="new-password"
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+            value={confirm}
+            onChange={(e) => {
+              setConfirm(e.target.value);
+              if (fieldErrors.confirm) {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  confirm: undefined,
+                }));
+              }
+            }}
+            onBlur={() => {
+              const errors = validateSignUp(email, password, confirm);
+              if (errors.confirm) {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  confirm: errors.confirm,
+                }));
+              }
+            }}
+            disabled={submitting}
+            aria-invalid={!!fieldErrors.confirm}
+            aria-describedby={fieldErrors.confirm ? "signup-confirm-error" : undefined}
+          />
+          {fieldErrors.confirm && (
+            <p id="signup-confirm-error" className="text-xs text-mn-error">
+              {fieldErrors.confirm}
+            </p>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={submitting || !isFormValid}
+          aria-busy={submitting}
+          className="inline-flex w-full items-center justify-center rounded-lg bg-mn-primary px-4 py-2 text-sm font-medium text-white shadow-mn-soft hover:bg-mn-primary-soft disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Creating your account…" : "Create account"}
+        </button>
+      </form>
+    </AuthLayout>
   );
 };
 

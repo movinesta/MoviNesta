@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { Film, Sparkles, Users, Clock, SlidersHorizontal } from "lucide-react";
+import { PageHeader, PageSection } from "../../components/PageChrome";
 import HomeFeedTab from "./HomeFeedTab";
 import HomeForYouTab from "./HomeForYouTab";
 
@@ -42,28 +43,17 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      {/* Intro banner */}
-      <section className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-4 py-3 shadow-mn-soft">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-mn-text-muted">
-              Welcome back
-            </p>
-            <h1 className="flex items-center gap-1.5 text-sm font-heading font-semibold text-mn-text-primary">
-              <Sparkles className="h-4 w-4 text-mn-primary" />
-              Your movie &amp; anime nest
-            </h1>
-            <p className="text-[11px] leading-snug text-mn-text-secondary">
-              Track what you watch, build a cozy watchlist, and keep up with friends—without feeling
-              like homework.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-end gap-1 text-right">
+      <PageHeader
+        kicker="Welcome back"
+        icon={Sparkles}
+        title="Your movie & anime nest"
+        description="Track what you watch, build a cozy watchlist, and keep up with friends—without feeling like homework."
+        actions={
+          <>
             <button
               type="button"
               onClick={() => navigate("/swipe")}
-              className="inline-flex items-center gap-1.5 rounded-full bg-mn-primary px-3 py-1.5 text-[11px] font-medium text-mn-bg shadow-mn-soft hover:bg-mn-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              className="inline-flex items-center gap-1.5 rounded-full bg-mn-primary px-3 py-1.5 text-[11px] font-medium text-mn-bg shadow-mn-soft transition hover:-translate-y-px hover:bg-mn-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
             >
               <Film className="h-3.5 w-3.5" />
               Start swiping
@@ -71,15 +61,17 @@ const HomePage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate("/diary")}
-              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle px-2 py-1 text-[10px] text-mn-text-secondary hover:bg-mn-bg-elevated/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle px-2.5 py-1 text-[10px] text-mn-text-secondary transition hover:-translate-y-px hover:bg-mn-bg-elevated/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
             >
               <Clock className="h-3 w-3" />
               Open diary
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-mn-text-muted">
+      <PageSection padded={false} tone="muted">
+        <div className="flex flex-wrap gap-1.5 p-3 text-[10px] text-mn-text-muted">
           <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5">
             <Film className="h-3 w-3" />
             Discover titles
@@ -93,7 +85,7 @@ const HomePage: React.FC = () => {
             Build a watch history
           </span>
         </div>
-      </section>
+      </PageSection>
 
       {/* Tabs header */}
       <section className="flex flex-col gap-2 px-1 sm:px-0">

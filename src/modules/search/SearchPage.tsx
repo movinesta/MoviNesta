@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
+import { Filter, Languages, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
+import { PageHeader, PageSection } from "../../components/PageChrome";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import type { TitleSearchFilters } from "./useSearchTitles";
 import SearchTitlesTab from "./SearchTitlesTab";
@@ -8,24 +9,150 @@ import SearchPeopleTab from "./SearchPeopleTab";
 
 type SearchTabKey = "titles" | "people";
 
+const validTypes: TitleSearchFilters["type"][] = ["all", "movie", "series", "anime", "short"];
+
+const parseTitleFiltersFromParams = (params: URLSearchParams): TitleSearchFilters => {
+  const typeParam = params.get("type");
+  const type = validTypes.includes(typeParam as TitleSearchFilters["type"])
+    ? (typeParam as TitleSearchFilters["type"])
+    : "all";
+
+  const parseYear = (value: string | null) => {
+    if (!value) return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const minYear = parseYear(params.get("minYear"));
+  const maxYear = parseYear(params.get("maxYear"));
+  const originalLanguage = params.get("lang") || undefined;
+
+  return { type, minYear, maxYear, originalLanguage };
+};
+
+const areFiltersEqual = (a: TitleSearchFilters, b: TitleSearchFilters) =>
+  a.type === b.type &&
+  a.minYear === b.minYear &&
+  a.maxYear === b.maxYear &&
+  a.originalLanguage === b.originalLanguage;
+
 const SearchPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as SearchTabKey) ?? "titles";
+  const initialQuery = searchParams.get("q") ?? "";
+  const initialFilters = useMemo(() => parseTitleFiltersFromParams(searchParams), [searchParams]);
 
   const [activeTab, setActiveTab] = useState<SearchTabKey>(initialTab);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebouncedValue(query, 300);
-  const [titleFilters] = useState<TitleSearchFilters>({
-    type: "all",
-    minYear: undefined,
-    maxYear: undefined,
-    originalLanguage: undefined,
-  });
+  const [titleFilters, setTitleFilters] = useState<TitleSearchFilters>(initialFilters);
+
+  // Hide filters when switching away from the titles tab
+  useEffect(() => {
+    if (activeTab !== "titles") {
+      setIsFiltersOpen(false);
+    }
+  }, [activeTab]);
+
+  // Keep tab and query in sync with the URL so back/forward navigation keeps state.
+  const nextSearchParams = useMemo(() => {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", activeTab);
+    if (query.trim()) {
+      params.set("q", query.trim());
+    } else {
+      params.delete("q");
+    }
+
+    if (activeTab === "titles") {
+      params.set("type", titleFilters.type);
+      if (titleFilters.minYear) {
+        params.set("minYear", String(titleFilters.minYear));
+      } else {
+        params.delete("minYear");
+      }
+
+      if (titleFilters.maxYear) {
+        params.set("maxYear", String(titleFilters.maxYear));
+      } else {
+        params.delete("maxYear");
+      }
+
+      if (titleFilters.originalLanguage) {
+        params.set("lang", titleFilters.originalLanguage);
+      } else {
+        params.delete("lang");
+      }
+    }
+    return params;
+  }, [activeTab, query, searchParams, titleFilters]);
+
+  useEffect(() => {
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [nextSearchParams, searchParams, setSearchParams]);
+
+  // Respond to external URL changes (e.g., back/forward) by syncing local state.
+  useEffect(() => {
+    const tabFromParams = (searchParams.get("tab") as SearchTabKey) ?? "titles";
+    const queryFromParams = searchParams.get("q") ?? "";
+    const filtersFromParams = parseTitleFiltersFromParams(searchParams);
+
+    setActiveTab(tabFromParams);
+    setQuery(queryFromParams);
+    setTitleFilters((prev) =>
+      areFiltersEqual(prev, filtersFromParams) ? prev : filtersFromParams,
+    );
+  }, [searchParams]);
 
   const handleClearQuery = () => {
     setQuery("");
   };
+
+  const updateFilters = useCallback((updates: Partial<TitleSearchFilters>) => {
+    setTitleFilters((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  const handleResetFilters = () => {
+    setTitleFilters({
+      type: "all",
+      minYear: undefined,
+      maxYear: undefined,
+      originalLanguage: undefined,
+    });
+  };
+
+  const activeFilterChips = useMemo(() => {
+    const chips: { label: string; onRemove: () => void }[] = [];
+
+    if (titleFilters.type !== "all") {
+      chips.push({
+        label: `Type: ${titleFilters.type.charAt(0).toUpperCase()}${titleFilters.type.slice(1)}`,
+        onRemove: () => updateFilters({ type: "all" }),
+      });
+    }
+
+    if (titleFilters.minYear || titleFilters.maxYear) {
+      const min = titleFilters.minYear ?? "Any";
+      const max = titleFilters.maxYear ?? "Now";
+      chips.push({
+        label: `Year: ${min} – ${max}`,
+        onRemove: () => updateFilters({ minYear: undefined, maxYear: undefined }),
+      });
+    }
+
+    if (titleFilters.originalLanguage) {
+      chips.push({
+        label: `Language: ${titleFilters.originalLanguage.toUpperCase()}`,
+        onRemove: () => updateFilters({ originalLanguage: undefined }),
+      });
+    }
+
+    return chips;
+  }, [titleFilters, updateFilters]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -34,34 +161,24 @@ const SearchPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      {/* Intro copy */}
-      <section className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-4 py-3 shadow-mn-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mn-text-muted">
-              Search
-            </p>
-            <h1 className="mt-0.5 text-[15px] font-heading font-semibold text-mn-text-primary">
-              Find the right movie – or the right people.
-            </h1>
-            <p className="mt-1 text-[11px] text-mn-text-secondary">
-              Start typing a title, director, or a friend&apos;s name. Use tabs to switch between
-              titles and people.
-            </p>
-          </div>
-
-          <div className="hidden shrink-0 rounded-mn-pill border border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft sm:flex sm:flex-col sm:items-start">
+      <PageHeader
+        kicker="Search"
+        title="Find the right movie – or the right people."
+        description="Start typing a title, director, or a friend's name. Use tabs to switch between titles and people."
+        icon={SearchIcon}
+        actions={
+          <div className="hidden shrink-0 rounded-full border border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft sm:flex sm:flex-col sm:items-start">
             <p className="font-medium text-mn-text-primary">Pro tip</p>
             <p className="mt-0.5 text-[10px] text-mn-text-muted">
               Tap <span className="rounded border border-mn-border-subtle px-1">/</span> to jump to
               search from anywhere.
             </p>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* Search bar + filters */}
-      <section className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-3 py-2 shadow-mn-soft">
+      <PageSection tone="default" padded>
         <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg px-3 py-2 text-[13px] shadow-mn-soft focus-within:border-mn-primary/70">
             <SearchIcon className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
@@ -95,14 +212,175 @@ const SearchPage: React.FC = () => {
             className={`inline-flex items-center justify-center gap-1 rounded-full border px-3 py-2 text-[11px] font-medium shadow-mn-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg ${
               activeTab === "titles"
                 ? "border-mn-border-subtle bg-mn-bg text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-text-primary"
-                : "border-mn-border-subtle/60 bg-mn-bg/70 text-mn-text-muted cursor-not-allowed"
-            }`}
+                : "cursor-not-allowed border-mn-border-subtle/60 bg-mn-bg/70 text-mn-text-muted"
+            } ${isFiltersOpen ? "border-mn-primary/70 text-mn-text-primary" : ""}`}
+            disabled={activeTab !== "titles"}
+            aria-pressed={activeTab === "titles" && isFiltersOpen}
+            aria-expanded={activeTab === "titles" && isFiltersOpen}
+            aria-controls="search-title-filters"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Filters</span>
+            <span>{isFiltersOpen ? "Hide filters" : "Filters"}</span>
           </button>
         </form>
-      </section>
+
+        {activeTab === "titles" && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+            {activeFilterChips.length ? (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-mn-text-muted">
+                  Active filters
+                </span>
+                {activeFilterChips.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={chip.onRemove}
+                    className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] text-mn-text-primary shadow-sm transition hover:border-mn-primary/70 hover:text-mn-text-primary"
+                  >
+                    <span>{chip.label}</span>
+                    <X className="h-3 w-3 text-mn-text-muted" aria-hidden />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-mn-primary transition hover:bg-mn-primary/15"
+                >
+                  Reset all
+                </button>
+              </>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/50 px-2.5 py-1 text-[10px] font-medium text-mn-text-muted">
+                <Filter className="h-3 w-3" aria-hidden />
+                No filters applied
+              </span>
+            )}
+          </div>
+        )}
+
+        {activeTab === "titles" && isFiltersOpen && (
+          <div
+            id="search-title-filters"
+            className="mt-3 space-y-3 rounded-xl border border-dashed border-mn-border-subtle/80 bg-mn-bg/70 p-3 text-[11px] text-mn-text-secondary"
+          >
+            <div className="flex items-center gap-2 text-[11px] font-medium text-mn-text-primary">
+              <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Filter titles</span>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-muted">
+                  Type
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { key: "all", label: "All" },
+                      { key: "movie", label: "Movies" },
+                      { key: "series", label: "Series" },
+                      { key: "anime", label: "Anime" },
+                      { key: "short", label: "Shorts" },
+                    ] as const
+                  ).map((option) => {
+                    const isActive = titleFilters.type === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
+                          isActive
+                            ? "bg-mn-primary text-mn-bg shadow-mn-soft"
+                            : "border border-mn-border-subtle bg-mn-bg/80 text-mn-text-secondary hover:border-mn-primary/60 hover:text-mn-text-primary"
+                        }`}
+                        onClick={() => updateFilters({ type: option.key })}
+                        aria-pressed={isActive}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-muted">
+                  Years
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input
+                    type="number"
+                    min={1900}
+                    max={new Date().getFullYear()}
+                    value={titleFilters.minYear ?? ""}
+                    onChange={(event) =>
+                      updateFilters({
+                        minYear: event.target.value ? Number(event.target.value) : undefined,
+                      })
+                    }
+                    placeholder="Min"
+                    className="w-full rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1.5 text-[11px] text-mn-text-primary shadow-sm outline-none focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/30"
+                    aria-label="Minimum year"
+                  />
+                  <input
+                    type="number"
+                    min={1900}
+                    max={new Date().getFullYear()}
+                    value={titleFilters.maxYear ?? ""}
+                    onChange={(event) =>
+                      updateFilters({
+                        maxYear: event.target.value ? Number(event.target.value) : undefined,
+                      })
+                    }
+                    placeholder="Max"
+                    className="w-full rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1.5 text-[11px] text-mn-text-primary shadow-sm outline-none focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/30"
+                    aria-label="Maximum year"
+                  />
+                </div>
+                <p className="text-[10px] text-mn-text-muted">Use a minimum, maximum, or both.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-muted">
+                  Original language
+                </p>
+                <div className="flex items-center gap-1.5 rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1.5 shadow-sm">
+                  <Languages className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
+                  <input
+                    type="text"
+                    value={titleFilters.originalLanguage ?? ""}
+                    onChange={(event) =>
+                      updateFilters({
+                        originalLanguage: event.target.value || undefined,
+                      })
+                    }
+                    placeholder="e.g. en, ja"
+                    className="w-full bg-transparent text-[11px] text-mn-text-primary placeholder:text-mn-text-muted focus:outline-none"
+                  />
+                </div>
+                <p className="text-[10px] text-mn-text-muted">
+                  Two-letter codes keep things simple.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1 text-[10px] text-mn-text-muted">
+                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
+                Filters shape the recommendations shown below.
+              </p>
+              <button
+                type="button"
+                className="text-[10px] font-semibold text-mn-text-primary hover:text-mn-primary"
+                onClick={handleResetFilters}
+              >
+                Reset filters
+              </button>
+            </div>
+          </div>
+        )}
+      </PageSection>
 
       {/* Tabs + results */}
       <section className="flex flex-1 flex-col gap-3">

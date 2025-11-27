@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Flame, Users, Sparkles } from "lucide-react";
+import { PageHeader } from "../../components/PageChrome";
 
 import SwipeForYouTab from "./SwipeForYouTab";
 import SwipeFromFriendsTab from "./SwipeFromFriendsTab";
@@ -46,28 +47,13 @@ const SwipePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-3 pt-1">
-      {/* Hero header */}
-      <header className="relative overflow-hidden rounded-3xl border border-mn-border-subtle/60 bg-gradient-to-br from-mn-bg-elevated via-mn-bg-elevated to-indigo-900 px-4 py-3 shadow-mn-soft">
-        {/* Soft flares */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-[radial-gradient(circle_at_top,_rgba(248,250,252,0.12),transparent)]" />
-        <div className="pointer-events-none absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-[radial-gradient(circle,_rgba(56,189,248,0.12),transparent)]" />
-
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-mn-text-secondary">
-              Swipe deck
-            </p>
-            <h1 className="font-heading text-xl font-semibold text-mn-text-primary">
-              Find tonight&apos;s perfect watch
-            </h1>
-            <p className="max-w-xl text-[12px] leading-relaxed text-mn-text-secondary">
-              Swipe to shape smarter recommendations across{" "}
-              <span className="font-medium text-mn-text-primary">For You</span>,{" "}
-              <span className="font-medium text-mn-text-primary">From Friends</span>, and{" "}
-              <span className="font-medium text-mn-text-primary">Trending</span> decks.
-            </p>
-          </div>
-
+      <PageHeader
+        kicker="Swipe deck"
+        icon={Flame}
+        badge="Curated"
+        title="Find tonight's perfect watch"
+        description="Swipe to shape smarter recommendations across For You, From Friends, and Trending decks."
+        actions={
           <div className="hidden flex-col items-end gap-2 text-[10px] text-mn-text-secondary sm:flex">
             <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-3 py-1">
               <Sparkles className="h-3.5 w-3.5 text-mn-primary" aria-hidden={true} />
@@ -78,8 +64,8 @@ const SwipePage: React.FC = () => {
               <span>Recommendations refresh as you swipe and your friends log new titles.</span>
             </span>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Tabs */}
       <nav className="mt-1 flex items-center justify-between gap-3 px-1" aria-label="Swipe tabs">
