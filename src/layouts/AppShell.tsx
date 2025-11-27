@@ -38,12 +38,12 @@ const AppShell: React.FC = () => {
     location.pathname.startsWith("/messages/") && location.pathname !== "/messages";
 
   const shellContentClassName = isConversationRoute
-    ? "relative z-10 mx-auto flex h-screen w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0 sm:px-0 sm:pb-0"
-    : "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-20 pt-4 sm:px-5 sm:pb-24";
+    ? "relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0 sm:px-0 sm:pb-0"
+    : "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-[calc(6rem+env(safe-area-inset-bottom))]";
 
   const bottomNavInnerClassName = isConversationRoute
     ? "flex items-center justify-between gap-1 px-3 py-1.5 sm:px-4"
-    : "mx-auto flex max-w-5xl items-center justify-between gap-1 px-4 py-1.5 sm:px-5";
+    : "mx-auto flex max-w-5xl items-center justify-between gap-1 px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:px-5";
 
   const handleTabClick = (key: (typeof bottomTabs)[number]["key"]) => {
     setLastVisitedTab(key);
@@ -63,7 +63,7 @@ const AppShell: React.FC = () => {
       </div>
 
       {!isConversationRoute && (
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-mn-border-subtle/80 bg-mn-bg/95 backdrop-blur">
+        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-mn-border-subtle/80 bg-mn-bg/95 shadow-mn-card backdrop-blur">
           <div className={bottomNavInnerClassName}>
             {bottomTabs.map((tab) => {
               const Icon = tab.icon;
