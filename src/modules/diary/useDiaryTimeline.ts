@@ -57,9 +57,9 @@ const mapEventTypeToDiaryKind = (eventType: string): DiaryEventKind => {
   }
 };
 
-export const useDiaryTimeline = () => {
+export const useDiaryTimeline = (userIdOverride?: string | null) => {
   const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const userId = userIdOverride ?? user?.id ?? null;
 
   const query = useQuery({
     queryKey: ["diary", "timeline", userId],

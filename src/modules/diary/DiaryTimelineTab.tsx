@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import { BookmarkPlus, Film, MessageCircle, Sparkles, Star, Users } from "lucide-react";
 import { useDiaryTimeline, type DiaryTimelineItem } from "./useDiaryTimeline";
 
+interface DiaryTimelineTabProps {
+  userId?: string | null;
+  isOwnProfile?: boolean;
+  displayName?: string | null;
+  username?: string | null;
+}
+
 const formatDateTime = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -44,8 +51,15 @@ const eventIcon = (kind: DiaryTimelineItem["kind"]) => {
   }
 };
 
-const DiaryTimelineTab: React.FC = () => {
-  const { items, isLoading, isError, error } = useDiaryTimeline();
+const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
+  userId,
+  isOwnProfile = false,
+  displayName,
+  username,
+}) => {
+  const { items, isLoading, isError, error } = useDiaryTimeline(userId);
+
+  const nameLabel = displayName || (username ? `@${username}` : "this user");
 
   if (isLoading) {
     return (
@@ -73,7 +87,9 @@ const DiaryTimelineTab: React.FC = () => {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4">
         <div className="max-w-sm rounded-mn-card border border-mn-error/40 bg-mn-error/5 p-4 text-center text-[11px] text-mn-text-primary shadow-mn-card">
-          <p className="font-semibold">Unable to load your diary timeline.</p>
+          <p className="font-semibold">
+            Unable to load {isOwnProfile ? "your" : "this profile&apos;s"} activity.
+          </p>
           <p className="mt-1 text-[10px] text-mn-text-secondary">
             {error ?? "Please try again in a moment."}
           </p>
@@ -90,11 +106,12 @@ const DiaryTimelineTab: React.FC = () => {
             <Film className="h-5 w-5 text-mn-primary" aria-hidden="true" />
           </div>
           <p className="font-heading text-sm font-semibold text-mn-text-primary">
-            Your diary is waiting
+            {isOwnProfile ? "Your diary is waiting" : `${nameLabel}'s diary is quiet`}
           </p>
           <p className="mt-1 text-[11px]">
-            As you rate titles, write reviews, and update your library, they&apos;ll show up here in
-            a cozy, chronological timeline.
+            {isOwnProfile
+              ? "As you rate titles, write reviews, and update your library, they’ll show up here in a cozy, chronological timeline."
+              : "When they rate titles, share reviews, or log films, their updates will collect here for you to browse."}
           </p>
         </div>
       </div>

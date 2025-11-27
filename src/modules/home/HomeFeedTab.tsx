@@ -861,11 +861,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
   let meta: React.ReactNode = null;
 
   if (event.type === "review") {
-    prefix = (
-      <>
-        {UserLink} logged a review
-      </>
-    );
+    prefix = <>{UserLink} logged a review</>;
     highlight = (
       <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-secondary">
         <Star className="h-3 w-3 text-mn-primary" aria-hidden="true" />
@@ -878,11 +874,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
       </p>
     ) : null;
   } else if (event.type === "rating") {
-    prefix = (
-      <>
-        {UserLink} rated it
-      </>
-    );
+    prefix = <>{UserLink} rated it</>;
     highlight = (
       <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-secondary">
         <Star className="h-3 w-3 text-mn-primary" aria-hidden="true" />
@@ -890,11 +882,7 @@ const EventSummaryRow: React.FC<EventSummaryRowProps> = ({ event }) => {
       </span>
     );
   } else if (event.type === "watchlist") {
-    prefix = (
-      <>
-        {UserLink} added this to their Watchlist
-      </>
-    );
+    prefix = <>{UserLink} added this to their Watchlist</>;
     highlight = <BookmarkPlus className="h-3.5 w-3.5 text-mn-primary" aria-hidden="true" />;
   } else if (event.type === "recommendation") {
     prefix = (

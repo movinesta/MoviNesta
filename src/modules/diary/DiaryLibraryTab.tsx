@@ -4,6 +4,13 @@ import { Film, ListFilter, Star } from "lucide-react";
 import type { TitleType } from "../search/useSearchTitles";
 import { useDiaryLibrary, useDiaryLibraryMutations, type DiaryStatus } from "./useDiaryLibrary";
 
+interface DiaryLibraryTabProps {
+  userId?: string | null;
+  isOwnProfile?: boolean;
+  displayName?: string | null;
+  username?: string | null;
+}
+
 type StatusFilter = DiaryStatus | "all";
 type TypeFilter = TitleType | "all";
 
@@ -38,18 +45,29 @@ const statusPillClasses = (status: DiaryStatus): string => {
   }
 };
 
-const DiaryLibraryTab: React.FC = () => {
+const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
+  userId,
+  isOwnProfile = false,
+  displayName,
+  username,
+}) => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
-  const { entries, isLoading, isError, error } = useDiaryLibrary({
-    status: statusFilter === "all" ? undefined : (statusFilter as DiaryStatus),
-    type: typeFilter === "all" ? undefined : (typeFilter as TitleType),
-  });
+  const { entries, isLoading, isError, error } = useDiaryLibrary(
+    {
+      status: statusFilter === "all" ? undefined : (statusFilter as DiaryStatus),
+      type: typeFilter === "all" ? undefined : (typeFilter as TitleType),
+    },
+    userId,
+  );
 
   const { updateStatus, updateRating } = useDiaryLibraryMutations();
 
   const isMutating = updateStatus.isPending || updateRating.isPending;
+
+  const canEdit = isOwnProfile;
+  const nameLabel = displayName || (username ? `@${username}` : "this user");
 
   if (isLoading) {
     return (
@@ -57,7 +75,9 @@ const DiaryLibraryTab: React.FC = () => {
         <div className="mb-3 flex items-center justify-between gap-2 px-1 text-[11px] text-mn-text-secondary">
           <div className="flex items-center gap-1.5">
             <ListFilter className="h-3.5 w-3.5" />
-            <span>Loading your library…</span>
+            <span>
+              {isOwnProfile ? "Loading your library…" : `Loading ${nameLabel}\u2019s library…`}
+            </span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -83,7 +103,7 @@ const DiaryLibraryTab: React.FC = () => {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4">
         <div className="max-w-sm rounded-mn-card border border-mn-error/40 bg-mn-error/5 p-4 text-center text-[11px] text-mn-text-primary shadow-mn-card">
-          <p className="font-semibold">Unable to load your library.</p>
+          <p className="font-semibold">Unable to load {isOwnProfile ? "your" : "their"} library.</p>
           <p className="mt-1 text-[10px] text-mn-text-secondary">
             {error ?? "Please try again in a moment."}
           </p>
@@ -100,11 +120,12 @@ const DiaryLibraryTab: React.FC = () => {
             <Film className="h-5 w-5 text-mn-primary" aria-hidden="true" />
           </div>
           <p className="font-heading text-sm font-semibold text-mn-text-primary">
-            Your library is empty
+            {isOwnProfile ? "Your library is empty" : `${nameLabel}'s library is empty`}
           </p>
           <p className="mt-1 text-[11px]">
-            As you add titles to your Watchlist and mark them as watched, this tab will turn into a
-            sortable diary of everything you&apos;ve seen.
+            {isOwnProfile
+              ? "As you add titles to your Watchlist and mark them as watched, this tab will turn into a sortable diary of everything you’ve seen."
+              : "When they add titles to their Watchlist or mark them watched, you’ll be able to browse their picks here."}
           </p>
         </div>
       </div>
@@ -158,6 +179,7 @@ const DiaryLibraryTab: React.FC = () => {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {entries.map((entry) => {
           const handleStatusCycle = () => {
+            if (!canEdit) return;
             const order: DiaryStatus[] = ["want_to_watch", "watching", "watched", "dropped"];
             const idx = order.indexOf(entry.status);
             const next = order[(idx + 1) % order.length];
@@ -165,6 +187,7 @@ const DiaryLibraryTab: React.FC = () => {
           };
 
           const handleStarClick = (value: number) => {
+            if (!canEdit) return;
             const nextRating = entry.rating === value ? null : value;
             updateRating.mutate({ titleId: entry.titleId, rating: nextRating });
           };
@@ -210,13 +233,15 @@ const DiaryLibraryTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleStatusCycle}
-                    disabled={isMutating}
+                    disabled={isMutating || !canEdit}
                     className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition ${statusPillClasses(
                       entry.status,
                     )} ${
                       isMutating
                         ? "opacity-70"
-                        : "hover:border-mn-primary/70 hover:bg-mn-primary-soft"
+                        : canEdit
+                          ? "hover:border-mn-primary/70 hover:bg-mn-primary-soft"
+                          : "opacity-80"
                     }`}
                   >
                     {entry.status === "want_to_watch"
@@ -237,7 +262,7 @@ const DiaryLibraryTab: React.FC = () => {
                           key={idx}
                           type="button"
                           className="p-0.5"
-                          disabled={isMutating}
+                          disabled={isMutating || !canEdit}
                           onClick={() => handleStarClick(value)}
                         >
                           <Star
