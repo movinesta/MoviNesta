@@ -48,7 +48,9 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeForYouTab: React.FC = () => {
-  const { cards, swipe, swipeAsync } = useSwipeDeck("for-you", { limit: 40 });
+  const { cards, swipe, swipeAsync, fetchMore, trimConsumed } = useSwipeDeck("for-you", {
+    limit: 40,
+  });
 
   const deck = useMemo(() => cards, [cards]);
 
@@ -81,6 +83,20 @@ const SwipeForYouTab: React.FC = () => {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef<number | null>(null);
+
+  React.useEffect(() => {
+    const remaining = cards.length - currentIndex;
+    if (remaining < 3) {
+      fetchMore(Math.max(20, remaining + 6));
+    }
+    if (currentIndex > 10) {
+      const drop = Math.min(currentIndex - 6, cards.length);
+      if (drop > 0) {
+        trimConsumed(drop);
+        setCurrentIndex((idx) => Math.max(4, idx - drop));
+      }
+    }
+  }, [cards.length, currentIndex, fetchMore, trimConsumed]);
 
   const currentCard = useMemo(() => deck[currentIndex] ?? null, [deck, currentIndex]);
   const nextCard = useMemo(() => deck[currentIndex + 1] ?? null, [deck, currentIndex]);
