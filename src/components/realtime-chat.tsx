@@ -5,7 +5,7 @@ import {
   type ChatMessage,
   useRealtimeChat,
 } from '@/hooks/use-realtime-chat'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/input'
 import { Send } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
