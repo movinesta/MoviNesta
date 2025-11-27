@@ -1,10 +1,11 @@
+// supabase/functions/sync-title-metadata/index.ts
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,7 +37,11 @@ async function fetchTmdbJson(path: string) {
   });
 
   if (!res.ok) {
-    console.error("[sync-title-metadata] TMDb error", res.status, await res.text());
+    console.error(
+      "[sync-title-metadata] TMDb error",
+      res.status,
+      await res.text(),
+    );
     return null;
   }
 
@@ -56,50 +61,31 @@ async function fetchOmdbByImdbId(imdbId: string) {
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    console.error("[sync-title-metadata] OMDb error", res.status, await res.text());
+    console.error(
+      "[sync-title-metadata] OMDb error",
+      res.status,
+      await res.text(),
+    );
     return null;
   }
 
   const json = await res.json();
   if (json.Response === "False") {
-    console.warn("[sync-title-metadata] OMDb returned failure:", json.Error);
+    console.warn(
+      "[sync-title-metadata] OMDb returned failure:",
+      json.Error,
+    );
     return null;
   }
 
   return json;
 }
 
+// Embeddings DISABLED: this is a no-op.
+// We always return null so nothing is written into title_embeddings.
 async function createEmbedding(input: string): Promise<number[] | null> {
-  if (!OPENAI_API_KEY) {
-    console.error("[sync-title-metadata] Missing OPENAI_API_KEY");
-    return null;
-  }
-
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("[sync-title-metadata] OpenAI error", res.status, await res.text());
-    return null;
-  }
-
-  const json = await res.json();
-  const embedding = json.data?.[0]?.embedding;
-  if (!Array.isArray(embedding)) {
-    console.error("[sync-title-metadata] embedding not returned in expected format");
-    return null;
-  }
-
-  return embedding as number[];
+  // Embeddings disabled: skip OpenAI completely.
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -154,7 +140,9 @@ Deno.serve(async (req) => {
 
   // 1. If we only have IMDb ID, resolve to TMDb via /find
   if (!tmdbId && imdbId) {
-    const findPath = `/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`;
+    const findPath = `/find/${encodeURIComponent(
+      imdbId,
+    )}?external_source=imdb_id`;
     const found = await fetchTmdbJson(findPath);
     if (!found) {
       return new Response("TMDb find failed", {
@@ -255,13 +243,13 @@ Deno.serve(async (req) => {
     tmdb_vote_count: tmdbVoteCount,
   };
 
-  const { data: upsertedTitles, error: upsertError } = await supabase
+  const { data: upsertedTitle, error: upsertError } = await supabase
     .from("titles")
     .upsert(row, { onConflict: "id" })
     .select("id, imdb_id")
-    .limit(1);
+    .single();
 
-  if (upsertError || !upsertedTitles?.[0]) {
+  if (upsertError || !upsertedTitle) {
     console.error(
       "[sync-title-metadata] upsert titles error:",
       upsertError?.message,
@@ -272,7 +260,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { id: titleIdFinal, imdb_id: storedImdbId } = upsertedTitles[0];
+  const { id: titleIdFinal, imdb_id: storedImdbId } = upsertedTitle;
 
   // 3. External ratings from OMDb
   if (storedImdbId) {
@@ -335,7 +323,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 4. Embedding
+  // 4. Embedding (disabled – createEmbedding always returns null)
   try {
     const genres =
       tmdb.genres?.map((g: any) => g.name).join(", ") ?? "";
