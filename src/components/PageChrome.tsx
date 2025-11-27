@@ -6,7 +6,7 @@ import movinestaLogoNeon from "../assets/brand/movinesta-logo-neon.png";
 import { useAuth } from "../modules/auth/AuthProvider";
 
 const HEADER_BASE_CLASSNAME =
-  "sticky top-0 z-20 flex items-center justify-between gap-3 rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-r from-mn-bg/90 via-mn-bg/95 to-mn-bg/90 px-4 shadow-mn-card backdrop-blur";
+  "sticky top-0 z-20 flex items-center justify-between gap-3 rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-r from-mn-bg/90 via-mn-bg/95 to-mn-bg/90 px-3 py-2 shadow-mn-card backdrop-blur sm:px-4";
 
 export const HeaderSurface: React.FC<{
   className?: string;

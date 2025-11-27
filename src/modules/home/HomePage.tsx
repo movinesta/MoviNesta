@@ -1,10 +1,8 @@
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { Sparkles, Users, SlidersHorizontal } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
-import HeroCard from "../../components/shared/HeroCard";
 import SegmentedControl from "../../components/shared/SegmentedControl";
 import ChipRow from "../../components/shared/ChipRow";
 import HomeFeedTab from "./HomeFeedTab";
@@ -41,7 +39,6 @@ const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<HomeTabKey>("feed");
   const [isFeedFiltersOpen, setIsFeedFiltersOpen] = useState(false);
   const [quickFilter, setQuickFilter] = useState<"all" | "follows" | "reviews">("all");
-  const navigate = useNavigate();
 
   const activeTabConfig = HOME_TABS.find((tab) => tab.key === activeTab) ?? HOME_TABS[0];
 
@@ -49,21 +46,9 @@ const HomePage: React.FC = () => {
     <div className="flex flex-1 flex-col gap-5 pb-4">
       <TopBar showLogo title="Home" subtitle="Stay close to what friends are watching" />
 
-      <HeroCard
-        title="Today on MoviNesta"
-        subtitle="A streamlined space for your diary, feed, and fresh picks."
-        badge="Premium"
-        primaryAction={{ label: "Open swipe deck", onClick: () => navigate("/swipe") }}
-        secondaryAction={{
-          label: "View diary",
-          variant: "ghost",
-          onClick: () => navigate("/diary"),
-        }}
-      />
-
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="w-full max-w-lg">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:max-w-lg">
             <SegmentedControl
               segments={HOME_TABS.map((tab) => ({ key: tab.key, label: tab.label }))}
               active={activeTab}
@@ -73,7 +58,7 @@ const HomePage: React.FC = () => {
           {activeTab === "feed" && (
             <button
               type="button"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/70 text-mn-text-primary shadow-mn-soft hover:border-mn-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              className="inline-flex h-11 w-11 items-center justify-center self-end rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/70 text-mn-text-primary shadow-mn-soft hover:border-mn-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg sm:self-auto"
               onClick={() => setIsFeedFiltersOpen(true)}
               aria-label="Feed filters"
             >
