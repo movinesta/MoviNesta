@@ -30,7 +30,9 @@ const formatRuntime = (minutes?: number | null): string | null => {
 };
 
 const SwipePage: React.FC = () => {
-  const { cards, isLoading, isError, swipe } = useSwipeDeck("combined", { limit: 72 });
+  const { cards, isLoading, isError, swipe, fetchMore, trimConsumed } = useSwipeDeck("combined", {
+    limit: 72,
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -56,6 +58,22 @@ const SwipePage: React.FC = () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const remaining = cards.length - currentIndex;
+    if (remaining < 3) {
+      fetchMore(Math.max(24, remaining + 12));
+    }
+  }, [cards.length, currentIndex, fetchMore]);
+
+  useEffect(() => {
+    if (currentIndex <= 10) return;
+    const drop = Math.min(currentIndex - 6, cards.length);
+    if (drop > 0) {
+      trimConsumed(drop);
+      setCurrentIndex((idx) => Math.max(4, idx - drop));
+    }
+  }, [cards.length, currentIndex, trimConsumed]);
 
   const setCardTransform = (x: number, withTransition: boolean) => {
     const node = cardRef.current;
@@ -151,7 +169,8 @@ const SwipePage: React.FC = () => {
     const distance = dragDelta.current;
     const projected = distance + velocityRef.current * 180;
     const shouldSwipe =
-      Math.abs(projected) >= SWIPE_DISTANCE_THRESHOLD || Math.abs(velocityRef.current) >= SWIPE_VELOCITY_THRESHOLD;
+      Math.abs(projected) >= SWIPE_DISTANCE_THRESHOLD ||
+      Math.abs(velocityRef.current) >= SWIPE_VELOCITY_THRESHOLD;
 
     if (shouldSwipe) {
       performSwipe(projected >= 0 ? "like" : "dislike", velocityRef.current);
@@ -169,9 +188,13 @@ const SwipePage: React.FC = () => {
     if (!activeCard) return null;
 
     const runtimeLabel = formatRuntime(activeCard.runtimeMinutes);
-    const badges = [activeCard.type, runtimeLabel, activeCard.mood, activeCard.vibeTag].filter(Boolean);
+    const badges = [activeCard.type, runtimeLabel, activeCard.mood, activeCard.vibeTag].filter(
+      Boolean,
+    );
     const hasImdbRating =
-      typeof activeCard.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating) && activeCard.imdbRating > 0;
+      typeof activeCard.imdbRating === "number" &&
+      !Number.isNaN(activeCard.imdbRating) &&
+      activeCard.imdbRating > 0;
     const hasTomatometer =
       typeof activeCard.rtTomatoMeter === "number" &&
       !Number.isNaN(activeCard.rtTomatoMeter) &&
@@ -199,7 +222,9 @@ const SwipePage: React.FC = () => {
               {activeCard.title}
             </h2>
             <p className="text-[12px] text-mn-text-secondary">
-              {[activeCard.year ?? "New", activeCard.type, runtimeLabel].filter(Boolean).join(" · ")}
+              {[activeCard.year ?? "New", activeCard.type, runtimeLabel]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
           <div className="flex flex-col items-end rounded-2xl bg-mn-bg/70 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft">
