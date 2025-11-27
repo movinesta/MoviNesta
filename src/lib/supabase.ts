@@ -38,3 +38,8 @@ export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
     },
   },
 });
+
+// ⬇️ ADD THIS BLOCK
+if (typeof window !== "undefined" && import.meta.env.DEV) {
+  (window as any).supabase = supabase;
+}
