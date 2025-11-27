@@ -53,7 +53,11 @@ const HomePage: React.FC = () => {
         title="Welcome back"
         subtitle="Track what you watch and see what friends love."
         primaryAction={{ label: "Start swiping", onClick: () => navigate("/swipe") }}
-        secondaryAction={{ label: "Open diary", variant: "ghost", onClick: () => navigate("/diary") }}
+        secondaryAction={{
+          label: "Open diary",
+          variant: "ghost",
+          onClick: () => navigate("/diary"),
+        }}
       />
 
       <section className="space-y-3">

@@ -45,9 +45,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
               </span>
             ) : null}
             <h1 className="text-xl font-semibold leading-snug text-mn-text-primary">{title}</h1>
-            {subtitle ? (
-              <p className="text-[12px] text-mn-text-secondary">{subtitle}</p>
-            ) : null}
+            {subtitle ? <p className="text-[12px] text-mn-text-secondary">{subtitle}</p> : null}
           </div>
           {primaryAction ? (
             <div className="flex flex-col items-end gap-2 text-[11px]">

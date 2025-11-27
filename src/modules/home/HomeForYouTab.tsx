@@ -5,7 +5,12 @@ import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lu
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
-type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue" | "for-you-hybrid";
+type RecommendationSectionKind =
+  | "friends-trending"
+  | "because-you-liked"
+  | "anime"
+  | "continue"
+  | "for-you-hybrid";
 
 interface RecommendationItem {
   id: string;
@@ -401,7 +406,6 @@ const fetchHomeRecommendations = async (
     });
   }
 
-
   // Hybrid "For you" row using the recommend-for-you edge function (embeddings + friends + ratings).
   try {
     const { data: recData, error: recError } = await supabase.functions.invoke<{
@@ -703,7 +707,11 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
     metaPieces.push(`${item.runtimeMinutes} min`);
   }
 
-  if (typeof item.imdbRating === "number" && !Number.isNaN(item.imdbRating) && item.imdbRating > 0) {
+  if (
+    typeof item.imdbRating === "number" &&
+    !Number.isNaN(item.imdbRating) &&
+    item.imdbRating > 0
+  ) {
     metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
   }
 

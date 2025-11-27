@@ -66,16 +66,20 @@ const MessagesPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-4">
-      <TopBar title="Messages" subtitle="Chat with friends" actions={
-        <button
-          type="button"
-          onClick={handleNewConversation}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-mn-primary text-mn-bg shadow-mn-soft transition hover:-translate-y-0.5"
-          aria-label="New conversation"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-      } />
+      <TopBar
+        title="Messages"
+        subtitle="Chat with friends"
+        actions={
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-mn-primary text-mn-bg shadow-mn-soft transition hover:-translate-y-0.5"
+            aria-label="New conversation"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
 
       <SearchField
         placeholder="Search chats or people…"
@@ -147,7 +151,9 @@ const MessagesPage: React.FC = () => {
                                   loading="lazy"
                                 />
                               ) : (
-                                participant.displayName?.[0]?.toUpperCase() ?? participant.username?.[0]?.toUpperCase() ?? "?"
+                                (participant.displayName?.[0]?.toUpperCase() ??
+                                participant.username?.[0]?.toUpperCase() ??
+                                "?")
                               )}
                             </span>
                           ))}
@@ -170,10 +176,16 @@ const MessagesPage: React.FC = () => {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="truncate text-[13px] font-semibold text-mn-text-primary">{conv.title}</p>
-                        <span className="ml-2 text-[11px] text-mn-text-muted">{conv.lastMessageAtLabel}</span>
+                        <p className="truncate text-[13px] font-semibold text-mn-text-primary">
+                          {conv.title}
+                        </p>
+                        <span className="ml-2 text-[11px] text-mn-text-muted">
+                          {conv.lastMessageAtLabel}
+                        </span>
                       </div>
-                      <p className="truncate text-[12px] text-mn-text-secondary">{conv.lastMessagePreview ?? "Start chatting"}</p>
+                      <p className="truncate text-[12px] text-mn-text-secondary">
+                        {conv.lastMessagePreview ?? "Start chatting"}
+                      </p>
                     </div>
                   </Link>
                 </li>

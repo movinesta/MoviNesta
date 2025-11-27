@@ -120,25 +120,23 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         return searchExternalTitles(trimmedQuery);
       }
 
-      return rows.map(
-        (row: any): TitleSearchResult => {
-          const external = row.external_ratings ?? null;
+      return rows.map((row: any): TitleSearchResult => {
+        const external = row.external_ratings ?? null;
 
-          return {
-            id: row.id as string,
-            title: (row.title as string | null) ?? "Untitled",
-            year: (row.year as number | null) ?? null,
-            type: (row.type as TitleType | null) ?? null,
-            posterUrl: (row.poster_url as string | null) ?? null,
-            originalLanguage: (row.original_language as string | null) ?? null,
-            ageRating: (row.age_rating as string | null) ?? null,
-            imdbRating: external?.imdb_rating ?? null,
-            rtTomatoMeter: external?.rt_tomato_meter ?? null,
-            imdbId: (row.imdb_id as string | null) ?? null,
-            tmdbId: (row.tmdb_id as number | null) ?? null,
-          };
-        },
-      );
+        return {
+          id: row.id as string,
+          title: (row.title as string | null) ?? "Untitled",
+          year: (row.year as number | null) ?? null,
+          type: (row.type as TitleType | null) ?? null,
+          posterUrl: (row.poster_url as string | null) ?? null,
+          originalLanguage: (row.original_language as string | null) ?? null,
+          ageRating: (row.age_rating as string | null) ?? null,
+          imdbRating: external?.imdb_rating ?? null,
+          rtTomatoMeter: external?.rt_tomato_meter ?? null,
+          imdbId: (row.imdb_id as string | null) ?? null,
+          tmdbId: (row.tmdb_id as number | null) ?? null,
+        };
+      });
     },
   });
 };

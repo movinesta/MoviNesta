@@ -616,7 +616,10 @@ const ConversationPage: React.FC = () => {
 
   return (
     <div className="relative flex h-full min-h-[60vh] flex-1 flex-col items-stretch bg-gradient-to-b from-mn-bg to-mn-bg/60">
-      <div className="pointer-events-none absolute inset-x-10 top-4 h-32 rounded-full bg-gradient-to-r from-fuchsia-500/15 via-mn-primary/10 to-blue-500/15 blur-3xl" aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute inset-x-10 top-4 h-32 rounded-full bg-gradient-to-r from-fuchsia-500/15 via-mn-primary/10 to-blue-500/15 blur-3xl"
+        aria-hidden="true"
+      />
 
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/90 shadow-xl shadow-mn-primary/5 backdrop-blur">
         {/* Header */}
@@ -633,7 +636,10 @@ const ConversationPage: React.FC = () => {
 
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated ring-2 ring-mn-border-subtle">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/25 via-mn-primary/20 to-blue-500/25" aria-hidden="true" />
+                <div
+                  className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/25 via-mn-primary/20 to-blue-500/25"
+                  aria-hidden="true"
+                />
                 <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg ring-1 ring-white/30">
                   {!isGroupConversation && otherParticipant ? (
                     otherParticipant.avatarUrl ? (
@@ -727,7 +733,10 @@ const ConversationPage: React.FC = () => {
         {/* Conversation body */}
         <section className="flex min-h-0 flex-1 flex-col">
           <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-mn-bg/92 via-mn-bg/88 to-mn-bg/92">
-            <div className="pointer-events-none absolute inset-x-8 top-4 h-20 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl" aria-hidden="true" />
+            <div
+              className="pointer-events-none absolute inset-x-8 top-4 h-20 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl"
+              aria-hidden="true"
+            />
             <div className="relative flex flex-1 flex-col overflow-y-auto px-4 py-4 text-sm">
               {isLoading && !hasMessages && (
                 <div className="flex h-full items-center justify-center">
@@ -818,11 +827,17 @@ const ConversationPage: React.FC = () => {
                     {showDateDivider && (
                       <div className="my-4 flex items-center justify-center">
                         <div className="inline-flex items-center gap-3 text-[11px] text-mn-text-muted">
-                          <span className="h-px w-12 bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent" aria-hidden="true" />
+                          <span
+                            className="h-px w-12 bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent"
+                            aria-hidden="true"
+                          />
                           <span className="rounded-full bg-mn-bg px-3 py-0.5 text-[11px] font-medium text-mn-text-secondary shadow-mn-soft/60 ring-1 ring-mn-border-subtle/70">
                             {formatMessageDateLabel(message.createdAt)}
                           </span>
-                          <span className="h-px w-12 bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent" aria-hidden="true" />
+                          <span
+                            className="h-px w-12 bg-gradient-to-r from-transparent via-mn-border-subtle to-transparent"
+                            aria-hidden="true"
+                          />
                         </div>
                       </div>
                     )}
