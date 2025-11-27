@@ -2,8 +2,11 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { Film, Sparkles, Users, Clock, SlidersHorizontal } from "lucide-react";
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { Sparkles, Users, SlidersHorizontal } from "lucide-react";
+import TopBar from "../../components/shared/TopBar";
+import HeroCard from "../../components/shared/HeroCard";
+import SegmentedControl from "../../components/shared/SegmentedControl";
+import ChipRow from "../../components/shared/ChipRow";
 import HomeFeedTab from "./HomeFeedTab";
 import HomeForYouTab from "./HomeForYouTab";
 
@@ -37,121 +40,64 @@ const HomePage: React.FC = () => {
   useDocumentTitle("Home");
   const [activeTab, setActiveTab] = useState<HomeTabKey>("feed");
   const [isFeedFiltersOpen, setIsFeedFiltersOpen] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<"all" | "follows" | "reviews">("all");
   const navigate = useNavigate();
 
   const activeTabConfig = HOME_TABS.find((tab) => tab.key === activeTab) ?? HOME_TABS[0];
 
   return (
-    <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <PageHeader
-        kicker="Welcome back"
-        icon={Sparkles}
-        title="Your movie & anime nest"
-        description="Track what you watch, build a cozy watchlist, and keep up with friends—without feeling like homework."
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={() => navigate("/swipe")}
-              className="inline-flex items-center gap-1.5 rounded-full bg-mn-primary px-3 py-1.5 text-[11px] font-medium text-mn-bg shadow-mn-soft transition hover:-translate-y-px hover:bg-mn-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-            >
-              <Film className="h-3.5 w-3.5" />
-              Start swiping
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/diary")}
-              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle px-2.5 py-1 text-[10px] text-mn-text-secondary transition hover:-translate-y-px hover:bg-mn-bg-elevated/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-            >
-              <Clock className="h-3 w-3" />
-              Open diary
-            </button>
-          </>
-        }
+    <div className="flex flex-1 flex-col gap-5 pb-4">
+      <TopBar showLogo title="Home" subtitle="Stay close to what friends are watching" />
+
+      <HeroCard
+        title="Welcome back"
+        subtitle="Track what you watch and see what friends love."
+        primaryAction={{ label: "Start swiping", onClick: () => navigate("/swipe") }}
+        secondaryAction={{ label: "Open diary", variant: "ghost", onClick: () => navigate("/diary") }}
       />
 
-      <PageSection padded={false} tone="muted">
-        <div className="flex flex-wrap gap-1.5 p-3 text-[10px] text-mn-text-muted">
-          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5">
-            <Film className="h-3 w-3" />
-            Discover titles
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5">
-            <Users className="h-3 w-3" />
-            Follow friends
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5">
-            <Clock className="h-3 w-3" />
-            Build a watch history
-          </span>
-        </div>
-      </PageSection>
-
-      {/* Tabs header */}
-      <section className="flex flex-col gap-2 px-1 sm:px-0">
-        <div className="flex items-center justify-between gap-2">
-          <div
-            className="inline-flex rounded-full bg-mn-bg-elevated/80 p-1 text-[11px]"
-            role="tablist"
-            aria-label="Home sections"
-          >
-            {HOME_TABS.map((tab) => {
-              const isActive = tab.key === activeTab;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-controls={`home-tabpanel-${tab.key}`}
-                  className={[
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition",
-                    isActive
-                      ? "bg-mn-primary text-mn-bg shadow-mn-soft"
-                      : "text-mn-text-secondary hover:bg-mn-bg-elevated/70",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{tab.label}</span>
-                  {tab.badge && (
-                    <span className="rounded-full bg-mn-bg/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em]">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="w-full max-w-lg">
+            <SegmentedControl
+              segments={HOME_TABS.map((tab) => ({ key: tab.key, label: tab.label }))}
+              active={activeTab}
+              onChange={setActiveTab}
+            />
           </div>
-
           {activeTab === "feed" && (
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle px-2.5 py-1 text-[10px] text-mn-text-secondary hover:bg-mn-bg-elevated/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/70 text-mn-text-primary shadow-mn-soft hover:border-mn-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
               onClick={() => setIsFeedFiltersOpen(true)}
+              aria-label="Feed filters"
             >
-              <SlidersHorizontal className="h-3 w-3" />
-              <span className="hidden sm:inline">Filter feed</span>
-              <span className="sm:hidden">Filters</span>
+              <SlidersHorizontal className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        <p className="flex items-center gap-1 text-[11px] text-mn-text-secondary">
-          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
-          <span>{activeTabConfig.description}</span>
-        </p>
+        {activeTab === "feed" && (
+          <ChipRow
+            options={[
+              { key: "all", label: "All" },
+              { key: "follows", label: "Friends" },
+              { key: "reviews", label: "Reviews" },
+            ]}
+            active={quickFilter}
+            onChange={(key) => setQuickFilter(key)}
+          />
+        )}
+
+        <p className="text-[12px] text-mn-text-secondary">{activeTabConfig.description}</p>
       </section>
 
-      {/* Tab content */}
       <section aria-live="polite" className="flex-1" id={`home-tabpanel-${activeTab}`}>
         {activeTab === "feed" ? (
           <HomeFeedTab
             isFiltersSheetOpen={isFeedFiltersOpen}
             onFiltersSheetOpenChange={setIsFeedFiltersOpen}
+            quickFilter={quickFilter}
           />
         ) : (
           <HomeForYouTab />

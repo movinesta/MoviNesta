@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import {
@@ -516,14 +516,20 @@ const filterMatchesItem = (item: FeedItem, filter: FeedFilter): boolean => {
 interface HomeFeedTabProps {
   isFiltersSheetOpen?: boolean;
   onFiltersSheetOpenChange?: (open: boolean) => void;
+  quickFilter?: "all" | "follows" | "reviews";
 }
 
 const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
   isFiltersSheetOpen = false,
   onFiltersSheetOpenChange,
+  quickFilter = "all",
 }) => {
   const { items, isLoading, isLoadingMore, hasMore, error, loadMore } = useFeed();
   const [filter, setFilter] = useState<FeedFilter>("all");
+
+  useEffect(() => {
+    setFilter(quickFilter as FeedFilter);
+  }, [quickFilter]);
 
   const filteredItems = useMemo(
     () => items.filter((item) => filterMatchesItem(item, filter)),
@@ -532,56 +538,8 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
 
   return (
     <div className="space-y-3">
-      {/* Filter row */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex flex-wrap gap-1 text-[11px]">
-          {(
-            [
-              ["all", "All"],
-              ["reviews", "Reviews"],
-              ["ratings", "Ratings"],
-              ["watchlist", "Watchlist"],
-              ["follows", "Follows"],
-              ["recommendations", "Recs"],
-            ] as [FeedFilter, string][]
-          ).map(([key, label]) => {
-            const isActive = filter === key;
-
-            return (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => setFilter(key)}
-                className={[
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition",
-                  isActive
-                    ? "border-mn-primary bg-mn-primary/15 text-mn-primary"
-                    : "border-mn-border-subtle/70 bg-mn-bg/80 text-mn-text-muted hover:text-mn-text-secondary",
-                ].join(" ")}
-              >
-                {key === "recommendations" ? (
-                  <Sparkles className="h-3 w-3" aria-hidden="true" />
-                ) : key === "follows" ? (
-                  <UserPlus className="h-3 w-3" aria-hidden="true" />
-                ) : key === "watchlist" ? (
-                  <BookmarkPlus className="h-3 w-3" aria-hidden="true" />
-                ) : key === "ratings" ? (
-                  <Star className="h-3 w-3" aria-hidden="true" />
-                ) : key === "reviews" ? (
-                  <Film className="h-3 w-3" aria-hidden="true" />
-                ) : null}
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <p className="text-[11px] text-mn-text-muted">
-          {isLoading
-            ? "Loading your feed…"
-            : `${filteredItems.length} story${filteredItems.length === 1 ? "" : "ies"}`}
-        </p>
+      <div className="flex items-center justify-between gap-2 text-[12px] text-mn-text-secondary">
+        <span>{isLoading ? "Loading your feed…" : `${filteredItems.length} updates`}</span>
       </div>
       {isFiltersSheetOpen && (
         <div
