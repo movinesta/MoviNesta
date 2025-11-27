@@ -5,7 +5,7 @@ import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lu
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
-type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue";
+type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue" | "for-you-hybrid";
 
 interface RecommendationItem {
   id: string;
@@ -398,6 +398,51 @@ const fetchHomeRecommendations = async (
     });
   }
 
+
+  // Hybrid "For you" row using the recommend-for-you edge function (embeddings + friends + ratings).
+  try {
+    const { data: recData, error: recError } = await supabase.functions.invoke<{
+      cards?: {
+        id: string;
+        title: string;
+        year: number | null;
+        runtimeMinutes: number | null;
+        type: string | null;
+        posterUrl: string | null;
+        reason?: string;
+      }[];
+      reason?: string;
+    }>("recommend-for-you", {
+      body: { limit: 24 },
+    });
+
+    if (recError) {
+      hasPartialData = true;
+      console.warn("[HomeForYouTab] Failed to load recommend-for-you", recError);
+    } else if (recData?.cards && recData.cards.length > 0) {
+      const forYouItems: RecommendationItem[] = recData.cards.map((card) => ({
+        id: card.id,
+        name: card.title,
+        year: card.year ?? new Date().getFullYear(),
+        runtimeMinutes: card.runtimeMinutes ?? undefined,
+        matchReason: card.reason ?? "A strong match for your taste.",
+        posterUrl: card.posterUrl ?? null,
+      }));
+
+      sections.unshift({
+        id: "for-you-hybrid",
+        kind: "for-you-hybrid",
+        title: "For you",
+        subtitle: "Blending your taste, friends, and critics.",
+        pillLabel: "Smart picks",
+        items: forYouItems,
+      });
+    }
+  } catch (err) {
+    hasPartialData = true;
+    console.warn("[HomeForYouTab] recommend-for-you failed", err);
+  }
+
   return { tonightPick, sections, hasPartialData };
 };
 
@@ -677,6 +722,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
               <Film className="h-3 w-3" aria-hidden="true" />
             ) : sectionKind === "anime" ? (
               <Sparkles className="h-3 w-3" aria-hidden="true" />
+            ) : sectionKind === "for-you-hybrid" ? (
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
             ) : (
               <Clock className="h-3 w-3" aria-hidden="true" />
             )}
@@ -687,7 +734,9 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
                   ? "Match"
                   : sectionKind === "anime"
                     ? "Anime"
-                    : "Continue"}
+                    : sectionKind === "for-you-hybrid"
+                      ? "For you"
+                      : "Continue"}
             </span>
           </span>
 

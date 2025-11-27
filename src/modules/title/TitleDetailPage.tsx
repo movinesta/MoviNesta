@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Clapperboard, PlayCircle } from "lucide-react";
 import { PageHeader, PageSection } from "../../components/PageChrome";
+import { useSimilarTitles } from "./useSimilarTitles";
 import { supabase } from "../../lib/supabase";
 
 interface TitleRow {
@@ -67,6 +68,7 @@ const TitleDetailPage: React.FC = () => {
 
   const trailerQuery = useTrailerForTitle(data?.title ?? null, data?.year ?? null);
   const trailer = trailerQuery.data;
+  const similarQuery = useSimilarTitles(titleId ?? null);
 
   if (!titleId) {
     return (
@@ -182,6 +184,54 @@ const TitleDetailPage: React.FC = () => {
                 friends&apos; reactions.
               </p>
             </div>
+
+            {similarQuery.data && similarQuery.data.length > 0 && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-sm font-heading font-semibold text-mn-text-primary">
+                  Similar titles
+                </h3>
+                <div className="-mx-1 overflow-x-auto pb-1">
+                  <div className="flex snap-x snap-mandatory gap-2 px-1">
+                    {similarQuery.data.map((item) => (
+                      <Link
+                        key={item.id}
+                        to={`/title/${item.id}`}
+                        className="group flex w-[140px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 shadow-mn-soft"
+                      >
+                        <div className="relative h-32 overflow-hidden">
+                          {item.posterUrl ? (
+                            <img
+                              src={item.posterUrl}
+                              alt={item.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-mn-bg-subtle text-[10px] text-mn-text-muted">
+                              No poster
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-1 flex-col justify-between px-2.5 py-2">
+                          <div className="space-y-0.5">
+                            <p className="line-clamp-2 text-[12px] font-semibold text-mn-text-primary">
+                              {item.title}
+                            </p>
+                            <p className="text-[10px] text-mn-text-muted">
+                              {[item.year, item.type].filter(Boolean).join(" · ")}
+                            </p>
+                          </div>
+                          <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-mn-primary group-hover:underline">
+                            <span>Open</span>
+                            <PlayCircle className="h-3 w-3" aria-hidden="true" />
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </PageSection>

@@ -1,6 +1,6 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -28,29 +28,13 @@ type SwipeCardData = {
   initiallyInWatchlist?: boolean;
 };
 
-type TmdbTitle = {
-  id: number;
-  media_type?: "movie" | "tv";
-  title?: string;
-  name?: string;
-  overview?: string;
-  poster_path?: string;
-  backdrop_path?: string;
-  release_date?: string;
-  first_air_date?: string;
-  original_language?: string;
+type SwipeDeckResponse = {
+  cards: SwipeCardData[];
 };
 
-async function fetchTmdbJson(path: string): Promise<any> {
-  const res = await fetch(`https://api.themoviedb.org/3${path}`, {
-    headers: { Authorization: `Bearer ${TMDB_READ_TOKEN}` },
-  });
-  if (!res.ok) {
-    console.warn("[swipe-for-you] TMDb error:", res.status, path);
-    return { results: [] };
-  }
-  return res.json();
-}
+type RequestBody = {
+  limit?: number;
+};
 
 function buildSupabaseClient(req: Request) {
   return createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
@@ -62,48 +46,92 @@ function buildSupabaseClient(req: Request) {
   });
 }
 
-async function upsertTmdbTitles(
+function normalizeRating(rating: number | null | undefined): number {
+  if (!rating || rating <= 0) return 0;
+  return Math.max(0, Math.min(1, rating / 5));
+}
+
+async function buildTrendingFallback(
   supabase: ReturnType<typeof createClient>,
-  results: TmdbTitle[],
-) {
-  if (!results.length) return [];
-
-  const rows = results.map((t) => {
-    const mediaType: "movie" | "series" =
-      t.media_type === "tv" ? "series" : "movie";
-
-    const releaseDate = t.release_date || t.first_air_date || null;
-    const year = releaseDate ? Number(releaseDate.slice(0, 4)) : null;
-
-    return {
-      id: `${mediaType}_${t.id}`,
-      tmdb_id: t.id,
-      type: mediaType,
-      title: t.title ?? t.name ?? "Untitled",
-      synopsis: t.overview ?? null,
-      poster_url: t.poster_path
-        ? `https://image.tmdb.org/t/p/w500${t.poster_path}`
-        : null,
-      backdrop_url: t.backdrop_path
-        ? `https://image.tmdb.org/t/p/w780${t.backdrop_path}`
-        : null,
-      release_date: releaseDate,
-      year,
-      original_language: t.original_language ?? null,
-    };
-  });
-
-  const { data, error } = await supabase
+  userId: string,
+  limit: number,
+): Promise<SwipeCardData[]> {
+  // Take popular titles we already have in our DB as a safe fallback.
+  const { data: popularTitles, error: popularError } = await supabase
     .from("titles")
-    .upsert(rows, { onConflict: "tmdb_id" })
-    .select("id, tmdb_id");
+    .select(
+      `
+      id,
+      title,
+      year,
+      type,
+      runtime_minutes,
+      poster_url,
+      tmdb_popularity,
+      synopsis
+    `,
+    )
+    .order("tmdb_popularity", { ascending: false, nullsLast: true })
+    .limit(limit * 3);
 
-  if (error) {
-    console.error("[swipe-for-you] upsertTmdbTitles error:", error.message);
+  if (popularError || !popularTitles?.length) {
+    console.warn("[swipe-for-you] trending fallback titles error:", popularError?.message);
     return [];
   }
 
-  return data ?? [];
+  // Exclude titles the user has rated already.
+  const { data: userRatings } = await supabase
+    .from("ratings")
+    .select("title_id, rating")
+    .eq("user_id", userId);
+
+  const ratedSet = new Set((userRatings ?? []).map((r: any) => r.title_id as string));
+
+  // Library entries for watchlist info.
+  const { data: libraryRows } = await supabase
+    .from("library_entries")
+    .select("title_id, status")
+    .eq("user_id", userId);
+
+  const libraryByTitle = new Map<string, any>();
+  for (const row of libraryRows ?? []) {
+    libraryByTitle.set(row.title_id as string, row);
+  }
+
+  const cards: SwipeCardData[] = [];
+
+  for (const row of popularTitles) {
+    const id = row.id as string;
+    if (ratedSet.has(id)) continue;
+
+    const synopsis = (row.synopsis as string | null) ?? "";
+    const tagline =
+      synopsis.length > 0 ? synopsis.slice(0, 120).trimEnd() + (synopsis.length > 120 ? "…" : "") : null;
+
+    const libraryRow = libraryByTitle.get(id);
+
+    cards.push({
+      id,
+      title: (row.title as string | null) ?? "Untitled",
+      year: (row.year as number | null) ?? null,
+      runtimeMinutes: (row.runtime_minutes as number | null) ?? null,
+      tagline,
+      mood: null,
+      vibeTag: null,
+      type: (row.type as string | null) ?? null,
+      posterUrl: (row.poster_url as string | null) ?? null,
+      friendLikesCount: null,
+      topFriendName: null,
+      topFriendInitials: null,
+      topFriendReviewSnippet: null,
+      initialRating: null,
+      initiallyInWatchlist: libraryRow?.status === "want_to_watch",
+    });
+
+    if (cards.length >= limit) break;
+  }
+
+  return cards;
 }
 
 Deno.serve(async (req) => {
@@ -118,13 +146,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!TMDB_READ_TOKEN || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error(
-      "Missing required env vars: TMDB_API_READ_ACCESS_TOKEN, SUPABASE_URL, SERVICE_ROLE_KEY",
-    );
-    return new Response(JSON.stringify({ cards: [] }), {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error("[swipe-for-you] missing SUPABASE env");
+    return new Response("Server misconfigured", {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: corsHeaders,
     });
   }
 
@@ -142,93 +168,131 @@ Deno.serve(async (req) => {
     });
   }
 
-  const body = (await req.json().catch(() => ({}))) as {
-    limit?: number;
-  };
+  const body = (await req.json().catch(() => ({}))) as RequestBody;
   const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 60) : 40;
 
-  const { data: liked, error: likedError } = await supabase
+  // 1) Load user ratings
+  const { data: ratings, error: ratingsError } = await supabase
     .from("ratings")
-    .select(
-      `
-      title_id,
-      rating,
-      titles!inner (
-        tmdb_id,
-        type
-      )
-    `,
-    )
+    .select("title_id, rating, created_at")
     .eq("user_id", user.id)
-    .gte("rating", 3.5)
-    .order("updated_at", { ascending: false })
-    .limit(20);
+    .order("created_at", { ascending: false })
+    .limit(200);
 
-  if (likedError) {
-    console.error("[swipe-for-you] error loading liked ratings:", likedError);
+  if (ratingsError) {
+    console.error("[swipe-for-you] ratings error:", ratingsError.message);
   }
 
-  const seeds =
-    (liked ?? [])
-      .map((row: any) => {
-        const tmdb_id = row.titles?.tmdb_id as number | null;
-        const type = row.titles?.type as string | null;
-        if (!tmdb_id || !type) return null;
-        return {
-          tmdb_id,
-          type: type === "series" ? "series" : "movie" as "series" | "movie",
-        };
-      })
-      .filter(Boolean) as { tmdb_id: number; type: "movie" | "series" }[];
+  const positiveRatings = (ratings ?? []).filter((r) => {
+    const rating = Number(r.rating ?? 0);
+    return rating >= 3.5;
+  });
 
-  let tmdbResults: TmdbTitle[] = [];
-
-  if (seeds.length) {
-    const uniqueSeeds = seeds.slice(0, 6);
-
-    const similarPayloads = await Promise.all(
-      uniqueSeeds.map((seed) => {
-        const path =
-          seed.type === "movie"
-            ? `/movie/${seed.tmdb_id}/similar`
-            : `/tv/${seed.tmdb_id}/similar`;
-        return fetchTmdbJson(path);
-      }),
-    );
-
-    tmdbResults = similarPayloads.flatMap((p) => (p?.results ?? []) as TmdbTitle[]);
-  }
-
-  if (!tmdbResults.length) {
-    const [trendingMovies, trendingTv] = await Promise.all([
-      fetchTmdbJson("/trending/movie/week"),
-      fetchTmdbJson("/trending/tv/week"),
-    ]);
-
-    tmdbResults = [
-      ...(trendingMovies.results ?? []).map((r: any) => ({
-        ...(r as TmdbTitle),
-        media_type: "movie",
-      })),
-      ...(trendingTv.results ?? []).map((r: any) => ({
-        ...(r as TmdbTitle),
-        media_type: "tv",
-      })),
-    ];
-  }
-
-  tmdbResults = tmdbResults.slice(0, 120);
-
-  const upserted = await upsertTmdbTitles(supabase, tmdbResults);
-  const tmdbIds = upserted.map((r: any) => r.tmdb_id);
-
-  if (!tmdbIds.length) {
-    return new Response(JSON.stringify({ cards: [] }), {
+  // If we really have nothing to go on, fall back to popular titles.
+  if (positiveRatings.length === 0) {
+    const cards = await buildTrendingFallback(supabase, user.id, limit);
+    const response: SwipeDeckResponse = { cards };
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const { data: rows, error: titlesError } = await supabase
+  const ratedIds = Array.from(new Set(positiveRatings.map((r) => r.title_id as string)));
+
+  // 2) Fetch embeddings for these titles
+  const { data: embedRows, error: embedsError } = await supabase
+    .from("title_embeddings")
+    .select("title_id, embedding")
+    .in("title_id", ratedIds);
+
+  if (embedsError) {
+    console.error("[swipe-for-you] embeddings error:", embedsError.message);
+  }
+
+  const embedById = new Map<string, number[]>();
+  for (const row of embedRows ?? []) {
+    embedById.set(row.title_id as string, row.embedding as unknown as number[]);
+  }
+
+  const firstEmbedding = embedRows?.[0]?.embedding as number[] | undefined;
+  if (!firstEmbedding || !Array.isArray(firstEmbedding) || firstEmbedding.length === 0) {
+    const cards = await buildTrendingFallback(supabase, user.id, limit);
+    const response: SwipeDeckResponse = { cards };
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const dims = firstEmbedding.length;
+  const now = Date.now();
+  const userEmbedding = new Array(dims).fill(0) as number[];
+  let weightSum = 0;
+
+  for (const r of positiveRatings) {
+    const emb = embedById.get(r.title_id as string);
+    if (!emb) continue;
+
+    const rating = Number(r.rating ?? 0);
+    const score = (rating - 2.5) / 2.5; // [-1, 1]
+    if (score <= 0) continue;
+
+    const createdAt = r.created_at ? new Date(r.created_at as string).getTime() : now;
+    const daysAgo = (now - createdAt) / (1000 * 60 * 60 * 24);
+    const recency = Math.exp(-daysAgo / 180); // ~6 months half-life
+
+    const weight = score * recency;
+    weightSum += weight;
+
+    for (let i = 0; i < dims; i++) {
+      userEmbedding[i] += emb[i] * weight;
+    }
+  }
+
+  if (weightSum <= 0) {
+    const cards = await buildTrendingFallback(supabase, user.id, limit);
+    const response: SwipeDeckResponse = { cards };
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  for (let i = 0; i < dims; i++) {
+    userEmbedding[i] /= weightSum;
+  }
+
+  // 3) Use match_titles RPC to get candidate IDs
+  const { data: matches, error: matchError } = await supabase.rpc("match_titles", {
+    query_embedding: userEmbedding,
+    match_threshold: 1.0,
+    match_count: limit * 6,
+  });
+
+  if (matchError) {
+    console.error("[swipe-for-you] match_titles error:", matchError.message);
+    const cards = await buildTrendingFallback(supabase, user.id, limit);
+    const response: SwipeDeckResponse = { cards };
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const ratedSet = new Set((ratings ?? []).map((r) => r.title_id as string));
+  const candidateMatches = (matches ?? []).filter(
+    (m: any) => !ratedSet.has(m.title_id as string),
+  );
+
+  const candidateIds = candidateMatches.slice(0, limit * 4).map((m: any) => m.title_id as string);
+
+  if (candidateIds.length === 0) {
+    const cards = await buildTrendingFallback(supabase, user.id, limit);
+    const response: SwipeDeckResponse = { cards };
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // 4) Load title metadata + ratings + external ratings
+  const { data: titleRows, error: titleError } = await supabase
     .from("titles")
     .select(
       `
@@ -236,93 +300,195 @@ Deno.serve(async (req) => {
       title,
       year,
       type,
-      poster_url,
       runtime_minutes,
+      poster_url,
       synopsis,
+      tmdb_popularity,
       title_stats (
         avg_rating,
-        ratings_count,
-        watch_count
+        ratings_count
       ),
-      ratings (
-        rating,
-        user_id
-      ),
-      library_entries (
-        status,
-        user_id
+      external_ratings (
+        imdb_rating,
+        rt_tomato_meter
       )
     `,
     )
-    .in("tmdb_id", tmdbIds);
+    .in("id", candidateIds);
 
-  if (titlesError) {
-    console.error("[swipe-for-you] error loading titles:", titlesError);
-    return new Response(JSON.stringify({ cards: [] }), {
+  if (titleError) {
+    console.error("[swipe-for-you] titles error:", titleError.message);
+  }
+
+  const metaById = new Map<string, any>();
+  for (const t of titleRows ?? []) {
+    metaById.set(t.id as string, t);
+  }
+
+  // 5) Collaborative filtering via friends' likes
+  const { data: follows, error: followsError } = await supabase
+    .from("follows")
+    .select("followed_id")
+    .eq("follower_id", user.id);
+
+  if (followsError) {
+    console.error("[swipe-for-you] follows error:", followsError.message);
+  }
+
+  const friendIds = (follows ?? []).map((f) => f.followed_id as string);
+  const friendLikesByTitle = new Map<string, number>();
+
+  if (friendIds.length > 0) {
+    const { data: friendRatings, error: frError } = await supabase
+      .from("ratings")
+      .select("title_id, user_id, rating")
+      .in("title_id", candidateIds)
+      .in("user_id", friendIds)
+      .gte("rating", 4.0);
+
+    if (frError) {
+      console.error("[swipe-for-you] friend ratings error:", frError.message);
+    } else {
+      for (const r of friendRatings ?? []) {
+        const key = r.title_id as string;
+        friendLikesByTitle.set(key, (friendLikesByTitle.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  const maxFriendLikes =
+    Array.from(friendLikesByTitle.values()).reduce((max, v) => Math.max(max, v), 0) || 1;
+
+  // Library entries for watchlist info.
+  const { data: libraryRows, error: libraryError } = await supabase
+    .from("library_entries")
+    .select("title_id, status")
+    .eq("user_id", user.id)
+    .in("title_id", candidateIds);
+
+  if (libraryError) {
+    console.error("[swipe-for-you] library error:", libraryError.message);
+  }
+
+  const libraryByTitle = new Map<string, any>();
+  for (const row of libraryRows ?? []) {
+    libraryByTitle.set(row.title_id as string, row);
+  }
+
+  // 6) Compute scores and shape SwipeCardData[]
+  let maxPopularity = 0;
+
+  for (const m of candidateMatches) {
+    const meta = metaById.get(m.title_id as string);
+    if (!meta) continue;
+    const popularity = Number(meta.tmdb_popularity ?? 0) || 0;
+    if (popularity > maxPopularity) maxPopularity = popularity;
+  }
+  if (maxPopularity <= 0) maxPopularity = 1;
+
+  type InternalCard = {
+    id: string;
+    similarity: number;
+    appRating: number;
+    imdbRating: number;
+    rtMeter: number;
+    friendLikesCount: number;
+    popularity: number;
+  };
+
+  const internal: InternalCard[] = [];
+
+  for (const m of candidateMatches) {
+    const id = m.title_id as string;
+    const meta = metaById.get(id);
+    if (!meta) continue;
+
+    const similarity = Number(m.similarity ?? 0);
+    const ts = meta.title_stats ?? {};
+    const er = meta.external_ratings ?? {};
+
+    const appRating = Number(ts.avg_rating ?? 0) || 0;
+    const imdbRating = Number(er.imdb_rating ?? 0) || 0;
+    const rtMeter = Number(er.rt_tomato_meter ?? 0) || 0;
+    const popularity = Number(meta.tmdb_popularity ?? 0) || 0;
+    const friendLikes = friendLikesByTitle.get(id) ?? 0;
+
+    internal.push({
+      id,
+      similarity,
+      appRating,
+      imdbRating,
+      rtMeter,
+      friendLikesCount: friendLikes,
+      popularity,
+    });
+  }
+
+  if (!internal.length) {
+    const cards = await buildTrendingFallback(supabase, user.id, limit);
+    const response: SwipeDeckResponse = { cards };
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const nowRows = (rows ?? []) as any[];
+  const cardsScored = internal.map((c) => {
+    const contentSim = c.similarity;
 
-  const unseen = nowRows.filter((row) => {
-    const ratingRow = (row.ratings ?? [])[0] as { rating: number } | undefined;
-    const libraryRow = (row.library_entries ?? [])[0] as
-      | { status: string }
-      | undefined;
+    const cfScore = Math.log1p(c.friendLikesCount) / Math.log1p(maxFriendLikes);
 
-    const hasRating = !!ratingRow;
-    const libStatus = libraryRow?.status ?? null;
-    const isFinished =
-      libStatus === "watched" || libStatus === "dropped" || libStatus === "watching";
+    const appScore = normalizeRating(c.appRating);
+    const imdbScore = c.imdbRating > 0 ? Math.min(1, c.imdbRating / 10) : 0;
+    const rtScore = c.rtMeter > 0 ? Math.min(1, c.rtMeter / 100) : 0;
 
-    return !hasRating && !isFinished;
+    const popNorm = c.popularity > 0 ? Math.min(1, c.popularity / maxPopularity) : 0;
+
+    const qualityScore = (appScore + imdbScore) / 2;
+
+    const finalScore =
+      0.5 * contentSim +
+      0.15 * cfScore +
+      0.15 * qualityScore +
+      0.1 * rtScore +
+      0.1 * popNorm;
+
+    return { ...c, finalScore };
   });
 
-  unseen.sort((a, b) => {
-    const aStats = a.title_stats ?? {};
-    const bStats = b.title_stats ?? {};
-    const aWatch = (aStats.watch_count as number | null) ?? 0;
-    const bWatch = (bStats.watch_count as number | null) ?? 0;
-    const aAvg = Number((aStats.avg_rating as number | null) ?? 0);
-    const bAvg = Number((bStats.avg_rating as number | null) ?? 0);
-    return bWatch - aWatch || bAvg - aAvg;
-  });
+  cardsScored.sort((a, b) => b.finalScore - a.finalScore);
 
-  const sliced = unseen.slice(0, limit);
+  const topIds = cardsScored.slice(0, limit).map((c) => c.id);
 
-  const cards: SwipeCardData[] = sliced.map((row) => {
-    const ratingRow = (row.ratings ?? [])[0] as { rating?: number } | undefined;
-    const libraryRow = (row.library_entries ?? [])[0] as
-      | { status?: string }
-      | undefined;
+  const cards: SwipeCardData[] = topIds.map((id) => {
+    const meta = metaById.get(id);
+    const lib = libraryByTitle.get(id);
 
-    const synopsis: string | null = row.synopsis ?? null;
-    const shortTagline =
-      synopsis && synopsis.length > 110
-        ? synopsis.slice(0, 107) + "…"
-        : synopsis;
+    const synopsis = (meta.synopsis as string | null) ?? "";
+    const tagline =
+      synopsis.length > 0 ? synopsis.slice(0, 140).trimEnd() + (synopsis.length > 140 ? "…" : "") : null;
 
     return {
-      id: row.id as string,
-      title: (row.title as string | null) ?? "Untitled",
-      year: (row.year as number | null) ?? null,
-      runtimeMinutes: (row.runtime_minutes as number | null) ?? null,
-      tagline: shortTagline,
+      id,
+      title: (meta.title as string | null) ?? "Untitled",
+      year: (meta.year as number | null) ?? null,
+      runtimeMinutes: (meta.runtime_minutes as number | null) ?? null,
+      tagline,
       mood: null,
       vibeTag: null,
-      type: (row.type as string | null) ?? null,
-      posterUrl: (row.poster_url as string | null) ?? null,
-      friendLikesCount: null,
+      type: (meta.type as string | null) ?? null,
+      posterUrl: (meta.poster_url as string | null) ?? null,
+      friendLikesCount: friendLikesByTitle.get(id) ?? null,
       topFriendName: null,
       topFriendInitials: null,
       topFriendReviewSnippet: null,
-      initialRating: ratingRow?.rating ?? null,
-      initiallyInWatchlist: libraryRow?.status === "want_to_watch",
+      initialRating: null,
+      initiallyInWatchlist: lib?.status === "want_to_watch",
     };
   });
 
-  return new Response(JSON.stringify({ cards }), {
+  const response: SwipeDeckResponse = { cards };
+
+  return new Response(JSON.stringify(response), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
