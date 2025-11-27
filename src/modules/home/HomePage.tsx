@@ -50,11 +50,12 @@ const HomePage: React.FC = () => {
       <TopBar showLogo title="Home" subtitle="Stay close to what friends are watching" />
 
       <HeroCard
-        title="Welcome back"
-        subtitle="Track what you watch and see what friends love."
-        primaryAction={{ label: "Start swiping", onClick: () => navigate("/swipe") }}
+        title="Today on MoviNesta"
+        subtitle="A streamlined space for your diary, feed, and fresh picks."
+        badge="Premium"
+        primaryAction={{ label: "Open swipe deck", onClick: () => navigate("/swipe") }}
         secondaryAction={{
-          label: "Open diary",
+          label: "View diary",
           variant: "ghost",
           onClick: () => navigate("/diary"),
         }}

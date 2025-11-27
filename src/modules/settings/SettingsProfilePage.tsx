@@ -118,7 +118,7 @@ const SettingsProfilePage: React.FC = () => {
         kicker="Settings"
         icon={UserIcon}
         title="Profile"
-        description="Update how your profile looks across MoviNesta."
+        description="Tune the essentials that shape how you appear across MoviNesta."
       />
 
       {/* Content */}

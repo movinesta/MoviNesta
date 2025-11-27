@@ -47,8 +47,8 @@ const DiaryPage: React.FC = () => {
       <PageHeader
         kicker="Diary"
         icon={Clock}
-        title="Your movie diary"
-        description="Track what you watch, manage your library, and keep an eye on your movie habits."
+        title="Your clean movie diary"
+        description="Log what you watch, manage your library, and keep tabs on your habits without the noise."
       />
 
       {/* Tabs */}

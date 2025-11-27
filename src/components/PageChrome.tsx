@@ -24,39 +24,46 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const isCentered = alignment === "center";
 
   return (
-    <header className="rounded-3xl border border-mn-border-subtle bg-mn-bg/95 px-4 py-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className={["space-y-1", isCentered ? "text-center sm:text-left" : ""].join(" ")}>
-          {kicker && (
-            <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-mn-text-muted">
-              <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/70" aria-hidden />
-              {kicker}
-            </span>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2">
+    <header className="relative overflow-hidden rounded-3xl border border-mn-border-strong/40 bg-mn-bg/80 px-5 py-5 shadow-mn-card backdrop-blur">
+      <div className="pointer-events-none absolute inset-x-4 top-2 h-[1px] bg-gradient-to-r from-transparent via-mn-primary/40 to-transparent" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className={["space-y-2", isCentered ? "text-center sm:text-left" : ""].join(" ")}>
+          <div className="flex flex-wrap items-center gap-3">
             {Icon && (
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-mn-border-subtle/80 bg-mn-bg text-mn-text-primary shadow-sm">
-                <Icon className="h-4 w-4" aria-hidden />
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-mn-primary/15 via-mn-bg to-mn-bg-elevated text-mn-text-primary ring-1 ring-inset ring-mn-border-strong/50">
+                <Icon className="h-[18px] w-[18px]" aria-hidden />
               </span>
             )}
-            <h1 className="text-xl font-heading font-semibold text-mn-text-primary">{title}</h1>
-            {badge && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-mn-primary/30 bg-mn-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-mn-primary">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                <span>{badge}</span>
-              </span>
-            )}
+            <div className="space-y-1">
+              {kicker && (
+                <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-mn-text-muted">
+                  <span className="h-1 w-6 rounded-full bg-mn-border-strong/70" aria-hidden />
+                  {kicker}
+                </span>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-heading font-semibold text-mn-text-primary">{title}</h1>
+                {badge && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-mn-primary ring-1 ring-inset ring-mn-border-strong/50">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                    <span>{badge}</span>
+                  </span>
+                )}
+              </div>
+              {description && (
+                <p className="max-w-3xl text-[12.5px] leading-relaxed text-mn-text-secondary/90">
+                  {description}
+                </p>
+              )}
+            </div>
           </div>
-
-          {description && (
-            <p className="max-w-3xl text-[11.5px] leading-relaxed text-mn-text-secondary">
-              {description}
-            </p>
-          )}
         </div>
 
-        {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap items-center justify-end gap-2 text-[12px] text-mn-text-secondary">
+            {actions}
+          </div>
+        )}
       </div>
     </header>
   );

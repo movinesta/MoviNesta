@@ -163,18 +163,9 @@ const SearchPage: React.FC = () => {
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
       <PageHeader
         kicker="Search"
-        title="Find the right movie – or the right people."
-        description="Start typing a title, director, or a friend's name. Use tabs to switch between titles and people."
+        title="Search without the clutter"
+        description="Find titles, filmmakers, or friends instantly. Switch tabs to move between movies and people."
         icon={SearchIcon}
-        actions={
-          <div className="hidden shrink-0 rounded-full border border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft sm:flex sm:flex-col sm:items-start">
-            <p className="font-medium text-mn-text-primary">Pro tip</p>
-            <p className="mt-0.5 text-[10px] text-mn-text-muted">
-              Tap <span className="rounded border border-mn-border-subtle px-1">/</span> to jump to
-              search from anywhere.
-            </p>
-          </div>
-        }
       />
 
       {/* Search bar + filters */}

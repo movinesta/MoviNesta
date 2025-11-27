@@ -25,40 +25,43 @@ const HeroCard: React.FC<HeroCardProps> = ({
   secondaryAction,
   size = "large",
 }) => {
-  const padding = size === "small" ? "p-4" : "p-5";
-  const radius = "rounded-2xl";
+  const padding = size === "small" ? "p-4" : "p-6";
+  const radius = "rounded-3xl";
 
   return (
     <section
-      className={`${radius} border border-mn-border-subtle bg-mn-bg/95 shadow-sm transition hover:border-mn-border-strong/80`}
+      className={`${radius} relative overflow-hidden border border-mn-border-strong/40 bg-gradient-to-r from-mn-bg to-mn-bg-elevated/80 shadow-mn-card backdrop-blur`}
     >
-      <div className={`${padding} flex flex-col gap-3`}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute -left-10 top-0 h-24 w-24 rounded-full bg-mn-primary/10 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-28 w-28 rounded-full bg-mn-primary-soft blur-3xl" />
+      </div>
+
+      <div
+        className={`${padding} relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}
+      >
+        <div className="space-y-2">
+          {badge ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/70 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-mn-primary ring-1 ring-inset ring-mn-border-strong/50">
+              {badge}
+            </span>
+          ) : null}
           <div className="space-y-1.5">
-            {badge ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-mn-primary/30 bg-mn-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-mn-primary">
-                {badge}
-              </span>
-            ) : null}
-            <h1 className="text-lg font-semibold leading-snug text-mn-text-primary">{title}</h1>
+            <h1 className="text-xl font-heading font-semibold leading-snug text-mn-text-primary">
+              {title}
+            </h1>
             {subtitle ? (
-              <p className="text-[12px] text-mn-text-secondary leading-relaxed">{subtitle}</p>
+              <p className="text-[13px] text-mn-text-secondary leading-relaxed">{subtitle}</p>
             ) : null}
           </div>
-
-          {(primaryAction || secondaryAction) && (
-            <div className="flex flex-wrap items-center gap-2 text-[11px] sm:justify-end">
-              {secondaryAction ? <HeroButton action={secondaryAction} subtle /> : null}
-              {primaryAction ? <HeroButton action={primaryAction} /> : null}
-            </div>
-          )}
         </div>
 
-        {secondaryAction && !primaryAction ? (
-          <div className="flex gap-2">
-            <HeroButton action={secondaryAction} subtle />
+        {(primaryAction || secondaryAction) && (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] sm:justify-end">
+            {secondaryAction ? <HeroButton action={secondaryAction} subtle /> : null}
+            {primaryAction ? <HeroButton action={primaryAction} /> : null}
           </div>
-        ) : null}
+        )}
       </div>
     </section>
   );
