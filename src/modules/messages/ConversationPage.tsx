@@ -14,6 +14,7 @@ import {
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { HeaderSurface } from "../../components/PageChrome";
 import { useAuth } from "../auth/AuthProvider";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
@@ -623,7 +624,7 @@ const ConversationPage: React.FC = () => {
 
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/90 shadow-xl shadow-mn-primary/5 backdrop-blur">
         {/* Header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-mn-border-subtle/70 bg-mn-bg/85 px-4 py-3 shadow-sm backdrop-blur-md">
+        <HeaderSurface className="min-h-[3.5rem] py-3">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -728,7 +729,7 @@ const ConversationPage: React.FC = () => {
               </button>
             )}
           </div>
-        </header>
+        </HeaderSurface>
 
         {/* Conversation body */}
         <section className="flex min-h-0 flex-1 flex-col">
