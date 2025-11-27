@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -23,38 +22,58 @@ function buildSupabaseClient(req: Request) {
   });
 }
 
-async function fetchTmdbJson(path: string): Promise<any> {
-  const res = await fetch(`https://api.themoviedb.org/3${path}`, {
-    headers: { Authorization: `Bearer ${TMDB_READ_TOKEN}` },
-  });
-  if (!res.ok) {
-    console.warn("[sync-title-metadata] TMDb error:", res.status, path);
+async function fetchTmdbJson(path: string) {
+  if (!TMDB_READ_TOKEN) {
+    console.error("[sync-title-metadata] Missing TMDB_READ_TOKEN");
     return null;
   }
-  return res.json();
+
+  const res = await fetch(`https://api.themoviedb.org/3${path}`, {
+    headers: {
+      Authorization: `Bearer ${TMDB_READ_TOKEN}`,
+      "Content-Type": "application/json;charset=utf-8",
+    },
+  });
+
+  if (!res.ok) {
+    console.error("[sync-title-metadata] TMDb error", res.status, await res.text());
+    return null;
+  }
+
+  return await res.json();
 }
 
-async function fetchOmdbByImdbId(imdbId: string): Promise<any | null> {
-  if (!OMDB_API_KEY || !imdbId) return null;
+async function fetchOmdbByImdbId(imdbId: string) {
+  if (!OMDB_API_KEY) {
+    console.error("[sync-title-metadata] Missing OMDB_API_KEY");
+    return null;
+  }
+
   const url = new URL("https://www.omdbapi.com/");
   url.searchParams.set("apikey", OMDB_API_KEY);
   url.searchParams.set("i", imdbId);
   url.searchParams.set("plot", "short");
-  url.searchParams.set("tomatoes", "true");
-  url.searchParams.set("r", "json");
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    console.warn("[sync-title-metadata] OMDb error:", res.status);
+    console.error("[sync-title-metadata] OMDb error", res.status, await res.text());
     return null;
   }
-  const data = await res.json();
-  if (data.Response === "False") return null;
-  return data;
+
+  const json = await res.json();
+  if (json.Response === "False") {
+    console.warn("[sync-title-metadata] OMDb returned failure:", json.Error);
+    return null;
+  }
+
+  return json;
 }
 
 async function createEmbedding(input: string): Promise<number[] | null> {
-  if (!OPENAI_API_KEY) return null;
+  if (!OPENAI_API_KEY) {
+    console.error("[sync-title-metadata] Missing OPENAI_API_KEY");
+    return null;
+  }
 
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
@@ -69,13 +88,18 @@ async function createEmbedding(input: string): Promise<number[] | null> {
   });
 
   if (!res.ok) {
-    console.error("[sync-title-metadata] OpenAI error:", await res.text());
+    console.error("[sync-title-metadata] OpenAI error", res.status, await res.text());
     return null;
   }
 
   const json = await res.json();
-  const [item] = json.data ?? [];
-  return item?.embedding ?? null;
+  const embedding = json.data?.[0]?.embedding;
+  if (!Array.isArray(embedding)) {
+    console.error("[sync-title-metadata] embedding not returned in expected format");
+    return null;
+  }
+
+  return embedding as number[];
 }
 
 Deno.serve(async (req) => {
@@ -90,13 +114,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (
-    !SUPABASE_URL ||
-    !SERVICE_ROLE_KEY ||
-    !TMDB_READ_TOKEN ||
-    !OMDB_API_KEY
-  ) {
-    console.error("[sync-title-metadata] Missing required env vars");
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error("[sync-title-metadata] SUPABASE env missing");
     return new Response("Server misconfigured", {
       status: 500,
       headers: corsHeaders,
@@ -105,37 +124,44 @@ Deno.serve(async (req) => {
 
   const supabase = buildSupabaseClient(req);
 
-  const { data: authUser, error: authError } = await supabase.auth.getUser();
-  if (authError || !authUser?.user) {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
     return new Response("Unauthorized", {
       status: 401,
       headers: corsHeaders,
     });
   }
 
-  type Body = {
+  const body = (await req.json().catch(() => ({}))) as {
     tmdbId?: number;
     imdbId?: string;
     type?: "movie" | "tv";
   };
 
-  const body = (await req.json().catch(() => ({}))) as Body;
   let { tmdbId, imdbId, type } = body;
+  if (!type) type = "movie";
 
   if (!tmdbId && !imdbId) {
-    return new Response("tmdbId or imdbId required", {
+    return new Response("Missing tmdbId or imdbId", {
       status: 400,
       headers: corsHeaders,
     });
   }
 
-  type = type ?? "movie";
-
-  // 1. If we only have IMDb ID, use TMDb /find to get TMDb ID
+  // 1. If we only have IMDb ID, resolve to TMDb via /find
   if (!tmdbId && imdbId) {
-    const found = await fetchTmdbJson(
-      `/find/${imdbId}?external_source=imdb_id`,
-    );
+    const findPath = `/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`;
+    const found = await fetchTmdbJson(findPath);
+    if (!found) {
+      return new Response("TMDb find failed", {
+        status: 502,
+        headers: corsHeaders,
+      });
+    }
     const result =
       type === "tv" ? found?.tv_results?.[0] : found?.movie_results?.[0];
     if (result?.id) tmdbId = result.id;
@@ -179,7 +205,40 @@ Deno.serve(async (req) => {
     ? `https://image.tmdb.org/t/p/w780${tmdb.backdrop_path}`
     : null;
 
+  // 2b. Ensure we always have a non-null title id
+  // Try to find an existing title row by tmdb_id or imdb_id, otherwise generate a new id.
+  let titleId: string | null = null;
+
+  if (tmdbId) {
+    const { data: existingByTmdb } = await supabase
+      .from("titles")
+      .select("id")
+      .eq("tmdb_id", tmdbId)
+      .maybeSingle();
+
+    if (existingByTmdb?.id) {
+      titleId = existingByTmdb.id as string;
+    }
+  }
+
+  if (!titleId && imdbId) {
+    const { data: existingByImdb } = await supabase
+      .from("titles")
+      .select("id")
+      .eq("imdb_id", imdbId)
+      .maybeSingle();
+
+    if (existingByImdb?.id) {
+      titleId = existingByImdb.id as string;
+    }
+  }
+
+  if (!titleId) {
+    titleId = crypto.randomUUID();
+  }
+
   const row = {
+    id: titleId,
     title,
     type,
     year,
@@ -198,7 +257,7 @@ Deno.serve(async (req) => {
 
   const { data: upsertedTitles, error: upsertError } = await supabase
     .from("titles")
-    .upsert(row, { onConflict: "tmdb_id" })
+    .upsert(row, { onConflict: "id" })
     .select("id, imdb_id")
     .limit(1);
 
@@ -213,16 +272,20 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { id: titleId, imdb_id: storedImdbId } = upsertedTitles[0];
+  const { id: titleIdFinal, imdb_id: storedImdbId } = upsertedTitles[0];
 
   // 3. External ratings from OMDb
   if (storedImdbId) {
     const omdb = await fetchOmdbByImdbId(storedImdbId);
     if (omdb) {
-      const imdbRating = omdb.imdbRating ? Number(omdb.imdbRating) : null;
-      const imdbVotes = omdb.imdbVotes
-        ? Number((omdb.imdbVotes as string).replace(/,/g, ""))
-        : null;
+      const imdbRating =
+        omdb.imdbRating && omdb.imdbRating !== "N/A"
+          ? Number(omdb.imdbRating)
+          : null;
+      const imdbVotes =
+        omdb.imdbVotes && omdb.imdbVotes !== "N/A"
+          ? Number(omdb.imdbVotes.replace(/,/g, ""))
+          : null;
 
       let rtMeter: number | null = null;
       let metacriticScore: number | null = null;
@@ -240,12 +303,15 @@ Deno.serve(async (req) => {
           rtMeter = pct;
         } else if (r.Source === "Metacritic") {
           const [scoreStr] = r.Value.split("/");
-          metacriticScore = scoreStr ? Number(scoreStr) : null;
+          const score = Number(scoreStr);
+          if (!Number.isNaN(score)) {
+            metacriticScore = score;
+          }
         }
       }
 
       const extRow = {
-        title_id: titleId,
+        title_id: titleIdFinal,
         imdb_rating: imdbRating,
         imdb_votes: imdbVotes,
         rt_tomato_meter: rtMeter,
@@ -269,7 +335,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 4. Embedding generation (optional but recommended)
+  // 4. Embedding
   try {
     const genres =
       tmdb.genres?.map((g: any) => g.name).join(", ") ?? "";
@@ -287,7 +353,7 @@ Deno.serve(async (req) => {
         .from("title_embeddings")
         .upsert(
           {
-            title_id: titleId,
+            title_id: titleIdFinal,
             embedding,
             source: "tmdb+omdb",
             updated_at: new Date().toISOString(),
@@ -307,7 +373,7 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ ok: true, titleId, imdbId: storedImdbId }),
+    JSON.stringify({ ok: true, titleId: titleIdFinal, imdbId: storedImdbId }),
     {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     },
