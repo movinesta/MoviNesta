@@ -333,7 +333,9 @@ Deno.serve(async (req) => {
       overview ?? "",
     ]
       .filter(Boolean)
-      .join("\n\n");
+      .join("
+
+");
 
     const embedding = await createEmbedding(inputText);
     if (embedding) {

@@ -6,6 +6,12 @@ import { PageHeader, PageSection } from "../../components/PageChrome";
 import { useSimilarTitles } from "./useSimilarTitles";
 import { supabase } from "../../lib/supabase";
 
+interface ExternalRatingsRow {
+  imdb_rating: number | null;
+  rt_tomato_meter: number | null;
+  metacritic_score: number | null;
+}
+
 interface TitleRow {
   id: string;
   title: string | null;
@@ -13,6 +19,7 @@ interface TitleRow {
   type: string | null;
   poster_url: string | null;
   backdrop_url: string | null;
+  external_ratings: ExternalRatingsRow | null;
 }
 
 function useTrailerForTitle(title?: string | null, year?: number | null) {
@@ -43,6 +50,51 @@ function useTrailerForTitle(title?: string | null, year?: number | null) {
   });
 }
 
+
+type ExternalRatingsProps = {
+  external_ratings: ExternalRatingsRow | null;
+};
+
+const ExternalRatingsChips: React.FC<ExternalRatingsProps> = ({ external_ratings }) => {
+  if (!external_ratings) return null;
+
+  const { imdb_rating, rt_tomato_meter, metacritic_score } = external_ratings;
+
+  if (
+    imdb_rating === null &&
+    rt_tomato_meter === null &&
+    metacritic_score === null
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-mn-text-muted">
+      {typeof imdb_rating === "number" && !Number.isNaN(imdb_rating) && (
+        <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
+          <span className="mr-1 font-semibold">IMDb</span>
+          {imdb_rating.toFixed(1)}
+        </span>
+      )}
+
+      {typeof rt_tomato_meter === "number" && !Number.isNaN(rt_tomato_meter) && (
+        <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
+          <span className="mr-1 font-semibold">RT</span>
+          {rt_tomato_meter}%
+        </span>
+      )}
+
+      {typeof metacritic_score === "number" && !Number.isNaN(metacritic_score) && (
+        <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
+          <span className="mr-1 font-semibold">MC</span>
+          {metacritic_score}
+        </span>
+      )}
+    </div>
+  );
+};
+
+
 const TitleDetailPage: React.FC = () => {
   const { titleId } = useParams<{ titleId: string }>();
 
@@ -54,7 +106,19 @@ const TitleDetailPage: React.FC = () => {
 
       const { data, error } = await supabase
         .from("titles")
-        .select("id, title, year, type, poster_url, backdrop_url")
+        .select(`
+          id,
+          title,
+          year,
+          type,
+          poster_url,
+          backdrop_url,
+          external_ratings (
+            imdb_rating,
+            rt_tomato_meter,
+            metacritic_score
+          )
+        `)
         .eq("id", titleId)
         .maybeSingle();
 
@@ -137,6 +201,8 @@ const TitleDetailPage: React.FC = () => {
         icon={Clapperboard}
         badge={data.type ?? undefined}
       />
+
+      <ExternalRatingsChips external_ratings={data.external_ratings} />
 
       <PageSection>
         <div className="flex flex-col gap-4 md:flex-row">
