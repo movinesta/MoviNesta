@@ -41,9 +41,9 @@ interface RatingRow {
   rating: number | null;
 }
 
-export const useDiaryLibrary = (filters: DiaryLibraryFilters) => {
+export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: string | null) => {
   const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const userId = userIdOverride ?? user?.id ?? null;
 
   const query = useQuery({
     queryKey: ["diary", "library", userId],

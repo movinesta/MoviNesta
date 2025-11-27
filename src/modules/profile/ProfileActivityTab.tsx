@@ -1,17 +1,27 @@
 import React from "react";
 import DiaryTimelineTab from "../diary/DiaryTimelineTab";
 
-/**
- * ProfileActivityTab
- *
- * For now this simply reuses the main Diary timeline UI for the
- * currently signed-in user. Later this can accept a userId/profile
- * prop to show activity for any profile.
- */
-const ProfileActivityTab: React.FC = () => {
+interface ProfileActivityTabProps {
+  profileId: string;
+  displayName?: string | null;
+  username?: string | null;
+  isCurrentUser?: boolean;
+}
+
+const ProfileActivityTab: React.FC<ProfileActivityTabProps> = ({
+  profileId,
+  displayName,
+  username,
+  isCurrentUser = false,
+}) => {
   return (
     <div className="mt-2">
-      <DiaryTimelineTab />
+      <DiaryTimelineTab
+        userId={profileId}
+        isOwnProfile={isCurrentUser}
+        displayName={displayName}
+        username={username}
+      />
     </div>
   );
 };

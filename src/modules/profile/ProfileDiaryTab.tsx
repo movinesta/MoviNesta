@@ -1,17 +1,27 @@
 import React from "react";
 import DiaryLibraryTab from "../diary/DiaryLibraryTab";
 
-/**
- * ProfileDiaryTab
- *
- * For now this simply reuses the main Diary library UI for the
- * currently signed-in user. Later this can accept a userId/profile
- * prop to show a public slice of any user&apos;s diary.
- */
-const ProfileDiaryTab: React.FC = () => {
+interface ProfileDiaryTabProps {
+  profileId: string;
+  displayName?: string | null;
+  username?: string | null;
+  isCurrentUser?: boolean;
+}
+
+const ProfileDiaryTab: React.FC<ProfileDiaryTabProps> = ({
+  profileId,
+  displayName,
+  username,
+  isCurrentUser = false,
+}) => {
   return (
     <div className="mt-2">
-      <DiaryLibraryTab />
+      <DiaryLibraryTab
+        userId={profileId}
+        isOwnProfile={isCurrentUser}
+        displayName={displayName}
+        username={username}
+      />
     </div>
   );
 };

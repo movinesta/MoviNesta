@@ -61,18 +61,27 @@ export const useProfileByUsername = (username: string | null | undefined) => {
       const profileId = profileRow.id as string;
 
       // 2) Grab aggregate stats for this user (followers / following).
-      const { data: statsRow, error: statsError } = await supabase
-        .from("user_stats")
-        .select("followers_count, following_count")
-        .eq("user_id", profileId)
-        .maybeSingle();
+      const [
+        { count: followersCount, error: followersError },
+        { count: followingCount, error: followingError },
+      ] = await Promise.all([
+        supabase
+          .from("follows")
+          .select("followed_id", { count: "exact", head: true })
+          .eq("followed_id", profileId),
+        supabase
+          .from("follows")
+          .select("follower_id", { count: "exact", head: true })
+          .eq("follower_id", profileId),
+      ]);
 
-      if (statsError) {
-        throw statsError;
+      if (followersError) {
+        throw followersError;
       }
 
-      const followersCount = (statsRow?.followers_count as number | null) ?? 0;
-      const followingCount = (statsRow?.following_count as number | null) ?? 0;
+      if (followingError) {
+        throw followingError;
+      }
 
       // 3) If we have a logged-in viewer, check follow status.
       let isFollowing = false;
@@ -98,8 +107,8 @@ export const useProfileByUsername = (username: string | null | undefined) => {
         displayName: profileRow.display_name as string | null,
         avatarUrl: profileRow.avatar_url as string | null,
         bio: profileRow.bio as string | null,
-        followersCount,
-        followingCount,
+        followersCount: followersCount ?? 0,
+        followingCount: followingCount ?? 0,
         isFollowing,
         isCurrentUser: !!user && user.id === profileId,
       };
