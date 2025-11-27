@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/hooks/use-realtime-chat";
+import { Link } from "react-router-dom";
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -8,6 +9,9 @@ interface ChatMessageItemProps {
 }
 
 export const ChatMessageItem = ({ message, isOwnMessage, showHeader }: ChatMessageItemProps) => {
+  const profileHref = message.user.name ? `/u/${message.user.name}` : null;
+  const avatarInitial = message.user.name?.[0]?.toUpperCase() ?? "?";
+
   return (
     <div className={`flex mt-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
       <div
@@ -21,7 +25,19 @@ export const ChatMessageItem = ({ message, isOwnMessage, showHeader }: ChatMessa
               "justify-end flex-row-reverse": isOwnMessage,
             })}
           >
-            <span className={"font-medium"}>{message.user.name}</span>
+            {profileHref ? (
+              <Link
+                to={profileHref}
+                className="group inline-flex items-center gap-2 rounded-full px-1.5 py-1 transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
+                  {avatarInitial}
+                </span>
+                <span className="font-medium group-hover:text-primary">@{message.user.name}</span>
+              </Link>
+            ) : (
+              <span className={"font-medium"}>{message.user.name}</span>
+            )}
             <span className="text-foreground/50 text-xs">
               {new Date(message.createdAt).toLocaleTimeString("en-US", {
                 hour: "2-digit",

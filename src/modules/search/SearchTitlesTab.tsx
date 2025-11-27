@@ -186,14 +186,14 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
             !Number.isNaN(item.imdbRating) &&
             item.imdbRating > 0
           ) {
-            metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
+            metaPieces.push(`IMDb Rating ${item.imdbRating.toFixed(1)}`);
           }
           if (
             typeof item.rtTomatoMeter === "number" &&
             !Number.isNaN(item.rtTomatoMeter) &&
             item.rtTomatoMeter > 0
           ) {
-            metaPieces.push(`RT ${item.rtTomatoMeter}%`);
+            metaPieces.push(`Tomatometer ${item.rtTomatoMeter}%`);
           }
 
           return (

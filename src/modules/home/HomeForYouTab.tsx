@@ -617,7 +617,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
               !Number.isNaN(pick.imdbRating) &&
               pick.imdbRating > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <span className="font-semibold text-mn-text-secondary">IMDb</span>
+                  <span className="font-semibold text-mn-text-secondary">IMDb Rating</span>
                   <span>{pick.imdbRating.toFixed(1)}</span>
                 </span>
               )}
@@ -625,7 +625,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
               !Number.isNaN(pick.rtTomatoMeter) &&
               pick.rtTomatoMeter > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <span className="font-semibold text-mn-text-secondary">RT</span>
+                  <span className="font-semibold text-mn-text-secondary">Tomatometer</span>
                   <span>{pick.rtTomatoMeter}%</span>
                 </span>
               )}
@@ -712,7 +712,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
     !Number.isNaN(item.imdbRating) &&
     item.imdbRating > 0
   ) {
-    metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
+    metaPieces.push(`IMDb Rating ${item.imdbRating.toFixed(1)}`);
   }
 
   if (
@@ -720,7 +720,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
     !Number.isNaN(item.rtTomatoMeter) &&
     item.rtTomatoMeter > 0
   ) {
-    metaPieces.push(`RT ${item.rtTomatoMeter}%`);
+    metaPieces.push(`Tomatometer ${item.rtTomatoMeter}%`);
   }
 
   return (

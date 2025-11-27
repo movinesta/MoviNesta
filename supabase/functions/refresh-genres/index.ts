@@ -12,6 +12,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TMDB_API_KEY) {
   console.error("Missing required environment variables for refresh-genres");
 }
@@ -24,8 +31,12 @@ type TmdbGenre = {
 };
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
   }
 
   try {
@@ -35,7 +46,7 @@ Deno.serve(async (req) => {
 
     if (!tmdbRes.ok) {
       console.error("[refresh-genres] TMDB error:", tmdbRes.status, await tmdbRes.text());
-      return new Response("TMDB error", { status: 502 });
+      return new Response("TMDB error", { status: 502, headers: corsHeaders });
     }
 
     const body = await tmdbRes.json();
@@ -43,7 +54,7 @@ Deno.serve(async (req) => {
 
     if (!Array.isArray(genres) || genres.length === 0) {
       console.warn("[refresh-genres] No genres returned from TMDB");
-      return new Response("No genres", { status: 200 });
+      return new Response("No genres", { status: 200, headers: corsHeaders });
     }
 
     // Adjust the table / column names if your schema is different.
@@ -60,12 +71,12 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("[refresh-genres] Supabase upsert error:", error);
-      return new Response("DB error", { status: 500 });
+      return new Response("DB error", { status: 500, headers: corsHeaders });
     }
 
-    return new Response("ok", { status: 200 });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   } catch (err) {
     console.error("[refresh-genres] Unexpected error:", err);
-    return new Response("Internal error", { status: 500 });
+    return new Response("Internal error", { status: 500, headers: corsHeaders });
   }
 });

@@ -6,6 +6,13 @@
 
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
 if (!YOUTUBE_API_KEY) {
   console.error("Missing YOUTUBE_API_KEY for fetch-trailer");
 }
@@ -22,25 +29,38 @@ type YoutubeSearchItem = {
 };
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: corsHeaders,
+    });
   }
 
   if (!YOUTUBE_API_KEY) {
-    return new Response("YouTube API not configured", { status: 500 });
+    return new Response("YouTube API not configured", {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 
   let payload: RequestBody;
   try {
     payload = await req.json();
   } catch {
-    return new Response("Invalid JSON body", { status: 400 });
+    return new Response("Invalid JSON body", { status: 400, headers: corsHeaders });
   }
 
   const { title, year } = payload;
 
   if (!title || typeof title !== "string") {
-    return new Response("Missing 'title' in body", { status: 400 });
+    return new Response("Missing 'title' in body", {
+      status: 400,
+      headers: corsHeaders,
+    });
   }
 
   const queryParts = [title.trim(), "official trailer"];
@@ -61,7 +81,7 @@ Deno.serve(async (req) => {
 
     if (!ytRes.ok) {
       console.error("[fetch-trailer] YouTube error:", ytRes.status, await ytRes.text());
-      return new Response("YouTube error", { status: 502 });
+      return new Response("YouTube error", { status: 502, headers: corsHeaders });
     }
 
     const json = await ytRes.json();
@@ -78,10 +98,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify(responseBody), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[fetch-trailer] Unexpected error:", err);
-    return new Response("Internal error", { status: 500 });
+    return new Response("Internal error", { status: 500, headers: corsHeaders });
   }
 });

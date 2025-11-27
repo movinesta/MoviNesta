@@ -387,6 +387,24 @@ const SwipeTrendingTab: React.FC = () => {
                       {currentCard.type ? ` · ${currentCard.type}` : null}
                       {runtimeLabel ? ` · ${runtimeLabel}` : null}
                     </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+                      {typeof currentCard.imdbRating === "number" &&
+                        !Number.isNaN(currentCard.imdbRating) &&
+                        currentCard.imdbRating > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/60 bg-mn-surface-elevated/60 px-2 py-0.5">
+                            <span className="font-semibold">IMDb Rating</span>
+                            {currentCard.imdbRating.toFixed(1)}
+                          </span>
+                        )}
+                      {typeof currentCard.rtTomatoMeter === "number" &&
+                        !Number.isNaN(currentCard.rtTomatoMeter) &&
+                        currentCard.rtTomatoMeter > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/60 bg-mn-surface-elevated/60 px-2 py-0.5">
+                            <span className="font-semibold">Tomatometer</span>
+                            {currentCard.rtTomatoMeter}%
+                          </span>
+                        )}
+                    </div>
                     {currentCard.mood && (
                       <p className="mt-0.5 text-[10px] text-mn-text-muted">{currentCard.mood}</p>
                     )}

@@ -3,9 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -43,6 +45,13 @@ type TmdbTitle = {
   original_language?: string;
 };
 
+type OmdbRatings = {
+  imdbRating: number | null;
+  imdbVotes: number | null;
+  rtTomatoMeter: number | null;
+  metacriticScore: number | null;
+};
+
 interface RequestBody {
   limit?: number;
 }
@@ -66,6 +75,119 @@ async function fetchTmdbJson(path: string): Promise<any> {
     return { results: [] };
   }
   return res.json();
+}
+
+async function fetchTmdbExternalIds(tmdbId: number, mediaType: "movie" | "tv") {
+  const detailsPath = mediaType === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+  return fetchTmdbJson(detailsPath);
+}
+
+async function fetchOmdbRatings(imdbId: string): Promise<OmdbRatings | null> {
+  if (!OMDB_API_KEY) return null;
+
+  const url = new URL("https://www.omdbapi.com/");
+  url.searchParams.set("apikey", OMDB_API_KEY);
+  url.searchParams.set("i", imdbId);
+  url.searchParams.set("plot", "short");
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    console.warn("[swipe-trending] OMDb error", res.status, await res.text());
+    return null;
+  }
+
+  const json = await res.json();
+  if (json.Response === "False") {
+    console.warn("[swipe-trending] OMDb responded with failure", json.Error);
+    return null;
+  }
+
+  const imdbRating =
+    json.imdbRating && json.imdbRating !== "N/A"
+      ? Number(json.imdbRating)
+      : null;
+  const imdbVotes =
+    json.imdbVotes && json.imdbVotes !== "N/A"
+      ? Number(String(json.imdbVotes).replace(/,/g, ""))
+      : null;
+
+  let rtTomatoMeter: number | null = null;
+  let metacriticScore: number | null = null;
+
+  for (const rating of json.Ratings ?? []) {
+    if (rating.Source === "Rotten Tomatoes") {
+      const pct = rating.Value?.endsWith("%")
+        ? Number(rating.Value.replace("%", ""))
+        : null;
+      rtTomatoMeter = pct;
+    }
+    if (rating.Source === "Metacritic") {
+      const [scoreStr] = String(rating.Value ?? "").split("/");
+      const score = Number(scoreStr);
+      if (!Number.isNaN(score)) metacriticScore = score;
+    }
+  }
+
+  return { imdbRating, imdbVotes, rtTomatoMeter, metacriticScore };
+}
+
+async function hydrateExternalRatings(
+  supabase: ReturnType<typeof createClient>,
+  titles: any[],
+) {
+  if (!OMDB_API_KEY || !TMDB_READ_TOKEN) return titles;
+
+  for (const title of titles) {
+    const existing = title.external_ratings ?? {};
+    const hasImdb = typeof existing.imdb_rating === "number" && existing.imdb_rating > 0;
+    const hasRt = typeof existing.rt_tomato_meter === "number" && existing.rt_tomato_meter > 0;
+
+    if (hasImdb || hasRt) continue;
+
+    let imdbId: string | null = title.imdb_id ?? null;
+    if (!imdbId && title.tmdb_id) {
+      const tmdb = await fetchTmdbExternalIds(
+        title.tmdb_id as number,
+        (title.type as string) === "series" ? "tv" : "movie",
+      );
+      imdbId = tmdb?.imdb_id ?? null;
+
+      if (imdbId) {
+        await supabase.from("titles").update({ imdb_id: imdbId }).eq("id", title.id);
+      }
+    }
+
+    if (!imdbId) continue;
+
+    const omdb = await fetchOmdbRatings(imdbId);
+    if (!omdb) continue;
+
+    const payload = {
+      title_id: title.id as string,
+      imdb_rating: omdb.imdbRating,
+      imdb_votes: omdb.imdbVotes,
+      rt_tomato_meter: omdb.rtTomatoMeter,
+      metacritic_score: omdb.metacriticScore,
+      last_synced_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("external_ratings")
+      .upsert(payload, { onConflict: "title_id" });
+
+    if (error) {
+      console.warn("[swipe-trending] failed to upsert external_ratings", error.message);
+      continue;
+    }
+
+    title.external_ratings = {
+      ...(title.external_ratings ?? {}),
+      imdb_rating: omdb.imdbRating,
+      rt_tomato_meter: omdb.rtTomatoMeter,
+    };
+  }
+
+  return titles;
 }
 
 async function upsertTmdbTitles(
@@ -176,6 +298,8 @@ Deno.serve(async (req) => {
       id,
       title,
       year,
+      tmdb_id,
+      imdb_id,
       type,
       poster_url,
       runtime_minutes,
@@ -201,7 +325,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  const titleRows = (titles ?? []) as any[];
+  let titleRows = (titles ?? []) as any[];
+  titleRows = await hydrateExternalRatings(supabase, titleRows);
   const titleIds = titleRows.map((t) => t.id as string);
 
   const seenTitleIds = new Set<string>();

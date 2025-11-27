@@ -217,7 +217,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
               className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-mn-bg-elevated/80"
             >
               <Link
-                to={person.username ? `/profile/${person.username}` : `/profile/${person.id}`}
+                to={person.username ? `/u/${person.username}` : `/u/${person.id}`}
                 className="flex min-w-0 flex-1 items-center gap-3"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-[14px] font-semibold text-mn-text-primary">
