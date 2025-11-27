@@ -26,6 +26,8 @@ type SwipeCardData = {
   topFriendReviewSnippet?: string | null;
   initialRating?: number | null;
   initiallyInWatchlist?: boolean;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
 };
 
 type SwipeDeckResponse = {
@@ -462,6 +464,7 @@ Deno.serve(async (req) => {
   const cards: SwipeCardData[] = topIds.map((id) => {
     const meta = metaById.get(id);
     const lib = libraryByTitle.get(id);
+    const scored = cardsScored.find((c) => c.id === id);
 
     const synopsis = (meta.synopsis as string | null) ?? "";
     const tagline =
@@ -483,6 +486,8 @@ Deno.serve(async (req) => {
       topFriendReviewSnippet: null,
       initialRating: null,
       initiallyInWatchlist: lib?.status === "want_to_watch",
+      imdbRating: scored?.imdbRating ?? null,
+      rtTomatoMeter: scored?.rtMeter ?? null,
     };
   });
 

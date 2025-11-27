@@ -19,6 +19,8 @@ export type SwipeCardData = {
   topFriendReviewSnippet?: string | null;
   initialRating?: number | null;
   initiallyInWatchlist?: boolean;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
 };
 
 export type SwipeDeckKind = "for-you" | "from-friends" | "trending";

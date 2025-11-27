@@ -405,6 +405,27 @@ const SwipeForYouTab: React.FC = () => {
                       {currentCard.type ? ` · ${currentCard.type}` : null}
                       {runtimeLabel ? ` · ${runtimeLabel}` : null}
                     </p>
+                    {(typeof currentCard.imdbRating === "number" ||
+                      typeof currentCard.rtTomatoMeter === "number") && (
+                      <p className="mt-0.5 text-[10px] text-mn-text-muted">
+                        {typeof currentCard.imdbRating === "number" &&
+                          !Number.isNaN(currentCard.imdbRating) &&
+                          currentCard.imdbRating > 0 && (
+                            <span className="mr-2">
+                              <span className="font-semibold">IMDb</span>{" "}
+                              {currentCard.imdbRating.toFixed(1)}
+                            </span>
+                          )}
+                        {typeof currentCard.rtTomatoMeter === "number" &&
+                          !Number.isNaN(currentCard.rtTomatoMeter) &&
+                          currentCard.rtTomatoMeter > 0 && (
+                            <span>
+                              <span className="font-semibold">RT</span>{" "}
+                              {currentCard.rtTomatoMeter}%
+                            </span>
+                          )}
+                      </p>
+                    )}
                     {currentCard.mood && (
                       <p className="mt-0.5 text-[10px] text-mn-text-muted">{currentCard.mood}</p>
                     )}

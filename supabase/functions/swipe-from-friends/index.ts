@@ -25,6 +25,8 @@ type SwipeCardData = {
   topFriendReviewSnippet?: string | null;
   initialRating?: number | null;
   initiallyInWatchlist?: boolean;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
 };
 
 function buildSupabaseClient(req: Request) {
@@ -194,7 +196,11 @@ Deno.serve(async (req) => {
       type,
       poster_url,
       runtime_minutes,
-      synopsis
+      synopsis,
+      external_ratings (
+        imdb_rating,
+        rt_tomato_meter
+      )
     `,
     )
     .in("id", titleIds);
@@ -237,6 +243,8 @@ Deno.serve(async (req) => {
         ? synopsis.slice(0, 107) + "…"
         : synopsis;
 
+    const er = row.external_ratings ?? null;
+
     cards.push({
       id: row.id as string,
       title: (row.title as string | null) ?? "Untitled",
@@ -253,6 +261,8 @@ Deno.serve(async (req) => {
       topFriendReviewSnippet: null,
       initialRating: null,
       initiallyInWatchlist: false,
+      imdbRating: er?.imdb_rating ?? null,
+      rtTomatoMeter: er?.rt_tomato_meter ?? null,
     });
 
     if (cards.length >= limit) break;

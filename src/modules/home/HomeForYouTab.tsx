@@ -369,6 +369,7 @@ const fetchHomeRecommendations = async (
     if (!t) return;
 
     const libraryEntry = libraryEntries.find((entry) => entry.title_id === titleId);
+    const er = t.external_ratings ?? null;
 
     let matchReason: string | undefined;
     if (libraryEntry?.status === "watching") {
@@ -384,6 +385,8 @@ const fetchHomeRecommendations = async (
       runtimeMinutes: t.runtime_minutes ?? undefined,
       matchReason,
       posterUrl: t.poster_url ?? null,
+      imdbRating: er?.imdb_rating ?? null,
+      rtTomatoMeter: er?.rt_tomato_meter ?? null,
     });
   });
 
@@ -410,6 +413,8 @@ const fetchHomeRecommendations = async (
         type: string | null;
         posterUrl: string | null;
         reason?: string;
+        imdbRating?: number | null;
+        rtTomatoMeter?: number | null;
       }[];
       reason?: string;
     }>("recommend-for-you", {
@@ -427,6 +432,8 @@ const fetchHomeRecommendations = async (
         runtimeMinutes: card.runtimeMinutes ?? undefined,
         matchReason: card.reason ?? "A strong match for your taste.",
         posterUrl: card.posterUrl ?? null,
+        imdbRating: card.imdbRating ?? null,
+        rtTomatoMeter: card.rtTomatoMeter ?? null,
       }));
 
       sections.unshift({
@@ -602,6 +609,22 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
                 <span>Watched by {pick.friendsWatchingCount} friend(s)</span>
               </span>
             ) : null}
+            {typeof pick.imdbRating === "number" &&
+              !Number.isNaN(pick.imdbRating) &&
+              pick.imdbRating > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-mn-text-secondary">IMDb</span>
+                  <span>{pick.imdbRating.toFixed(1)}</span>
+                </span>
+              )}
+            {typeof pick.rtTomatoMeter === "number" &&
+              !Number.isNaN(pick.rtTomatoMeter) &&
+              pick.rtTomatoMeter > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-mn-text-secondary">RT</span>
+                  <span>{pick.rtTomatoMeter}%</span>
+                </span>
+              )}
             {pick.matchReason && (
               <span className="line-clamp-1">
                 <span className="font-medium text-mn-text-secondary">Because: </span>
@@ -678,6 +701,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
 
   if (item.runtimeMinutes) {
     metaPieces.push(`${item.runtimeMinutes} min`);
+  }
+
+  if (typeof item.imdbRating === "number" && !Number.isNaN(item.imdbRating) && item.imdbRating > 0) {
+    metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
+  }
+
+  if (
+    typeof item.rtTomatoMeter === "number" &&
+    !Number.isNaN(item.rtTomatoMeter) &&
+    item.rtTomatoMeter > 0
+  ) {
+    metaPieces.push(`RT ${item.rtTomatoMeter}%`);
   }
 
   return (

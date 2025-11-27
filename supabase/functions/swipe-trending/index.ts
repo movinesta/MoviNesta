@@ -26,6 +26,8 @@ type SwipeCardData = {
   topFriendReviewSnippet?: string | null;
   initialRating?: number | null;
   initiallyInWatchlist?: boolean;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
 };
 
 type TmdbTitle = {
@@ -182,6 +184,10 @@ Deno.serve(async (req) => {
         watch_count,
         ratings_count,
         avg_rating
+      ),
+      external_ratings (
+        imdb_rating,
+        rt_tomato_meter
       )
     `,
     )
@@ -240,6 +246,7 @@ Deno.serve(async (req) => {
         : synopsis;
 
     const watchCount = (t.title_stats?.watch_count as number | null) ?? 0;
+    const er = t.external_ratings ?? null;
 
     cardsRaw.push({
       id: tId,
@@ -257,6 +264,8 @@ Deno.serve(async (req) => {
       topFriendReviewSnippet: null,
       initialRating: null,
       initiallyInWatchlist: false,
+      imdbRating: er?.imdb_rating ?? null,
+      rtTomatoMeter: er?.rt_tomato_meter ?? null,
     });
   }
 
