@@ -84,6 +84,8 @@ Deno.serve(async (req) => {
       ratingValue = 4.0;
     } else if (direction === "dislike") {
       ratingValue = 1.0;
+    } else if (direction === "skip") {
+      ratingValue = 2.5;
     }
   }
 

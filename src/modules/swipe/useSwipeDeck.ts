@@ -113,28 +113,38 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     });
   }, []);
 
-  const appendCards = useCallback(
+  
+  const getNewCards = useCallback(
+    (incoming: SwipeCardData[]): SwipeCardData[] => {
+      if (!incoming.length) return incoming;
+      const seen = seenIdsRef.current;
+      const fresh: SwipeCardData[] = [];
+      for (const card of incoming) {
+        if (seen.has(card.id)) continue;
+        fresh.push(card);
+      }
+      return fresh;
+    },
+    [],
+  );
+
+const appendCards = useCallback(
     (incoming: SwipeCardData[]) => {
-      if (!incoming.length) return;
+      const deduped = getNewCards(incoming);
+      if (!deduped.length) return;
 
       setCards((prev) => {
-        const deduped: SwipeCardData[] = [];
-        for (const card of incoming) {
-          if (seenIdsRef.current.has(card.id)) continue;
-          seenIdsRef.current.add(card.id);
-          deduped.push(card);
-        }
-
-        if (!deduped.length) return prev;
-
         const next = [...prev, ...deduped];
         cardsRef.current = next;
         cacheCards(next);
         scheduleAssetPrefetch(deduped);
+        for (const card of deduped) {
+          seenIdsRef.current.add(card.id);
+        }
         return next;
       });
     },
-    [cacheCards, scheduleAssetPrefetch],
+    [cacheCards, getNewCards, scheduleAssetPrefetch],
   );
 
   const fetchFromSource = useCallback(
@@ -203,12 +213,15 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       if (fetchingRef.current) return;
       fetchingRef.current = true;
       setIsError(false);
+      setIsLoading(true);
 
       try {
-        const incoming =
+        const raw =
           kind === "combined"
             ? await fetchCombinedBatch(batchSize)
             : await fetchFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
+        const incoming = getNewCards(raw);
+
 
         if (!incoming.length) {
           const cached = loadCachedCards();
@@ -240,7 +253,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         fetchingRef.current = false;
       }
     },
-    [appendCards, fetchCombinedBatch, fetchFromSource, kind, limit, loadCachedCards],
+    [appendCards, fetchCombinedBatch, fetchFromSource, getNewCards, kind, limit, loadCachedCards],
   );
 
   useEffect(() => {
