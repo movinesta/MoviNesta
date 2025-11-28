@@ -40,6 +40,7 @@ const MessagesPage: React.FC = () => {
   }, [queryClient]);
 
   const trimmedQuery = query.trim().toLowerCase();
+  const hasQuery = trimmedQuery.length > 0;
 
   const conversations = useMemo(
     () =>
@@ -105,7 +106,17 @@ const MessagesPage: React.FC = () => {
         </div>
       )}
 
-      {!isLoading && !isError && conversations.length === 0 && (
+      {!isLoading && !isError && hasQuery && conversations.length === 0 && (
+        <EmptyState
+          icon={<MessageCircle className="h-6 w-6" />}
+          title="No conversations match"
+          subtitle="Try a different name or clear your search to see all chats."
+          actionLabel="Clear search"
+          onAction={() => setQuery("")}
+        />
+      )}
+
+      {!isLoading && !isError && !hasQuery && conversations.length === 0 && (
         <EmptyState
           icon={<MessageCircle className="h-6 w-6" />}
           title="Plan together"
@@ -125,6 +136,7 @@ const MessagesPage: React.FC = () => {
                 primaryParticipant?.displayName?.[0]?.toUpperCase() ??
                 primaryParticipant?.username?.[0]?.toUpperCase() ??
                 "?";
+              const timeLabel = conv.lastMessageAtLabel ?? "Now";
 
               return (
                 <li key={conv.id} className="py-1 sm:py-1.5">
@@ -180,7 +192,7 @@ const MessagesPage: React.FC = () => {
                           {conv.title}
                         </p>
                         <span className="ml-2 text-[11px] text-mn-text-muted">
-                          {conv.lastMessageAtLabel}
+                          {timeLabel}
                         </span>
                       </div>
                       <p className="truncate text-[12px] text-mn-text-secondary">

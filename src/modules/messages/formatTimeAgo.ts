@@ -33,6 +33,10 @@ export const formatTimeAgo = (iso: string | null): string | null => {
   }
 
   const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 1) {
+    return `${diffWeeks} wk${diffWeeks === 1 ? "" : "s"} ago`;
+  }
+
   if (diffMonths < 12) {
     return `${diffMonths} mo${diffMonths === 1 ? "" : "s"} ago`;
   }
