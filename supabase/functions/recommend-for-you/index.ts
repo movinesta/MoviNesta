@@ -42,6 +42,16 @@ type RecommendationCard = {
   };
 };
 
+type BaseCard = RecommendationCard & {
+  similarity: number;
+  appRating: number;
+  imdbRating: number;
+  rtTomatoMeter: number;
+  friendLikesCount: number;
+  popularity: number;
+  tmdbVoteAverage: number;
+};
+
 function normalizeRating(rating: number | null | undefined): number {
   if (!rating || rating <= 0) return 0;
   return Math.max(0, Math.min(1, rating / 5));
@@ -429,14 +439,7 @@ Deno.serve(async (req) => {
 
   // 6. Compute scores
   let maxPopularity = 0;
-  const baseCards: (RecommendationCard & {
-    similarity: number;
-    appRating: number;
-    imdbRating: number;
-    rtTomatoMeter: number;
-    friendLikesCount: number;
-    popularity: number;
-  })[] = [];
+  const baseCards: BaseCard[] = [];
 
   // Precompute popularity max
   for (const m of candidateMatches) {
@@ -458,6 +461,7 @@ Deno.serve(async (req) => {
     const appRating = Number(ts.avg_rating ?? 0) || 0;
     const imdbRating = Number(er.imdb_rating ?? 0) || 0;
     const rtTomatoMeter = Number(er.rt_tomato_meter ?? 0) || 0;
+    const tmdbVoteAverage = Number(meta.tmdb_vote_average ?? 0) || 0;
     const popularity = Number(meta.tmdb_popularity ?? 0) || 0;
     const friendLikes = friendLikesByTitle.get(meta.id) ?? 0;
 
@@ -474,6 +478,7 @@ Deno.serve(async (req) => {
       imdbRating,
       rtTomatoMeter,
       friendLikesCount: friendLikes,
+      tmdbVoteAverage,
       popularity,
       scores: {
         contentSimilarity: 0,
@@ -496,29 +501,33 @@ Deno.serve(async (req) => {
     const contentSim = c.similarity; // already [0, 1]
 
     const cfScore =
-      Math.log1p(c.friendLikesCount) / Math.const appScore = normalizeRating(c.appRating);
-const tmdbScore =
-  c.tmdbVoteAverage > 0 ? Math.min(1, c.tmdbVoteAverage / 10) : 0;
+      maxFriendLikes > 0
+        ? Math.log1p(c.friendLikesCount) / Math.log1p(maxFriendLikes)
+        : 0;
+    const appScore = normalizeRating(c.appRating);
+    const tmdbScore =
+      c.tmdbVoteAverage > 0 ? Math.min(1, c.tmdbVoteAverage / 10) : 0;
 
-const popNorm =
-  c.popularity > 0 ? Math.min(1, c.popularity / maxPopularity) : 0;
+    const popNorm =
+      c.popularity > 0 ? Math.min(1, c.popularity / maxPopularity) : 0;
 
-const qualityScore = (appScore + tmdbScore) / 2;
+    const qualityScore = (appScore + tmdbScore) / 2;
 
-const finalScore =
-  0.5 * contentSim +
-  0.2 * cfScore +
-  0.2 * qualityScore +
-  0.1 * popNorm;
+    const finalScore =
+      0.5 * contentSim +
+      0.2 * cfScore +
+      0.2 * qualityScore +
+      0.1 * popNorm;
 
-let reason = "A strong match for your taste.";
-if (cfScore > 0.5) {
-  reason = "Loved by your friends and a close match to what you like.";
-} else if (contentSim > 0.7) {
-  reason = "Very similar to things you’ve rated highly.";
-} else if (tmdbScore > 0.8) {
-  reason = "Highly rated on TMDb and still a solid fit for you.";
-} = "Critically acclaimed and aligns with your taste.";
+    let reason = "A strong match for your taste.";
+    if (cfScore > 0.5) {
+      reason = "Loved by your friends and a close match to what you like.";
+    } else if (contentSim > 0.7) {
+      reason = "Very similar to things you’ve rated highly.";
+    } else if (tmdbScore > 0.8 || qualityScore > 0.8) {
+      reason = "Critically acclaimed and aligns with your taste.";
+    } else if (popNorm > 0.7) {
+      reason = "Trending right now and likely a good fit.";
     }
 
     return {
