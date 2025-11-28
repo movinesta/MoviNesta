@@ -7,7 +7,8 @@
     "build": "vite build && node scripts/copy404.mjs",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
-    "format": "prettier \"src/**/*.{ts,tsx,css,md}\" --write"
+    "format": "prettier \"src/**/*.{ts,tsx,css,md}\" --write",
+    "test": "vitest run"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
@@ -42,6 +43,7 @@
     "prettier": "^3.4.0",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.0.14"
   }
 }

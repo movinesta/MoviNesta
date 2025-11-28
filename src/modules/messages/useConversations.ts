@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { getMessagePreview } from "./messageText";
+import { formatTimeAgo } from "./formatTimeAgo";
 
 export interface ConversationParticipant {
   id: string;
@@ -24,44 +25,6 @@ export interface ConversationListItem {
   lastMessageIsFromSelf: boolean;
   lastMessageSeenByOthers: boolean;
 }
-
-/**
- * Lightweight "time ago" formatter, kept in sync with Home feed semantics.
- */
-const formatTimeAgo = (iso: string | null): string | null => {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-
-  if (diffSec < 45) return "Just now";
-
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} min ago`;
-
-  const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours} h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks < 4) {
-    return `${diffWeeks} wk${diffWeeks === 1 ? "" : "s"} ago`;
-  }
-
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths < 12) {
-    return `${diffMonths} mo${diffMonths === 1 ? "" : "s"} ago`;
-  }
-
-  const diffYears = Math.floor(diffMonths / 12);
-  return `${diffYears} yr${diffYears === 1 ? "" : "s"} ago`;
-};
 
 export const useConversations = () => {
   const { user } = useAuth();
