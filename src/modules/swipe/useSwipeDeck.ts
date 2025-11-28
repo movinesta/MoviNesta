@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { fetchTrendingTitles, tmdbImageUrl } from "../../lib/tmdb";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -235,7 +236,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     });
   }, []);
 
-  
   const normalizeRatings = useCallback((card: SwipeCardData): SwipeCardData => {
     const imdbRating =
       card.imdbRating == null || Number.isNaN(Number(card.imdbRating))
@@ -266,6 +266,32 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     [normalizeRatings],
   );
 
+  const fetchTmdbFallback = useCallback(
+    async (source: SwipeDeckKind, count: number): Promise<SwipeCardData[]> => {
+      const trending = await fetchTrendingTitles(Math.max(count, 12));
+      if (!trending.length) return [];
+
+      return trending.map((item) => {
+        const typeLabel = item.mediaType === "tv" ? "TV" : "Movie";
+        const year = item.releaseDate ? Number(String(item.releaseDate).slice(0, 4)) : null;
+
+        return {
+          id: `tmdb-${item.mediaType}-${item.id}`,
+          title: item.title,
+          tagline: item.overview,
+          year: Number.isNaN(year) ? null : year,
+          runtimeMinutes: null,
+          imdbRating: item.voteAverage ? Number(item.voteAverage.toFixed(1)) : null,
+          rtTomatoMeter: null,
+          type: typeLabel,
+          posterUrl: tmdbImageUrl(item.posterPath),
+          source,
+        } satisfies SwipeCardData;
+      });
+    },
+    [],
+  );
+
   const appendCards = useCallback(
     (incoming: SwipeCardData[]) => {
       const deduped = getNewCards(incoming);
@@ -291,18 +317,24 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             ? "swipe-from-friends"
             : "swipe-trending";
 
-      const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
-        body: { limit: count },
-      });
+      try {
+        const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
+          body: { limit: count },
+        });
 
-      if (error) {
-        console.warn("[useSwipeDeck] error from", fnName, error);
-        return [];
+        if (error) {
+          console.warn("[useSwipeDeck] error from", fnName, error);
+        }
+
+        const cards = (data?.cards ?? []).map((card) => ({ ...card, source }));
+        if (cards.length) return cards;
+      } catch (err) {
+        console.warn("[useSwipeDeck] invoke error from", fnName, err);
       }
 
-      return (data?.cards ?? []).map((card) => ({ ...card, source }));
+      return fetchTmdbFallback(source, count);
     },
-    [],
+    [fetchTmdbFallback],
   );
 
   const fetchCombinedBatch = useCallback(
