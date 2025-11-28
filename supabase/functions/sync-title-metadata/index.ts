@@ -85,7 +85,7 @@ async function fetchOmdbByImdbId(imdbId: string) {
 
 // Embeddings DISABLED: this is a no-op.
 // We always return null so nothing is written into title_embeddings.
-async async function createEmbedding(input: string): Promise<number[] | null> {
+async function createEmbedding(input: string): Promise<number[] | null> {
   if (!OPENAI_API_KEY) return null;
 
   const res = await fetch("https://api.openai.com/v1/embeddings", {
@@ -360,9 +360,9 @@ Deno.serve(async (req) => {
       overview ?? "",
     ]
       .filter(Boolean)
-      .join("
+      .join("\n\n");
 
-");
+
 
     const embedding = await createEmbedding(inputText);
     if (embedding) {
