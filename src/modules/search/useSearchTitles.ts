@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { searchExternalTitles } from "./externalMovieSearch";
 
 export type TitleType = "movie" | "series" | "anime" | "short";
 
@@ -105,31 +106,96 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         builder = builder.in("title_genres.genre_id", filters.genreIds);
       }
 
-      const { data, error } = await builder;
+      let supabaseResults: TitleSearchResult[] = [];
+      try {
+        const { data, error } = await builder;
 
-      if (error) {
-        throw new Error(error.message);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const rows = (data ?? []) as any[];
+
+        supabaseResults = rows.map((row: any): TitleSearchResult => {
+          const external = row.external_ratings ?? null;
+
+          return {
+            id: row.id as string,
+            title: (row.title as string | null) ?? "Untitled",
+            year: (row.year as number | null) ?? null,
+            type: (row.type as TitleType | null) ?? null,
+            posterUrl: (row.poster_url as string | null) ?? null,
+            originalLanguage: (row.original_language as string | null) ?? null,
+            ageRating: (row.age_rating as string | null) ?? null,
+            imdbRating: external?.imdb_rating ?? null,
+            rtTomatoMeter: external?.rt_tomato_meter ?? null,
+            imdbId: (row.imdb_id as string | null) ?? null,
+            tmdbId: (row.tmdb_id as number | null) ?? null,
+          };
+        });
+      } catch (err) {
+        console.warn("[useSearchTitles] Supabase search failed, falling back to TMDb", err);
       }
 
-      const rows = (data ?? []) as any[];
+      const externalResults = await searchExternalTitles(trimmedQuery);
+      if (!externalResults.length && supabaseResults.length > 0) {
+        return supabaseResults;
+      }
 
-      return rows.map((row: any): TitleSearchResult => {
-        const external = row.external_ratings ?? null;
+      const seenTmdbIds = new Set<number>();
+      for (const item of supabaseResults) {
+        if (item.tmdbId) {
+          seenTmdbIds.add(item.tmdbId);
+        }
+      }
 
-        return {
-          id: row.id as string,
-          title: (row.title as string | null) ?? "Untitled",
-          year: (row.year as number | null) ?? null,
-          type: (row.type as TitleType | null) ?? null,
-          posterUrl: (row.poster_url as string | null) ?? null,
-          originalLanguage: (row.original_language as string | null) ?? null,
-          ageRating: (row.age_rating as string | null) ?? null,
-          imdbRating: external?.imdb_rating ?? null,
-          rtTomatoMeter: external?.rt_tomato_meter ?? null,
-          imdbId: (row.imdb_id as string | null) ?? null,
-          tmdbId: (row.tmdb_id as number | null) ?? null,
-        };
-      });
+      const hydratedExternal = await Promise.all(
+        externalResults.map(async (item) => {
+          if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return null;
+
+          let titleId = `tmdb-${item.tmdbId}`;
+
+          try {
+            const { data: syncResult } = await supabase.functions.invoke<{ titleId?: string }>(
+              "sync-title-metadata",
+              {
+                body: {
+                  tmdbId: item.tmdbId,
+                  type: item.type === "tv" ? "tv" : "movie",
+                },
+              },
+            );
+
+            if (syncResult?.titleId) {
+              titleId = syncResult.titleId;
+            }
+          } catch (err) {
+            console.warn("[useSearchTitles] Failed to sync TMDb title", item.tmdbId, err);
+          }
+
+          const type: TitleType = item.type === "tv" ? "series" : "movie";
+
+          return {
+            id: titleId,
+            title: item.title,
+            year: item.year ?? null,
+            type,
+            posterUrl: item.posterUrl,
+            originalLanguage: null,
+            ageRating: null,
+            imdbRating: null,
+            rtTomatoMeter: null,
+            imdbId: item.imdbId ?? null,
+            tmdbId: item.tmdbId,
+          } satisfies TitleSearchResult;
+        }),
+      );
+
+      const merged = [
+        ...supabaseResults,
+        ...hydratedExternal.filter((item): item is TitleSearchResult => Boolean(item)),
+      ];
+      return merged;
     },
   });
 };
