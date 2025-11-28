@@ -324,18 +324,30 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             : "swipe-trending";
 
       try {
-        const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
-          body: { limit: count },
-        });
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 4500);
 
-        if (error) {
-          console.warn("[useSwipeDeck] error from", fnName, error);
+        try {
+          const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
+            body: { limit: count },
+            signal: controller.signal,
+          });
+
+          if (error) {
+            console.warn("[useSwipeDeck] error from", fnName, error);
+          }
+
+          const cards = (data?.cards ?? []).map((card) => ({ ...card, source }));
+          if (cards.length) return cards;
+        } finally {
+          window.clearTimeout(timeout);
         }
-
-        const cards = (data?.cards ?? []).map((card) => ({ ...card, source }));
-        if (cards.length) return cards;
       } catch (err) {
-        console.warn("[useSwipeDeck] invoke error from", fnName, err);
+        if ((err as Error)?.name === "AbortError") {
+          console.warn("[useSwipeDeck]", fnName, "timed out — using fallback");
+        } else {
+          console.warn("[useSwipeDeck] invoke error from", fnName, err);
+        }
       }
 
       return fetchTmdbFallback(source, count);
