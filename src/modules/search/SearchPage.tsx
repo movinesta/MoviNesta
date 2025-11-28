@@ -72,6 +72,13 @@ const SearchPage: React.FC = () => {
     }
   }, [activeTab]);
 
+  // If the query has been cleared, hide the filters sheet to keep the UI tidy.
+  useEffect(() => {
+    if (!debouncedQuery.trim() && isFiltersOpen) {
+      setIsFiltersOpen(false);
+    }
+  }, [debouncedQuery, isFiltersOpen]);
+
   // Keep tab and query in sync with the URL so back/forward navigation keeps state.
   const nextSearchParams = useMemo(() => {
     const params = new URLSearchParams(searchParams);
