@@ -114,18 +114,34 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   }, []);
 
   
+  const normalizeRatings = useCallback((card: SwipeCardData): SwipeCardData => {
+    const imdbRating =
+      card.imdbRating == null || Number.isNaN(Number(card.imdbRating))
+        ? null
+        : Number(card.imdbRating);
+    const rtTomatoMeter =
+      card.rtTomatoMeter == null || Number.isNaN(Number(card.rtTomatoMeter))
+        ? null
+        : Number(card.rtTomatoMeter);
+
+    return { ...card, imdbRating, rtTomatoMeter };
+  }, []);
+
   const getNewCards = useCallback(
     (incoming: SwipeCardData[]): SwipeCardData[] => {
       if (!incoming.length) return incoming;
       const seen = seenIdsRef.current;
       const fresh: SwipeCardData[] = [];
+
       for (const card of incoming) {
         if (seen.has(card.id)) continue;
-        fresh.push(card);
+        seen.add(card.id);
+        fresh.push(normalizeRatings(card));
       }
+
       return fresh;
     },
-    [],
+    [normalizeRatings],
   );
 
 const appendCards = useCallback(
@@ -138,9 +154,6 @@ const appendCards = useCallback(
         cardsRef.current = next;
         cacheCards(next);
         scheduleAssetPrefetch(deduped);
-        for (const card of deduped) {
-          seenIdsRef.current.add(card.id);
-        }
         return next;
       });
     },
