@@ -325,7 +325,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
 
       try {
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 4500);
+        const timeout = window.setTimeout(() => controller.abort(), 25000);
 
         try {
           const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
