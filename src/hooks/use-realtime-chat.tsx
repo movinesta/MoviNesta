@@ -1,7 +1,8 @@
 "use client";
 
-import { createClient } from "@/lib/client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 interface UseRealtimeChatProps {
   roomName: string;
@@ -20,17 +21,25 @@ export interface ChatMessage {
 const EVENT_MESSAGE_TYPE = "message";
 
 export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
-  const supabase = createClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [channel, setChannel] = useState<ReturnType<typeof supabase.channel> | null>(null);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  const client = useMemo(() => supabase, []);
+
   useEffect(() => {
-    const newChannel = supabase.channel(roomName);
+    const newChannel = client.channel(roomName);
+    setMessages([]);
 
     newChannel
       .on("broadcast", { event: EVENT_MESSAGE_TYPE }, (payload) => {
-        setMessages((current) => [...current, payload.payload as ChatMessage]);
+        const nextMessage = payload.payload as ChatMessage;
+
+        setMessages((current) => {
+          const alreadyExists = current.some((message) => message.id === nextMessage.id);
+          if (alreadyExists) return current;
+          return [...current, nextMessage].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        });
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
@@ -43,9 +52,11 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
     setChannel(newChannel);
 
     return () => {
-      supabase.removeChannel(newChannel);
+      client.removeChannel(newChannel);
+      setChannel(null);
+      setIsConnected(false);
     };
-  }, [roomName, username, supabase]);
+  }, [client, roomName]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -61,13 +72,20 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
       };
 
       // Update local state immediately for the sender
-      setMessages((current) => [...current, message]);
+      setMessages((current) =>
+        [...current, message].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      );
 
-      await channel.send({
+      const { error } = await channel.send({
         type: "broadcast",
         event: EVENT_MESSAGE_TYPE,
         payload: message,
       });
+
+      if (error) {
+        console.error("Failed to send chat message", error);
+        setMessages((current) => current.filter((entry) => entry.id !== message.id));
+      }
     },
     [channel, isConnected, username],
   );
