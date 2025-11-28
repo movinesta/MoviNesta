@@ -36,4 +36,12 @@ describe("formatTimeAgo", () => {
     expect(formatTimeAgo("2023-11-01T12:00:00Z")).toBe("3 mos ago");
     expect(formatTimeAgo("2022-01-31T12:00:00Z")).toBe("2 yrs ago");
   });
+
+  it("avoids showing zero months when crossing the month boundary", () => {
+    // 28 days ago should stay in weeks, not "0 mos".
+    expect(formatTimeAgo("2024-01-03T12:00:00Z")).toBe("4 wks ago");
+
+    // Once we cross 30 days we should start showing months.
+    expect(formatTimeAgo("2023-12-15T12:00:00Z")).toBe("1 mo ago");
+  });
 });
