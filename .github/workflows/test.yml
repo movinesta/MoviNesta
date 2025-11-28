@@ -34,6 +34,8 @@ jobs:
         run: |
           echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
           echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          echo "VITE_TMDB_API_READ_ACCESS_TOKEN=${{ secrets.VITE_TMDB_API_READ_ACCESS_TOKEN }}" >> .env
+          echo "VITE_TMDB_API_KEY=${{ secrets.VITE_TMDB_API_KEY }}" >> .env
 
       # Build Vite project
       - name: Build project
