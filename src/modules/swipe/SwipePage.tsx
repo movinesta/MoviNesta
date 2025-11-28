@@ -9,7 +9,8 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
-import { SwipeDirection, useSwipeDeck } from "./useSwipeDeck";
+import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
+import { useSwipeDeck } from "./useSwipeDeck";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -19,8 +20,7 @@ const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const formatRuntime = (minutes?: number | null): string | null => {
   if (!minutes || minutes <= 0) return null;
@@ -43,15 +43,13 @@ const getSourceLabel = (source?: string) => {
 };
 
 interface CardMetadataProps {
-  card: any;
+  card: SwipeCardData;
 }
 
 const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   const runtimeLabel = formatRuntime(card.runtimeMinutes);
   const hasImdbRating =
-    typeof card.imdbRating === "number" &&
-    !Number.isNaN(card.imdbRating) &&
-    card.imdbRating > 0;
+    typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating) && card.imdbRating > 0;
   const hasTomatometer =
     typeof card.rtTomatoMeter === "number" &&
     !Number.isNaN(card.rtTomatoMeter) &&
@@ -79,9 +77,7 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
 
       {(hasImdbRating || hasTomatometer) && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-mn-surface-elevated/60 px-3 py-2 text-[11px] shadow-mn-soft">
-          <span className="text-[10px] uppercase tracking-wide text-mn-text-muted">
-            Ratings
-          </span>
+          <span className="text-[10px] uppercase tracking-wide text-mn-text-muted">Ratings</span>
           {hasImdbRating && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-100">
               <ImdbGlyph />

@@ -402,7 +402,11 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             posterUrl: row.poster_url ?? null,
             source,
           }));
-          console.debug("[useSwipeDeck] titles table fallback returned", tableCards.length, "cards");
+          console.debug(
+            "[useSwipeDeck] titles table fallback returned",
+            tableCards.length,
+            "cards",
+          );
           return tableCards;
         }
       } catch (err) {
