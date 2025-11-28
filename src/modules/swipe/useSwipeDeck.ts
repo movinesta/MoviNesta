@@ -40,6 +40,128 @@ interface SwipeEventPayload {
   sourceOverride?: SwipeDeckKind;
 }
 
+const FALLBACK_POOL: (SwipeCardData & { source: SwipeDeckKind })[] = [
+  {
+    id: "inception",
+    title: "Inception",
+    tagline: "Your mind is the scene of the crime.",
+    year: 2010,
+    runtimeMinutes: 148,
+    imdbRating: 8.8,
+    rtTomatoMeter: 87,
+    type: "Movie",
+    posterUrl: "https://image.tmdb.org/t/p/w500/qmDpIHrmpJINaRKAfWQfftjCdyi.jpg",
+    vibeTag: "Brain-bending",
+    source: "trending",
+  },
+  {
+    id: "past-lives",
+    title: "Past Lives",
+    tagline: "Two childhood sweethearts reunite decades later.",
+    year: 2023,
+    runtimeMinutes: 105,
+    imdbRating: 8,
+    rtTomatoMeter: 96,
+    type: "Movie",
+    posterUrl: "https://image.tmdb.org/t/p/w500/k3waqVXSnvCZWfJYNtdamTgTtTA.jpg",
+    vibeTag: "Tender",
+    source: "for-you",
+  },
+  {
+    id: "dune-part-two",
+    title: "Dune: Part Two",
+    tagline: "Fate pulls Paul Atreides into the Fremen rebellion.",
+    year: 2024,
+    runtimeMinutes: 166,
+    imdbRating: 8.9,
+    rtTomatoMeter: 92,
+    type: "Movie",
+    posterUrl: "https://image.tmdb.org/t/p/w500/8b8R8l88QGqPiyMKo3hqshJgDN0.jpg",
+    vibeTag: "Epic",
+    source: "trending",
+  },
+  {
+    id: "the-bear",
+    title: "The Bear",
+    tagline: "A fine dining chef returns to run his family sandwich shop.",
+    year: 2022,
+    runtimeMinutes: 33,
+    imdbRating: 8.6,
+    rtTomatoMeter: 99,
+    type: "TV",
+    posterUrl: "https://image.tmdb.org/t/p/w500/hRL3tkK7M9rNla0TQvqNcm9RG1l.jpg",
+    vibeTag: "Anxious",
+    source: "from-friends",
+  },
+  {
+    id: "across-the-spider-verse",
+    title: "Across the Spider-Verse",
+    tagline: "Miles reunites with Gwen and a new team of Spider-People.",
+    year: 2023,
+    runtimeMinutes: 140,
+    imdbRating: 8.7,
+    rtTomatoMeter: 95,
+    type: "Movie",
+    posterUrl: "https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",
+    vibeTag: "Vibrant",
+    source: "trending",
+  },
+  {
+    id: "the-last-of-us",
+    title: "The Last of Us",
+    tagline: "A hardened survivor escorts a teen across a ravaged America.",
+    year: 2023,
+    runtimeMinutes: 55,
+    imdbRating: 8.8,
+    rtTomatoMeter: 96,
+    type: "TV",
+    posterUrl: "https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg",
+    vibeTag: "Tense",
+    source: "for-you",
+  },
+  {
+    id: "barbie",
+    title: "Barbie",
+    tagline: "She’s everything. He’s just Ken.",
+    year: 2023,
+    runtimeMinutes: 114,
+    imdbRating: 6.9,
+    rtTomatoMeter: 88,
+    type: "Movie",
+    posterUrl: "https://image.tmdb.org/t/p/w500/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg",
+    vibeTag: "Playful",
+    source: "trending",
+  },
+  {
+    id: "poor-things",
+    title: "Poor Things",
+    tagline: "An unconventional woman embarks on a whirlwind journey.",
+    year: 2023,
+    runtimeMinutes: 141,
+    imdbRating: 8,
+    rtTomatoMeter: 92,
+    type: "Movie",
+    posterUrl: "https://image.tmdb.org/t/p/w500/v6tJqZ9dG8z49OTuS1Wd2Nt1H30.jpg",
+    vibeTag: "Offbeat",
+    source: "from-friends",
+  },
+];
+
+function buildFallbackDeck(count: number, kind: SwipeDeckKindOrCombined): SwipeCardData[] {
+  const pool = FALLBACK_POOL;
+  const now = Date.now();
+
+  return Array.from({ length: Math.max(count, 12) }, (_, idx) => {
+    const template = pool[idx % pool.length];
+    const fallbackSource = kind === "combined" ? template.source : (kind as SwipeDeckKind);
+    return {
+      ...template,
+      source: fallbackSource,
+      id: `${template.id}-${now}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+    } satisfies SwipeCardData;
+  });
+}
+
 function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCardData[] {
   const maxLength = Math.max(...lists.map((list) => list.length));
   const interleaved: SwipeCardData[] = [];
@@ -144,7 +266,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     [normalizeRatings],
   );
 
-const appendCards = useCallback(
+  const appendCards = useCallback(
     (incoming: SwipeCardData[]) => {
       const deduped = getNewCards(incoming);
       if (!deduped.length) return;
@@ -235,13 +357,17 @@ const appendCards = useCallback(
             : await fetchFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
         const incoming = getNewCards(raw);
 
-
         if (!incoming.length) {
           const cached = loadCachedCards();
           if (cached.length) {
             setCards(cached);
             cardsRef.current = cached;
+            return;
           }
+
+          const fallback = buildFallbackDeck(batchSize, kind);
+          appendCards(fallback);
+          setIsError(false);
           return;
         }
 
@@ -254,6 +380,11 @@ const appendCards = useCallback(
           if (cached.length) {
             setCards(cached);
             cardsRef.current = cached;
+            setIsError(false);
+          } else {
+            const fallback = buildFallbackDeck(batchSize, kind);
+            appendCards(fallback);
+            setIsError(false);
           }
         }
         window.setTimeout(() => {
