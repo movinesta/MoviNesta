@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
     limit?: number;
   };
   const limit =
-    body.limit && body.limit > 0 && body.limit <= 100 ? body.limit : 40;
+    body.limit && body.limit > 0 && body.limit <= 100 ? body.limit : 100;
 
   // 1. Load recent ratings
   const { data: ratings, error: ratingsError } = await supabase

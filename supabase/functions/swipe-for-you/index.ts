@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
   }
 
   const body = (await req.json().catch(() => ({}))) as RequestBody;
-  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 60) : 40;
+  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 100) : 100;
 
   // 1) Load user ratings
   const { data: ratings, error: ratingsError } = await supabase

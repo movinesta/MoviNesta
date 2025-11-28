@@ -262,7 +262,7 @@ Deno.serve(async (req) => {
   } = await supabase.auth.getUser();
 
   const body = (await req.json().catch(() => ({}))) as RequestBody;
-  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 60) : 40;
+  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 100) : 100;
 
   const [trendingMovies, trendingTv] = await Promise.all([
     fetchTmdbJson("/trending/movie/week"),

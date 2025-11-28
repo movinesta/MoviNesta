@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
   // Read limit from body (optional)
   const body = (await req.json().catch(() => ({}))) as { limit?: number };
-  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 60) : 40;
+  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 100) : 100;
 
   // 1) Get friends: people the current user follows
   const { data: follows, error: followsError } = await supabase
