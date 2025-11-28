@@ -47,14 +47,15 @@ export const RealtimeChat = ({
   // Merge realtime messages with initial messages
   const allMessages = useMemo(() => {
     const mergedMessages = [...initialMessages, ...realtimeMessages];
-    // Remove duplicates based on message id
-    const uniqueMessages = mergedMessages.filter(
-      (message, index, self) => index === self.findIndex((m) => m.id === message.id),
-    );
-    // Sort by creation date
-    const sortedMessages = uniqueMessages.sort(compareMessagesByCreatedAt);
 
-    return sortedMessages;
+    // Deduplicate efficiently while preserving the latest version of each message.
+    const dedupedMessages = new Map<string, ChatMessage>();
+    for (const message of mergedMessages) {
+      dedupedMessages.set(message.id, message);
+    }
+
+    // Sort by creation date without mutating the original arrays.
+    return Array.from(dedupedMessages.values()).sort(compareMessagesByCreatedAt);
   }, [initialMessages, realtimeMessages]);
 
   useEffect(() => {

@@ -191,9 +191,7 @@ const MessagesPage: React.FC = () => {
                         <p className="truncate text-[13px] font-semibold text-mn-text-primary">
                           {conv.title}
                         </p>
-                        <span className="ml-2 text-[11px] text-mn-text-muted">
-                          {timeLabel}
-                        </span>
+                        <span className="ml-2 text-[11px] text-mn-text-muted">{timeLabel}</span>
                       </div>
                       <p className="truncate text-[12px] text-mn-text-secondary">
                         {conv.lastMessagePreview ?? "Start chatting"}
