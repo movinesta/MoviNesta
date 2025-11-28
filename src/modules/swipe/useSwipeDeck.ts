@@ -350,7 +350,10 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         }
       }
 
-      return fetchTmdbFallback(source, count);
+      const tmdbFallback = await fetchTmdbFallback(source, count);
+      if (tmdbFallback.length) return tmdbFallback;
+
+      return buildFallbackDeck(count, source);
     },
     [fetchTmdbFallback],
   );
