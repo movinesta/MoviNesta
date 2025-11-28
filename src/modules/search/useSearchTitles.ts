@@ -62,7 +62,7 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         .from("titles")
         .select(selectColumns, { distinct: true })
         .order("year", { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (trimmedQuery) {
         /**
