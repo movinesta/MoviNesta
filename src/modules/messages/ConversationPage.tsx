@@ -244,6 +244,15 @@ const ConversationPage: React.FC = () => {
   const [remoteTypingUsers, setRemoteTypingUsers] = useState<string[]>([]);
   const typingTimeoutsRef = useRef<Map<string, number>>(new Map());
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
+  const lastReadRef = useRef<{
+    conversationId: string | null;
+    messageId: string | null;
+    userId: string | null;
+  }>({
+    conversationId: null,
+    messageId: null,
+    userId: null,
+  });
 
   const typingStateRef = useRef<{ isTyping: boolean; timeoutId: number | null }>({
     isTyping: false,
@@ -294,6 +303,10 @@ const ConversationPage: React.FC = () => {
     if (!messages || messages.length === 0) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length]);
+
+  useEffect(() => {
+    lastReadRef.current = { conversationId: null, messageId: null, userId: null };
+  }, [conversationId, user?.id]);
 
   useEffect(() => {
     if (!conversationId || !user?.id) return;
@@ -429,6 +442,15 @@ const ConversationPage: React.FC = () => {
 
     const last = messages[messages.length - 1];
 
+    // Avoid spamming read-receipt updates when nothing has changed.
+    if (
+      lastReadRef.current.conversationId === conversationId &&
+      lastReadRef.current.messageId === last.id &&
+      lastReadRef.current.userId === user.id
+    ) {
+      return;
+    }
+
     // Fire-and-forget read receipt update – no UI blocking.
     supabase
       .from("message_read_receipts")
@@ -442,6 +464,7 @@ const ConversationPage: React.FC = () => {
         { onConflict: "conversation_id,user_id" },
       )
       .then(() => {
+        lastReadRef.current = { conversationId, messageId: last.id, userId: user.id };
         queryClient.invalidateQueries({ queryKey: ["conversations"] });
       })
       .catch((error) => {
