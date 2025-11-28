@@ -1,11 +1,11 @@
 // supabase/functions/sync-title-metadata/index.ts
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { syncExternalRatingsForTitles } from "../_shared/externalRatings.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
-const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const corsHeaders = {
@@ -48,39 +48,6 @@ async function fetchTmdbJson(path: string) {
   }
 
   return await res.json();
-}
-
-async function fetchOmdbByImdbId(imdbId: string) {
-  if (!OMDB_API_KEY) {
-    console.error("[sync-title-metadata] Missing OMDB_API_KEY");
-    return null;
-  }
-
-  const url = new URL("https://www.omdbapi.com/");
-  url.searchParams.set("apikey", OMDB_API_KEY);
-  url.searchParams.set("i", imdbId);
-  url.searchParams.set("plot", "short");
-
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    console.error(
-      "[sync-title-metadata] OMDb error",
-      res.status,
-      await res.text(),
-    );
-    return null;
-  }
-
-  const json = await res.json();
-  if (json.Response === "False") {
-    console.warn(
-      "[sync-title-metadata] OMDb returned failure:",
-      json.Error,
-    );
-    return null;
-  }
-
-  return json;
 }
 
 // Embeddings DISABLED: this is a no-op.
@@ -289,66 +256,17 @@ Deno.serve(async (req) => {
 
   const { id: titleIdFinal, imdb_id: storedImdbId } = upsertedTitle;
 
-  // 3. External ratings from OMDb
-  if (storedImdbId) {
-    const omdb = await fetchOmdbByImdbId(storedImdbId);
-    if (omdb) {
-      const imdbRating =
-        omdb.imdbRating && omdb.imdbRating !== "N/A"
-          ? Number(omdb.imdbRating)
-          : null;
-      const imdbVotes =
-        omdb.imdbVotes && omdb.imdbVotes !== "N/A"
-          ? Number(omdb.imdbVotes.replace(/,/g, ""))
-          : null;
-
-      let rtMeter: number | null = null;
-      let metacriticScore: number | null = null;
-
-      const ratings = (omdb.Ratings ?? []) as Array<{
-        Source: string;
-        Value: string;
-      }>;
-
-      for (const r of ratings) {
-        if (r.Source === "Rotten Tomatoes") {
-          const pct = r.Value.endsWith("%")
-            ? Number(r.Value.replace("%", ""))
-            : null;
-          rtMeter = pct;
-        } else if (r.Source === "Metacritic") {
-          const [scoreStr] = r.Value.split("/");
-          const score = Number(scoreStr);
-          if (!Number.isNaN(score)) {
-            metacriticScore = score;
-          }
-        }
-      }
-
-      const extRow = {
-        title_id: titleIdFinal,
-        imdb_rating: imdbRating,
-        imdb_votes: imdbVotes,
-        rt_tomato_meter: rtMeter,
-        rt_tomato_rating: null,
-        rt_tomato_user_meter: null,
-        rt_tomato_user_rating: null,
-        metacritic_score: metacriticScore,
-        last_synced_at: new Date().toISOString(),
-      };
-
-      const { error: extError } = await supabase
-        .from("external_ratings")
-        .upsert(extRow, { onConflict: "title_id" });
-
-      if (extError) {
-        console.error(
-          "[sync-title-metadata] upsert external_ratings error:",
-          extError.message,
-        );
-      }
-    }
-  }
+  // 3. External ratings are synced via OMDb/TMDb for every title change to
+  // keep `external_ratings` in lock-step with `titles`.
+  await syncExternalRatingsForTitles(supabase, [
+    {
+      id: titleIdFinal,
+      tmdb_id: tmdbId,
+      imdb_id: storedImdbId,
+      type,
+      external_ratings: null,
+    },
+  ]);
 
   // 4. Embedding (disabled – createEmbedding always returns null)
   try {
