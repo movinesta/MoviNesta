@@ -11,6 +11,18 @@ type SearchTabKey = "titles" | "people";
 
 const validTypes: TitleSearchFilters["type"][] = ["all", "movie", "series", "anime", "short"];
 
+const parseTabFromParams = (params: URLSearchParams): SearchTabKey => {
+  const tabParam = params.get("tab");
+  return tabParam === "people" ? "people" : "titles";
+};
+
+const clampYear = (value: number | undefined) => {
+  if (typeof value !== "number") return undefined;
+  const currentYear = new Date().getFullYear();
+  const lowerBound = 1900;
+  return Math.min(Math.max(value, lowerBound), currentYear);
+};
+
 const parseTitleFiltersFromParams = (params: URLSearchParams): TitleSearchFilters => {
   const typeParam = params.get("type");
   const type = validTypes.includes(typeParam as TitleSearchFilters["type"])
@@ -23,9 +35,13 @@ const parseTitleFiltersFromParams = (params: URLSearchParams): TitleSearchFilter
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
-  const minYear = parseYear(params.get("minYear"));
-  const maxYear = parseYear(params.get("maxYear"));
+  const minYear = clampYear(parseYear(params.get("minYear")));
+  const maxYear = clampYear(parseYear(params.get("maxYear")));
   const originalLanguage = params.get("lang") || undefined;
+
+  if (minYear && maxYear && minYear > maxYear) {
+    return { type, minYear: maxYear, maxYear: minYear, originalLanguage };
+  }
 
   return { type, minYear, maxYear, originalLanguage };
 };
@@ -38,7 +54,7 @@ const areFiltersEqual = (a: TitleSearchFilters, b: TitleSearchFilters) =>
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get("tab") as SearchTabKey) ?? "titles";
+  const initialTab = parseTabFromParams(searchParams);
   const initialQuery = searchParams.get("q") ?? "";
   const initialFilters = useMemo(() => parseTitleFiltersFromParams(searchParams), [searchParams]);
 
@@ -97,7 +113,7 @@ const SearchPage: React.FC = () => {
 
   // Respond to external URL changes (e.g., back/forward) by syncing local state.
   useEffect(() => {
-    const tabFromParams = (searchParams.get("tab") as SearchTabKey) ?? "titles";
+    const tabFromParams = parseTabFromParams(searchParams);
     const queryFromParams = searchParams.get("q") ?? "";
     const filtersFromParams = parseTitleFiltersFromParams(searchParams);
 
@@ -107,6 +123,20 @@ const SearchPage: React.FC = () => {
       areFiltersEqual(prev, filtersFromParams) ? prev : filtersFromParams,
     );
   }, [searchParams]);
+
+  useEffect(() => {
+    const normalizedMin = clampYear(titleFilters.minYear);
+    const normalizedMax = clampYear(titleFilters.maxYear);
+
+    if (normalizedMin && normalizedMax && normalizedMin > normalizedMax) {
+      setTitleFilters((prev) => ({ ...prev, minYear: normalizedMax, maxYear: normalizedMin }));
+      return;
+    }
+
+    if (normalizedMin !== titleFilters.minYear || normalizedMax !== titleFilters.maxYear) {
+      setTitleFilters((prev) => ({ ...prev, minYear: normalizedMin, maxYear: normalizedMax }));
+    }
+  }, [titleFilters.maxYear, titleFilters.minYear]);
 
   const handleClearQuery = () => {
     setQuery("");

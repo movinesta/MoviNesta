@@ -1,7 +1,11 @@
 import { cn } from "@/lib/utils";
 import { ChatMessageItem } from "@/components/chat-message";
 import { useChatScroll } from "@/hooks/use-chat-scroll";
-import { type ChatMessage, useRealtimeChat } from "@/hooks/use-realtime-chat";
+import {
+  compareMessagesByCreatedAt,
+  type ChatMessage,
+  useRealtimeChat,
+} from "@/hooks/use-realtime-chat";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
@@ -48,7 +52,7 @@ export const RealtimeChat = ({
       (message, index, self) => index === self.findIndex((m) => m.id === message.id),
     );
     // Sort by creation date
-    const sortedMessages = uniqueMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const sortedMessages = uniqueMessages.sort(compareMessagesByCreatedAt);
 
     return sortedMessages;
   }, [initialMessages, realtimeMessages]);

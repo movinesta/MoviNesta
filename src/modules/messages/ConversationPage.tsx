@@ -241,31 +241,6 @@ const ConversationPage: React.FC = () => {
   const hasMessages = (messages?.length ?? 0) > 0;
   const isLoading = isConversationsLoading || isMessagesLoading || isBlockStatusLoading;
 
-  useEffect(() => {
-    if (!conversationId || !messages || messages.length === 0 || !user?.id) return;
-
-    const last = messages[messages.length - 1];
-
-    supabase
-      .from("message_read_receipts")
-      .upsert(
-        {
-          conversation_id: conversationId,
-          user_id: user.id,
-          last_read_message_id: last.id,
-          last_read_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "conversation_id,user_id",
-        },
-      )
-      .then(({ error }) => {
-        if (error) {
-          console.error("[ConversationPage] Failed to upsert read receipt", error);
-        }
-      });
-  }, [conversationId, messages, user?.id]);
-
   const [remoteTypingUsers, setRemoteTypingUsers] = useState<string[]>([]);
   const typingTimeoutsRef = useRef<Map<string, number>>(new Map());
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
