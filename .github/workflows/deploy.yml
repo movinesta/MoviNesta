@@ -75,5 +75,5 @@ jobs:
           version: latest
 
       - name: Deploy all Supabase Edge Functions
-        working-directory: ./supabase
+        # 👇 no working-directory here; runs from repo root
         run: supabase functions deploy --project-ref "$PROJECT_ID" --use-api
