@@ -20,6 +20,17 @@ export interface ChatMessage {
 
 const EVENT_MESSAGE_TYPE = "message";
 
+export const compareMessagesByCreatedAt = (a: ChatMessage, b: ChatMessage) => {
+  const timeA = Date.parse(a.createdAt);
+  const timeB = Date.parse(b.createdAt);
+
+  if (Number.isNaN(timeA) || Number.isNaN(timeB)) {
+    return a.createdAt.localeCompare(b.createdAt);
+  }
+
+  return timeA - timeB;
+};
+
 export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
@@ -38,7 +49,7 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
         setMessages((current) => {
           const alreadyExists = current.some((message) => message.id === nextMessage.id);
           if (alreadyExists) return current;
-          return [...current, nextMessage].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          return [...current, nextMessage].sort(compareMessagesByCreatedAt);
         });
       })
       .subscribe(async (status) => {
@@ -72,9 +83,7 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
       };
 
       // Update local state immediately for the sender
-      setMessages((current) =>
-        [...current, message].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-      );
+      setMessages((current) => [...current, message].sort(compareMessagesByCreatedAt));
 
       const { error } = await channel.send({
         type: "broadcast",
@@ -90,5 +99,5 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
     [channel, isConnected, username],
   );
 
-  return { messages, sendMessage, isConnected };
+  return { messages, sendMessage, isConnected, compareMessagesByCreatedAt };
 }
