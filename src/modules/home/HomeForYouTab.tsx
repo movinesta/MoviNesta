@@ -21,6 +21,8 @@ interface RecommendationItem {
   friendsWatchingCount?: number;
   moodTag?: string;
   posterUrl?: string | null;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
 }
 
 interface RecommendationSection {
@@ -92,6 +94,10 @@ interface TitleBasicRow {
   runtime_minutes: number | null;
   type?: string | null;
   poster_url?: string | null;
+  external_ratings?: {
+    imdb_rating: number | null;
+    rt_tomato_meter: number | null;
+  } | null;
 }
 
 interface FollowsRow {
@@ -207,7 +213,9 @@ const fetchHomeRecommendations = async (
   // Popular anime for now: just pull some recent anime titles.
   const animeResult = await supabase
     .from("titles")
-    .select("id, title, year, runtime_minutes, type, poster_url")
+    .select(
+      "id, title, year, runtime_minutes, type, poster_url, external_ratings (imdb_rating, rt_tomato_meter)",
+    )
     .eq("type", "anime")
     .order("year", { ascending: false })
     .limit(16);
@@ -237,7 +245,9 @@ const fetchHomeRecommendations = async (
 
   const titlesResult = await supabase
     .from("titles")
-    .select("id, title, year, runtime_minutes, type, poster_url")
+    .select(
+      `id, title, year, runtime_minutes, type, poster_url, external_ratings (imdb_rating, rt_tomato_meter)`,
+    )
     .in("id", allTitleIds);
 
   if (titlesResult.error) {
@@ -249,6 +259,8 @@ const fetchHomeRecommendations = async (
   titles.forEach((row) => {
     titlesById.set(row.id, row);
   });
+
+  const usedTitleIds = new Set<string>();
 
   // -------------------------------------------------------------------
   // Tonight's pick: based on last highly-rated title if we have one.
@@ -276,7 +288,10 @@ const fetchHomeRecommendations = async (
           : "Feels like the right vibe for tonight based on your recent watches.",
       friendsWatchingCount: friendRatings.filter((row) => row.title_id === seedTitleId).length,
       posterUrl: t.poster_url ?? null,
+      imdbRating: t.external_ratings?.imdb_rating ?? null,
+      rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
     };
+    usedTitleIds.add(seedTitleId);
   }
 
   // -------------------------------------------------------------------
@@ -288,7 +303,7 @@ const fetchHomeRecommendations = async (
   const trendingItems: RecommendationItem[] = [];
   trendingTitleIds.slice(0, 12).forEach((titleId) => {
     const t = titlesById.get(titleId);
-    if (!t) return;
+    if (!t || usedTitleIds.has(titleId)) return;
 
     const friendsWatchingCount = friendRatings.filter((row) => row.title_id === titleId).length;
 
@@ -299,7 +314,10 @@ const fetchHomeRecommendations = async (
       friendsWatchingCount,
       moodTag: t.type === "anime" ? "Anime night" : "Friends love this",
       posterUrl: t.poster_url ?? null,
+      imdbRating: t.external_ratings?.imdb_rating ?? null,
+      rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
     });
+    usedTitleIds.add(titleId);
   });
 
   if (trendingItems.length > 0) {
@@ -320,7 +338,7 @@ const fetchHomeRecommendations = async (
 
     becauseTitleIds.slice(0, 12).forEach((titleId) => {
       const t = titlesById.get(titleId);
-      if (!t) return;
+      if (!t || usedTitleIds.has(titleId)) return;
 
       becauseItems.push({
         id: t.id,
@@ -328,7 +346,10 @@ const fetchHomeRecommendations = async (
         year: t.year ?? new Date().getFullYear(),
         matchReason: `On your watchlist after ${seedTitle.title ?? "that favorite"}.`,
         posterUrl: t.poster_url ?? null,
+        imdbRating: t.external_ratings?.imdb_rating ?? null,
+        rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
       });
+      usedTitleIds.add(titleId);
     });
 
     if (becauseItems.length > 0) {
@@ -347,13 +368,17 @@ const fetchHomeRecommendations = async (
   const animeItems: RecommendationItem[] = [];
 
   animeTitles.slice(0, 12).forEach((t) => {
+    if (usedTitleIds.has(t.id)) return;
     animeItems.push({
       id: t.id,
       name: t.title ?? "Untitled",
       year: t.year ?? new Date().getFullYear(),
       matchReason: "Anime in your catalog and trending in MoviNesta.",
       posterUrl: t.poster_url ?? null,
+      imdbRating: t.external_ratings?.imdb_rating ?? null,
+      rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
     });
+    usedTitleIds.add(t.id);
   });
 
   if (animeItems.length > 0) {
@@ -371,7 +396,7 @@ const fetchHomeRecommendations = async (
   const continueItems: RecommendationItem[] = [];
   continueTitleIds.slice(0, 12).forEach((titleId) => {
     const t = titlesById.get(titleId);
-    if (!t) return;
+    if (!t || usedTitleIds.has(titleId)) return;
 
     const libraryEntry = libraryEntries.find((entry) => entry.title_id === titleId);
     const er = t.external_ratings ?? null;
@@ -393,6 +418,7 @@ const fetchHomeRecommendations = async (
       imdbRating: er?.imdb_rating ?? null,
       rtTomatoMeter: er?.rt_tomato_meter ?? null,
     });
+    usedTitleIds.add(titleId);
   });
 
   if (continueItems.length > 0) {
@@ -428,17 +454,22 @@ const fetchHomeRecommendations = async (
     if (recError) {
       hasPartialData = true;
       console.warn("[HomeForYouTab] Failed to load recommend-for-you", recError);
-    } else if (recData?.cards && recData.cards.length > 0) {
-      const forYouItems: RecommendationItem[] = recData.cards.map((card) => ({
-        id: card.id,
-        name: card.title,
-        year: card.year ?? new Date().getFullYear(),
-        runtimeMinutes: card.runtimeMinutes ?? undefined,
-        matchReason: card.reason ?? "A strong match for your taste.",
-        posterUrl: card.posterUrl ?? null,
-        imdbRating: card.imdbRating ?? null,
-        rtTomatoMeter: card.rtTomatoMeter ?? null,
-      }));
+      } else if (recData?.cards && recData.cards.length > 0) {
+        const forYouItems: RecommendationItem[] = recData.cards
+          .filter((card) => !usedTitleIds.has(card.id))
+          .map((card) => {
+            usedTitleIds.add(card.id);
+            return {
+              id: card.id,
+              name: card.title,
+              year: card.year ?? new Date().getFullYear(),
+              runtimeMinutes: card.runtimeMinutes ?? undefined,
+              matchReason: card.reason ?? "A strong match for your taste.",
+              posterUrl: card.posterUrl ?? null,
+              imdbRating: card.imdbRating ?? null,
+              rtTomatoMeter: card.rtTomatoMeter ?? null,
+            };
+          });
 
       sections.unshift({
         id: "for-you-hybrid",
