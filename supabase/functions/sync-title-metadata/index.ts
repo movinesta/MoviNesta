@@ -15,6 +15,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+type AllowedRequestType = "movie" | "tv" | "series" | string | undefined;
+
+function normalizeTmdbMediaType(type: AllowedRequestType): "movie" | "tv" {
+  const normalized = typeof type === "string" ? type.toLowerCase() : "";
+  return normalized === "tv" || normalized === "series" ? "tv" : "movie";
+}
+
 function buildSupabaseClient(req: Request) {
   return createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
     global: {
@@ -119,11 +126,11 @@ Deno.serve(async (req) => {
   const body = (await req.json().catch(() => ({}))) as {
     tmdbId?: number;
     imdbId?: string;
-    type?: "movie" | "tv";
+    type?: AllowedRequestType;
   };
 
   let { tmdbId, imdbId, type } = body;
-  if (!type) type = "movie";
+  const tmdbMediaType = normalizeTmdbMediaType(type);
 
   if (!tmdbId && !imdbId) {
     return new Response("Missing tmdbId or imdbId", {
@@ -145,7 +152,9 @@ Deno.serve(async (req) => {
       });
     }
     const result =
-      type === "tv" ? found?.tv_results?.[0] : found?.movie_results?.[0];
+      tmdbMediaType === "tv"
+        ? found?.tv_results?.[0]
+        : found?.movie_results?.[0];
     if (result?.id) tmdbId = result.id;
   }
 
@@ -157,7 +166,7 @@ Deno.serve(async (req) => {
   }
 
   // 2. Fetch TMDb details
-  const tmdbPath = type === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+  const tmdbPath = tmdbMediaType === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
   const tmdb = await fetchTmdbJson(tmdbPath);
   if (!tmdb) {
     return new Response("TMDb fetch failed", {
@@ -219,10 +228,13 @@ Deno.serve(async (req) => {
     titleId = crypto.randomUUID();
   }
 
+  const storedType =
+    type ?? (tmdbMediaType === "tv" ? "series" : "movie");
+
   const row = {
     id: titleId,
     title,
-    type,
+    type: storedType,
     year,
     synopsis: overview,
     runtime_minutes: runtimeMinutes,
@@ -263,7 +275,7 @@ Deno.serve(async (req) => {
       id: titleIdFinal,
       tmdb_id: tmdbId,
       imdb_id: storedImdbId,
-      type,
+      type: storedType,
       external_ratings: null,
     },
   ]);
