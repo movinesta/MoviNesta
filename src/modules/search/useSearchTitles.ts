@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { searchExternalTitles } from "./externalMovieSearch";
 
 export type TitleType = "movie" | "series" | "anime" | "short";
 
@@ -113,12 +112,6 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
       }
 
       const rows = (data ?? []) as any[];
-
-      // If Supabase finds nothing and the query is non-trivial, fall back to an external
-      // TMDB/OMDb-based search handled entirely on the server side.
-      if (!rows.length && trimmedQuery.length >= 3) {
-        return searchExternalTitles(trimmedQuery);
-      }
 
       return rows.map((row: any): TitleSearchResult => {
         const external = row.external_ratings ?? null;

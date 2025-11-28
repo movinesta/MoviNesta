@@ -6,6 +6,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,9 +85,34 @@ async function fetchOmdbByImdbId(imdbId: string) {
 
 // Embeddings DISABLED: this is a no-op.
 // We always return null so nothing is written into title_embeddings.
-async function createEmbedding(input: string): Promise<number[] | null> {
-  // Embeddings disabled: skip OpenAI completely.
-  return null;
+async async function createEmbedding(input: string): Promise<number[] | null> {
+  if (!OPENAI_API_KEY) return null;
+
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "text-embedding-3-large",
+      input,
+    }),
+  });
+
+  if (!res.ok) {
+    console.error(
+      "[sync-title-metadata] OpenAI embeddings error",
+      res.status,
+      await res.text(),
+    );
+    return null;
+  }
+
+  const json = await res.json();
+  const vector = json.data?.[0]?.embedding;
+  if (!Array.isArray(vector)) return null;
+  return vector as number[];
 }
 
 Deno.serve(async (req) => {
@@ -346,7 +372,7 @@ Deno.serve(async (req) => {
           {
             title_id: titleIdFinal,
             embedding,
-            source: "tmdb+omdb",
+            source: "tmdb",
             updated_at: new Date().toISOString(),
           },
           { onConflict: "title_id" },

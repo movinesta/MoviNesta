@@ -1,5 +1,5 @@
 // supabase/functions/omdb-search/index.ts
-// Proxy search to OMDb from the edge, so the key stays server-side.
+// Fetch ratings for a single IMDb title from OMDb so the key stays server-side.
 //
 // Expects environment variable:
 //   - OMDB_API_KEY
@@ -17,10 +17,15 @@ if (!OMDB_API_KEY) {
   console.error("Missing OMDB_API_KEY for omdb-search function");
 }
 
-type OmdbSearchRequest = {
-  query: string;
-  year?: number | string | null;
-  type?: "movie" | "series" | "episode";
+type OmdbRatingsRequest = {
+  imdbId: string;
+};
+
+type OmdbRatingsResponse = {
+  imdbRating: number | null;
+  rtTomatoMeter: number | null;
+  imdbVotes: number | null;
+  metacriticScore: number | null;
 };
 
 Deno.serve(async (req) => {
@@ -29,59 +34,103 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: corsHeaders,
+    });
   }
 
-  if (!OMDB_API_KEY) {
-    return new Response("OMDb not configured", { status: 500, headers: corsHeaders });
-  }
-
-  let payload: OmdbSearchRequest;
   try {
-    payload = await req.json();
-  } catch {
-    return new Response("Invalid JSON body", { status: 400, headers: corsHeaders });
-  }
+    const payload = (await req.json().catch(() => ({}))) as OmdbRatingsRequest;
+    const imdbId = (payload.imdbId ?? "").trim();
 
-    const rawQuery = (payload.query ?? "").trim();
-    if (!rawQuery) {
+    if (!imdbId) {
       return new Response(
-        JSON.stringify({ Response: "False", Error: "Empty query" }),
+        JSON.stringify({ error: "Missing imdbId" }),
         {
-          status: 200,
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
     }
 
-  try {
-    const url = new URL("https://www.omdbapi.com/");
-    url.searchParams.set("apikey", OMDB_API_KEY);
-    url.searchParams.set("s", rawQuery);
-
-    // defaults to movies, but you can override via payload.type
-    url.searchParams.set("type", payload.type ?? "movie");
-
-    if (payload.year) {
-      url.searchParams.set("y", String(payload.year));
+    if (!OMDB_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "OMDB_API_KEY not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    const omdbRes = await fetch(url.toString());
+    const url = new URL("https://www.omdbapi.com/");
+    url.searchParams.set("apikey", OMDB_API_KEY);
+    url.searchParams.set("i", imdbId);
+    url.searchParams.set("plot", "short");
 
+    const omdbRes = await fetch(url.toString());
     if (!omdbRes.ok) {
       console.error("[omdb-search] OMDb error:", omdbRes.status, await omdbRes.text());
-      return new Response("OMDb upstream error", { status: 502, headers: corsHeaders });
+      return new Response("OMDb upstream error", {
+        status: 502,
+        headers: corsHeaders,
+      });
     }
 
     const json = await omdbRes.json();
+    if (json.Response === "False") {
+      return new Response(
+        JSON.stringify({ error: json.Error ?? "Not found" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
-    // Just pass through OMDb JSON to the client.
-    return new Response(JSON.stringify(json), {
+    const imdbRating =
+      json.imdbRating && json.imdbRating !== "N/A"
+        ? Number(json.imdbRating)
+        : null;
+    const imdbVotes =
+      json.imdbVotes && json.imdbVotes !== "N/A"
+        ? Number(json.imdbVotes.replace(/,/g, ""))
+        : null;
+
+    let rtTomatoMeter: number | null = null;
+    let metacriticScore: number | null = null;
+    for (const r of json.Ratings ?? []) {
+      if (r.Source === "Rotten Tomatoes") {
+        const pct = r.Value?.endsWith("%")
+          ? Number(r.Value.replace("%", ""))
+          : null;
+        rtTomatoMeter = pct;
+      } else if (r.Source === "Metacritic") {
+        const [scoreStr] = String(r.Value ?? "").split("/");
+        const score = Number(scoreStr);
+        if (!Number.isNaN(score)) {
+          metacriticScore = score;
+        }
+      }
+    }
+
+    const payloadOut: OmdbRatingsResponse = {
+      imdbRating,
+      rtTomatoMeter,
+      imdbVotes,
+      metacriticScore,
+    };
+
+    return new Response(JSON.stringify(payloadOut), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[omdb-search] Unexpected error:", err);
-    return new Response("Internal error", { status: 500, headers: corsHeaders });
+    return new Response("Internal error", {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 });

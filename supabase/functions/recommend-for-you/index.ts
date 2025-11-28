@@ -354,6 +354,7 @@ Deno.serve(async (req) => {
       tmdb_id,
       imdb_id,
       tmdb_popularity,
+      tmdb_vote_average,
       title_stats (
         avg_rating,
         ratings_count
@@ -495,33 +496,29 @@ Deno.serve(async (req) => {
     const contentSim = c.similarity; // already [0, 1]
 
     const cfScore =
-      Math.log1p(c.friendLikesCount) / Math.log1p(maxFriendLikes);
+      Math.log1p(c.friendLikesCount) / Math.const appScore = normalizeRating(c.appRating);
+const tmdbScore =
+  c.tmdbVoteAverage > 0 ? Math.min(1, c.tmdbVoteAverage / 10) : 0;
 
-    const appScore = normalizeRating(c.appRating);
-    const imdbScore =
-      c.imdbRating > 0 ? Math.min(1, c.imdbRating / 10) : 0;
-    const rtScore =
-      c.rtTomatoMeter > 0 ? Math.min(1, c.rtTomatoMeter / 100) : 0;
+const popNorm =
+  c.popularity > 0 ? Math.min(1, c.popularity / maxPopularity) : 0;
 
-    const popNorm =
-      c.popularity > 0 ? Math.min(1, c.popularity / maxPopularity) : 0;
+const qualityScore = (appScore + tmdbScore) / 2;
 
-    const qualityScore = (appScore + imdbScore) / 2;
+const finalScore =
+  0.5 * contentSim +
+  0.2 * cfScore +
+  0.2 * qualityScore +
+  0.1 * popNorm;
 
-    const finalScore =
-      0.5 * contentSim +
-      0.15 * cfScore +
-      0.15 * qualityScore +
-      0.1 * rtScore +
-      0.1 * popNorm;
-
-    let reason = "A strong match for your taste.";
-    if (cfScore > 0.5) {
-      reason = "Loved by your friends and a close match to what you like.";
-    } else if (contentSim > 0.7) {
-      reason = "Very similar to things you’ve rated highly.";
-    } else if (rtScore > 0.7 || imdbScore > 0.8) {
-      reason = "Critically acclaimed and aligns with your taste.";
+let reason = "A strong match for your taste.";
+if (cfScore > 0.5) {
+  reason = "Loved by your friends and a close match to what you like.";
+} else if (contentSim > 0.7) {
+  reason = "Very similar to things you’ve rated highly.";
+} else if (tmdbScore > 0.8) {
+  reason = "Highly rated on TMDb and still a solid fit for you.";
+} = "Critically acclaimed and aligns with your taste.";
     }
 
     return {
