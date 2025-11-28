@@ -454,22 +454,22 @@ const fetchHomeRecommendations = async (
     if (recError) {
       hasPartialData = true;
       console.warn("[HomeForYouTab] Failed to load recommend-for-you", recError);
-      } else if (recData?.cards && recData.cards.length > 0) {
-        const forYouItems: RecommendationItem[] = recData.cards
-          .filter((card) => !usedTitleIds.has(card.id))
-          .map((card) => {
-            usedTitleIds.add(card.id);
-            return {
-              id: card.id,
-              name: card.title,
-              year: card.year ?? new Date().getFullYear(),
-              runtimeMinutes: card.runtimeMinutes ?? undefined,
-              matchReason: card.reason ?? "A strong match for your taste.",
-              posterUrl: card.posterUrl ?? null,
-              imdbRating: card.imdbRating ?? null,
-              rtTomatoMeter: card.rtTomatoMeter ?? null,
-            };
-          });
+    } else if (recData?.cards && recData.cards.length > 0) {
+      const forYouItems: RecommendationItem[] = recData.cards
+        .filter((card) => !usedTitleIds.has(card.id))
+        .map((card) => {
+          usedTitleIds.add(card.id);
+          return {
+            id: card.id,
+            name: card.title,
+            year: card.year ?? new Date().getFullYear(),
+            runtimeMinutes: card.runtimeMinutes ?? undefined,
+            matchReason: card.reason ?? "A strong match for your taste.",
+            posterUrl: card.posterUrl ?? null,
+            imdbRating: card.imdbRating ?? null,
+            rtTomatoMeter: card.rtTomatoMeter ?? null,
+          };
+        });
 
       sections.unshift({
         id: "for-you-hybrid",
