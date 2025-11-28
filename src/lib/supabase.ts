@@ -4,13 +4,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  if (import.meta.env.DEV) {
-    throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Check your .env file.");
-  } else {
-    console.warn(
-      "Supabase environment variables are missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env (or .env.local) file.",
-    );
-  }
+  console.warn(
+    "Supabase environment variables are missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env (or .env.local) file. Falling back to a dummy client so offline features keep working.",
+  );
 }
 
 /**
@@ -23,21 +19,25 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * This is important for making sure sessions feel stable and users stay logged in
  * while using the app.
  */
-export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  db: {
-    schema: "public",
-  },
-  realtime: {
-    params: {
-      // tune as needed
-      eventsPerSecond: 10,
+export const supabase = createClient(
+  supabaseUrl ?? "https://example.supabase.co",
+  supabaseAnonKey ?? "public-anon-key",
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+    db: {
+      schema: "public",
+    },
+    realtime: {
+      params: {
+        // tune as needed
+        eventsPerSecond: 10,
+      },
     },
   },
-});
+);
 
 // 👇 ADD THIS (no DEV guard)
 if (typeof window !== "undefined") {

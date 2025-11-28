@@ -182,6 +182,12 @@ function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCar
 
 export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number }) {
   const limit = options?.limit ?? 40;
+  const hasSupabaseEnv = Boolean(
+    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+  );
+  const hasTmdbEnv = Boolean(
+    import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN || import.meta.env.VITE_TMDB_API_KEY,
+  );
   const cacheKey = useMemo(() => `mn_swipe_cache_${kind}`, [kind]);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<SwipeCardData[]>([]);
@@ -382,6 +388,15 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       setIsError(false);
       setIsLoading(true);
 
+      if (!hasSupabaseEnv && !hasTmdbEnv) {
+        const fallback = buildFallbackDeck(batchSize, kind);
+        appendCards(fallback);
+        setIsError(false);
+        setIsLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
       try {
         const raw =
           kind === "combined"
@@ -429,7 +444,17 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         fetchingRef.current = false;
       }
     },
-    [appendCards, fetchCombinedBatch, fetchFromSource, getNewCards, kind, limit, loadCachedCards],
+    [
+      appendCards,
+      fetchCombinedBatch,
+      fetchFromSource,
+      getNewCards,
+      hasSupabaseEnv,
+      hasTmdbEnv,
+      kind,
+      limit,
+      loadCachedCards,
+    ],
   );
 
   useEffect(() => {
