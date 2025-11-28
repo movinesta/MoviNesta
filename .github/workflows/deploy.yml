@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages and Supabase
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-        # Setup Node
+      # Setup Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -60,6 +60,11 @@ jobs:
   deploy-supabase-functions:
     runs-on: ubuntu-latest
 
+    # Make Supabase secrets available to all steps in this job
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,7 +76,4 @@ jobs:
 
       - name: Deploy all Supabase Edge Functions
         working-directory: ./supabase
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: supabase functions deploy --project-ref "$PROJECT_ID" --use-api
