@@ -132,8 +132,8 @@ const useSendMessage = (conversationId: string | null) => {
         attachmentPath && trimmed
           ? { type: "text+image", text: trimmed }
           : attachmentPath
-            ? { type: "image", text: "" }
-            : { type: "text", text: trimmed };
+          ? { type: "image", text: "" }
+          : { type: "text", text: trimmed };
 
       const { data, error } = await supabase
         .from("messages")
@@ -788,14 +788,22 @@ const ConversationPage: React.FC = () => {
     attemptSend(lastFailedText);
   };
 
+  // ✅ UPDATED: camera click now directly opens the OS file picker
   const handleCameraClick = () => {
     if (!conversationId || !user?.id) return;
-    setShowGalleryPicker(true);
+    if (isBlocked || blockedYou) return;
+
+    // This triggers the native gallery / file selection UI immediately
+    fileInputRef.current?.click();
   };
 
+  // After user selects an image from the native picker, show the preview modal
   const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+
+    // Allow selecting the same file again later
     event.target.value = "";
+
     if (!file || !conversationId || !user?.id) return;
     if (isBlocked || blockedYou) return;
 
@@ -929,8 +937,8 @@ const ConversationPage: React.FC = () => {
                           ? `${conversation.participants.length} participants`
                           : "Active now"))
                     : isConversationsLoading
-                      ? "Loading…"
-                      : "Details unavailable"}
+                    ? "Loading…"
+                    : "Details unavailable"}
                 </p>
               </div>
             </div>
@@ -1161,8 +1169,8 @@ const ConversationPage: React.FC = () => {
                                     seenSummary.seenParticipants.length - 1
                                   } others`
                               : seenSummary.earliestSeenAt
-                                ? `Seen ${formatMessageTime(seenSummary.earliestSeenAt)}`
-                                : "Seen"}
+                              ? `Seen ${formatMessageTime(seenSummary.earliestSeenAt)}`
+                              : "Seen"}
                           </p>
                         </div>
                       )}
@@ -1177,8 +1185,8 @@ const ConversationPage: React.FC = () => {
                       ? remoteTypingUsers.length === 1
                         ? `${remoteTypingUsers[0]} is typing…`
                         : remoteTypingUsers.length === 2
-                          ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
-                          : "Several people are typing…"
+                        ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
+                        : "Several people are typing…"
                       : "Typing…"}
                   </span>
                   <span className="inline-flex items-center gap-0.5" aria-hidden="true">
@@ -1328,80 +1336,88 @@ const ConversationPage: React.FC = () => {
             <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
               <p>You can&apos;t send messages because this user has blocked you.</p>
             </div>
-        )}
+          )}
 
-        {isBlocked && !blockedYou && (
-          <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
-            <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
-          </div>
-        )}
-      </section>
-    </div>
-
-    {showGalleryPicker && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/95 p-5 shadow-2xl">
-          <button
-            type="button"
-            onClick={handleCloseGallery}
-            className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-            aria-label="Close gallery picker"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-
-          <div className="flex items-start gap-3 pr-10">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 text-mn-text-primary ring-1 ring-mn-border-subtle">
-              <Camera className="h-4 w-4" aria-hidden="true" />
+          {isBlocked && !blockedYou && (
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
+              <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
             </div>
-            <div className="min-w-0">
-              <h2 className="text-[15px] font-semibold text-mn-text-primary">Send from your gallery</h2>
-              <p className="text-[12px] text-mn-text-secondary">
-                Pick a recent photo to drop into the chat—just like Instagram DMs.
-              </p>
+          )}
+        </section>
+      </div>
+
+      {showGalleryPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/95 p-5 shadow-2xl">
+            <button
+              type="button"
+              onClick={handleCloseGallery}
+              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              aria-label="Close gallery picker"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+
+            <div className="flex items-start gap-3 pr-10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 text-mn-text-primary ring-1 ring-mn-border-subtle">
+                <Camera className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-[15px] font-semibold text-mn-text-primary">
+                  Send from your gallery
+                </h2>
+                <p className="text-[12px] text-mn-text-secondary">
+                  Pick a recent photo to drop into the chat—just like Instagram DMs.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="mt-4 rounded-2xl border border-dashed border-mn-border-subtle/80 bg-mn-bg/80 p-4">
-            {selectedImagePreview ? (
-              <div className="overflow-hidden rounded-xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
-                <img src={selectedImagePreview} alt="Selected" className="max-h-[320px] w-full object-cover" />
+            <div className="mt-4 rounded-2xl border border-dashed border-mn-border-subtle/80 bg-mn-bg/80 p-4">
+              {selectedImagePreview ? (
+                <div className="overflow-hidden rounded-xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
+                  <img
+                    src={selectedImagePreview}
+                    alt="Selected"
+                    className="max-h-[320px] w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-mn-text-muted">
+                  <ImageIcon className="h-8 w-8" aria-hidden="true" />
+                  <p className="text-[13px] text-mn-text-secondary">
+                    Choose a photo from your camera roll.
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-full bg-mn-bg-elevated/80 px-4 py-2 text-[13px] font-semibold text-mn-text-primary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                >
+                  <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                  <span>Choose another photo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendSelectedImage}
+                  disabled={!selectedImageFile || isUploadingImage}
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isUploadingImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span>{isUploadingImage ? "Sending…" : "Send photo"}</span>
+                </button>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-mn-text-muted">
-                <ImageIcon className="h-8 w-8" aria-hidden="true" />
-                <p className="text-[13px] text-mn-text-secondary">Choose a photo from your camera roll.</p>
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded-full bg-mn-bg-elevated/80 px-4 py-2 text-[13px] font-semibold text-mn-text-primary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-              >
-                <ImageIcon className="h-4 w-4" aria-hidden="true" />
-                <span>Select from gallery</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSendSelectedImage}
-                disabled={!selectedImageFile || isUploadingImage}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isUploadingImage ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                )}
-                <span>{isUploadingImage ? "Sending…" : "Send photo"}</span>
-              </button>
             </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </div>
   );
 };
