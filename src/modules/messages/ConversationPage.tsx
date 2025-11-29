@@ -1248,7 +1248,7 @@ const ConversationPage: React.FC = () => {
                   onChange={handleImageSelected}
                 />
 
-                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70">
+                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70 focus-within:outline-none focus-within:ring-0 focus-within:shadow-none">
                   <textarea
                     id="conversation-message"
                     value={draft}
@@ -1264,7 +1264,7 @@ const ConversationPage: React.FC = () => {
                     }}
                     placeholder="Message…"
                     rows={1}
-                    className="max-h-[160px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
+                    className="max-h-[160px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted focus:outline-none focus:ring-0 focus:shadow-none focus:border-transparent"
                   />
                 </div>
 
