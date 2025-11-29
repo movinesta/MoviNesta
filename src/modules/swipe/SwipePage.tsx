@@ -20,7 +20,8 @@ const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 const formatRuntime = (minutes?: number | null): string | null => {
   if (!minutes || minutes <= 0) return null;
@@ -49,7 +50,9 @@ interface CardMetadataProps {
 const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   const runtimeLabel = formatRuntime(card.runtimeMinutes);
   const hasImdbRating =
-    typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating) && card.imdbRating > 0;
+    typeof card.imdbRating === "number" &&
+    !Number.isNaN(card.imdbRating) &&
+    card.imdbRating > 0;
   const hasTomatometer =
     typeof card.rtTomatoMeter === "number" &&
     !Number.isNaN(card.rtTomatoMeter) &&
@@ -70,13 +73,17 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
           <h2 className="truncate text-2xl font-heading font-semibold text-mn-text-primary">
             {card.title}
           </h2>
-          <p className="text-[12px] text-mn-text-secondary">{metaPieces.join(" · ")}</p>
+          <p className="text-[12px] text-mn-text-secondary">
+            {metaPieces.join(" · ")}
+          </p>
         </div>
         <span className="mt-1 text-[10px]" />
       </div>
 
       {card.tagline && (
-        <p className="line-clamp-3 text-[12px] text-mn-text-secondary">{card.tagline}</p>
+        <p className="line-clamp-3 text-[12px] text-mn-text-secondary">
+          {card.tagline}
+        </p>
       )}
     </div>
   );
@@ -85,6 +92,7 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
 /**
  * Animated loading skeleton that matches the real card’s size/position
  * and does a subtle “swipe wiggle” left/right.
+ * Updated so there is only ONE visible card (no blurred background layer).
  */
 const LoadingSwipeCard: React.FC = () => {
   const [offset, setOffset] = useState(0);
@@ -103,71 +111,52 @@ const LoadingSwipeCard: React.FC = () => {
   const rotation = offset / 5;
 
   return (
-    <>
-      {/* Blurry “next card” skeleton behind */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md items-center justify-center rounded-[30px]"
-        style={{
-          transform: "translateY(-40px) scale(0.9)",
-          opacity: 1,
-          transition: "transform 280ms ease-out, opacity 280ms ease-out",
-        }}
-      >
-        <div className="relative h-full w-full overflow-hidden rounded-[30px] border border-mn-border-subtle/40 shadow-mn-card">
-          <div className="h-full w-full bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg blur-[4px]" />
-          <div className="absolute inset-0 bg-gradient-to-b from-mn-bg/0 via-mn-bg/30 to-mn-bg/90" />
+    <article
+      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
+      style={{
+        transform: `translateX(${offset}px) rotate(${rotation}deg)`,
+        transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
+      }}
+    >
+      <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
+        <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 font-semibold text-mn-text-muted shadow-mn-soft">
+            <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle" />
+            Getting picks…
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] text-mn-text-muted shadow-mn-soft">
+            <Sparkles className="h-3 w-3" />
+            Warming up
+          </span>
         </div>
       </div>
 
-      {/* Main animated skeleton card */}
-      <article
-        className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
-        style={{
-          transform: `translateX(${offset}px) rotate(${rotation}deg)`,
-          transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
-        }}
-      >
-        <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
-          <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
-          <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 font-semibold text-mn-text-muted shadow-mn-soft">
-              <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle" />
-              Getting picks…
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] text-mn-text-muted shadow-mn-soft">
-              <Sparkles className="h-3 w-3" />
-              Warming up
-            </span>
+      <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
+        <div className="space-y-3 text-left text-[12px] leading-relaxed">
+          <div className="space-y-2">
+            <div className="h-5 w-3/4 animate-pulse rounded-full bg-mn-border-subtle/60" />
+            <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/40" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-3 w-full animate-pulse rounded-full bg-mn-border-subtle/40" />
+            <div className="h-3 w-5/6 animate-pulse rounded-full bg-mn-border-subtle/30" />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="h-6 w-20 animate-pulse rounded-full bg-mn-border-subtle/40" />
+            <div className="h-6 w-16 animate-pulse rounded-full bg-mn-border-subtle/20" />
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-          <div className="space-y-3 text-left text-[12px] leading-relaxed">
-            <div className="space-y-2">
-              <div className="h-5 w-3/4 animate-pulse rounded-full bg-mn-border-subtle/60" />
-              <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/40" />
-            </div>
-            <div className="space-y-1.5">
-              <div className="h-3 w-full animate-pulse rounded-full bg-mn-border-subtle/40" />
-              <div className="h-3 w-5/6 animate-pulse rounded-full bg-mn-border-subtle/30" />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <div className="h-6 w-20 animate-pulse rounded-full bg-mn-border-subtle/40" />
-              <div className="h-6 w-16 animate-pulse rounded-full bg-mn-border-subtle/20" />
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-1 shadow-mn-soft">
-              <Flame className="h-4 w-4 text-mn-border-subtle" />
-              Finding what friends like…
-            </span>
-          </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+          <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-1 shadow-mn-soft">
+            <Flame className="h-4 w-4 text-mn-border-subtle" />
+            Finding what friends like…
+          </span>
         </div>
-      </article>
-    </>
+      </div>
+    </article>
   );
 };
 
@@ -194,7 +183,9 @@ const SwipePage: React.FC = () => {
 
   useEffect(() => {
     const hasSeen =
-      typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
+      typeof window !== "undefined"
+        ? localStorage.getItem(ONBOARDING_STORAGE_KEY)
+        : null;
     setShowOnboarding(!hasSeen);
   }, []);
 
@@ -301,57 +292,77 @@ const SwipePage: React.FC = () => {
           node.style.opacity = "1";
         }
       }, 220);
-
       return;
     }
 
-    // LIKE / DISLIKE → fling left/right
+    // LIKE / DISLIKE: fling off-screen
     const directionSign = direction === "like" ? 1 : -1;
-    const projectedExit = Math.max(EXIT_MIN, Math.abs(velocity) * 1000 * EXIT_MULTIPLIER);
-    const exitX = directionSign * projectedExit;
+    const baseExit = Math.max(
+      EXIT_MIN,
+      Math.abs(dragDelta.current) + Math.abs(velocity) * EXIT_MULTIPLIER,
+    );
+    const exitX = baseExit * directionSign;
+
+    const node = cardRef.current;
+    if (node) {
+      node.style.transition = "transform 260ms cubic-bezier(0.22,0.61,0.36,1)";
+      node.style.transform = `translateX(${exitX}px) rotate(${clamp(
+        exitX / ROTATION_FACTOR,
+        -18,
+        18,
+      )}deg)`;
+    }
 
     triggerHaptic();
-    setCardTransform(exitX, { withTransition: true, clampDrag: false });
 
     window.setTimeout(() => {
       setCurrentIndex((prev) => Math.min(prev + 1, cards.length));
-      setCardTransform(0);
+      resetCardPosition();
     }, 260);
   };
 
-  const actionsDisabled = !activeCard || isLoading || isError;
-
-  const handlePointerDown = (clientX: number, pointerId?: number) => {
-    if (!activeCard || actionsDisabled) return;
+  const handlePointerDown = (x: number, pointerId: number) => {
+    if (!activeCard) return;
     setIsDragging(true);
-    dragStartX.current = clientX;
-    lastMoveX.current = clientX;
+    dragStartX.current = x;
+    dragDelta.current = 0;
+    lastMoveX.current = x;
     lastMoveTime.current = performance.now();
     velocityRef.current = 0;
 
-    if (pointerId != null && cardRef.current?.setPointerCapture) {
-      cardRef.current.setPointerCapture(pointerId);
-    }
+    const node = cardRef.current;
+    if (!node) return;
 
-    setCardTransform(dragDelta.current);
+    try {
+      node.setPointerCapture(pointerId);
+    } catch {
+      // ignore
+    }
   };
 
-  const handlePointerMove = (clientX: number) => {
-    if (!isDragging || dragStartX.current == null) return;
-
-    const delta = clientX - dragStartX.current;
-    dragDelta.current = clamp(delta, -MAX_DRAG, MAX_DRAG);
+  const handlePointerMove = (x: number) => {
+    if (!isDragging || dragStartX.current === null) return;
 
     const now = performance.now();
-    if (lastMoveX.current != null && lastMoveTime.current != null) {
-      const timeDelta = Math.max(8, now - lastMoveTime.current);
-      velocityRef.current = (clientX - lastMoveX.current) / timeDelta;
+    const dx = x - dragStartX.current;
+
+    setCardTransform(dx, { withTransition: false });
+
+    if (lastMoveX.current !== null && lastMoveTime.current !== null) {
+      const dt = now - lastMoveTime.current;
+      if (dt > 0) {
+        const vx = (x - lastMoveX.current) / dt;
+        velocityRef.current = vx;
+      }
     }
-    lastMoveX.current = clientX;
+
+    lastMoveX.current = x;
     lastMoveTime.current = now;
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = window.requestAnimationFrame(() => setCardTransform(dragDelta.current));
+    rafRef.current = window.requestAnimationFrame(
+      () => setCardTransform(dragDelta.current),
+    );
   };
 
   const finishDrag = () => {
@@ -377,6 +388,7 @@ const SwipePage: React.FC = () => {
   };
 
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
+  const actionsDisabled = !activeCard || isLoading || isError;
 
   return (
     <div className="relative flex min-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
@@ -406,6 +418,7 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
+              {/* Next-card preview (only when we have data, not during skeleton load) */}
               {nextCard && (
                 <div
                   aria-hidden="true"
@@ -504,10 +517,12 @@ const SwipePage: React.FC = () => {
               {showOnboarding && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-mn-bg/70 via-mn-bg/50 to-mn-bg/80">
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
-                    <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
+                    <p className="text-sm font-semibold text-mn-text-primary">
+                      Swipe to decide
+                    </p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to pass or right to like. You can also use the buttons
-                      below.
+                      Drag the card left to pass or right to like. You can also use
+                      the buttons below.
                     </p>
                     <button
                       type="button"
@@ -543,7 +558,7 @@ const SwipePage: React.FC = () => {
             type="button"
             onClick={() => performSwipe("skip")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-primary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex items-center justify-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Skip"
           >
             <SkipForward className="h-5 w-5" />
@@ -553,7 +568,7 @@ const SwipePage: React.FC = () => {
             type="button"
             onClick={() => performSwipe("like")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-mn-primary to-amber-400 px-3 py-3 text-sm font-semibold text-white shadow-mn-card disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex items-center justify-center gap-2 rounded-full border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Like"
           >
             <ThumbsUp className="h-5 w-5" />
