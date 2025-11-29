@@ -453,31 +453,21 @@ const fetchHomeFeed = async (
 const useFeed = (): UseFeedResult => {
   const { user } = useAuth();
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-    fetchNextPage,
-    isFetchingNextPage,
-    hasNextPage,
-  } = useInfiniteQuery<{ items: FeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
-    queryKey: ["home-feed", user?.id],
-    enabled: Boolean(user?.id),
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      if (!user?.id) {
-        return { items: [], nextCursor: null, hasMore: false };
-      }
-      return fetchHomeFeed(user.id, pageParam);
-    },
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
-  });
+  const { data, isLoading, isFetching, error, fetchNextPage, isFetchingNextPage, hasNextPage } =
+    useInfiniteQuery<{ items: FeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
+      queryKey: ["home-feed", user?.id],
+      enabled: Boolean(user?.id),
+      initialPageParam: null as string | null,
+      queryFn: async ({ pageParam }) => {
+        if (!user?.id) {
+          return { items: [], nextCursor: null, hasMore: false };
+        }
+        return fetchHomeFeed(user.id, pageParam);
+      },
+      getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
+    });
 
-  const items = useMemo(
-    () => (data?.pages ?? []).flatMap((page) => page.items),
-    [data],
-  );
+  const items = useMemo(() => (data?.pages ?? []).flatMap((page) => page.items), [data]);
 
   const friendlyError = error ? getFriendlyFeedErrorMessage(error) : null;
 
