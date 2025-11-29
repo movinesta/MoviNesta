@@ -50,8 +50,10 @@ const useConversationMessages = (conversationId: string | null) => {
   return useQuery<ConversationMessage[]>({
     queryKey: ["conversation", conversationId, "messages"],
     enabled: Boolean(conversationId),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: conversationId ? 6000 : false,
+    refetchIntervalInBackground: true,
     queryFn: async (): Promise<ConversationMessage[]> => {
       if (!conversationId) return [];
 
@@ -82,8 +84,10 @@ const useConversationReadReceipts = (conversationId: string | null) => {
   return useQuery<ConversationReadReceipt[]>({
     queryKey: ["conversation", conversationId, "readReceipts"],
     enabled: Boolean(conversationId),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: conversationId ? 12000 : false,
+    refetchIntervalInBackground: true,
     queryFn: async (): Promise<ConversationReadReceipt[]> => {
       if (!conversationId) return [];
 
@@ -315,7 +319,10 @@ const ConversationPage: React.FC = () => {
   const sendMessage = useSendMessage(conversationId);
 
   const [draft, setDraft] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [lastFailedText, setLastFailedText] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -657,6 +664,20 @@ const ConversationPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showEmojiPicker]);
 
+  const resizeTextarea = (value: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(140, textarea.scrollHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > nextHeight ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeTextarea(draft);
+  }, [draft]);
+
   const notifyTyping = (nextDraft: string) => {
     const channel = typingChannelRef.current;
     if (!channel || !conversationId || !user) return;
@@ -709,6 +730,7 @@ const ConversationPage: React.FC = () => {
   const handleDraftChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setDraft(next);
+    resizeTextarea(next);
     if (showEmojiPicker) setShowEmojiPicker(false);
     notifyTyping(next);
   };
@@ -717,9 +739,29 @@ const ConversationPage: React.FC = () => {
     if (!emoji) return;
     setDraft((prev) => {
       const next = `${prev}${emoji}`;
+      resizeTextarea(next);
       notifyTyping(next);
       return next;
     });
+  };
+
+  const attemptSend = (text: string) => {
+    sendMessage.mutate(
+      { text, attachmentPath: null },
+      {
+        onError: (error) => {
+          console.error("[ConversationPage] sendMessage mutate error", error);
+          setSendError("Couldn't send. Please try again.");
+          setDraft(text);
+          resizeTextarea(text);
+          setLastFailedText(text);
+        },
+        onSuccess: () => {
+          setSendError(null);
+          setLastFailedText(null);
+        },
+      },
+    );
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -732,9 +774,18 @@ const ConversationPage: React.FC = () => {
 
     // Instant clear for "instant" feeling
     setDraft("");
+    resizeTextarea("");
+    setSendError(null);
+    setLastFailedText(null);
     notifyTyping("");
 
-    sendMessage.mutate({ text, attachmentPath: null });
+    attemptSend(text);
+  };
+
+  const handleRetrySend = () => {
+    if (!lastFailedText || sendMessage.isPending) return;
+    setSendError(null);
+    attemptSend(lastFailedText);
   };
 
   const handleCameraClick = () => {
@@ -1145,8 +1196,30 @@ const ConversationPage: React.FC = () => {
           {!isBlocked && !blockedYou && (
             <form
               onSubmit={handleSubmit}
-              className="flex-shrink-0 border-t border-mn-border-subtle/70 bg-mn-bg/95 px-4 py-3 backdrop-blur"
+              className="sticky bottom-0 z-20 flex-shrink-0 space-y-2 border-t border-mn-border-subtle/70 bg-mn-bg/95 px-4 py-3 backdrop-blur"
             >
+              {sendError && (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-2 text-[11px] text-mn-error"
+                >
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <p className="font-semibold">Couldn't send. Please try again.</p>
+                  </div>
+                  {lastFailedText && (
+                    <button
+                      type="button"
+                      onClick={handleRetrySend}
+                      disabled={sendMessage.isPending}
+                      className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-2 py-1 text-[11px] font-semibold text-mn-primary ring-1 ring-mn-primary/40 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span>Retry</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -1175,10 +1248,11 @@ const ConversationPage: React.FC = () => {
                   onChange={handleImageSelected}
                 />
 
-                <div className="flex min-h-[44px] max-h-[140px] flex-1 items-center rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70">
+                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70">
                   <textarea
                     id="conversation-message"
                     value={draft}
+                    ref={textareaRef}
                     onChange={handleDraftChange}
                     onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
                       if (event.key === "Enter" && !event.shiftKey) {
@@ -1190,7 +1264,7 @@ const ConversationPage: React.FC = () => {
                     }}
                     placeholder="Message…"
                     rows={1}
-                    className="max-h-[92px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
+                    className="max-h-[160px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
                   />
                 </div>
 
@@ -1211,13 +1285,13 @@ const ConversationPage: React.FC = () => {
           )}
 
           {blockedYou && (
-            <div className="flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
               <p>You can&apos;t send messages because this user has blocked you.</p>
             </div>
           )}
 
           {isBlocked && !blockedYou && (
-            <div className="flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
               <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
             </div>
           )}

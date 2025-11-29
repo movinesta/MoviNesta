@@ -33,8 +33,10 @@ export const useConversations = () => {
   return useQuery<ConversationListItem[]>({
     queryKey: ["conversations", userId],
     enabled: Boolean(userId),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: userId ? 8000 : false,
+    refetchIntervalInBackground: true,
 
     queryFn: async (): Promise<ConversationListItem[]> => {
       if (!userId) return [];

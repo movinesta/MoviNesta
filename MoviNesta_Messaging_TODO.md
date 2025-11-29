@@ -172,29 +172,29 @@ Priorities are rough guidelines:
 
 ### 10. Simple auto-refresh (polling) so chats feel alive
 
-- For the open chat: {}
-  - Refresh the messages list automatically every few seconds. {}
-  - Also refresh when the user comes back to the app or tab. {}
-- For the messages list: {}
-  - Refresh the list every few seconds as well. {}
-- Make sure this auto-refresh: {}
-  - Stops when the user logs out. {}
-  - Doesn’t run unnecessarily (for example, when there’s no open chat). {}
+- For the open chat: {Done: 2025-11-29 04:55 — Conversation queries now poll in the background and refetch on focus/reconnect.}
+  - Refresh the messages list automatically every few seconds. {Done: 2025-11-29 04:55 — Messages refetch every 6s while the chat is open.}
+  - Also refresh when the user comes back to the app or tab. {Done: 2025-11-29 04:55 — Refetch on window focus keeps chats fresh when returning.}
+- For the messages list: {Done: 2025-11-29 04:55 — Inbox polling keeps conversations updated without manual reloads.}
+  - Refresh the list every few seconds as well. {Done: 2025-11-29 04:55 — Conversations refetch on an 8s interval.}
+- Make sure this auto-refresh: {Done: 2025-11-29 04:55 — Polling is gated by user/login and open chat ids.}
+  - Stops when the user logs out. {Done: 2025-11-29 04:55 — Refetch intervals disable when there’s no signed-in user.}
+  - Doesn’t run unnecessarily (for example, when there’s no open chat). {Done: 2025-11-29 04:55 — Conversation polling only runs for active conversation IDs.}
 
 ---
 
 ### 11. Improved composer behavior (typing and sending)
 
-- In the message input: {}
-  - Press **Enter** → send the message. {}
-  - Press **Shift + Enter** → insert a new line without sending. {}
-- Let the text box grow automatically: {}
-  - As users type more lines, the input box should expand up to a reasonable height. {}
-  - After a certain height, the content should scroll inside the box instead of growing forever. {}
-- Show what happens when something goes wrong: {}
+- In the message input: {Done: 2025-11-29 04:55 — Sending respects Enter vs. Shift+Enter with the current textarea.}
+  - Press **Enter** → send the message. {Done: 2025-11-29 04:55 — Enter triggers submit while preserving multi-line with Shift.}
+  - Press **Shift + Enter** → insert a new line without sending. {Done: 2025-11-29 04:55 — Shift+Enter keeps focus and inserts a newline.}
+- Let the text box grow automatically: {Done: 2025-11-29 04:55 — Textarea auto-resizes up to a capped height before scrolling.}
+  - As users type more lines, the input box should expand up to a reasonable height. {Done: 2025-11-29 04:55 — JS-driven resizing grows the input smoothly.}
+  - After a certain height, the content should scroll inside the box instead of growing forever. {Done: 2025-11-29 04:55 — Height caps at ~140px with overflow switching to scroll.}
+- Show what happens when something goes wrong: {Done: 2025-11-29 04:55 — Composer surfaces send failures inline.}
   - If sending fails, display a small message like: {}
-    - “Couldn’t send. Please try again.” {}
-  - Give an easy way to try sending again. {}
+    - “Couldn’t send. Please try again.” {Done: 2025-11-29 04:55 — Inline alert shows the failure message.}
+  - Give an easy way to try sending again. {Done: 2025-11-29 04:55 — Retry button resubmits the last failed draft.}
 
 ---
 
