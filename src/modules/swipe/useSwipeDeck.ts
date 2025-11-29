@@ -183,12 +183,10 @@ function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCar
 export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number }) {
   const limit = options?.limit ?? 40;
 
-  // We always prefer Supabase as the primary source for swipe cards.
-  // Env issues will be surfaced via console warnings from the Supabase client itself,
-  // and we still fall back gracefully if anything fails.
+  // Primary source: Supabase (assumed configured in this app).
   const hasSupabaseEnv = true;
 
-  // TMDB is purely an optional secondary source now.
+  // Optional TMDB secondary source.
   const hasTmdbEnv = Boolean(
     import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN || import.meta.env.VITE_TMDB_API_KEY,
   );
@@ -321,7 +319,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
 
   const fetchFromSource = useCallback(
     async (source: SwipeDeckKind, count: number): Promise<SwipeCardData[]> => {
-      // 1) Supabase Edge function (primary source)
       const fnName =
         source === "for-you"
           ? "swipe-for-you"
@@ -329,6 +326,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             ? "swipe-from-friends"
             : "swipe-trending";
 
+      // 1) Edge function primary
       try {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 25000);
@@ -365,7 +363,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         }
       }
 
-      // 2) Direct table fallback from Supabase (guaranteed Supabase-backed data)
+      // 2) Direct Supabase table fallback
       try {
         const { data: rows, error: tableError } = await supabase
           .from("titles")
@@ -413,13 +411,13 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         console.warn("[useSwipeDeck] titles table fallback threw", err);
       }
 
-      // 3) Optional TMDB fallback (secondary remote source)
+      // 3) Optional TMDB fallback
       if (hasTmdbEnv) {
         const tmdbFallback = await fetchTmdbFallback(source, count);
         if (tmdbFallback.length) return tmdbFallback;
       }
 
-      // 4) Final fallback: local curated pool so the deck is never empty
+      // 4) Local curated pool fallback
       return buildFallbackDeck(count, source);
     },
     [fetchTmdbFallback, hasTmdbEnv],
@@ -503,6 +501,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       } catch (error) {
         console.warn("[useSwipeDeck] fetch error", error);
         setIsError(true);
+
         if (!cardsRef.current.length) {
           const cached = loadCachedCards();
           if (cached.length) {
@@ -515,6 +514,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             setIsError(false);
           }
         }
+
         window.setTimeout(() => {
           fetchingRef.current = false;
           fetchBatch(batchSize);
@@ -529,7 +529,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       appendCards,
       fetchCombinedBatch,
       fetchFromSource,
-      getNewCards,
       hasSupabaseEnv,
       hasTmdbEnv,
       kind,
@@ -572,7 +571,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     [cacheCards],
   );
 
-  // SEND SWIPE → swipe-event
   const swipeMutation = useMutation({
     mutationFn: async ({
       cardId,

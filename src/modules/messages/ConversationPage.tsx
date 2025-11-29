@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  Camera,
   Info,
   Loader2,
-  Paperclip,
   Phone,
   Send,
   Smile,
@@ -27,7 +27,7 @@ interface ConversationMessage {
   senderId: string;
   createdAt: string;
   body: string | null;
-  attachmentUrl: string | null;
+  attachmentUrl: string | null; // storage path, e.g. "conversationId/userId/file.jpg"
 }
 
 interface ConversationReadReceipt {
@@ -106,33 +106,36 @@ const useConversationReadReceipts = (conversationId: string | null) => {
   });
 };
 
+interface SendMessageArgs {
+  text: string;
+  attachmentPath?: string | null;
+}
+
 const useSendMessage = (conversationId: string | null) => {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return null;
-      if (!conversationId) {
-        throw new Error("Missing conversation id.");
-      }
-      if (!userId) {
-        throw new Error("You must be signed in to send messages.");
-      }
+    mutationFn: async ({ text, attachmentPath }: SendMessageArgs) => {
+      if (!conversationId) throw new Error("Missing conversation id.");
+      if (!userId) throw new Error("You must be signed in to send messages.");
 
-      const payload = JSON.stringify({
-        type: "text",
-        text: trimmed,
-      });
+      const trimmed = text.trim();
+      const bodyPayload =
+        attachmentPath && trimmed
+          ? { type: "text+image", text: trimmed }
+          : attachmentPath
+            ? { type: "image", text: "" }
+            : { type: "text", text: trimmed };
 
       const { data, error } = await supabase
         .from("messages")
         .insert({
           conversation_id: conversationId,
           sender_id: userId,
-          body: payload,
+          body: JSON.stringify(bodyPayload),
+          attachment_url: attachmentPath ?? null,
         })
         .select("id, conversation_id, sender_id, body, attachment_url, created_at")
         .single();
@@ -151,7 +154,6 @@ const useSendMessage = (conversationId: string | null) => {
         createdAt: data.created_at as string,
       };
 
-      // Also bump the conversation's updated_at so it sorts correctly in the inbox
       try {
         await supabase
           .from("conversations")
@@ -161,23 +163,137 @@ const useSendMessage = (conversationId: string | null) => {
         console.error("[ConversationPage] Failed to update conversation timestamp", err);
       }
 
-      // Keep the messages list in sync (and avoid duplicates if realtime also pushed this row)
-      queryClient.setQueriesData<ConversationMessage[]>(
-        { queryKey: ["conversation", conversationId, "messages"] },
+      return row;
+    },
+    // Optimistic update for instant feel
+    onMutate: async ({ text, attachmentPath }) => {
+      if (!conversationId || !userId) return { previousMessages: undefined, tempId: null };
+
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const createdAt = new Date().toISOString();
+
+      const optimistic: ConversationMessage = {
+        id: tempId,
+        conversationId,
+        senderId: userId,
+        body: JSON.stringify({ type: "text", text: text.trim() }),
+        attachmentUrl: attachmentPath ?? null,
+        createdAt,
+      };
+
+      await queryClient.cancelQueries({ queryKey: ["conversation", conversationId, "messages"] });
+      const previousMessages = queryClient.getQueryData<ConversationMessage[]>([
+        "conversation",
+        conversationId,
+        "messages",
+      ]);
+
+      queryClient.setQueryData<ConversationMessage[]>(
+        ["conversation", conversationId, "messages"],
         (existing) => {
           const current = existing ?? [];
-          const alreadyExists = current.some((m) => m.id === row.id);
-          if (alreadyExists) return current;
-          return [...current, row];
+          const next = [...current, optimistic];
+          next.sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          );
+          return next;
         },
       );
 
-      // Also refresh the conversation list so previews & unread state stay fresh
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      return { previousMessages, tempId };
+    },
+    onError: (error, _variables, context) => {
+      console.error("[ConversationPage] sendMessage error", error);
+      if (context?.previousMessages && conversationId) {
+        queryClient.setQueryData(
+          ["conversation", conversationId, "messages"],
+          context.previousMessages,
+        );
+      }
+    },
+    onSuccess: (row, _variables, context) => {
+      if (!conversationId) return;
+      const tempId = context?.tempId;
 
-      return row;
+      queryClient.setQueryData<ConversationMessage[]>(
+        ["conversation", conversationId, "messages"],
+        (existing) => {
+          const current = existing ?? [];
+          // Remove optimistic temp message if present
+          const withoutTemp = tempId
+            ? current.filter((m) => m.id !== tempId)
+            : current.filter((m) => m.id !== row.id);
+          const alreadyIdx = withoutTemp.findIndex((m) => m.id === row.id);
+          if (alreadyIdx >= 0) {
+            const copy = [...withoutTemp];
+            copy[alreadyIdx] = row;
+            return copy;
+          }
+          const next = [...withoutTemp, row];
+          next.sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          );
+          return next;
+        },
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
+};
+
+/**
+ * Renders an attachment image from chat-media bucket using a signed URL.
+ */
+const ChatImage: React.FC<{ path: string }> = ({ path }) => {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const { data, error: err } = await supabase.storage
+        .from("chat-media")
+        .createSignedUrl(path, 60 * 60); // 1 hour
+
+      if (cancelled) return;
+      if (err || !data?.signedUrl) {
+        console.error("[ChatImage] createSignedUrl error", err);
+        setError(true);
+        return;
+      }
+      setUrl(data.signedUrl);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  if (error) {
+    return (
+      <div className="mt-1 text-[11px] text-mn-text-muted">
+        Image unavailable.
+      </div>
+    );
+  }
+
+  if (!url) {
+    return (
+      <div className="mt-1 h-32 w-40 animate-pulse rounded-xl bg-mn-border-subtle/40" />
+    );
+  }
+
+  return (
+    <div className="mt-1 overflow-hidden rounded-xl border border-mn-border-subtle/70 bg-mn-bg/80">
+      <img
+        src={url}
+        alt="Attachment"
+        className="max-h-64 w-full object-cover"
+        loading="lazy"
+      />
+    </div>
+  );
 };
 
 const ConversationPage: React.FC = () => {
@@ -201,6 +317,12 @@ const ConversationPage: React.FC = () => {
   const [draft, setDraft] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const conversation: ConversationListItem | null = useMemo(() => {
     if (!conversationId || !conversations) return null;
     return conversations.find((c) => c.id === conversationId) ?? null;
@@ -221,11 +343,9 @@ const ConversationPage: React.FC = () => {
     if (!conversation) return null;
     const others = conversation.participants.filter((p) => !p.isSelf);
     if (others.length > 0) return others[0];
-
     if (conversation.participants.length === 1) {
       return conversation.participants[0];
     }
-
     return null;
   }, [conversation]);
 
@@ -299,6 +419,7 @@ const ConversationPage: React.FC = () => {
     return { seenParticipants, earliestSeenAt };
   }, [conversation, latestSelfMessage, readReceipts, user?.id]);
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (!messages || messages.length === 0) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -308,6 +429,7 @@ const ConversationPage: React.FC = () => {
     lastReadRef.current = { conversationId: null, messageId: null, userId: null };
   }, [conversationId, user?.id]);
 
+  // Typing indicator channel
   useEffect(() => {
     if (!conversationId || !user?.id) return;
 
@@ -366,7 +488,7 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, user?.id, participantsById]);
 
-  // Realtime: listen for new messages in this conversation and merge into cache
+  // Realtime: new messages
   useEffect(() => {
     if (!conversationId) return;
 
@@ -391,7 +513,6 @@ const ConversationPage: React.FC = () => {
             created_at: string;
           };
 
-          // Skip messages we just sent ourselves; those are already added via the mutation cache update.
           if (user?.id && row.sender_id === user.id) {
             return;
           }
@@ -420,7 +541,6 @@ const ConversationPage: React.FC = () => {
             },
           );
 
-          // Conversations list (previews/unread) stays in sync
           queryClient.invalidateQueries({ queryKey: ["conversations"] });
         },
       );
@@ -437,12 +557,12 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, queryClient, user?.id]);
 
+  // Read receipts
   useEffect(() => {
     if (!conversationId || !messages || messages.length === 0 || !user?.id) return;
 
     const last = messages[messages.length - 1];
 
-    // Avoid spamming read-receipt updates when nothing has changed.
     if (
       lastReadRef.current.conversationId === conversationId &&
       lastReadRef.current.messageId === last.id &&
@@ -451,7 +571,6 @@ const ConversationPage: React.FC = () => {
       return;
     }
 
-    // Fire-and-forget read receipt update – no UI blocking.
     supabase
       .from("message_read_receipts")
       .upsert(
@@ -472,6 +591,7 @@ const ConversationPage: React.FC = () => {
       });
   }, [conversationId, messages, user?.id, queryClient]);
 
+  // Realtime read-receipt updates
   useEffect(() => {
     if (!conversationId) return;
 
@@ -516,6 +636,26 @@ const ConversationPage: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);
+
+  // Close emoji when clicking outside
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(target) &&
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(target)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showEmojiPicker]);
 
   const notifyTyping = (nextDraft: string) => {
     const channel = typingChannelRef.current;
@@ -569,32 +709,71 @@ const ConversationPage: React.FC = () => {
   const handleDraftChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setDraft(next);
+    if (showEmojiPicker) setShowEmojiPicker(false);
     notifyTyping(next);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleEmojiSelect = (emoji: string) => {
+    if (!emoji) return;
+    setDraft((prev) => {
+      const next = `${prev}${emoji}`;
+      notifyTyping(next);
+      return next;
+    });
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Safety: if either side has blocked the other, do not send new messages.
-    if (isBlocked) {
-      return;
-    }
+    if (isBlocked || blockedYou) return;
 
     const text = draft.trim();
     if (!text || sendMessage.isPending) return;
 
+    // Instant clear for "instant" feeling
+    setDraft("");
+    notifyTyping("");
+
+    sendMessage.mutate({ text, attachmentPath: null });
+  };
+
+  const handleCameraClick = () => {
+    if (!fileInputRef.current || !conversationId || !user?.id) return;
+    fileInputRef.current.click();
+  };
+
+  const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !conversationId || !user?.id) return;
+    if (isBlocked || blockedYou) return;
+
     try {
-      await sendMessage.mutateAsync(text);
-      setDraft("");
-      notifyTyping("");
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${conversationId}/${user.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("chat-media")
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("[ConversationPage] image upload error", uploadError);
+        return;
+      }
+
+      // send an image-only message (optimistic)
+      sendMessage.mutate({ text: "", attachmentPath: path });
     } catch (error) {
-      console.error("[ConversationPage] handleSubmit failed", error);
+      console.error("[ConversationPage] handleImageSelected failed", error);
     }
   };
 
   if (!conversationId) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="flex min-height-[60vh] items-center justify-center px-4">
         <div className="max-w-md rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-5 py-6 text-center text-sm text-mn-text-primary shadow-mn-card">
           <h1 className="text-base font-heading font-semibold">Conversation not found</h1>
           <p className="mt-2 text-xs text-mn-text-secondary">
@@ -614,7 +793,7 @@ const ConversationPage: React.FC = () => {
   }
 
   return (
-    <div className="relative flex h-full min-h-[60vh] flex-1 flex-col items-stretch bg-gradient-to-b from-mn-bg to-mn-bg/60">
+    <div className="relative flex h-full min-h-[60vh] flex-1 flex-col items-stretch bg-mn-bg">
       <div
         className="pointer-events-none absolute inset-x-10 top-4 h-32 rounded-full bg-gradient-to-r from-fuchsia-500/15 via-mn-primary/10 to-blue-500/15 blur-3xl"
         aria-hidden="true"
@@ -622,7 +801,7 @@ const ConversationPage: React.FC = () => {
 
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/90 shadow-xl shadow-mn-primary/5 backdrop-blur">
         {/* Header */}
-        <HeaderSurface className="min-h-[3.5rem] py-3">
+        <HeaderSurface className="min-h-[3.5rem] flex-shrink-0 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -729,7 +908,7 @@ const ConversationPage: React.FC = () => {
           </div>
         </HeaderSurface>
 
-        {/* Conversation body */}
+        {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col">
           <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-mn-bg/92 via-mn-bg/88 to-mn-bg/92">
             <div
@@ -806,12 +985,11 @@ const ConversationPage: React.FC = () => {
                   index === 0 || showDateDivider ? "mt-0" : startsGroup ? "mt-3" : "mt-1.5";
 
                 const bubbleColors = isSelf
-                  ? "bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/20 ring-1 ring-white/20"
-                  : "border border-mn-border-subtle/80 bg-mn-bg/92 text-mn-text-primary shadow-mn-soft";
+                  ? "bg-mn-primary/90 text-white shadow-md shadow-mn-primary/20"
+                  : "bg-mn-bg-elevated text-mn-text-primary border border-mn-border-subtle/80 shadow-mn-soft";
                 const bubbleShape = isSelf
                   ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
                   : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl";
-
                 const name = participant?.displayName ?? (isSelf ? "You" : "Someone");
 
                 const text = parseMessageText(message.body);
@@ -881,15 +1059,7 @@ const ConversationPage: React.FC = () => {
                             )}
 
                             {message.attachmentUrl && (
-                              <a
-                                href={message.attachmentUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-1 inline-flex text-[12px] font-medium underline-offset-2 hover:underline"
-                              >
-                                <Paperclip className="mr-1 h-3 w-3" aria-hidden="true" />
-                                Attachment
-                              </a>
+                              <ChatImage path={message.attachmentUrl} />
                             )}
                           </div>
                         </div>
@@ -946,74 +1116,111 @@ const ConversationPage: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {!isBlocked && !blockedYou && (
-              <form
-                onSubmit={handleSubmit}
-                className="sticky bottom-0 z-20 border-t border-mn-border-subtle/70 bg-mn-bg/90 px-4 py-3 backdrop-blur"
+            {/* Emoji picker popover */}
+            {showEmojiPicker && (
+              <div
+                ref={emojiPickerRef}
+                className="absolute bottom-[4.25rem] left-4 z-30 rounded-2xl border border-mn-border-subtle/60 bg-mn-bg-elevated/95 p-2 shadow-mn-card"
               >
-                <div className="flex items-end gap-3">
-                  <button
-                    type="button"
-                    className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-                    aria-label="Add emoji"
-                  >
-                    <Smile className="h-4 w-4" aria-hidden="true" />
-                  </button>
-
-                  <div className="flex min-h-[44px] max-h-[140px] flex-1 items-end rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70">
-                    <textarea
-                      id="conversation-message"
-                      value={draft}
-                      onChange={handleDraftChange}
-                      onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault();
-                          if (draft.trim()) {
-                            event.currentTarget.form?.requestSubmit();
-                          }
-                        }
-                      }}
-                      placeholder="Message…"
-                      rows={1}
-                      className="max-h-[92px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
-                    />
+                <div className="flex flex-wrap gap-1.5 max-w-[260px]">
+                  {["😀","😂","😍","🥹","😎","🤔","😭","🔥","❤️","👍","👀","🎬","🍿","⭐","🙌"].map((emoji) => (
                     <button
+                      key={emoji}
                       type="button"
-                      className="ml-2 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-mn-text-secondary transition hover:bg-mn-bg-elevated"
-                      aria-label="Add attachment"
+                      onClick={() => {
+                        handleEmojiSelect(emoji);
+                        setShowEmojiPicker(false);
+                      }}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-mn-bg hover:bg-mn-bg/70 text-lg transition"
                     >
-                      <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{emoji}</span>
                     </button>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!draft.trim() || sendMessage.isPending}
-                    className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label="Send message"
-                  >
-                    {sendMessage.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Send className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </button>
+                  ))}
                 </div>
-              </form>
-            )}
-
-            {blockedYou && (
-              <div className="border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
-                <p>You can&apos;t send messages because this user has blocked you.</p>
-              </div>
-            )}
-
-            {isBlocked && !blockedYou && (
-              <div className="border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
-                <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
               </div>
             )}
           </div>
+
+          {/* Input at the very bottom, full width */}
+          {!isBlocked && !blockedYou && (
+            <form
+              onSubmit={handleSubmit}
+              className="flex-shrink-0 border-t border-mn-border-subtle/70 bg-mn-bg/95 px-4 py-3 backdrop-blur"
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  ref={emojiButtonRef}
+                  onClick={() => setShowEmojiPicker((prev) => !prev)}
+                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                  aria-label="Add emoji"
+                >
+                  <Smile className="h-4 w-4" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCameraClick}
+                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                  aria-label="Send photo"
+                >
+                  <Camera className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleImageSelected}
+                />
+
+                <div className="flex min-h-[44px] max-h-[140px] flex-1 items-center rounded-full bg-mn-bg px-4 py-2.5 text-[13px] text-mn-text-primary shadow-inner ring-1 ring-mn-border-subtle/70">
+                  <textarea
+                    id="conversation-message"
+                    value={draft}
+                    onChange={handleDraftChange}
+                    onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        if (draft.trim()) {
+                          event.currentTarget.form?.requestSubmit();
+                        }
+                      }
+                    }}
+                    placeholder="Message…"
+                    rows={1}
+                    className="max-h-[92px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!draft.trim() || sendMessage.isPending}
+                  className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Send message"
+                >
+                  {sendMessage.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {blockedYou && (
+            <div className="flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
+              <p>You can&apos;t send messages because this user has blocked you.</p>
+            </div>
+          )}
+
+          {isBlocked && !blockedYou && (
+            <div className="flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
+              <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
+            </div>
+          )}
         </section>
       </div>
     </div>

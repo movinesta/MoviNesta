@@ -85,7 +85,18 @@ type FeedItem =
   | { kind: "titleGroup"; id: string; group: FeedGroup }
   | { kind: "standalone"; id: string; event: FeedEvent };
 
-type FeedFilter = "all" | "reviews" | "ratings" | "watchlist" | "follows" | "recommendations";
+const FEED_FILTERS = [
+  { key: "all", label: "All", icon: null },
+  { key: "reviews", label: "Reviews", icon: Film },
+  { key: "ratings", label: "Ratings", icon: Star },
+  { key: "watchlist", label: "Watchlist", icon: BookmarkPlus },
+  { key: "follows", label: "Follows", icon: UserPlus },
+  { key: "recommendations", label: "Recs", icon: Sparkles },
+] as const;
+
+type FeedFilter = (typeof FEED_FILTERS)[number]["key"];
+
+type QuickFilter = "all" | "follows" | "reviews";
 
 interface UseFeedResult {
   items: FeedItem[];
@@ -376,7 +387,6 @@ const fetchHomeFeed = async (
       : null;
 
     const displayName = actorProfile?.display_name ?? actorProfile?.username ?? "Someone";
-
     const username = actorProfile?.username ?? actorProfile?.display_name ?? "";
 
     const user: FeedUser = {
@@ -443,28 +453,31 @@ const fetchHomeFeed = async (
 const useFeed = (): UseFeedResult => {
   const { user } = useAuth();
 
-  const { data, isLoading, isFetching, error, fetchNextPage, isFetchingNextPage, hasNextPage } =
-    useInfiniteQuery<{ items: FeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
-      queryKey: ["home-feed", user?.id],
-      enabled: Boolean(user?.id),
-      initialPageParam: null as string | null,
-      queryFn: async ({ pageParam }) => {
-        if (!user?.id) {
-          return { items: [], nextCursor: null, hasMore: false };
-        }
-        return fetchHomeFeed(user.id, pageParam);
-      },
-      getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
-    });
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    fetchNextPage,
+    isFetchingNextPage,
+    hasNextPage,
+  } = useInfiniteQuery<{ items: FeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
+    queryKey: ["home-feed", user?.id],
+    enabled: Boolean(user?.id),
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      if (!user?.id) {
+        return { items: [], nextCursor: null, hasMore: false };
+      }
+      return fetchHomeFeed(user.id, pageParam);
+    },
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
+  });
 
-  const flatItems = useMemo(() => (data?.pages ?? []).flatMap((page) => page.items), [data]);
-
-  const effectiveItems = useMemo(() => {
-    if (flatItems.length > 0) {
-      return flatItems;
-    }
-    return [];
-  }, [flatItems]);
+  const items = useMemo(
+    () => (data?.pages ?? []).flatMap((page) => page.items),
+    [data],
+  );
 
   const friendlyError = error ? getFriendlyFeedErrorMessage(error) : null;
 
@@ -472,9 +485,11 @@ const useFeed = (): UseFeedResult => {
     console.error("[HomeFeedTab] Failed to load feed", error);
   }
 
+  const isInitialLoading = isLoading || (!data && isFetching);
+
   return {
-    items: effectiveItems,
-    isLoading: isLoading || (!data && isFetching),
+    items,
+    isLoading: isInitialLoading,
     isLoadingMore: isFetchingNextPage,
     hasMore: Boolean(hasNextPage),
     error: friendlyError,
@@ -516,7 +531,7 @@ const filterMatchesItem = (item: FeedItem, filter: FeedFilter): boolean => {
 interface HomeFeedTabProps {
   isFiltersSheetOpen?: boolean;
   onFiltersSheetOpenChange?: (open: boolean) => void;
-  quickFilter?: "all" | "follows" | "reviews";
+  quickFilter?: QuickFilter;
 }
 
 const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
@@ -541,6 +556,7 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
       <div className="flex items-center justify-between gap-2 text-[12px] text-mn-text-secondary">
         <span>{isLoading ? "Loading your feed…" : `${filteredItems.length} updates`}</span>
       </div>
+
       {isFiltersSheetOpen && (
         <div
           role="button"
@@ -576,16 +592,7 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
               </button>
             </div>
             <div className="flex flex-wrap gap-1 text-[11px]">
-              {(
-                [
-                  ["all", "All"],
-                  ["reviews", "Reviews"],
-                  ["ratings", "Ratings"],
-                  ["watchlist", "Watchlist"],
-                  ["follows", "Follows"],
-                  ["recommendations", "Recs"],
-                ] as [FeedFilter, string][]
-              ).map(([key, label]) => {
+              {FEED_FILTERS.map(({ key, label, icon: Icon }) => {
                 const isActive = filter === key;
 
                 return (
@@ -604,17 +611,7 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
                         : "border-mn-border-subtle/70 bg-mn-bg/80 text-mn-text-muted hover:text-mn-text-secondary",
                     ].join(" ")}
                   >
-                    {key === "recommendations" ? (
-                      <Sparkles className="h-3 w-3" aria-hidden="true" />
-                    ) : key === "follows" ? (
-                      <UserPlus className="h-3 w-3" aria-hidden="true" />
-                    ) : key === "watchlist" ? (
-                      <BookmarkPlus className="h-3 w-3" aria-hidden="true" />
-                    ) : key === "ratings" ? (
-                      <Star className="h-3 w-3" aria-hidden="true" />
-                    ) : key === "reviews" ? (
-                      <Film className="h-3 w-3" aria-hidden="true" />
-                    ) : null}
+                    {Icon && <Icon className="h-3 w-3" aria-hidden="true" />}
                     <span>{label}</span>
                   </button>
                 );

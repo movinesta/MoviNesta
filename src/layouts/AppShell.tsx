@@ -37,9 +37,15 @@ const AppShell: React.FC = () => {
   const isConversationRoute =
     location.pathname.startsWith("/messages/") && location.pathname !== "/messages";
 
+  const isSwipeRoute = location.pathname === "/swipe";
+
   const shellContentClassName = isConversationRoute
     ? "relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0 sm:px-0 sm:pb-0"
-    : "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-[calc(6rem+env(safe-area-inset-bottom))]";
+    : isSwipeRoute
+      ? // Swipe route: no extra bottom padding; let SwipePage handle internal spacing.
+        "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-0 pt-4 pb-0 sm:px-0 sm:pt-4 sm:pb-0"
+      : // Default layout (other tabs): keep padding so content clears bottom nav.
+        "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-[calc(6rem+env(safe-area-inset-bottom))]";
 
   const bottomNavInnerClassName = isConversationRoute
     ? "flex items-center justify-between gap-1 px-3 py-1.5 sm:px-4"
@@ -59,7 +65,8 @@ const AppShell: React.FC = () => {
       </div>
 
       <div className={shellContentClassName}>
-        <main className="flex-1">
+        {/* Swipe route: prevent scroll in this area */}
+        <main className={isSwipeRoute ? "flex-1 overflow-hidden" : "flex-1"}>
           <Outlet />
         </main>
       </div>

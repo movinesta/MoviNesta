@@ -1,7 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Clock,
+  Film,
+  ListChecks,
+  Play,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -154,7 +162,6 @@ const fetchHomeRecommendations = async (
     follows.map((row) => row.followed_id).filter((value): value is string => Boolean(value)) ?? [];
 
   const seedRating = ratings.find((row) => (row.rating ?? 0) >= 4.0) ?? ratings[0] ?? null;
-
   const seedTitleId = seedRating?.title_id ?? null;
 
   // -------------------------------------------------------------------
@@ -226,7 +233,6 @@ const fetchHomeRecommendations = async (
   }
 
   const animeTitles = (animeResult.data ?? []) as TitleBasicRow[];
-
   const animeTitleIds = animeTitles.map((row) => row.id);
 
   const allTitleIds = Array.from(
@@ -491,7 +497,12 @@ const fetchHomeRecommendations = async (
 const useRecommendations = (): UseRecommendationsResult => {
   const { user } = useAuth();
 
-  const { data, isLoading, isFetching, error } = useQuery<
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useQuery<
     { tonightPick: TonightPick | null; sections: RecommendationSection[]; hasPartialData: boolean },
     Error
   >({
@@ -511,14 +522,17 @@ const useRecommendations = (): UseRecommendationsResult => {
     console.error("[HomeForYouTab] Failed to load recommendations", error);
   }
 
+  const isInitialLoading = isLoading || (!data && isFetching);
+
   return {
-    isLoading: isLoading || isFetching,
+    isLoading: isInitialLoading,
     error: friendlyError,
     tonightPick: data?.tonightPick ?? null,
     sections: data?.sections ?? [],
     hasPartialData: data?.hasPartialData ?? false,
   };
 };
+
 const HomeForYouTab: React.FC = () => {
   const { isLoading, error, tonightPick, sections, hasPartialData } = useRecommendations();
 
@@ -570,6 +584,16 @@ interface TonightPickCardProps {
 }
 
 const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
+  const hasValidImdb =
+    typeof pick.imdbRating === "number" &&
+    !Number.isNaN(pick.imdbRating) &&
+    pick.imdbRating > 0;
+
+  const hasValidRt =
+    typeof pick.rtTomatoMeter === "number" &&
+    !Number.isNaN(pick.rtTomatoMeter) &&
+    pick.rtTomatoMeter > 0;
+
   return (
     <section className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/95 p-4 text-[11px] text-mn-text-secondary shadow-mn-card">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -644,22 +668,18 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
                 <span>Watched by {pick.friendsWatchingCount} friend(s)</span>
               </span>
             ) : null}
-            {typeof pick.imdbRating === "number" &&
-              !Number.isNaN(pick.imdbRating) &&
-              pick.imdbRating > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="font-semibold text-mn-text-secondary">IMDb Rating</span>
-                  <span>{pick.imdbRating.toFixed(1)}</span>
-                </span>
-              )}
-            {typeof pick.rtTomatoMeter === "number" &&
-              !Number.isNaN(pick.rtTomatoMeter) &&
-              pick.rtTomatoMeter > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="font-semibold text-mn-text-secondary">Tomatometer</span>
-                  <span>{pick.rtTomatoMeter}%</span>
-                </span>
-              )}
+            {hasValidImdb && (
+              <span className="inline-flex items-center gap-1">
+                <span className="font-semibold text-mn-text-secondary">IMDb Rating</span>
+                <span>{pick.imdbRating!.toFixed(1)}</span>
+              </span>
+            )}
+            {hasValidRt && (
+              <span className="inline-flex items-center gap-1">
+                <span className="font-semibold text-mn-text-secondary">Tomatometer</span>
+                <span>{pick.rtTomatoMeter}%</span>
+              </span>
+            )}
             {pick.matchReason && (
               <span className="line-clamp-1">
                 <span className="font-medium text-mn-text-secondary">Because: </span>
@@ -722,6 +742,17 @@ const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ sec
   );
 };
 
+const SECTION_KIND_META: Record<
+  RecommendationSectionKind,
+  { icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>; label: string }
+> = {
+  "friends-trending": { icon: Users, label: "Friends" },
+  "because-you-liked": { icon: Film, label: "Match" },
+  anime: { icon: Sparkles, label: "Anime" },
+  "for-you-hybrid": { icon: Sparkles, label: "For you" },
+  continue: { icon: Clock, label: "Continue" },
+};
+
 interface RecommendationCardProps {
   item: RecommendationItem;
   sectionKind: RecommendationSectionKind;
@@ -738,21 +769,26 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
     metaPieces.push(`${item.runtimeMinutes} min`);
   }
 
-  if (
+  const hasValidImdb =
     typeof item.imdbRating === "number" &&
     !Number.isNaN(item.imdbRating) &&
-    item.imdbRating > 0
-  ) {
-    metaPieces.push(`IMDb Rating ${item.imdbRating.toFixed(1)}`);
-  }
+    item.imdbRating > 0;
 
-  if (
+  const hasValidRt =
     typeof item.rtTomatoMeter === "number" &&
     !Number.isNaN(item.rtTomatoMeter) &&
-    item.rtTomatoMeter > 0
-  ) {
+    item.rtTomatoMeter > 0;
+
+  if (hasValidImdb) {
+    metaPieces.push(`IMDb Rating ${item.imdbRating!.toFixed(1)}`);
+  }
+
+  if (hasValidRt) {
     metaPieces.push(`Tomatometer ${item.rtTomatoMeter}%`);
   }
+
+  const sectionMeta = SECTION_KIND_META[sectionKind];
+  const SectionIcon = sectionMeta.icon;
 
   return (
     <Link
@@ -777,7 +813,9 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
               {item.name}
             </p>
             {item.matchReason && (
-              <p className="line-clamp-2 text-[9px] text-mn-text-secondary">{item.matchReason}</p>
+              <p className="line-clamp-2 text-[9px] text-mn-text-secondary">
+                {item.matchReason}
+              </p>
             )}
           </div>
         </div>
@@ -785,33 +823,15 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
 
       <div className="flex flex-1 flex-col justify-between gap-1 px-2.5 py-2">
         {metaPieces.length > 0 && (
-          <p className="line-clamp-1 text-[9px] text-mn-text-muted">{metaPieces.join(" • ")}</p>
+          <p className="line-clamp-1 text-[9px] text-mn-text-muted">
+            {metaPieces.join(" • ")}
+          </p>
         )}
 
         <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
           <span className="inline-flex items-center gap-1 text-mn-text-muted">
-            {sectionKind === "friends-trending" ? (
-              <Users className="h-3 w-3" aria-hidden="true" />
-            ) : sectionKind === "because-you-liked" ? (
-              <Film className="h-3 w-3" aria-hidden="true" />
-            ) : sectionKind === "anime" ? (
-              <Sparkles className="h-3 w-3" aria-hidden="true" />
-            ) : sectionKind === "for-you-hybrid" ? (
-              <Sparkles className="h-3 w-3" aria-hidden="true" />
-            ) : (
-              <Clock className="h-3 w-3" aria-hidden="true" />
-            )}
-            <span>
-              {sectionKind === "friends-trending"
-                ? "Friends"
-                : sectionKind === "because-you-liked"
-                  ? "Match"
-                  : sectionKind === "anime"
-                    ? "Anime"
-                    : sectionKind === "for-you-hybrid"
-                      ? "For you"
-                      : "Continue"}
-            </span>
+            <SectionIcon className="h-3 w-3" aria-hidden="true" />
+            <span>{sectionMeta.label}</span>
           </span>
 
           <span className="inline-flex items-center gap-1 text-mn-primary group-hover:underline">
