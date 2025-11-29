@@ -20,8 +20,7 @@ const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const formatRuntime = (minutes?: number | null): string | null => {
   if (!minutes || minutes <= 0) return null;
@@ -50,9 +49,7 @@ interface CardMetadataProps {
 const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   const runtimeLabel = formatRuntime(card.runtimeMinutes);
   const hasImdbRating =
-    typeof card.imdbRating === "number" &&
-    !Number.isNaN(card.imdbRating) &&
-    card.imdbRating > 0;
+    typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating) && card.imdbRating > 0;
   const hasTomatometer =
     typeof card.rtTomatoMeter === "number" &&
     !Number.isNaN(card.rtTomatoMeter) &&
@@ -73,17 +70,13 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
           <h2 className="truncate text-2xl font-heading font-semibold text-mn-text-primary">
             {card.title}
           </h2>
-          <p className="text-[12px] text-mn-text-secondary">
-            {metaPieces.join(" · ")}
-          </p>
+          <p className="text-[12px] text-mn-text-secondary">{metaPieces.join(" · ")}</p>
         </div>
         <span className="mt-1 text-[10px]" />
       </div>
 
       {card.tagline && (
-        <p className="line-clamp-3 text-[12px] text-mn-text-secondary">
-          {card.tagline}
-        </p>
+        <p className="line-clamp-3 text-[12px] text-mn-text-secondary">{card.tagline}</p>
       )}
     </div>
   );
@@ -179,10 +172,9 @@ const LoadingSwipeCard: React.FC = () => {
 };
 
 const SwipePage: React.FC = () => {
-  const { cards, isLoading, isError, swipe, fetchMore, trimConsumed } = useSwipeDeck(
-    "combined",
-    { limit: 72 },
-  );
+  const { cards, isLoading, isError, swipe, fetchMore, trimConsumed } = useSwipeDeck("combined", {
+    limit: 72,
+  });
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -202,9 +194,7 @@ const SwipePage: React.FC = () => {
 
   useEffect(() => {
     const hasSeen =
-      typeof window !== "undefined"
-        ? localStorage.getItem(ONBOARDING_STORAGE_KEY)
-        : null;
+      typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
     setShowOnboarding(!hasSeen);
   }, []);
 
@@ -361,9 +351,7 @@ const SwipePage: React.FC = () => {
     lastMoveTime.current = now;
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = window.requestAnimationFrame(() =>
-      setCardTransform(dragDelta.current),
-    );
+    rafRef.current = window.requestAnimationFrame(() => setCardTransform(dragDelta.current));
   };
 
   const finishDrag = () => {
@@ -392,10 +380,7 @@ const SwipePage: React.FC = () => {
 
   return (
     <div className="relative flex min-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
-      <TopBar
-        title="Swipe"
-        subtitle="Combined For You, friends, and trending picks"
-      />
+      <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
 
       <div className="relative mt-2 flex flex-1 flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
         <div
@@ -504,16 +489,14 @@ const SwipePage: React.FC = () => {
                             : `${activeCard.friendLikesCount} friends like this`}
                         </span>
                       )}
-                    {activeCard.topFriendName &&
-                      activeCard.topFriendReviewSnippet && (
-                        <span className="inline-flex flex-1 items-start gap-2 rounded-xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft">
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                          <span className="line-clamp-2">
-                            {activeCard.topFriendName}: “
-                            {activeCard.topFriendReviewSnippet}”
-                          </span>
+                    {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
+                      <span className="inline-flex flex-1 items-start gap-2 rounded-xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                        <span className="line-clamp-2">
+                          {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
                         </span>
-                      )}
+                      </span>
+                    )}
                   </div>
                 </div>
               </article>
@@ -521,12 +504,10 @@ const SwipePage: React.FC = () => {
               {showOnboarding && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-mn-bg/70 via-mn-bg/50 to-mn-bg/80">
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
-                    <p className="text-sm font-semibold text-mn-text-primary">
-                      Swipe to decide
-                    </p>
+                    <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to pass or right to like. You can also use
-                      the buttons below.
+                      Drag the card left to pass or right to like. You can also use the buttons
+                      below.
                     </p>
                     <button
                       type="button"

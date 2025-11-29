@@ -1,15 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ChevronRight,
-  Clock,
-  Film,
-  ListChecks,
-  Play,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -497,12 +489,7 @@ const fetchHomeRecommendations = async (
 const useRecommendations = (): UseRecommendationsResult => {
   const { user } = useAuth();
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-  } = useQuery<
+  const { data, isLoading, isFetching, error } = useQuery<
     { tonightPick: TonightPick | null; sections: RecommendationSection[]; hasPartialData: boolean },
     Error
   >({
@@ -585,9 +572,7 @@ interface TonightPickCardProps {
 
 const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
   const hasValidImdb =
-    typeof pick.imdbRating === "number" &&
-    !Number.isNaN(pick.imdbRating) &&
-    pick.imdbRating > 0;
+    typeof pick.imdbRating === "number" && !Number.isNaN(pick.imdbRating) && pick.imdbRating > 0;
 
   const hasValidRt =
     typeof pick.rtTomatoMeter === "number" &&
@@ -770,9 +755,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
   }
 
   const hasValidImdb =
-    typeof item.imdbRating === "number" &&
-    !Number.isNaN(item.imdbRating) &&
-    item.imdbRating > 0;
+    typeof item.imdbRating === "number" && !Number.isNaN(item.imdbRating) && item.imdbRating > 0;
 
   const hasValidRt =
     typeof item.rtTomatoMeter === "number" &&
@@ -813,9 +796,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
               {item.name}
             </p>
             {item.matchReason && (
-              <p className="line-clamp-2 text-[9px] text-mn-text-secondary">
-                {item.matchReason}
-              </p>
+              <p className="line-clamp-2 text-[9px] text-mn-text-secondary">{item.matchReason}</p>
             )}
           </div>
         </div>
@@ -823,9 +804,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
 
       <div className="flex flex-1 flex-col justify-between gap-1 px-2.5 py-2">
         {metaPieces.length > 0 && (
-          <p className="line-clamp-1 text-[9px] text-mn-text-muted">
-            {metaPieces.join(" • ")}
-          </p>
+          <p className="line-clamp-1 text-[9px] text-mn-text-muted">{metaPieces.join(" • ")}</p>
         )}
 
         <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">

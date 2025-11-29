@@ -1,16 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  Camera,
-  Info,
-  Loader2,
-  Phone,
-  Send,
-  Smile,
-  Users,
-  Video,
-} from "lucide-react";
+import { ArrowLeft, Camera, Info, Loader2, Phone, Send, Smile, Users, Video } from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
@@ -197,9 +187,7 @@ const useSendMessage = (conversationId: string | null) => {
         (existing) => {
           const current = existing ?? [];
           const next = [...current, optimistic];
-          next.sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          );
+          next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           return next;
         },
       );
@@ -234,9 +222,7 @@ const useSendMessage = (conversationId: string | null) => {
             return copy;
           }
           const next = [...withoutTemp, row];
-          next.sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          );
+          next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           return next;
         },
       );
@@ -275,27 +261,16 @@ const ChatImage: React.FC<{ path: string }> = ({ path }) => {
   }, [path]);
 
   if (error) {
-    return (
-      <div className="mt-1 text-[11px] text-mn-text-muted">
-        Image unavailable.
-      </div>
-    );
+    return <div className="mt-1 text-[11px] text-mn-text-muted">Image unavailable.</div>;
   }
 
   if (!url) {
-    return (
-      <div className="mt-1 h-32 w-40 animate-pulse rounded-xl bg-mn-border-subtle/40" />
-    );
+    return <div className="mt-1 h-32 w-40 animate-pulse rounded-xl bg-mn-border-subtle/40" />;
   }
 
   return (
     <div className="mt-1 overflow-hidden rounded-xl border border-mn-border-subtle/70 bg-mn-bg/80">
-      <img
-        src={url}
-        alt="Attachment"
-        className="max-h-64 w-full object-cover"
-        loading="lazy"
-      />
+      <img src={url} alt="Attachment" className="max-h-64 w-full object-cover" loading="lazy" />
     </div>
   );
 };
@@ -664,7 +639,7 @@ const ConversationPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showEmojiPicker]);
 
-  const resizeTextarea = (value: string) => {
+  const resizeTextarea = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -675,7 +650,7 @@ const ConversationPage: React.FC = () => {
   };
 
   useEffect(() => {
-    resizeTextarea(draft);
+    resizeTextarea();
   }, [draft]);
 
   const notifyTyping = (nextDraft: string) => {
@@ -730,7 +705,7 @@ const ConversationPage: React.FC = () => {
   const handleDraftChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setDraft(next);
-    resizeTextarea(next);
+    resizeTextarea();
     if (showEmojiPicker) setShowEmojiPicker(false);
     notifyTyping(next);
   };
@@ -739,7 +714,7 @@ const ConversationPage: React.FC = () => {
     if (!emoji) return;
     setDraft((prev) => {
       const next = `${prev}${emoji}`;
-      resizeTextarea(next);
+      resizeTextarea();
       notifyTyping(next);
       return next;
     });
@@ -753,7 +728,7 @@ const ConversationPage: React.FC = () => {
           console.error("[ConversationPage] sendMessage mutate error", error);
           setSendError("Couldn't send. Please try again.");
           setDraft(text);
-          resizeTextarea(text);
+          resizeTextarea();
           setLastFailedText(text);
         },
         onSuccess: () => {
@@ -774,7 +749,7 @@ const ConversationPage: React.FC = () => {
 
     // Instant clear for "instant" feeling
     setDraft("");
-    resizeTextarea("");
+    resizeTextarea();
     setSendError(null);
     setLastFailedText(null);
     notifyTyping("");
@@ -803,12 +778,10 @@ const ConversationPage: React.FC = () => {
       const ext = file.name.split(".").pop() ?? "jpg";
       const path = `${conversationId}/${user.id}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("chat-media")
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      const { error: uploadError } = await supabase.storage.from("chat-media").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
       if (uploadError) {
         console.error("[ConversationPage] image upload error", uploadError);
@@ -1109,9 +1082,7 @@ const ConversationPage: React.FC = () => {
                               </p>
                             )}
 
-                            {message.attachmentUrl && (
-                              <ChatImage path={message.attachmentUrl} />
-                            )}
+                            {message.attachmentUrl && <ChatImage path={message.attachmentUrl} />}
                           </div>
                         </div>
                       </div>
@@ -1174,7 +1145,23 @@ const ConversationPage: React.FC = () => {
                 className="absolute bottom-[4.25rem] left-4 z-30 rounded-2xl border border-mn-border-subtle/60 bg-mn-bg-elevated/95 p-2 shadow-mn-card"
               >
                 <div className="flex flex-wrap gap-1.5 max-w-[260px]">
-                  {["😀","😂","😍","🥹","😎","🤔","😭","🔥","❤️","👍","👀","🎬","🍿","⭐","🙌"].map((emoji) => (
+                  {[
+                    "😀",
+                    "😂",
+                    "😍",
+                    "🥹",
+                    "😎",
+                    "🤔",
+                    "😭",
+                    "🔥",
+                    "❤️",
+                    "👍",
+                    "👀",
+                    "🎬",
+                    "🍿",
+                    "⭐",
+                    "🙌",
+                  ].map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
@@ -1205,7 +1192,7 @@ const ConversationPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    <p className="font-semibold">Couldn't send. Please try again.</p>
+                    <p className="font-semibold">Couldn&apos;t send. Please try again.</p>
                   </div>
                   {lastFailedText && (
                     <button
