@@ -64,7 +64,30 @@ interface MessageDeliveryReceipt {
 
 type MessageDeliveryStatus = "sending" | "sent" | "delivered" | "seen";
 
+type ParsedBodyMeta = {
+  editedAt?: string;
+  deletedAt?: string;
+  deleted?: boolean;
+};
+
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
+
+const getMessageMeta = (body: string | null): ParsedBodyMeta => {
+  if (!body) return {};
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed === "object") {
+      return {
+        editedAt: typeof parsed.editedAt === "string" ? parsed.editedAt : undefined,
+        deletedAt: typeof parsed.deletedAt === "string" ? parsed.deletedAt : undefined,
+        deleted: parsed.deleted === true,
+      };
+    }
+  } catch {
+    // ignore parsing errors
+  }
+  return {};
+};
 
 const formatMessageTime = (iso: string): string => {
   const date = new Date(iso);
@@ -492,7 +515,11 @@ const useEditMessage = (conversationId: string | null) => {
         throw new Error("You must be signed in to edit messages.");
 
       const trimmed = text.trim();
-      const bodyPayload = { type: "text", text: trimmed };
+      const bodyPayload = {
+        type: "text",
+        text: trimmed,
+        editedAt: new Date().toISOString(),
+      };
 
       const { data, error } = await supabase
         .from("messages")
@@ -538,53 +565,57 @@ const useDeleteMessage = (conversationId: string | null) => {
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
 
+  // Soft delete: mark as deleted instead of removing from DB
   return useMutation({
     mutationFn: async ({ messageId }: { messageId: string }) => {
       if (!conversationId) throw new Error("Missing conversation id.");
       if (!userId)
         throw new Error("You must be signed in to delete messages.");
 
-      const { error } = await supabase
+      const deletedAt = new Date().toISOString();
+      const bodyPayload = {
+        type: "system",
+        text: "",
+        deleted: true,
+        deletedAt,
+      };
+
+      const { data, error } = await supabase
         .from("messages")
-        .delete()
+        .update({
+          body: JSON.stringify(bodyPayload),
+          attachment_url: null,
+        })
         .eq("id", messageId)
-        .eq("sender_id", userId);
+        .eq("sender_id", userId)
+        .select(
+          "id, conversation_id, sender_id, body, attachment_url, created_at",
+        )
+        .single();
 
       if (error) {
         console.error("[ConversationPage] Failed to delete message", error);
         throw new Error(error.message);
       }
 
-      return { messageId };
+      const updated: ConversationMessage = {
+        id: data.id as string,
+        conversationId: data.conversation_id as string,
+        senderId: data.sender_id as string,
+        body: (data.body as string | null) ?? null,
+        attachmentUrl: (data.attachment_url as string | null) ?? null,
+        createdAt: data.created_at as string,
+      };
+
+      return updated;
     },
-    onMutate: async ({ messageId }) => {
-      if (!conversationId)
-        return {
-          previousMessages: undefined as ConversationMessage[] | undefined,
-        };
-
-      const queryKey = ["conversation", conversationId, "messages"];
-      await queryClient.cancelQueries({ queryKey });
-      const previousMessages =
-        queryClient.getQueryData<ConversationMessage[]>(queryKey);
-
-      queryClient.setQueryData<ConversationMessage[]>(queryKey, (existing) =>
-        (existing ?? []).filter((m) => m.id !== messageId),
-      );
-
-      return { previousMessages };
-    },
-    onError: (_error, _variables, context) => {
+    onSuccess: (updated) => {
       if (!conversationId) return;
       const queryKey = ["conversation", conversationId, "messages"];
-      if (context?.previousMessages) {
-        queryClient.setQueryData(queryKey, context.previousMessages);
-      } else {
-        queryClient.invalidateQueries({ queryKey });
-      }
-    },
-    onSuccess: () => {
-      if (!conversationId) return;
+      queryClient.setQueryData<ConversationMessage[]>(queryKey, (existing) => {
+        if (!existing) return [updated];
+        return existing.map((m) => (m.id === updated.id ? updated : m));
+      });
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
@@ -765,11 +796,7 @@ const ConversationPage: React.FC = () => {
 
   const longPressTimeoutRef = useRef<number | null>(null);
 
-  const [actionMessage, setActionMessage] = useState<{
-    message: ConversationMessage;
-    isSelf: boolean;
-    text: string;
-  } | null>(null);
+  const [activeActionMessageId, setActiveActionMessageId] = useState<string | null>(null);
 
   const [editingMessage, setEditingMessage] = useState<{
     messageId: string;
@@ -892,7 +919,7 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, user?.id, participantsById]);
 
-  // Realtime: new messages + deletes + delivery insert on receiver
+  // Realtime: new messages + updates (edits/deletes) + delivery insert on receiver
   useEffect(() => {
     if (!conversationId) return;
 
@@ -982,16 +1009,40 @@ const ConversationPage: React.FC = () => {
       .on(
         "postgres_changes",
         {
-          event: "DELETE",
+          event: "UPDATE",
           schema: "public",
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const row = payload.old as { id: string };
+          const row = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            body: string | null;
+            attachment_url: string | null;
+            created_at: string;
+          };
+
+          const updatedMessage: ConversationMessage = {
+            id: row.id,
+            conversationId: row.conversation_id,
+            senderId: row.sender_id,
+            body: row.body,
+            attachmentUrl: row.attachment_url,
+            createdAt: row.created_at,
+          };
+
           queryClient.setQueryData<ConversationMessage[]>(
             ["conversation", conversationId, "messages"],
-            (existing) => (existing ?? []).filter((m) => m.id !== row.id),
+            (existing) => {
+              const current = existing ?? [];
+              const idx = current.findIndex((m) => m.id === updatedMessage.id);
+              if (idx === -1) return current;
+              const copy = [...current];
+              copy[idx] = updatedMessage;
+              return copy;
+            },
           );
         },
       );
@@ -1401,28 +1452,26 @@ const ConversationPage: React.FC = () => {
     }
   };
 
-  const openMessageActions = (
-    message: ConversationMessage,
-    isSelf: boolean,
-  ) => {
+  const openMessageActions = (message: ConversationMessage) => {
     if (isBlocked || blockedYou) return;
-    const text = parseMessageText(message.body) ?? "";
-    setActionMessage({
-      message,
-      isSelf,
-      text: text || (message.attachmentUrl ? "[Photo]" : ""),
-    });
+
+    const meta = getMessageMeta(message.body);
+    if (meta.deleted) return; // don't open bar for deleted messages
+
+    setActiveActionMessageId(message.id);
+
+    // Blur input so there's no focus border on long-press
+    if (textareaRef.current) {
+      textareaRef.current.blur();
+    }
   };
 
-  const handleBubbleTouchStart = (
-    message: ConversationMessage,
-    isSelf: boolean,
-  ) => {
+  const handleBubbleTouchStart = (message: ConversationMessage) => {
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
     }
     longPressTimeoutRef.current = window.setTimeout(() => {
-      openMessageActions(message, isSelf);
+      openMessageActions(message);
     }, 500);
   };
 
@@ -1678,16 +1727,28 @@ const ConversationPage: React.FC = () => {
                     ? "mt-3"
                     : "mt-1.5";
 
-                const bubbleColors = isSelf
+                const baseBubbleColors = isSelf
                   ? "bg-mn-primary/90 text-white shadow-md shadow-mn-primary/20"
                   : "bg-mn-bg-elevated text-mn-text-primary border border-mn-border-subtle/80 shadow-mn-soft";
+
+                const meta = getMessageMeta(message.body);
+                const isDeletedMessage = meta.deleted === true;
+                const editedAt = meta.editedAt;
+                const deletedAt = meta.deletedAt;
+
+                const bubbleColors = isDeletedMessage
+                  ? "bg-mn-bg-elevated/80 text-mn-text-muted border border-dashed border-mn-border-subtle/80"
+                  : baseBubbleColors;
+
                 const bubbleShape = isSelf
                   ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
                   : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl";
                 const name =
                   participant?.displayName ?? (isSelf ? "You" : "Someone");
 
-                const text = parseMessageText(message.body);
+                const text = isDeletedMessage
+                  ? "This message was deleted"
+                  : parseMessageText(message.body);
 
                 const showAvatarAndName = !isSelf && endsGroup;
 
@@ -1752,13 +1813,13 @@ const ConversationPage: React.FC = () => {
                         )}
 
                         <div
-                          className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors}`}
+                          className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors} select-none`}
                           onContextMenu={(event) => {
                             event.preventDefault();
-                            openMessageActions(message, !!isSelf);
+                            openMessageActions(message);
                           }}
                           onTouchStart={() =>
-                            handleBubbleTouchStart(message, !!isSelf)
+                            handleBubbleTouchStart(message)
                           }
                           onTouchEnd={handleBubbleTouchEndOrCancel}
                           onTouchCancel={handleBubbleTouchEndOrCancel}
@@ -1770,7 +1831,7 @@ const ConversationPage: React.FC = () => {
                               </p>
                             )}
 
-                            {message.attachmentUrl && (
+                            {!isDeletedMessage && message.attachmentUrl && (
                               <ChatImage path={message.attachmentUrl} />
                             )}
                           </div>
@@ -1812,14 +1873,91 @@ const ConversationPage: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Inline Telegram-style reaction bar + edit/delete */}
+                      {activeActionMessageId === message.id && !isDeletedMessage && (
+                        <div
+                          className={`mt-1 flex w-full ${
+                            isSelf ? "justify-end pr-6" : "justify-start pl-6"
+                          }`}
+                        >
+                          <div className="inline-flex flex-col items-stretch gap-1 rounded-2xl bg-mn-bg-elevated/95 px-2.5 py-1.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70 select-none">
+                            <div className="flex items-center justify-center gap-1">
+                              {REACTION_EMOJIS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => {
+                                    toggleReaction.mutate({
+                                      messageId: message.id,
+                                      emoji,
+                                    });
+                                    setActiveActionMessageId(null);
+                                  }}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-mn-bg"
+                                >
+                                  <span className="text-[17px]">{emoji}</span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {isSelf && (
+                              <div className="mt-1 flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingMessage({
+                                      messageId: message.id,
+                                      text:
+                                        parseMessageText(message.body) ?? "",
+                                    });
+                                    setEditError(null);
+                                    setActiveActionMessageId(null);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg"
+                                >
+                                  <Edit3 className="h-3 w-3" aria-hidden="true" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const confirmed = window.confirm(
+                                      "Delete this message for everyone?",
+                                    );
+                                    if (!confirmed) return;
+                                    deleteMessageMutation.mutate({
+                                      messageId: message.id,
+                                    });
+                                    setActiveActionMessageId(null);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-mn-error hover:bg-mn-bg"
+                                >
+                                  <Trash2 className="h-3 w-3" aria-hidden="true" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div
                         className={`flex w-full ${
                           isSelf ? "justify-end" : "justify-start"
                         }`}
                       >
-                        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-mn-text-muted">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-mn-text-muted">
                           <span>{formatMessageTime(message.createdAt)}</span>
-                          {isSelf && deliveryStatus && (
+
+                          {editedAt && !isDeletedMessage && (
+                            <span>· edited {formatMessageTime(editedAt)}</span>
+                          )}
+
+                          {isDeletedMessage && deletedAt && (
+                            <span>· deleted {formatMessageTime(deletedAt)}</span>
+                          )}
+
+                          {isSelf && deliveryStatus && !isDeletedMessage && (
                             <span className="inline-flex items-center">
                               {deliveryStatus === "sending" && (
                                 <Loader2
@@ -2053,99 +2191,6 @@ const ConversationPage: React.FC = () => {
           )}
         </section>
       </div>
-
-      {/* Message actions: reactions + edit/delete */}
-      {actionMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[min(420px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 text-[11px] text-mn-text-muted">
-                <p className="line-clamp-3 break-all">
-                  {actionMessage.text}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActionMessage(null)}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-                aria-label="Close message actions"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="mt-3 flex justify-center">
-              <div className="inline-flex gap-1 rounded-full bg-mn-bg px-2 py-1 shadow-mn-soft ring-1 ring-mn-border-subtle/70">
-                {REACTION_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => {
-                      toggleReaction.mutate({
-                        messageId: actionMessage.message.id,
-                        emoji,
-                      });
-                      setActionMessage(null);
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-lg transition hover:bg-mn-bg-elevated/80"
-                  >
-                    <span>{emoji}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap justify-end gap-2 text-[13px]">
-              {actionMessage.isSelf && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingMessage({
-                        messageId: actionMessage.message.id,
-                        text:
-                          parseMessageText(actionMessage.message.body) ?? "",
-                      });
-                      setEditError(null);
-                      setActionMessage(null);
-                    }}
-                    className="inline-flex items-center gap-1 rounded-full bg-mn-bg px-3 py-1.5 text-[12px] font-semibold text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70 transition hover:-translate-y-0.5"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Edit</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const confirmed = window.confirm(
-                        "Delete this message for everyone?",
-                      );
-                      if (!confirmed) return;
-                      deleteMessageMutation.mutate({
-                        messageId: actionMessage.message.id,
-                      });
-                      setActionMessage(null);
-                    }}
-                    className="inline-flex items-center gap-1 rounded-full bg-mn-error/10 px-3 py-1.5 text-[12px] font-semibold text-mn-error shadow-mn-soft ring-1 ring-mn-error/40 transition hover:-translate-y-0.5"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Delete</span>
-                  </button>
-                </>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setActionMessage(null)}
-                className="inline-flex items-center gap-1 rounded-full bg-transparent px-3 py-1.5 text-[12px] font-semibold text-mn-text-secondary hover:bg-mn-bg"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Edit message modal */}
       {editingMessage && (
