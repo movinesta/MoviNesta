@@ -1284,7 +1284,6 @@ const ConversationPage: React.FC = () => {
                   type="file"
                   ref={fileInputRef}
                   accept="image/*"
-                  capture="environment"
                   className="hidden"
                   onChange={handleImageSelected}
                 />
