@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import movinestaLogoNeon from "../../assets/brand/movinesta-logo-neon.png";
 import { Film, HeartHandshake, Sparkles } from "lucide-react";
+import { MOVINESTA_LOGO_URL } from "../../constants/brand";
 
 const OnboardingPage: React.FC = () => {
   return (
@@ -17,7 +17,7 @@ const OnboardingPage: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mn-bg/70 ring-2 ring-mn-primary/30">
                 <img
-                  src={movinestaLogoNeon}
+                  src={MOVINESTA_LOGO_URL}
                   alt="MoviNesta logo"
                   className="h-11 w-11 rounded-xl object-contain"
                 />

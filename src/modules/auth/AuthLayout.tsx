@@ -1,6 +1,6 @@
 import React from "react";
 import { Film, HeartHandshake, Sparkles } from "lucide-react";
-import movinestaLogoNeon from "../../assets/brand/movinesta-logo-neon.png";
+import { MOVINESTA_LOGO_URL } from "../../constants/brand";
 
 interface AuthLayoutProps {
   title: string;
@@ -66,7 +66,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mn-bg/60 ring-2 ring-mn-primary/30">
                 <img
-                  src={movinestaLogoNeon}
+                  src={MOVINESTA_LOGO_URL}
                   alt="MoviNesta logo"
                   className="h-11 w-11 rounded-xl object-contain"
                 />
