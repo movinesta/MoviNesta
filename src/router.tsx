@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import RequireAuth from "./modules/auth/RequireAuth";
+import FullScreenLoader from "./components/shared/FullScreenLoader";
 
 // Auth
 import SignInPage from "./modules/auth/SignInPage";
@@ -28,12 +29,11 @@ const RealtimeChatPage = React.lazy(() => import("./modules/messages/RealtimeCha
 const TitleDetailPage = React.lazy(() => import("./modules/title/TitleDetailPage"));
 
 const SuspenseFallback: React.FC = () => (
-  <div className="flex min-h-screen items-center justify-center bg-mn-bg text-mn-text-secondary">
-    <div className="flex items-center gap-2 rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-2 text-xs shadow-mn-card">
-      <span className="h-2 w-2 animate-pulse rounded-full bg-mn-primary" aria-hidden="true" />
-      <span className="font-medium text-mn-text-primary">Loading…</span>
-    </div>
-  </div>
+  <FullScreenLoader
+    title="Loading MoviNesta"
+    message="Warming up your feed, swipe deck, and messages while we polish the interface."
+    badge="Preparing the experience"
+  />
 );
 
 const AppRoutes: React.FC = () => {
