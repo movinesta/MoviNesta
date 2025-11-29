@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Monitor, Film, Moon, SunMedium, AlertCircle, CheckCircle2 } from "lucide-react";
-import { PageHeader } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 import { useUIStore } from "../../lib/ui-store";
 
 type StartTabOption = "home" | "swipe" | "diary";
@@ -32,7 +32,7 @@ const SettingsAppPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <PageHeader title="App" description="Customize how MoviNesta behaves on this device." />
+      <TopBar title="App" subtitle="Customize how MoviNesta behaves on this device." />
 
       <section className="space-y-4 px-4 pb-24">
         {/* Start tab */}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { PageSection } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
@@ -114,11 +115,9 @@ const SettingsProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <PageHeader
-        kicker="Settings"
-        icon={UserIcon}
+      <TopBar
         title="Profile"
-        description="Tune the essentials that shape how you appear across MoviNesta."
+        subtitle="Tune the essentials that shape how you appear across MoviNesta."
       />
 
       {/* Content */}

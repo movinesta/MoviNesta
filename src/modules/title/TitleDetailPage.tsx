@@ -1,8 +1,9 @@
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Clapperboard, PlayCircle } from "lucide-react";
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { PlayCircle } from "lucide-react";
+import { PageSection } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 import { useSimilarTitles } from "./useSimilarTitles";
 import { supabase } from "../../lib/supabase";
 
@@ -140,10 +141,9 @@ const TitleDetailPage: React.FC = () => {
   if (!titleId) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
-        <PageHeader
+        <TopBar
           title="Title details"
-          description="Pick something from search, your diary, or the feed to see its details."
-          icon={Clapperboard}
+          subtitle="Pick something from search, your diary, or the feed to see its details."
         />
 
         <PageSection>
@@ -159,7 +159,7 @@ const TitleDetailPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
-        <PageHeader title="Loading title" icon={Clapperboard} />
+        <TopBar title="Loading title" />
         <PageSection>
           <p className="text-sm text-mn-text-secondary">Fetching title details…</p>
         </PageSection>
@@ -170,7 +170,7 @@ const TitleDetailPage: React.FC = () => {
   if (isError || !data) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
-        <PageHeader title="Title not found" icon={Clapperboard} />
+        <TopBar title="Title not found" />
         <PageSection>
           <p className="text-sm text-mn-text-secondary">We couldn&apos;t find that title.</p>
           <Link to="/search" className="mt-3 inline-block text-sm text-mn-primary underline">
@@ -198,11 +198,9 @@ const TitleDetailPage: React.FC = () => {
         </div>
       )}
 
-      <PageHeader
+      <TopBar
         title={data.title ?? "Untitled"}
-        description={metaPieces.length > 0 ? metaPieces.join(" · ") : "Title details"}
-        icon={Clapperboard}
-        badge={data.type ?? undefined}
+        subtitle={metaPieces.length > 0 ? metaPieces.join(" · ") : "Title details"}
       />
 
       <ExternalRatingsChips external_ratings={data.external_ratings} />

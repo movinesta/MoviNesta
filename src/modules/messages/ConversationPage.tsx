@@ -132,8 +132,8 @@ const useSendMessage = (conversationId: string | null) => {
         attachmentPath && trimmed
           ? { type: "text+image", text: trimmed }
           : attachmentPath
-          ? { type: "image", text: "" }
-          : { type: "text", text: trimmed };
+            ? { type: "image", text: "" }
+            : { type: "text", text: trimmed };
 
       const { data, error } = await supabase
         .from("messages")
@@ -937,8 +937,8 @@ const ConversationPage: React.FC = () => {
                           ? `${conversation.participants.length} participants`
                           : "Active now"))
                     : isConversationsLoading
-                    ? "Loading…"
-                    : "Details unavailable"}
+                      ? "Loading…"
+                      : "Details unavailable"}
                 </p>
               </div>
             </div>
@@ -1169,8 +1169,8 @@ const ConversationPage: React.FC = () => {
                                     seenSummary.seenParticipants.length - 1
                                   } others`
                               : seenSummary.earliestSeenAt
-                              ? `Seen ${formatMessageTime(seenSummary.earliestSeenAt)}`
-                              : "Seen"}
+                                ? `Seen ${formatMessageTime(seenSummary.earliestSeenAt)}`
+                                : "Seen"}
                           </p>
                         </div>
                       )}
@@ -1185,8 +1185,8 @@ const ConversationPage: React.FC = () => {
                       ? remoteTypingUsers.length === 1
                         ? `${remoteTypingUsers[0]} is typing…`
                         : remoteTypingUsers.length === 2
-                        ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
-                        : "Several people are typing…"
+                          ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
+                          : "Several people are typing…"
                       : "Typing…"}
                   </span>
                   <span className="inline-flex items-center gap-0.5" aria-hidden="true">

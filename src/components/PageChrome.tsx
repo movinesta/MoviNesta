@@ -78,11 +78,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
         <div className="flex min-w-0 items-center gap-2 truncate">
           {showLogo && (
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-mn-bg-elevated/80 p-1 shadow-mn-soft">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-mn-bg-elevated/80 p-1.5 shadow-mn-soft">
               <img
                 src={MOVINESTA_LOGO_URL}
                 alt="MoviNesta"
-                className="h-5 w-5 rounded-full object-contain"
+                className="h-6 w-6 rounded-full object-contain"
               />
             </span>
           )}

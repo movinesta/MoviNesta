@@ -1,7 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { User as UserIcon, Mail, Bell, Monitor, ChevronRight } from "lucide-react";
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { PageSection } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 
 interface SettingsItem {
   title: string;
@@ -45,11 +46,9 @@ const items: SettingsItem[] = [
 const SettingsOverviewPage: React.FC = () => {
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <PageHeader
-        kicker="Settings"
-        icon={Monitor}
+      <TopBar
         title="All settings"
-        description="Tune MoviNesta to match how you like to watch and track movies."
+        subtitle="Tune MoviNesta to match how you like to watch and track movies."
       />
 
       {/* List of sections */}

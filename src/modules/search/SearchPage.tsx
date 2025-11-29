@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Filter, Languages, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { PageSection } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import type { TitleSearchFilters } from "./useSearchTitles";
 import SearchTitlesTab from "./SearchTitlesTab";
@@ -198,11 +199,9 @@ const SearchPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <PageHeader
-        kicker="Search"
+      <TopBar
         title="Search without the clutter"
-        description="Find titles, filmmakers, or friends instantly. Switch tabs to move between movies and people."
-        icon={SearchIcon}
+        subtitle="Find titles, filmmakers, or friends instantly. Switch tabs to move between movies and people."
       />
 
       {/* Search bar + filters */}
