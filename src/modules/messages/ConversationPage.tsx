@@ -853,7 +853,7 @@ const ConversationPage: React.FC = () => {
     );
   };
 
-  // 🔑 Keep keyboard open: re-focus textarea after send
+  // ✅ No refocus here; just send. Keyboard stays as long as textarea doesn't lose focus.
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -862,7 +862,7 @@ const ConversationPage: React.FC = () => {
     const text = draft.trim();
     if (!text || sendMessage.isPending) return;
 
-    // Clear draft for that "instant send" feel
+    // Clear draft for instant send feeling (doesn't blur)
     setDraft("");
     resizeTextarea();
     setSendError(null);
@@ -870,13 +870,6 @@ const ConversationPage: React.FC = () => {
     notifyTyping("");
 
     attemptSend(text);
-
-    // Re-focus textarea so mobile keyboard stays open
-    if (textareaRef.current) {
-      window.requestAnimationFrame(() => {
-        textareaRef.current?.focus();
-      });
-    }
   };
 
   const handleRetrySend = () => {
@@ -1454,13 +1447,15 @@ const ConversationPage: React.FC = () => {
                     }}
                     placeholder="Message…"
                     rows={1}
-                    autoFocus
                     className="max-h-[160px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted focus:border-transparent focus:outline-none focus:ring-0 focus:shadow-none"
                   />
                 </div>
 
                 <button
                   type="submit"
+                  // Prevent this button from taking focus (so textarea keeps focus, keyboard stays open)
+                  onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => e.preventDefault()}
                   disabled={!draft.trim() || sendMessage.isPending}
                   className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send message"
