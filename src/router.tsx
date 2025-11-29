@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+import { Flame, MessageCircle, Search, Sparkles } from "lucide-react";
 import AppShell from "./layouts/AppShell";
 import RequireAuth from "./modules/auth/RequireAuth";
 import FullScreenLoader from "./components/shared/FullScreenLoader";
@@ -33,6 +34,28 @@ const SuspenseFallback: React.FC = () => (
     title="Loading MoviNesta"
     message="Warming up your feed, swipe deck, and messages while we polish the interface."
     badge="Preparing the experience"
+    highlights={[
+      {
+        title: "Curating your home feed",
+        description: "Fetching tonight's picks and making sure your diary powers the recommendations.",
+        icon: Sparkles,
+      },
+      {
+        title: "Refreshing swipe deck",
+        description: "Gathering fresh titles and social vibes for your next swipe session.",
+        icon: Flame,
+      },
+      {
+        title: "Syncing messages",
+        description: "Getting your chats ready so conversations open without delay.",
+        icon: MessageCircle,
+      },
+      {
+        title: "Priming search",
+        description: "Indexing shows, people, and diaries so results feel instant.",
+        icon: Search,
+      },
+    ]}
   />
 );
 
