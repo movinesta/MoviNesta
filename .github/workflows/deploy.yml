@@ -39,11 +39,11 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # Upload the dist/ folder to GitHub Pages
+      # Upload the docs/ folder to GitHub Pages
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: docs
 
   deploy:
     runs-on: ubuntu-latest
