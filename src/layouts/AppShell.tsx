@@ -58,11 +58,10 @@ const AppShell: React.FC = () => {
   return (
     <div className="relative flex min-h-screen flex-col bg-mn-bg text-mn-text-primary">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,253,0.16),_transparent_52%),_radial-gradient(circle_at_bottom,_rgba(248,113,113,0.18),_transparent_52%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(20,184,166,0.07),rgba(168,85,247,0.06)_45%,rgba(249,115,22,0.05)_80%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,253,0.2),_transparent_55%),_radial-gradient(circle_at_bottom,_rgba(248,113,113,0.16),_transparent_55%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(20,184,166,0.06),rgba(168,85,247,0.05)_45%,rgba(249,115,22,0.04)_75%)]" />
         <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-mn-accent-teal/15 blur-3xl" />
         <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-mn-primary/15 blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:120px_120px] opacity-40" />
       </div>
 
       <div className={shellContentClassName}>
