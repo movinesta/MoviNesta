@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, KeyRound, LogOut, AlertCircle } from "lucide-react";
-import { PageHeader } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../../lib/supabase";
 
@@ -65,10 +65,7 @@ const SettingsAccountPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <PageHeader
-        title="Account"
-        description="Manage the account you use to sign in to MoviNesta."
-      />
+      <TopBar title="Account" subtitle="Manage the account you use to sign in to MoviNesta." />
 
       <section className="space-y-4 px-4 pb-24">
         {/* Email + account info */}

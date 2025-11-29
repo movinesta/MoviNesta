@@ -10,7 +10,8 @@ import {
   MessageCircle,
   Sparkles,
 } from "lucide-react";
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { PageSection } from "../../components/PageChrome";
+import TopBar from "../../components/shared/TopBar";
 import { useProfileByUsername } from "./useProfile";
 import ProfileActivityTab from "./ProfileActivityTab";
 import ProfileDiaryTab from "./ProfileDiaryTab";
@@ -60,12 +61,7 @@ const ProfilePage: React.FC = () => {
   if (!username) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-4 pt-2 sm:px-4 lg:px-6">
-        <PageHeader
-          title="Profile"
-          description="This route needs a username to show someone’s profile."
-          icon={Users}
-          alignment="left"
-        />
+        <TopBar title="Profile" subtitle="This route needs a username to show someone’s profile." />
 
         <PageSection>
           <p className="text-sm text-mn-text-secondary">
@@ -83,7 +79,7 @@ const ProfilePage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-4 pt-2 sm:px-4 lg:px-6">
-        <PageHeader title="Loading profile" icon={Users} />
+        <TopBar title="Loading profile" />
         <PageSection>
           <div className="flex items-center gap-2 text-sm text-mn-text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -97,7 +93,7 @@ const ProfilePage: React.FC = () => {
   if (isError || !profile) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-4 pt-2 sm:px-4 lg:px-6">
-        <PageHeader title="Profile not found" icon={Users} />
+        <TopBar title="Profile not found" />
         <PageSection>
           <p className="text-sm text-mn-text-secondary">
             We couldn&apos;t find a profile for username
@@ -262,10 +258,9 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
-      <PageHeader
+      <TopBar
         title={headerTitle}
-        description={profile.bio || "See their diary entries, activity, and who they follow."}
-        icon={Users}
+        subtitle={profile.bio || "See their diary entries, activity, and who they follow."}
       />
 
       <PageSection>

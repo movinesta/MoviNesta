@@ -1,9 +1,8 @@
 import React from "react";
-import { MessageCircle } from "lucide-react";
-
-import { PageHeader, PageSection } from "../../components/PageChrome";
+import { PageSection } from "../../components/PageChrome";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/useProfile";
+import TopBar from "../../components/shared/TopBar";
 import { RealtimeChat } from "@/components/realtime-chat";
 
 /**
@@ -36,10 +35,9 @@ const RealtimeChatPage: React.FC = () => {
         aria-hidden="true"
       />
 
-      <PageHeader
+      <TopBar
         title="Live Lounge"
-        description="Drop into the global room for a fast, Instagram-inspired chat vibe."
-        icon={MessageCircle}
+        subtitle="Drop into the global room for a fast, Instagram-inspired chat vibe."
       />
 
       <PageSection>
