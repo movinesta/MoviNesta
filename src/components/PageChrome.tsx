@@ -2,7 +2,7 @@ import React from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowLeft } from "lucide-react";
 
-import movinestaLogoNeon from "../assets/brand/movinesta-logo-neon.png";
+import { MOVINESTA_LOGO_URL } from "../constants/brand";
 import { useAuth } from "../modules/auth/AuthProvider";
 
 const HEADER_BASE_CLASSNAME =
@@ -80,7 +80,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {showLogo && (
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-mn-bg-elevated/80 p-1 shadow-mn-soft">
               <img
-                src={movinestaLogoNeon}
+                src={MOVINESTA_LOGO_URL}
                 alt="MoviNesta"
                 className="h-5 w-5 rounded-full object-contain"
               />
