@@ -769,6 +769,17 @@ const ConversationPage: React.FC = () => {
   const isLoading =
     isConversationsLoading || isMessagesLoading || isBlockStatusLoading;
 
+  // Only the last self message should show seen/delivered indicator
+  const lastSelfMessageId = useMemo(() => {
+    if (!messages || !user?.id) return null;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].senderId === user.id) {
+        return messages[i].id;
+      }
+    }
+    return null;
+  }, [messages, user?.id]);
+
   const [remoteTypingUsers, setRemoteTypingUsers] = useState<string[]>([]);
   const typingTimeoutsRef = useRef<Map<string, number>>(new Map());
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
@@ -801,7 +812,20 @@ const ConversationPage: React.FC = () => {
 
   const longPressTimeoutRef = useRef<number | null>(null);
 
+  // Which message has the emoji reaction bar open (one-tap)
+  const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
+
+  // Which message has the long-press action menu (edit/delete) open
   const [activeActionMessageId, setActiveActionMessageId] = useState<string | null>(null);
+
+  // Delete confirmation state: message id + whether it's self
+  const [deleteDialog, setDeleteDialog] = useState<{
+    messageId: string;
+    isSelf: boolean;
+  } | null>(null);
+
+  // Emoji "pop" animation key: `${messageId}-${emoji}`
+  const [poppingReactionKey, setPoppingReactionKey] = useState<string | null>(null);
 
   const [editingMessage, setEditingMessage] = useState<{
     messageId: string;
@@ -1246,7 +1270,7 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, queryClient]);
 
-  // Close emoji when clicking outside
+  // Close emoji picker when clicking outside
   useEffect(() => {
     if (!showEmojiPicker) return;
 
@@ -1457,12 +1481,45 @@ const ConversationPage: React.FC = () => {
     }
   };
 
+  // Emoji reaction with "pop" motion
+  const handleToggleReactionWithPop = (messageId: string, emoji: string) => {
+    const key = `${messageId}-${emoji}`;
+    setPoppingReactionKey(key);
+
+    window.setTimeout(() => {
+      setPoppingReactionKey((current) => (current === key ? null : current));
+    }, 220);
+
+    toggleReaction.mutate({ messageId, emoji });
+  };
+
+  // Client-side "delete for me" (only hides until full refresh / refetch)
+  const handleDeleteForMe = () => {
+    if (!conversationId || !user?.id || !deleteDialog) {
+      setDeleteDialog(null);
+      return;
+    }
+
+    const { messageId } = deleteDialog;
+
+    queryClient.setQueryData<ConversationMessage[]>(
+      ["conversation", conversationId, "messages"],
+      (existing) => {
+        if (!existing) return existing;
+        return existing.filter((m) => m.id !== messageId);
+      },
+    );
+
+    setDeleteDialog(null);
+  };
+
   const openMessageActions = (message: ConversationMessage) => {
     if (isBlocked || blockedYou) return;
 
     const meta = getMessageMeta(message.body);
     if (meta.deleted) return; // don't open bar for deleted messages
 
+    setActiveReactionMessageId(null);
     setActiveActionMessageId(message.id);
 
     // Blur main input so there's no focus border while interacting with actions
@@ -1760,13 +1817,16 @@ const ConversationPage: React.FC = () => {
                 const messageReactions =
                   reactionsByMessageId.get(message.id) ?? [];
 
-                const deliveryStatus = getMessageDeliveryStatus(
-                  message,
-                  conversation ?? null,
-                  deliveryReceipts,
-                  readReceipts,
-                  user?.id ?? null,
-                );
+                const deliveryStatus =
+                  message.id === lastSelfMessageId
+                    ? getMessageDeliveryStatus(
+                        message,
+                        conversation ?? null,
+                        deliveryReceipts,
+                        readReceipts,
+                        user?.id ?? null,
+                      )
+                    : null;
 
                 return (
                   <React.Fragment key={message.id}>
@@ -1820,20 +1880,19 @@ const ConversationPage: React.FC = () => {
                         <div
                           className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors} select-none transition-transform duration-150 ease-out`}
                           onClick={() => {
-                            // One tap toggles reaction bar like Telegram
-                            if (activeActionMessageId === message.id) {
-                              setActiveActionMessageId(null);
-                            } else {
-                              openMessageActions(message);
-                            }
+                            // ONE TAP => toggle emoji reaction bar
+                            setActiveActionMessageId(null);
+                            setActiveReactionMessageId((current) =>
+                              current === message.id ? null : message.id,
+                            );
                           }}
                           onContextMenu={(event) => {
                             event.preventDefault();
-                            if (activeActionMessageId === message.id) {
-                              setActiveActionMessageId(null);
-                            } else {
-                              openMessageActions(message);
-                            }
+                            // RIGHT-CLICK => open long-press action menu
+                            setActiveReactionMessageId(null);
+                            setActiveActionMessageId((current) =>
+                              current === message.id ? null : message.id,
+                            );
                           }}
                           onTouchStart={() =>
                             handleBubbleTouchStart(message)
@@ -1862,63 +1921,86 @@ const ConversationPage: React.FC = () => {
                           }`}
                         >
                           <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-1.5 py-0.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70">
-                            {messageReactions.map((reaction) => (
-                              <button
-                                key={reaction.emoji}
-                                type="button"
-                                onClick={() =>
-                                  toggleReaction.mutate({
-                                    messageId: message.id,
-                                    emoji: reaction.emoji,
-                                  })
-                                }
-                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 transition hover:bg-mn-bg ${
-                                  reaction.reactedBySelf
-                                    ? "bg-mn-primary/5 ring-1 ring-mn-primary/40"
-                                    : ""
-                                }`}
-                              >
-                                <span>{reaction.emoji}</span>
-                                {reaction.count > 1 && (
-                                  <span className="text-[10px] text-mn-text-secondary">
-                                    {reaction.count}
-                                  </span>
-                                )}
-                              </button>
-                            ))}
+                            {messageReactions.map((reaction) => {
+                              const key = `${message.id}-${reaction.emoji}`;
+                              return (
+                                <button
+                                  key={reaction.emoji}
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleReactionWithPop(
+                                      message.id,
+                                      reaction.emoji,
+                                    )
+                                  }
+                                  className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 transform transition-transform hover:bg-mn-bg ${
+                                    reaction.reactedBySelf
+                                      ? "bg-mn-primary/5 ring-1 ring-mn-primary/40"
+                                      : ""
+                                  } ${
+                                    poppingReactionKey === key
+                                      ? "scale-110"
+                                      : "hover:scale-105"
+                                  }`}
+                                >
+                                  <span>{reaction.emoji}</span>
+                                  {reaction.count > 1 && (
+                                    <span className="text-[10px] text-mn-text-secondary">
+                                      {reaction.count}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
-                      {/* Inline Telegram-style reaction bar + edit/delete */}
+                      {/* Emoji reaction bar (one-tap) */}
+                      {activeReactionMessageId === message.id && !isDeletedMessage && (
+                        <div
+                          className={`mt-1 flex w-full ${
+                            isSelf ? "justify-end pr-6" : "justify-start pl-6"
+                          }`}
+                        >
+                          <div className="inline-flex items-center gap-1 rounded-2xl bg-mn-bg-elevated/95 px-2.5 py-1.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70 select-none">
+                            {REACTION_EMOJIS.map((emoji) => {
+                              const key = `${message.id}-${emoji}`;
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => {
+                                    handleToggleReactionWithPop(
+                                      message.id,
+                                      emoji,
+                                    );
+                                    setActiveReactionMessageId(null);
+                                  }}
+                                  className={`flex h-7 w-7 items-center justify-center rounded-full transform transition-transform hover:bg-mn-bg active:scale-90 ${
+                                    poppingReactionKey === key
+                                      ? "scale-125"
+                                      : "hover:scale-110"
+                                  }`}
+                                >
+                                  <span className="text-[17px]">{emoji}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Long-press / right-click action menu: edit & delete */}
                       {activeActionMessageId === message.id && !isDeletedMessage && (
                         <div
                           className={`mt-1 flex w-full ${
                             isSelf ? "justify-end pr-6" : "justify-start pl-6"
                           }`}
                         >
-                          <div className="inline-flex flex-col items-stretch gap-1 rounded-2xl bg-mn-bg-elevated/95 px-2.5 py-1.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70 select-none">
-                            <div className="flex items-center justify-center gap-1">
-                              {REACTION_EMOJIS.map((emoji) => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() => {
-                                    toggleReaction.mutate({
-                                      messageId: message.id,
-                                      emoji,
-                                    });
-                                    setActiveActionMessageId(null);
-                                  }}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full transition transform hover:bg-mn-bg hover:scale-110 active:scale-90"
-                                >
-                                  <span className="text-[17px]">{emoji}</span>
-                                </button>
-                              ))}
-                            </div>
-
+                          <div className="inline-flex items-center gap-1 rounded-2xl bg-mn-bg-elevated/95 px-2.5 py-1.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70 select-none">
                             {isSelf && (
-                              <div className="mt-1 flex items-center justify-end gap-1">
+                              <>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1938,25 +2020,24 @@ const ConversationPage: React.FC = () => {
                                   <Edit3 className="h-3 w-3" aria-hidden="true" />
                                   <span>Edit</span>
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const confirmed = window.confirm(
-                                      "Delete this message for everyone?",
-                                    );
-                                    if (!confirmed) return;
-                                    deleteMessageMutation.mutate({
-                                      messageId: message.id,
-                                    });
-                                    setActiveActionMessageId(null);
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-mn-error hover:bg-mn-bg"
-                                >
-                                  <Trash2 className="h-3 w-3" aria-hidden="true" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
+                                <span
+                                  className="h-4 w-px bg-mn-border-subtle/60"
+                                  aria-hidden="true"
+                                />
+                              </>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteDialog({ messageId: message.id, isSelf });
+                                setActiveActionMessageId(null);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-mn-error hover:bg-mn-bg"
+                            >
+                              <Trash2 className="h-3 w-3" aria-hidden="true" />
+                              <span>Delete</span>
+                            </button>
                           </div>
                         </div>
                       )}
@@ -2002,7 +2083,9 @@ const ConversationPage: React.FC = () => {
                                   />
                                   {deliveryStatus.seenAt && (
                                     <span>
-                                      {formatMessageTime(deliveryStatus.seenAt)}
+                                      {formatMessageTime(
+                                        deliveryStatus.seenAt,
+                                      )}
                                     </span>
                                   )}
                                 </>
@@ -2218,6 +2301,78 @@ const ConversationPage: React.FC = () => {
           )}
         </section>
       </div>
+
+      {/* Delete message confirmation modal */}
+      {deleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[min(420px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[15px] font-semibold text-mn-text-primary">
+                Delete message
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDeleteDialog(null)}
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                aria-label="Close delete dialog"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <p className="mt-3 text-[13px] text-mn-text-secondary">
+              This message will be removed{" "}
+              {deleteDialog.isSelf
+                ? "for you or for everyone in this conversation."
+                : "for you."}
+            </p>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2 text-[13px]">
+              <button
+                type="button"
+                onClick={() => setDeleteDialog(null)}
+                className="rounded-full px-3 py-1.5 text-mn-text-secondary hover:bg-mn-bg"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteForMe}
+                className="rounded-full bg-mn-bg px-3 py-1.5 text-mn-error shadow-mn-soft hover:bg-mn-bg-elevated"
+              >
+                Delete for me
+              </button>
+
+              {deleteDialog.isSelf && (
+                <button
+                  type="button"
+                  disabled={deleteMessageMutation.isPending}
+                  onClick={() => {
+                    deleteMessageMutation.mutate(
+                      { messageId: deleteDialog.messageId },
+                      {
+                        onSettled: () => {
+                          setDeleteDialog(null);
+                        },
+                      },
+                    );
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-mn-error px-3 py-1.5 text-white shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deleteMessageMutation.isPending && (
+                    <Loader2
+                      className="h-3 w-3 animate-spin"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span>Delete for everyone</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit message modal */}
       {editingMessage && (
