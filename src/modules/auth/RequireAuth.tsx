@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Sparkles, Flame } from "lucide-react";
 import { useAuth } from "./AuthProvider";
+import FullScreenLoader from "../../components/shared/FullScreenLoader";
 
 const AuthLoadingCard: React.FC = () => {
   const [offset, setOffset] = useState(0);
@@ -92,9 +93,15 @@ const RequireAuth: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-mn-bg px-4 text-mn-text-secondary">
-        <AuthLoadingCard />
-      </div>
+      <FullScreenLoader
+        title="Signing you in"
+        message="Restoring your preferences, inbox, and recommendations so you can dive right back in."
+        badge="Securing your session"
+      >
+        <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg/80 p-3 shadow-mn-soft">
+          <AuthLoadingCard />
+        </div>
+      </FullScreenLoader>
     );
   }
 
