@@ -23,15 +23,32 @@ import NotFoundPage from "./modules/misc/NotFoundPage";
 import OnboardingPage from "./modules/misc/OnboardingPage";
 
 const MessagesPage = React.lazy(() => import("./modules/messages/MessagesPage"));
-const ConversationPage = React.lazy(() => import("./modules/messages/ConversationPage"));
-const RealtimeChatPage = React.lazy(() => import("./modules/messages/RealtimeChatPage"));
+const ConversationPage = React.lazy(
+  () => import("./modules/messages/ConversationPage"),
+);
+const RealtimeChatPage = React.lazy(
+  () => import("./modules/messages/RealtimeChatPage"),
+);
 const TitleDetailPage = React.lazy(() => import("./modules/title/TitleDetailPage"));
 
 const SuspenseFallback: React.FC = () => (
-  <div className="flex min-h-screen items-center justify-center bg-mn-bg text-mn-text-secondary">
-    <div className="flex items-center gap-2 rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-2 text-xs shadow-mn-card">
-      <span className="h-2 w-2 animate-pulse rounded-full bg-mn-primary" aria-hidden="true" />
-      <span className="font-medium text-mn-text-primary">Loading…</span>
+  <div className="flex min-h-screen items-center justify-center bg-mn-bg">
+    <div className="flex items-end gap-1.5 rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-2 shadow-mn-card">
+      <span
+        className="h-3 w-1.5 animate-bounce rounded-full bg-mn-primary"
+        style={{ animationDelay: "0ms" }}
+        aria-hidden="true"
+      />
+      <span
+        className="h-4 w-1.5 animate-bounce rounded-full bg-mn-primary/80"
+        style={{ animationDelay: "140ms" }}
+        aria-hidden="true"
+      />
+      <span
+        className="h-5 w-1.5 animate-bounce rounded-full bg-mn-primary/60"
+        style={{ animationDelay: "280ms" }}
+        aria-hidden="true"
+      />
     </div>
   </div>
 );
@@ -54,14 +71,20 @@ const AppRoutes: React.FC = () => {
             <Route path="/swipe" element={<SwipePage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/messages/realtime" element={<RealtimeChatPage />} />
-            <Route path="/messages/:conversationId" element={<ConversationPage />} />
+            <Route
+              path="/messages/:conversationId"
+              element={<ConversationPage />}
+            />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/diary" element={<DiaryPage />} />
             <Route path="/title/:titleId" element={<TitleDetailPage />} />
             <Route path="/u/:username" element={<ProfilePage />} />
             <Route path="/settings/profile" element={<SettingsProfilePage />} />
             <Route path="/settings/account" element={<SettingsAccountPage />} />
-            <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />
+            <Route
+              path="/settings/notifications"
+              element={<SettingsNotificationsPage />}
+            />
             <Route path="/settings/app" element={<SettingsAppPage />} />
           </Route>
         </Route>
