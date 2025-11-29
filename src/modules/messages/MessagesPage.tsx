@@ -11,6 +11,7 @@ import EmptyState from "../../components/shared/EmptyState";
 
 /**
  * Animated inbox loading card (matches Swipe loading vibe).
+ * Single-layer loading card.
  */
 const InboxLoadingCard: React.FC = () => {
   const [offset, setOffset] = useState(0);
@@ -31,71 +32,52 @@ const InboxLoadingCard: React.FC = () => {
   const rotation = offset / 5;
 
   return (
-    <div className="relative flex w-full max-w-md items-center justify-center">
-      {/* Blurry “background” card */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full items-center justify-center rounded-[30px]"
-        style={{
-          transform: "translateY(-40px) scale(0.9)",
-          opacity: 1,
-          transition: "transform 280ms ease-out, opacity 280ms ease-out",
-        }}
-      >
-        <div className="relative h-full w-full overflow-hidden rounded-[30px] border border-mn-border-subtle/40 shadow-mn-card">
-          <div className="h-full w-full bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg blur-[4px]" />
-          <div className="absolute inset-0 bg-gradient-to-b from-mn-bg/0 via-mn-bg/30 to-mn-bg/90" />
+    <article
+      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
+      style={{
+        transform: `translateX(${offset}px) rotate(${rotation}deg)`,
+        transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
+      }}
+    >
+      <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
+        <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 font-semibold text-mn-text-muted shadow-mn-soft">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mn-border-subtle" />
+            Loading your inbox…
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] text-mn-text-muted shadow-mn-soft">
+            <Sparkles className="h-3 w-3" />
+            Checking for new chats
+          </span>
         </div>
       </div>
 
-      {/* Main animated card */}
-      <article
-        className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
-        style={{
-          transform: `translateX(${offset}px) rotate(${rotation}deg)`,
-          transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
-        }}
-      >
-        <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
-          <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
-          <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 font-semibold text-mn-text-muted shadow-mn-soft">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mn-border-subtle" />
-              Loading your inbox…
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] text-mn-text-muted shadow-mn-soft">
-              <Sparkles className="h-3 w-3" />
-              Checking for new chats
-            </span>
+      <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
+        <div className="space-y-3 text-left text-[12px] leading-relaxed">
+          <div className="space-y-2">
+            <div className="h-5 w-3/4 animate-pulse rounded-full bg-mn-border-subtle/60" />
+            <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/40" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-3 w-full animate-pulse rounded-full bg-mn-border-subtle/40" />
+            <div className="h-3 w-5/6 animate-pulse rounded-full bg-mn-border-subtle/30" />
+          </div>
+          <div className="mt-2 space-y-1.5">
+            <div className="h-3 w-2/3 animate-pulse rounded-full bg-mn-border-subtle/35" />
+            <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/25" />
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-          <div className="space-y-3 text-left text-[12px] leading-relaxed">
-            <div className="space-y-2">
-              <div className="h-5 w-3/4 animate-pulse rounded-full bg-mn-border-subtle/60" />
-              <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/40" />
-            </div>
-            <div className="space-y-1.5">
-              <div className="h-3 w-full animate-pulse rounded-full bg-mn-border-subtle/40" />
-              <div className="h-3 w-5/6 animate-pulse rounded-full bg-mn-border-subtle/30" />
-            </div>
-            <div className="mt-2 space-y-1.5">
-              <div className="h-3 w-2/3 animate-pulse rounded-full bg-mn-border-subtle/35" />
-              <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/25" />
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-1 shadow-mn-soft">
-              <MessageCircle className="h-4 w-4 text-mn-border-subtle" />
-              Syncing conversations…
-            </span>
-          </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+          <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-1 shadow-mn-soft">
+            <MessageCircle className="h-4 w-4 text-mn-border-subtle" />
+            Syncing conversations…
+          </span>
         </div>
-      </article>
-    </div>
+      </div>
+    </article>
   );
 };
 
@@ -110,18 +92,20 @@ const MessagesPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase.channel("supabase_realtime_messages_publication:messages-list").on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-      },
-      (payload) => {
-        console.log("[MessagesPage] Realtime message for list", payload);
-        queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      },
-    );
+    const channel = supabase
+      .channel("supabase_realtime_messages_publication:messages-list")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          console.log("[MessagesPage] Realtime message for list", payload);
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        },
+      );
 
     channel.subscribe((status) => {
       console.log("[MessagesPage] Realtime channel status (list)", status);
@@ -135,7 +119,10 @@ const MessagesPage: React.FC = () => {
   const trimmedQuery = query.trim().toLowerCase();
   const hasQuery = trimmedQuery.length > 0;
 
-  const totalUnread = useMemo(() => (data ?? []).filter((conv) => conv.hasUnread).length, [data]);
+  const totalUnread = useMemo(
+    () => (data ?? []).filter((conv) => conv.hasUnread).length,
+    [data],
+  );
 
   const conversations = useMemo(
     () =>
@@ -154,7 +141,9 @@ const MessagesPage: React.FC = () => {
             conv.subtitle,
             conv.lastMessagePreview ?? "",
             ...conv.participants.map((p) => p.displayName),
-            ...conv.participants.map((p) => p.username).filter((u): u is string => Boolean(u)),
+            ...conv.participants
+              .map((p) => p.username)
+              .filter((u): u is string => Boolean(u)),
           ]
             .join(" ")
             .toLowerCase();
@@ -250,9 +239,9 @@ const MessagesPage: React.FC = () => {
         onChange={(event) => setQuery(event.target.value)}
       />
 
-      {/* Loading state */}
+      {/* Loading state – only the loading card, no extra card wrapper */}
       {isLoading && (
-        <div className="flex flex-1 items-center justify-center rounded-2xl border border-mn-border-subtle/80 bg-mn-bg/80 p-4 text-[12px] text-mn-text-secondary shadow-mn-card">
+        <div className="flex flex-1 items-center justify-center">
           <InboxLoadingCard />
         </div>
       )}
@@ -334,8 +323,8 @@ const MessagesPage: React.FC = () => {
                                 />
                               ) : (
                                 (participant.displayName?.[0]?.toUpperCase() ??
-                                participant.username?.[0]?.toUpperCase() ??
-                                "?")
+                                  participant.username?.[0]?.toUpperCase() ??
+                                  "?")
                               )}
                             </span>
                           ))}
@@ -384,7 +373,9 @@ const MessagesPage: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        <span className="shrink-0 text-[11px] text-mn-text-muted">{timeLabel}</span>
+                        <span className="shrink-0 text-[11px] text-mn-text-muted">
+                          {timeLabel}
+                        </span>
                       </div>
                       <p
                         className={`truncate text-[12px] ${
