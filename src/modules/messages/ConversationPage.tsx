@@ -62,7 +62,12 @@ interface MessageDeliveryReceipt {
   deliveredAt: string;
 }
 
-type MessageDeliveryStatus = "sending" | "sent" | "delivered" | "seen";
+type MessageDeliveryStatusValue = "sending" | "sent" | "delivered" | "seen";
+
+interface MessageDeliveryStatus {
+  status: MessageDeliveryStatusValue;
+  seenAt?: string | null;
+}
 
 type ParsedBodyMeta = {
   editedAt?: string;
@@ -84,7 +89,7 @@ const getMessageMeta = (body: string | null): ParsedBodyMeta => {
       };
     }
   } catch {
-    // ignore parsing errors
+    // ignore parse errors
   }
   return {};
 };
@@ -1460,7 +1465,7 @@ const ConversationPage: React.FC = () => {
 
     setActiveActionMessageId(message.id);
 
-    // Blur input so there's no focus border on long-press
+    // Blur main input so there's no focus border while interacting with actions
     if (textareaRef.current) {
       textareaRef.current.blur();
     }
@@ -1813,10 +1818,22 @@ const ConversationPage: React.FC = () => {
                         )}
 
                         <div
-                          className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors} select-none`}
+                          className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors} select-none transition-transform duration-150 ease-out`}
+                          onClick={() => {
+                            // One tap toggles reaction bar like Telegram
+                            if (activeActionMessageId === message.id) {
+                              setActiveActionMessageId(null);
+                            } else {
+                              openMessageActions(message);
+                            }
+                          }}
                           onContextMenu={(event) => {
                             event.preventDefault();
-                            openMessageActions(message);
+                            if (activeActionMessageId === message.id) {
+                              setActiveActionMessageId(null);
+                            } else {
+                              openMessageActions(message);
+                            }
                           }}
                           onTouchStart={() =>
                             handleBubbleTouchStart(message)
@@ -1893,7 +1910,7 @@ const ConversationPage: React.FC = () => {
                                     });
                                     setActiveActionMessageId(null);
                                   }}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-mn-bg"
+                                  className="flex h-7 w-7 items-center justify-center rounded-full transition transform hover:bg-mn-bg hover:scale-110 active:scale-90"
                                 >
                                   <span className="text-[17px]">{emoji}</span>
                                 </button>
@@ -1912,6 +1929,9 @@ const ConversationPage: React.FC = () => {
                                     });
                                     setEditError(null);
                                     setActiveActionMessageId(null);
+                                    if (textareaRef.current) {
+                                      textareaRef.current.blur();
+                                    }
                                   }}
                                   className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg"
                                 >
@@ -1958,27 +1978,34 @@ const ConversationPage: React.FC = () => {
                           )}
 
                           {isSelf && deliveryStatus && !isDeletedMessage && (
-                            <span className="inline-flex items-center">
-                              {deliveryStatus === "sending" && (
+                            <span className="inline-flex items-center gap-0.5">
+                              {deliveryStatus.status === "sending" && (
                                 <Loader2
                                   className="h-3 w-3 animate-spin"
                                   aria-hidden="true"
                                 />
                               )}
-                              {deliveryStatus === "sent" && (
+                              {deliveryStatus.status === "sent" && (
                                 <Check className="h-3 w-3" aria-hidden="true" />
                               )}
-                              {deliveryStatus === "delivered" && (
+                              {deliveryStatus.status === "delivered" && (
                                 <CheckCheck
                                   className="h-3 w-3"
                                   aria-hidden="true"
                                 />
                               )}
-                              {deliveryStatus === "seen" && (
-                                <CheckCheck
-                                  className="h-3 w-3 text-mn-primary"
-                                  aria-hidden="true"
-                                />
+                              {deliveryStatus.status === "seen" && (
+                                <>
+                                  <CheckCheck
+                                    className="h-3 w-3 text-mn-primary"
+                                    aria-hidden="true"
+                                  />
+                                  {deliveryStatus.seenAt && (
+                                    <span>
+                                      {formatMessageTime(deliveryStatus.seenAt)}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </span>
                           )}
@@ -2224,7 +2251,7 @@ const ConversationPage: React.FC = () => {
                   )
                 }
                 rows={3}
-                className="w-full resize-none border-0 bg-transparent text-[13px] text-mn-text-primary outline-none"
+                className="w-full resize-none border-0 bg-transparent text-[13px] text-mn-text-primary outline-none focus:outline-none focus:ring-0"
               />
             </div>
 
@@ -2419,7 +2446,7 @@ const getMessageDeliveryStatus = (
   if (message.senderId !== currentUserId) return null;
 
   if (message.id.startsWith("temp-")) {
-    return "sending";
+    return { status: "sending" };
   }
 
   const others = conversation.participants.filter((p) => !p.isSelf);
@@ -2438,24 +2465,32 @@ const getMessageDeliveryStatus = (
 
   const allReadReceipts = readReceipts ?? [];
   let seenCount = 0;
+  let latestSeenAtMs: number | null = null;
+
   for (const other of others) {
     const receipt = allReadReceipts.find((r) => r.userId === other.id);
     if (!receipt || !receipt.lastReadAt) continue;
     const receiptTime = new Date(receipt.lastReadAt).getTime();
-    if (!Number.isNaN(receiptTime) && receiptTime >= messageTime) {
+    if (Number.isNaN(receiptTime)) continue;
+    if (receiptTime >= messageTime) {
       seenCount += 1;
+      if (latestSeenAtMs === null || receiptTime > latestSeenAtMs) {
+        latestSeenAtMs = receiptTime;
+      }
     }
   }
 
   if (seenCount === others.length && others.length > 0) {
-    return "seen";
+    const seenAtIso =
+      latestSeenAtMs != null ? new Date(latestSeenAtMs).toISOString() : null;
+    return { status: "seen", seenAt: seenAtIso };
   }
 
   if (deliveredCount > 0) {
-    return "delivered";
+    return { status: "delivered" };
   }
 
-  return "sent";
+  return { status: "sent" };
 };
 
 export default ConversationPage;
