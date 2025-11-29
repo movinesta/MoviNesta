@@ -453,7 +453,7 @@ const ConversationPage: React.FC = () => {
     const others = conversation.participants.filter((p) => !p.isSelf);
     if (others.length === 0) return null;
 
-    const seenParticipants: ConversationParticipant[] = [];
+       const seenParticipants: ConversationParticipant[] = [];
     let earliestSeenAt: string | null = null;
 
     for (const other of others) {
@@ -853,14 +853,14 @@ const ConversationPage: React.FC = () => {
     );
   };
 
-  // ✅ No refocus here; just send. Keyboard stays as long as textarea doesn't lose focus.
+  // ✅ No waiting on isPending — send feels instant
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
     if (isBlocked || blockedYou) return;
 
     const text = draft.trim();
-    if (!text || sendMessage.isPending) return;
+    if (!text) return;
 
     // Clear draft for instant send feeling (doesn't blur)
     setDraft("");
@@ -873,7 +873,7 @@ const ConversationPage: React.FC = () => {
   };
 
   const handleRetrySend = () => {
-    if (!lastFailedText || sendMessage.isPending) return;
+    if (!lastFailedText /* || sendMessage.isPending */) return;
     setSendError(null);
     attemptSend(lastFailedText);
   };
@@ -1393,7 +1393,6 @@ const ConversationPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleRetrySend}
-                      disabled={sendMessage.isPending}
                       className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-2 py-1 text-[11px] font-semibold text-mn-primary ring-1 ring-mn-primary/40 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span>Retry</span>
@@ -1453,18 +1452,15 @@ const ConversationPage: React.FC = () => {
 
                 <button
                   type="submit"
-                  // Prevent this button from taking focus (so textarea keeps focus, keyboard stays open)
+                  // Keep keyboard open – prevent button from stealing focus
                   onMouseDown={(e) => e.preventDefault()}
                   onTouchStart={(e) => e.preventDefault()}
-                  disabled={!draft.trim() || sendMessage.isPending}
+                  disabled={!draft.trim()}
                   className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send message"
                 >
-                  {sendMessage.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Send className="h-4 w-4" aria-hidden="true" />
-                  )}
+                  {/* ✅ Always show send icon, no loading spinner */}
+                  <Send className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </form>
