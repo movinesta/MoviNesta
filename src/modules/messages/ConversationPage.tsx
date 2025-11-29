@@ -3,12 +3,16 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Camera,
+  Check,
+  CheckCheck,
+  Edit3,
   Image as ImageIcon,
   Info,
   Loader2,
   Phone,
   Send,
   Smile,
+  Trash2,
   Users,
   Video,
   X,
@@ -32,7 +36,7 @@ interface ConversationMessage {
   senderId: string;
   createdAt: string;
   body: string | null;
-  attachmentUrl: string | null; // storage path, e.g. "conversationId/userId/file.jpg"
+  attachmentUrl: string | null;
 }
 
 interface ConversationReadReceipt {
@@ -40,6 +44,27 @@ interface ConversationReadReceipt {
   lastReadAt: string | null;
   lastReadMessageId: string | null;
 }
+
+interface MessageReaction {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
+interface MessageDeliveryReceipt {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  userId: string;
+  deliveredAt: string;
+}
+
+type MessageDeliveryStatus = "sending" | "sent" | "delivered" | "seen";
+
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
 
 const formatMessageTime = (iso: string): string => {
   const date = new Date(iso);
@@ -123,6 +148,80 @@ const useConversationReadReceipts = (conversationId: string | null) => {
   });
 };
 
+const useConversationReactions = (conversationId: string | null) => {
+  return useQuery<MessageReaction[]>({
+    queryKey: ["conversation", conversationId, "reactions"],
+    enabled: Boolean(conversationId),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: conversationId ? 15000 : false,
+    refetchIntervalInBackground: true,
+    queryFn: async (): Promise<MessageReaction[]> => {
+      if (!conversationId) return [];
+
+      const { data, error } = await supabase
+        .from("message_reactions")
+        .select(
+          "id, conversation_id, message_id, user_id, emoji, created_at",
+        )
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("[ConversationPage] Failed to load reactions", error);
+        throw new Error(error.message);
+      }
+
+      return (data ?? []).map((row: any) => ({
+        id: row.id as string,
+        conversationId: row.conversation_id as string,
+        messageId: row.message_id as string,
+        userId: row.user_id as string,
+        emoji: row.emoji as string,
+        createdAt: row.created_at as string,
+      }));
+    },
+  });
+};
+
+const useConversationDeliveryReceipts = (conversationId: string | null) => {
+  return useQuery<MessageDeliveryReceipt[]>({
+    queryKey: ["conversation", conversationId, "deliveryReceipts"],
+    enabled: Boolean(conversationId),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: conversationId ? 15000 : false,
+    refetchIntervalInBackground: true,
+    queryFn: async (): Promise<MessageDeliveryReceipt[]> => {
+      if (!conversationId) return [];
+
+      const { data, error } = await supabase
+        .from("message_delivery_receipts")
+        .select(
+          "id, conversation_id, message_id, user_id, delivered_at, created_at",
+        )
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error(
+          "[ConversationPage] Failed to load delivery receipts",
+          error,
+        );
+        throw new Error(error.message);
+      }
+
+      return (data ?? []).map((row: any) => ({
+        id: row.id as string,
+        conversationId: row.conversation_id as string,
+        messageId: row.message_id as string,
+        userId: row.user_id as string,
+        deliveredAt: (row.delivered_at as string | null) ?? row.created_at,
+      }));
+    },
+  });
+};
+
 interface SendMessageArgs {
   text: string;
   attachmentPath?: string | null;
@@ -187,7 +286,6 @@ const useSendMessage = (conversationId: string | null) => {
 
       return row;
     },
-    // Optimistic update for instant feel
     onMutate: async ({ text, attachmentPath }) => {
       if (!conversationId || !userId)
         return { previousMessages: undefined, tempId: null };
@@ -246,7 +344,6 @@ const useSendMessage = (conversationId: string | null) => {
         ["conversation", conversationId, "messages"],
         (existing) => {
           const current = existing ?? [];
-          // Remove optimistic temp message if present
           const withoutTemp = tempId
             ? current.filter((m) => m.id !== tempId)
             : current.filter((m) => m.id !== row.id);
@@ -271,6 +368,228 @@ const useSendMessage = (conversationId: string | null) => {
   });
 };
 
+const useToggleReaction = (conversationId: string | null) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      messageId,
+      emoji,
+    }: {
+      messageId: string;
+      emoji: string;
+    }) => {
+      if (!conversationId) throw new Error("Missing conversation id.");
+      if (!userId)
+        throw new Error("You must be signed in to react to messages.");
+
+      const { error } = await supabase
+        .from("message_reactions")
+        .insert({
+          conversation_id: conversationId,
+          message_id: messageId,
+          user_id: userId,
+          emoji,
+        });
+
+      if (error) {
+        if ((error as any).code === "23505") {
+          const { error: deleteError } = await supabase
+            .from("message_reactions")
+            .delete()
+            .eq("conversation_id", conversationId)
+            .eq("message_id", messageId)
+            .eq("user_id", userId)
+            .eq("emoji", emoji);
+
+          if (deleteError) {
+            console.error(
+              "[ConversationPage] Failed to remove reaction",
+              deleteError,
+            );
+            throw deleteError;
+          }
+          return;
+        }
+
+        console.error("[ConversationPage] Failed to toggle reaction", error);
+        throw error;
+      }
+    },
+    onMutate: async ({ messageId, emoji }) => {
+      if (!conversationId || !userId) {
+        return { previousReactions: undefined as MessageReaction[] | undefined };
+      }
+
+      const queryKey = ["conversation", conversationId, "reactions"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousReactions =
+        queryClient.getQueryData<MessageReaction[]>(queryKey);
+
+      queryClient.setQueryData<MessageReaction[]>(queryKey, (existing) => {
+        const current = existing ?? [];
+        const existingIdx = current.findIndex(
+          (r) =>
+            r.messageId === messageId &&
+            r.userId === userId &&
+            r.emoji === emoji,
+        );
+
+        if (existingIdx >= 0) {
+          const next = [...current];
+          next.splice(existingIdx, 1);
+          return next;
+        }
+
+        const optimistic: MessageReaction = {
+          id: `temp-${Date.now()}`,
+          conversationId,
+          messageId,
+          userId,
+          emoji,
+          createdAt: new Date().toISOString(),
+        };
+        return [...current, optimistic];
+      });
+
+      return { previousReactions };
+    },
+    onError: (_error, _variables, context) => {
+      if (!conversationId) return;
+      const queryKey = ["conversation", conversationId, "reactions"];
+      if (context?.previousReactions) {
+        queryClient.setQueryData(queryKey, context.previousReactions);
+      } else {
+        queryClient.invalidateQueries({ queryKey });
+      }
+    },
+    onSuccess: () => {
+      if (!conversationId) return;
+      queryClient.invalidateQueries({
+        queryKey: ["conversation", conversationId, "reactions"],
+      });
+    },
+  });
+};
+
+const useEditMessage = (conversationId: string | null) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      messageId,
+      text,
+    }: {
+      messageId: string;
+      text: string;
+    }) => {
+      if (!conversationId) throw new Error("Missing conversation id.");
+      if (!userId)
+        throw new Error("You must be signed in to edit messages.");
+
+      const trimmed = text.trim();
+      const bodyPayload = { type: "text", text: trimmed };
+
+      const { data, error } = await supabase
+        .from("messages")
+        .update({
+          body: JSON.stringify(bodyPayload),
+        })
+        .eq("id", messageId)
+        .eq("sender_id", userId)
+        .select(
+          "id, conversation_id, sender_id, body, attachment_url, created_at",
+        )
+        .single();
+
+      if (error) {
+        console.error("[ConversationPage] Failed to edit message", error);
+        throw new Error(error.message);
+      }
+
+      const updated: ConversationMessage = {
+        id: data.id as string,
+        conversationId: data.conversation_id as string,
+        senderId: data.sender_id as string,
+        body: (data.body as string | null) ?? null,
+        attachmentUrl: (data.attachment_url as string | null) ?? null,
+        createdAt: data.created_at as string,
+      };
+
+      return updated;
+    },
+    onSuccess: (updated) => {
+      if (!conversationId) return;
+      const queryKey = ["conversation", conversationId, "messages"];
+      queryClient.setQueryData<ConversationMessage[]>(queryKey, (existing) => {
+        if (!existing) return [updated];
+        return existing.map((m) => (m.id === updated.id ? updated : m));
+      });
+    },
+  });
+};
+
+const useDeleteMessage = (conversationId: string | null) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: string }) => {
+      if (!conversationId) throw new Error("Missing conversation id.");
+      if (!userId)
+        throw new Error("You must be signed in to delete messages.");
+
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("sender_id", userId);
+
+      if (error) {
+        console.error("[ConversationPage] Failed to delete message", error);
+        throw new Error(error.message);
+      }
+
+      return { messageId };
+    },
+    onMutate: async ({ messageId }) => {
+      if (!conversationId)
+        return {
+          previousMessages: undefined as ConversationMessage[] | undefined,
+        };
+
+      const queryKey = ["conversation", conversationId, "messages"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousMessages =
+        queryClient.getQueryData<ConversationMessage[]>(queryKey);
+
+      queryClient.setQueryData<ConversationMessage[]>(queryKey, (existing) =>
+        (existing ?? []).filter((m) => m.id !== messageId),
+      );
+
+      return { previousMessages };
+    },
+    onError: (_error, _variables, context) => {
+      if (!conversationId) return;
+      const queryKey = ["conversation", conversationId, "messages"];
+      if (context?.previousMessages) {
+        queryClient.setQueryData(queryKey, context.previousMessages);
+      } else {
+        queryClient.invalidateQueries({ queryKey });
+      }
+    },
+    onSuccess: () => {
+      if (!conversationId) return;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+};
+
 /**
  * Renders an attachment image from chat-media bucket using a signed URL.
  */
@@ -283,7 +602,7 @@ const ChatImage: React.FC<{ path: string }> = ({ path }) => {
     const run = async () => {
       const { data, error: err } = await supabase.storage
         .from("chat-media")
-        .createSignedUrl(path, 60 * 60); // 1 hour
+        .createSignedUrl(path, 60 * 60);
 
       if (cancelled) return;
       if (err || !data?.signedUrl) {
@@ -436,48 +755,58 @@ const ConversationPage: React.FC = () => {
   });
 
   const { data: readReceipts } = useConversationReadReceipts(conversationId);
+  const { data: reactions } = useConversationReactions(conversationId);
+  const { data: deliveryReceipts } =
+    useConversationDeliveryReceipts(conversationId);
 
-  const latestSelfMessage = useMemo(() => {
-    if (!messages || !user?.id) return null;
-    const selfMessages = messages.filter((m) => m.senderId === user.id);
-    return selfMessages.length > 0
-      ? selfMessages[selfMessages.length - 1]
-      : null;
-  }, [messages, user?.id]);
+  const toggleReaction = useToggleReaction(conversationId);
+  const editMessageMutation = useEditMessage(conversationId);
+  const deleteMessageMutation = useDeleteMessage(conversationId);
 
-  const seenSummary = useMemo(() => {
-    if (!conversation || !latestSelfMessage || !readReceipts || !user?.id) {
-      return null;
-    }
+  const longPressTimeoutRef = useRef<number | null>(null);
 
-    const others = conversation.participants.filter((p) => !p.isSelf);
-    if (others.length === 0) return null;
+  const [actionMessage, setActionMessage] = useState<{
+    message: ConversationMessage;
+    isSelf: boolean;
+    text: string;
+  } | null>(null);
 
-       const seenParticipants: ConversationParticipant[] = [];
-    let earliestSeenAt: string | null = null;
+  const [editingMessage, setEditingMessage] = useState<{
+    messageId: string;
+    text: string;
+  } | null>(null);
 
-    for (const other of others) {
-      const receipt = readReceipts.find((r) => r.userId === other.id);
-      if (!receipt || !receipt.lastReadAt) continue;
+  const [editError, setEditError] = useState<string | null>(null);
 
-      const receiptTime = new Date(receipt.lastReadAt).getTime();
-      const messageTime = new Date(latestSelfMessage.createdAt).getTime();
+  const reactionsByMessageId = useMemo(() => {
+    const map = new Map<
+      string,
+      { emoji: string; count: number; reactedBySelf: boolean }[]
+    >();
 
-      if (Number.isNaN(receiptTime) || Number.isNaN(messageTime)) continue;
-      if (receiptTime >= messageTime) {
-        seenParticipants.push(other);
-        if (!earliestSeenAt || receiptTime < new Date(earliestSeenAt).getTime()) {
-          earliestSeenAt = receipt.lastReadAt;
-        }
+    if (!reactions) return map;
+
+    for (const reaction of reactions) {
+      const existing = map.get(reaction.messageId) ?? [];
+      let entry = existing.find((e) => e.emoji === reaction.emoji);
+      if (!entry) {
+        entry = {
+          emoji: reaction.emoji,
+          count: 0,
+          reactedBySelf: false,
+        };
+        existing.push(entry);
+        map.set(reaction.messageId, existing);
+      }
+      entry.count += 1;
+      if (user?.id && reaction.userId === user.id) {
+        entry.reactedBySelf = true;
       }
     }
 
-    if (seenParticipants.length === 0) return null;
+    return map;
+  }, [reactions, user?.id]);
 
-    return { seenParticipants, earliestSeenAt };
-  }, [conversation, latestSelfMessage, readReceipts, user?.id]);
-
-  // Scroll to bottom on new messages
   useEffect(() => {
     if (!messages || messages.length === 0) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -486,6 +815,14 @@ const ConversationPage: React.FC = () => {
   useEffect(() => {
     lastReadRef.current = { conversationId: null, messageId: null, userId: null };
   }, [conversationId, user?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Typing indicator channel
   useEffect(() => {
@@ -555,7 +892,7 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, user?.id, participantsById]);
 
-  // Realtime: new messages
+  // Realtime: new messages + deletes + delivery insert on receiver
   useEffect(() => {
     if (!conversationId) return;
 
@@ -615,6 +952,47 @@ const ConversationPage: React.FC = () => {
           );
 
           queryClient.invalidateQueries({ queryKey: ["conversations"] });
+
+          // Insert delivery receipt on the receiver client
+          if (user?.id && row.sender_id !== user.id) {
+            supabase
+              .from("message_delivery_receipts")
+              .insert({
+                conversation_id: row.conversation_id,
+                message_id: row.id,
+                user_id: user.id,
+              })
+              .then(({ error }) => {
+                if (error) {
+                  console.error(
+                    "[ConversationPage] Failed to insert delivery receipt",
+                    error,
+                  );
+                }
+              })
+              .catch((err) => {
+                console.error(
+                  "[ConversationPage] Unexpected error inserting delivery receipt",
+                  err,
+                );
+              });
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.old as { id: string };
+          queryClient.setQueryData<ConversationMessage[]>(
+            ["conversation", conversationId, "messages"],
+            (existing) => (existing ?? []).filter((m) => m.id !== row.id),
+          );
         },
       );
 
@@ -722,6 +1100,86 @@ const ConversationPage: React.FC = () => {
         if (status === "CHANNEL_ERROR") {
           console.error(
             "[ConversationPage] Realtime channel error for read receipts",
+            status,
+          );
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, queryClient]);
+
+  // Realtime reactions
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel(
+        `supabase_realtime_message_reactions:conversation:${conversationId}`,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reactions",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ["conversation", conversationId, "reactions"],
+          });
+        },
+      )
+      .subscribe((status) => {
+        console.log(
+          "[ConversationPage] Realtime channel status (reactions)",
+          status,
+        );
+        if (status === "CHANNEL_ERROR") {
+          console.error(
+            "[ConversationPage] Realtime channel error for reactions",
+            status,
+          );
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, queryClient]);
+
+  // Realtime delivery receipts
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel(
+        `supabase_realtime_message_delivery_receipts:conversation:${conversationId}`,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_delivery_receipts",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ["conversation", conversationId, "deliveryReceipts"],
+          });
+        },
+      )
+      .subscribe((status) => {
+        console.log(
+          "[ConversationPage] Realtime channel status (delivery receipts)",
+          status,
+        );
+        if (status === "CHANNEL_ERROR") {
+          console.error(
+            "[ConversationPage] Realtime channel error for delivery receipts",
             status,
           );
         }
@@ -853,7 +1311,6 @@ const ConversationPage: React.FC = () => {
     );
   };
 
-  // ✅ No waiting on isPending — send feels instant
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -862,7 +1319,6 @@ const ConversationPage: React.FC = () => {
     const text = draft.trim();
     if (!text) return;
 
-    // Clear draft for instant send feeling (doesn't blur)
     setDraft("");
     resizeTextarea();
     setSendError(null);
@@ -873,12 +1329,11 @@ const ConversationPage: React.FC = () => {
   };
 
   const handleRetrySend = () => {
-    if (!lastFailedText /* || sendMessage.isPending */) return;
+    if (!lastFailedText) return;
     setSendError(null);
     attemptSend(lastFailedText);
   };
 
-  // camera click opens the OS file picker
   const handleCameraClick = () => {
     if (!conversationId || !user?.id) return;
     if (isBlocked || blockedYou) return;
@@ -886,13 +1341,11 @@ const ConversationPage: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  // After user selects an image from the native picker, show the preview modal
   const handleImageSelected = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
 
-    // Allow selecting the same file again later
     event.target.value = "";
 
     if (!file || !conversationId || !user?.id) return;
@@ -945,6 +1398,38 @@ const ConversationPage: React.FC = () => {
       console.error("[ConversationPage] handleSendSelectedImage failed", error);
     } finally {
       setIsUploadingImage(false);
+    }
+  };
+
+  const openMessageActions = (
+    message: ConversationMessage,
+    isSelf: boolean,
+  ) => {
+    if (isBlocked || blockedYou) return;
+    const text = parseMessageText(message.body) ?? "";
+    setActionMessage({
+      message,
+      isSelf,
+      text: text || (message.attachmentUrl ? "[Photo]" : ""),
+    });
+  };
+
+  const handleBubbleTouchStart = (
+    message: ConversationMessage,
+    isSelf: boolean,
+  ) => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+    }
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      openMessageActions(message, isSelf);
+    }, 500);
+  };
+
+  const handleBubbleTouchEndOrCancel = () => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
     }
   };
 
@@ -1153,10 +1638,6 @@ const ConversationPage: React.FC = () => {
                   participant?.isSelf ??
                   (user?.id != null && message.senderId === user.id);
 
-                const isLatestSelfMessage =
-                  latestSelfMessage != null &&
-                  latestSelfMessage.id === message.id;
-
                 const previous =
                   index > 0 ? (messages?.[index - 1] ?? null) : null;
                 const next =
@@ -1209,9 +1690,17 @@ const ConversationPage: React.FC = () => {
                 const text = parseMessageText(message.body);
 
                 const showAvatarAndName = !isSelf && endsGroup;
-                const showTimestamp = endsGroup;
 
-                const timestampAlignClass = isSelf ? "text-right" : "text-left";
+                const messageReactions =
+                  reactionsByMessageId.get(message.id) ?? [];
+
+                const deliveryStatus = getMessageDeliveryStatus(
+                  message,
+                  conversation ?? null,
+                  deliveryReceipts,
+                  readReceipts,
+                  user?.id ?? null,
+                );
 
                 return (
                   <React.Fragment key={message.id}>
@@ -1264,6 +1753,15 @@ const ConversationPage: React.FC = () => {
 
                         <div
                           className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors}`}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            openMessageActions(message, !!isSelf);
+                          }}
+                          onTouchStart={() =>
+                            handleBubbleTouchStart(message, !!isSelf)
+                          }
+                          onTouchEnd={handleBubbleTouchEndOrCancel}
+                          onTouchCancel={handleBubbleTouchEndOrCancel}
                         >
                           <div className="flex flex-col">
                             {text && (
@@ -1279,39 +1777,75 @@ const ConversationPage: React.FC = () => {
                         </div>
                       </div>
 
+                      {messageReactions.length > 0 && (
+                        <div
+                          className={`mt-0.5 flex w-full ${
+                            isSelf ? "justify-end pr-6" : "justify-start pl-6"
+                          }`}
+                        >
+                          <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-1.5 py-0.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70">
+                            {messageReactions.map((reaction) => (
+                              <button
+                                key={reaction.emoji}
+                                type="button"
+                                onClick={() =>
+                                  toggleReaction.mutate({
+                                    messageId: message.id,
+                                    emoji: reaction.emoji,
+                                  })
+                                }
+                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 transition hover:bg-mn-bg ${
+                                  reaction.reactedBySelf
+                                    ? "bg-mn-primary/5 ring-1 ring-mn-primary/40"
+                                    : ""
+                                }`}
+                              >
+                                <span>{reaction.emoji}</span>
+                                {reaction.count > 1 && (
+                                  <span className="text-[10px] text-mn-text-secondary">
+                                    {reaction.count}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div
                         className={`flex w-full ${
                           isSelf ? "justify-end" : "justify-start"
                         }`}
                       >
-                        {showTimestamp && (
-                          <p
-                            className={`mt-0.5 text-[10px] text-mn-text-muted ${timestampAlignClass}`}
-                          >
-                            {formatMessageTime(message.createdAt)}
-                          </p>
-                        )}
-                      </div>
-
-                      {isSelf && isLatestSelfMessage && seenSummary && (
-                        <div className="flex w-full justify-end">
-                          <p className="mt-0.5 text-[10px] text-mn-text-muted">
-                            {isGroupConversation
-                              ? seenSummary.seenParticipants.length === 1
-                                ? `Seen by ${seenSummary.seenParticipants[0].displayName}`
-                                : `Seen by ${
-                                    seenSummary.seenParticipants[0].displayName
-                                  } and ${
-                                    seenSummary.seenParticipants.length - 1
-                                  } others`
-                              : seenSummary.earliestSeenAt
-                              ? `Seen ${formatMessageTime(
-                                  seenSummary.earliestSeenAt,
-                                )}`
-                              : "Seen"}
-                          </p>
+                        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-mn-text-muted">
+                          <span>{formatMessageTime(message.createdAt)}</span>
+                          {isSelf && deliveryStatus && (
+                            <span className="inline-flex items-center">
+                              {deliveryStatus === "sending" && (
+                                <Loader2
+                                  className="h-3 w-3 animate-spin"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {deliveryStatus === "sent" && (
+                                <Check className="h-3 w-3" aria-hidden="true" />
+                              )}
+                              {deliveryStatus === "delivered" && (
+                                <CheckCheck
+                                  className="h-3 w-3"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {deliveryStatus === "seen" && (
+                                <CheckCheck
+                                  className="h-3 w-3 text-mn-primary"
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </span>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </React.Fragment>
                 );
@@ -1349,11 +1883,50 @@ const ConversationPage: React.FC = () => {
               >
                 <div className="flex max-w-[260px] flex-wrap gap-1.5">
                   {[
-                    "😀","😁","😂","🤣","😅","😆","😉","😊","😎","😍",
-                    "🥰","😘","🤩","🥹","🙂","🙃","🤔","🤨","😏","😒",
-                    "😭","😢","😡","🤯","🥳","👍","👎","🙌","👏","🙏",
-                    "❤️","🧡","💛","💚","💙","💜","🔥","⭐","✨","👀",
-                    "🎬","🍿","🎉","💯",
+                    "😀",
+                    "😁",
+                    "😂",
+                    "🤣",
+                    "😅",
+                    "😆",
+                    "😉",
+                    "😊",
+                    "😎",
+                    "😍",
+                    "🥰",
+                    "😘",
+                    "🤩",
+                    "🥹",
+                    "🙂",
+                    "🙃",
+                    "🤔",
+                    "🤨",
+                    "😏",
+                    "😒",
+                    "😭",
+                    "😢",
+                    "😡",
+                    "🤯",
+                    "🥳",
+                    "👍",
+                    "👎",
+                    "🙌",
+                    "👏",
+                    "🙏",
+                    "❤️",
+                    "🧡",
+                    "💛",
+                    "💚",
+                    "💙",
+                    "💜",
+                    "🔥",
+                    "⭐",
+                    "✨",
+                    "👀",
+                    "🎬",
+                    "🍿",
+                    "🎉",
+                    "💯",
                   ].map((emoji) => (
                     <button
                       key={emoji}
@@ -1372,7 +1945,7 @@ const ConversationPage: React.FC = () => {
             )}
           </div>
 
-          {/* Input at the very bottom, full width */}
+          {/* Input */}
           {!isBlocked && !blockedYou && (
             <form
               onSubmit={handleSubmit}
@@ -1452,14 +2025,12 @@ const ConversationPage: React.FC = () => {
 
                 <button
                   type="submit"
-                  // Keep keyboard open – prevent button from stealing focus
                   onMouseDown={(e) => e.preventDefault()}
                   onTouchStart={(e) => e.preventDefault()}
                   disabled={!draft.trim()}
                   className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send message"
                 >
-                  {/* ✅ Always show send icon, no loading spinner */}
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
@@ -1475,13 +2046,200 @@ const ConversationPage: React.FC = () => {
           {isBlocked && !blockedYou && (
             <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
               <p>
-                You&apos;ve blocked this user. Unblock them to continue the conversation.
+                You&apos;ve blocked this user. Unblock them to continue the
+                conversation.
               </p>
             </div>
           )}
         </section>
       </div>
 
+      {/* Message actions: reactions + edit/delete */}
+      {actionMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[min(420px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 text-[11px] text-mn-text-muted">
+                <p className="line-clamp-3 break-all">
+                  {actionMessage.text}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionMessage(null)}
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                aria-label="Close message actions"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-3 flex justify-center">
+              <div className="inline-flex gap-1 rounded-full bg-mn-bg px-2 py-1 shadow-mn-soft ring-1 ring-mn-border-subtle/70">
+                {REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => {
+                      toggleReaction.mutate({
+                        messageId: actionMessage.message.id,
+                        emoji,
+                      });
+                      setActionMessage(null);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-lg transition hover:bg-mn-bg-elevated/80"
+                  >
+                    <span>{emoji}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2 text-[13px]">
+              {actionMessage.isSelf && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMessage({
+                        messageId: actionMessage.message.id,
+                        text:
+                          parseMessageText(actionMessage.message.body) ?? "",
+                      });
+                      setEditError(null);
+                      setActionMessage(null);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full bg-mn-bg px-3 py-1.5 text-[12px] font-semibold text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70 transition hover:-translate-y-0.5"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        "Delete this message for everyone?",
+                      );
+                      if (!confirmed) return;
+                      deleteMessageMutation.mutate({
+                        messageId: actionMessage.message.id,
+                      });
+                      setActionMessage(null);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full bg-mn-error/10 px-3 py-1.5 text-[12px] font-semibold text-mn-error shadow-mn-soft ring-1 ring-mn-error/40 transition hover:-translate-y-0.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Delete</span>
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setActionMessage(null)}
+                className="inline-flex items-center gap-1 rounded-full bg-transparent px-3 py-1.5 text-[12px] font-semibold text-mn-text-secondary hover:bg-mn-bg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit message modal */}
+      {editingMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[15px] font-semibold text-mn-text-primary">
+                Edit message
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingMessage(null);
+                  setEditError(null);
+                }}
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                aria-label="Close edit message"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-mn-bg px-3 py-2 ring-1 ring-mn-border-subtle/70">
+              <textarea
+                value={editingMessage.text}
+                onChange={(event) =>
+                  setEditingMessage((prev) =>
+                    prev
+                      ? { ...prev, text: event.target.value }
+                      : prev,
+                  )
+                }
+                rows={3}
+                className="w-full resize-none border-0 bg-transparent text-[13px] text-mn-text-primary outline-none"
+              />
+            </div>
+
+            {editError && (
+              <p className="mt-2 text-[11px] text-mn-error">{editError}</p>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2 text-[13px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingMessage(null);
+                  setEditError(null);
+                }}
+                className="rounded-full px-3 py-1.5 text-mn-text-secondary hover:bg-mn-bg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  !editingMessage.text.trim() || editMessageMutation.isPending
+                }
+                onClick={() => {
+                  const text = editingMessage.text.trim();
+                  if (!text) return;
+                  setEditError(null);
+                  editMessageMutation.mutate(
+                    {
+                      messageId: editingMessage.messageId,
+                      text,
+                    },
+                    {
+                      onSuccess: () => {
+                        setEditingMessage(null);
+                      },
+                      onError: () => {
+                        setEditError(
+                          "Couldn't save changes. Please try again.",
+                        );
+                      },
+                    },
+                  );
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-mn-primary px-3 py-1.5 text-white shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {editMessageMutation.isPending && (
+                  <Loader2
+                    className="h-3 w-3 animate-spin"
+                    aria-hidden="true"
+                  />
+                )}
+                <span>Save</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gallery picker */}
       {showGalleryPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/95 p-5 shadow-2xl">
@@ -1544,7 +2302,10 @@ const ConversationPage: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploadingImage ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <Loader2
+                      className="h-4 w-4 animate-spin"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <Send className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -1600,6 +2361,56 @@ const isWithinGroupingWindow = (
     return false;
   }
   return newer.getTime() - older.getTime() <= maxGapMs;
+};
+
+const getMessageDeliveryStatus = (
+  message: ConversationMessage,
+  conversation: ConversationListItem | null,
+  deliveryReceipts: MessageDeliveryReceipt[] | undefined,
+  readReceipts: ConversationReadReceipt[] | undefined,
+  currentUserId: string | null | undefined,
+): MessageDeliveryStatus | null => {
+  if (!conversation || !currentUserId) return null;
+  if (message.senderId !== currentUserId) return null;
+
+  if (message.id.startsWith("temp-")) {
+    return "sending";
+  }
+
+  const others = conversation.participants.filter((p) => !p.isSelf);
+  if (others.length === 0) return null;
+
+  const otherIds = others.map((p) => p.id);
+  const messageTime = new Date(message.createdAt).getTime();
+
+  const allDeliveryReceipts = deliveryReceipts ?? [];
+  const deliveredUsers = allDeliveryReceipts.filter(
+    (r) =>
+      r.messageId === message.id &&
+      otherIds.includes(r.userId),
+  );
+  const deliveredCount = deliveredUsers.length;
+
+  const allReadReceipts = readReceipts ?? [];
+  let seenCount = 0;
+  for (const other of others) {
+    const receipt = allReadReceipts.find((r) => r.userId === other.id);
+    if (!receipt || !receipt.lastReadAt) continue;
+    const receiptTime = new Date(receipt.lastReadAt).getTime();
+    if (!Number.isNaN(receiptTime) && receiptTime >= messageTime) {
+      seenCount += 1;
+    }
+  }
+
+  if (seenCount === others.length && others.length > 0) {
+    return "seen";
+  }
+
+  if (deliveredCount > 0) {
+    return "delivered";
+  }
+
+  return "sent";
 };
 
 export default ConversationPage;
