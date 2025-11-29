@@ -853,6 +853,7 @@ const ConversationPage: React.FC = () => {
     );
   };
 
+  // 🔑 Keep keyboard open: re-focus textarea after send
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -861,7 +862,7 @@ const ConversationPage: React.FC = () => {
     const text = draft.trim();
     if (!text || sendMessage.isPending) return;
 
-    // Instant clear for "instant" feeling
+    // Clear draft for that "instant send" feel
     setDraft("");
     resizeTextarea();
     setSendError(null);
@@ -869,6 +870,13 @@ const ConversationPage: React.FC = () => {
     notifyTyping("");
 
     attemptSend(text);
+
+    // Re-focus textarea so mobile keyboard stays open
+    if (textareaRef.current) {
+      window.requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
   };
 
   const handleRetrySend = () => {
@@ -1348,12 +1356,12 @@ const ConversationPage: React.FC = () => {
               >
                 <div className="flex max-w-[260px] flex-wrap gap-1.5">
                   {[
-        "😀","😁","😂","🤣","😅","😆","😉","😊","😎","😍",
-        "🥰","😘","🤩","🥹","🙂","🙃","🤔","🤨","😏","😒",
-        "😭","😢","😡","🤯","🥳","👍","👎","🙌","👏","🙏",
-        "❤️","🧡","💛","💚","💙","💜","🔥","⭐","✨","👀",
-        "🎬","🍿","🎉","💯",
-      ].map((emoji) => (
+                    "😀","😁","😂","🤣","😅","😆","😉","😊","😎","😍",
+                    "🥰","😘","🤩","🥹","🙂","🙃","🤔","🤨","😏","😒",
+                    "😭","😢","😡","🤯","🥳","👍","👎","🙌","👏","🙏",
+                    "❤️","🧡","💛","💚","💙","💜","🔥","⭐","✨","👀",
+                    "🎬","🍿","🎉","💯",
+                  ].map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
@@ -1446,6 +1454,7 @@ const ConversationPage: React.FC = () => {
                     }}
                     placeholder="Message…"
                     rows={1}
+                    autoFocus
                     className="max-h-[160px] flex-1 resize-none bg-transparent text-[13px] text-mn-text-primary outline-none placeholder:text-mn-text-muted focus:border-transparent focus:outline-none focus:ring-0 focus:shadow-none"
                   />
                 </div>
