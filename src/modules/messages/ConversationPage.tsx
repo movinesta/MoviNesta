@@ -1,6 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Camera, Info, Loader2, Phone, Send, Smile, Users, Video } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  Image as ImageIcon,
+  Info,
+  Loader2,
+  Phone,
+  Send,
+  Smile,
+  Users,
+  Video,
+  X,
+} from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
@@ -303,7 +315,20 @@ const ConversationPage: React.FC = () => {
   const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
+  const [showGalleryPicker, setShowGalleryPicker] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (selectedImagePreview) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview]);
 
   const conversation: ConversationListItem | null = useMemo(() => {
     if (!conversationId || !conversations) return null;
@@ -764,8 +789,8 @@ const ConversationPage: React.FC = () => {
   };
 
   const handleCameraClick = () => {
-    if (!fileInputRef.current || !conversationId || !user?.id) return;
-    fileInputRef.current.click();
+    if (!conversationId || !user?.id) return;
+    setShowGalleryPicker(true);
   };
 
   const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -774,24 +799,53 @@ const ConversationPage: React.FC = () => {
     if (!file || !conversationId || !user?.id) return;
     if (isBlocked || blockedYou) return;
 
+    const previewUrl = URL.createObjectURL(file);
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    setSelectedImageFile(file);
+    setSelectedImagePreview(previewUrl);
+    setShowGalleryPicker(true);
+  };
+
+  const handleCloseGallery = () => {
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+    setSelectedImagePreview(null);
+    setSelectedImageFile(null);
+    setShowGalleryPicker(false);
+  };
+
+  const handleSendSelectedImage = async () => {
+    if (!selectedImageFile || !conversationId || !user?.id) return;
+    if (isBlocked || blockedYou) return;
+
+    setIsUploadingImage(true);
+
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const ext = selectedImageFile.name.split(".").pop() ?? "jpg";
       const path = `${conversationId}/${user.id}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage.from("chat-media").upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from("chat-media")
+        .upload(path, selectedImageFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
       if (uploadError) {
         console.error("[ConversationPage] image upload error", uploadError);
         return;
       }
 
-      // send an image-only message (optimistic)
       sendMessage.mutate({ text: "", attachmentPath: path });
+      handleCloseGallery();
     } catch (error) {
-      console.error("[ConversationPage] handleImageSelected failed", error);
+      console.error("[ConversationPage] handleSendSelectedImage failed", error);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -1230,7 +1284,6 @@ const ConversationPage: React.FC = () => {
                   type="file"
                   ref={fileInputRef}
                   accept="image/*"
-                  capture="environment"
                   className="hidden"
                   onChange={handleImageSelected}
                 />
@@ -1275,15 +1328,80 @@ const ConversationPage: React.FC = () => {
             <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
               <p>You can&apos;t send messages because this user has blocked you.</p>
             </div>
-          )}
+        )}
 
-          {isBlocked && !blockedYou && (
-            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
-              <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
+        {isBlocked && !blockedYou && (
+          <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
+            <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
+          </div>
+        )}
+      </section>
+    </div>
+
+    {showGalleryPicker && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-mn-border-subtle/70 bg-mn-bg/95 p-5 shadow-2xl">
+          <button
+            type="button"
+            onClick={handleCloseGallery}
+            className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+            aria-label="Close gallery picker"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+
+          <div className="flex items-start gap-3 pr-10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 text-mn-text-primary ring-1 ring-mn-border-subtle">
+              <Camera className="h-4 w-4" aria-hidden="true" />
             </div>
-          )}
-        </section>
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-mn-text-primary">Send from your gallery</h2>
+              <p className="text-[12px] text-mn-text-secondary">
+                Pick a recent photo to drop into the chat—just like Instagram DMs.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-dashed border-mn-border-subtle/80 bg-mn-bg/80 p-4">
+            {selectedImagePreview ? (
+              <div className="overflow-hidden rounded-xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
+                <img src={selectedImagePreview} alt="Selected" className="max-h-[320px] w-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-mn-text-muted">
+                <ImageIcon className="h-8 w-8" aria-hidden="true" />
+                <p className="text-[13px] text-mn-text-secondary">Choose a photo from your camera roll.</p>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-full bg-mn-bg-elevated/80 px-4 py-2 text-[13px] font-semibold text-mn-text-primary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+              >
+                <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                <span>Select from gallery</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendSelectedImage}
+                disabled={!selectedImageFile || isUploadingImage}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUploadingImage ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                )}
+                <span>{isUploadingImage ? "Sending…" : "Send photo"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
+    )}
     </div>
   );
 };
