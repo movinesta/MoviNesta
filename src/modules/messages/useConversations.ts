@@ -164,7 +164,7 @@ export const useConversations = () => {
       // 7) Read receipts for these conversations (all participants)
       const { data: receiptsData, error: receiptsError } = await supabase
         .from("message_read_receipts")
-        .select("conversation_id, user_id, last_read_at")
+        .select("conversation_id, user_id, last_read_at, last_read_message_id")
         .in("conversation_id", conversationIds);
 
       if (receiptsError) {
@@ -176,7 +176,8 @@ export const useConversations = () => {
         string,
         {
           selfLastReadAt: string | null;
-          others: { userId: string; lastReadAt: string | null }[];
+          selfLastReadMessageId: string | null;
+          others: { userId: string; lastReadAt: string | null; lastReadMessageId: string | null }[];
         }
       >();
 
@@ -184,17 +185,19 @@ export const useConversations = () => {
         const convId = row.conversation_id as string;
         const userIdForRow = row.user_id as string;
         const lastReadAt = (row.last_read_at as string | null) ?? null;
+        const lastReadMessageId = (row.last_read_message_id as string | null) ?? null;
 
         let entry = receiptsByConversation.get(convId);
         if (!entry) {
-          entry = { selfLastReadAt: null, others: [] };
+          entry = { selfLastReadAt: null, selfLastReadMessageId: null, others: [] };
           receiptsByConversation.set(convId, entry);
         }
 
         if (userIdForRow === userId) {
           entry.selfLastReadAt = lastReadAt;
+          entry.selfLastReadMessageId = lastReadMessageId;
         } else {
-          entry.others.push({ userId: userIdForRow, lastReadAt });
+          entry.others.push({ userId: userIdForRow, lastReadAt, lastReadMessageId });
         }
       }
 
@@ -255,11 +258,15 @@ export const useConversations = () => {
 
         const receipt = receiptsByConversation.get(convId);
         const selfLastReadAt = receipt?.selfLastReadAt ?? null;
+        const selfLastReadMessageId = receipt?.selfLastReadMessageId ?? null;
 
         const hasUnread =
-          !!lastMessageAt &&
-          (!selfLastReadAt ||
-            new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime());
+          !!lastMessage &&
+          ((selfLastReadMessageId && selfLastReadMessageId !== lastMessage.id) ||
+            (!selfLastReadMessageId &&
+              lastMessageAt &&
+              (!selfLastReadAt ||
+                new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime())));
 
         const lastMessageIsFromSelf = !!lastMessage && (lastMessage.user_id as string) === userId;
 
@@ -269,7 +276,11 @@ export const useConversations = () => {
           const othersReceipts = receipt?.others ?? [];
           const other = othersReceipts[0];
 
-          if (other?.lastReadAt) {
+          if (other?.lastReadMessageId) {
+            if (other.lastReadMessageId === lastMessage.id) {
+              lastMessageSeenByOthers = true;
+            }
+          } else if (other?.lastReadAt) {
             const msgTime = new Date(lastMessageAt).getTime();
             const otherReadTime = new Date(other.lastReadAt).getTime();
             if (

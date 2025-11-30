@@ -499,16 +499,16 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "ratings_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "ratings_title_id_fkey";
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
+          },
+          {
+            foreignKeyName: "ratings_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
           }
         ];
       };
@@ -1586,14 +1586,14 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      privacy_level: 'public' | 'followers_only' | 'private';
-      content_type: 'movie' | 'series' | 'anime';
-      report_status: 'open' | 'in_review' | 'resolved' | 'dismissed';
-      library_status: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
-      episode_status: 'watching' | 'watched' | 'skipped';
-      participant_role: 'member' | 'admin' | 'owner';
       activity_event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';
       title_type: 'movie' | 'series' | 'anime' | 'short';
+      episode_status: 'watching' | 'watched' | 'skipped';
+      library_status: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
+      privacy_level: 'public' | 'followers_only' | 'private';
+      content_type: 'movie' | 'series' | 'anime';
+      participant_role: 'member' | 'admin' | 'owner';
+      report_status: 'open' | 'in_review' | 'resolved' | 'dismissed';
     };
     CompositeTypes: {
       [_ in never]: never;

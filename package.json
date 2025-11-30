@@ -2,15 +2,15 @@
   "name": "movinesta-vite-linked",
   "version": "0.1.0",
   "private": true,
-    "scripts": {
-      "dev": "vite",
-      "build": "vite build && node scripts/copy404.mjs",
-      "preview": "vite preview",
-      "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
-      "format": "prettier \"src/**/*.{ts,tsx,css,md}\" --write",
-      "test": "vitest run",
-      "generate:supabase-types": "node scripts/generate-supabase-types.js"
-    },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/copy404.mjs",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
+    "format": "prettier \"src/**/*.{ts,tsx,css,md}\" --write",
+    "test": "vitest run",
+    "generate:supabase-types": "node scripts/generate-supabase-types.js"
+  },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
