@@ -22,10 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { HeaderSurface } from "../../components/PageChrome";
 import { useAuth } from "../auth/AuthProvider";
-import type {
-  ConversationListItem,
-  ConversationParticipant,
-} from "./useConversations";
+import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
 import { parseMessageText } from "./messageText";
 import { useBlockStatus } from "./useBlockStatus";
@@ -117,9 +114,7 @@ const useConversationMessages = (conversationId: string | null) => {
 
       const { data, error } = await supabase
         .from("messages")
-        .select(
-          "id, conversation_id, sender_id, body, attachment_url, created_at",
-        )
+        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
@@ -153,24 +148,18 @@ const useConversationReadReceipts = (conversationId: string | null) => {
 
       const { data, error } = await supabase
         .from("message_read_receipts")
-        .select(
-          "user_id, conversation_id, last_read_at, last_read_message_id",
-        )
+        .select("user_id, conversation_id, last_read_at, last_read_message_id")
         .eq("conversation_id", conversationId);
 
       if (error) {
-        console.error(
-          "[ConversationPage] Failed to load read receipts",
-          error,
-        );
+        console.error("[ConversationPage] Failed to load read receipts", error);
         throw new Error(error.message);
       }
 
       return (data ?? []).map((row: any) => ({
         userId: row.user_id as string,
         lastReadAt: (row.last_read_at as string | null) ?? null,
-        lastReadMessageId:
-          (row.last_read_message_id as string | null) ?? null,
+        lastReadMessageId: (row.last_read_message_id as string | null) ?? null,
       }));
     },
   });
@@ -189,9 +178,7 @@ const useConversationReactions = (conversationId: string | null) => {
 
       const { data, error } = await supabase
         .from("message_reactions")
-        .select(
-          "id, conversation_id, message_id, user_id, emoji, created_at",
-        )
+        .select("id, conversation_id, message_id, user_id, emoji, created_at")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
@@ -225,17 +212,12 @@ const useConversationDeliveryReceipts = (conversationId: string | null) => {
 
       const { data, error } = await supabase
         .from("message_delivery_receipts")
-        .select(
-          "id, conversation_id, message_id, user_id, delivered_at, created_at",
-        )
+        .select("id, conversation_id, message_id, user_id, delivered_at, created_at")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.error(
-          "[ConversationPage] Failed to load delivery receipts",
-          error,
-        );
+        console.error("[ConversationPage] Failed to load delivery receipts", error);
         throw new Error(error.message);
       }
 
@@ -270,8 +252,8 @@ const useSendMessage = (conversationId: string | null) => {
         attachmentPath && trimmed
           ? { type: "text+image", text: trimmed }
           : attachmentPath
-          ? { type: "image", text: "" }
-          : { type: "text", text: trimmed };
+            ? { type: "image", text: "" }
+            : { type: "text", text: trimmed };
 
       const { data, error } = await supabase
         .from("messages")
@@ -281,9 +263,7 @@ const useSendMessage = (conversationId: string | null) => {
           body: JSON.stringify(bodyPayload),
           attachment_url: attachmentPath ?? null,
         })
-        .select(
-          "id, conversation_id, sender_id, body, attachment_url, created_at",
-        )
+        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
         .single();
 
       if (error) {
@@ -306,21 +286,15 @@ const useSendMessage = (conversationId: string | null) => {
           .update({ updated_at: new Date().toISOString() })
           .eq("id", conversationId);
       } catch (err) {
-        console.error(
-          "[ConversationPage] Failed to update conversation timestamp",
-          err,
-        );
+        console.error("[ConversationPage] Failed to update conversation timestamp", err);
       }
 
       return row;
     },
     onMutate: async ({ text, attachmentPath }) => {
-      if (!conversationId || !userId)
-        return { previousMessages: undefined, tempId: null };
+      if (!conversationId || !userId) return { previousMessages: undefined, tempId: null };
 
-      const tempId = `temp-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`;
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const createdAt = new Date().toISOString();
 
       const optimistic: ConversationMessage = {
@@ -335,20 +309,18 @@ const useSendMessage = (conversationId: string | null) => {
       await queryClient.cancelQueries({
         queryKey: ["conversation", conversationId, "messages"],
       });
-      const previousMessages = queryClient.getQueryData<ConversationMessage[]>(
-        ["conversation", conversationId, "messages"],
-      );
+      const previousMessages = queryClient.getQueryData<ConversationMessage[]>([
+        "conversation",
+        conversationId,
+        "messages",
+      ]);
 
       queryClient.setQueryData<ConversationMessage[]>(
         ["conversation", conversationId, "messages"],
         (existing) => {
           const current = existing ?? [];
           const next = [...current, optimistic];
-          next.sort(
-            (a, b) =>
-              new Date(a.createdAt).getTime() -
-              new Date(b.createdAt).getTime(),
-          );
+          next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           return next;
         },
       );
@@ -382,11 +354,7 @@ const useSendMessage = (conversationId: string | null) => {
             return copy;
           }
           const next = [...withoutTemp, row];
-          next.sort(
-            (a, b) =>
-              new Date(a.createdAt).getTime() -
-              new Date(b.createdAt).getTime(),
-          );
+          next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           return next;
         },
       );
@@ -402,25 +370,16 @@ const useToggleReaction = (conversationId: string | null) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      messageId,
-      emoji,
-    }: {
-      messageId: string;
-      emoji: string;
-    }) => {
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       if (!conversationId) throw new Error("Missing conversation id.");
-      if (!userId)
-        throw new Error("You must be signed in to react to messages.");
+      if (!userId) throw new Error("You must be signed in to react to messages.");
 
-      const { error } = await supabase
-        .from("message_reactions")
-        .insert({
-          conversation_id: conversationId,
-          message_id: messageId,
-          user_id: userId,
-          emoji,
-        });
+      const { error } = await supabase.from("message_reactions").insert({
+        conversation_id: conversationId,
+        message_id: messageId,
+        user_id: userId,
+        emoji,
+      });
 
       if (error) {
         if ((error as any).code === "23505") {
@@ -433,10 +392,7 @@ const useToggleReaction = (conversationId: string | null) => {
             .eq("emoji", emoji);
 
           if (deleteError) {
-            console.error(
-              "[ConversationPage] Failed to remove reaction",
-              deleteError,
-            );
+            console.error("[ConversationPage] Failed to remove reaction", deleteError);
             throw deleteError;
           }
           return;
@@ -453,16 +409,12 @@ const useToggleReaction = (conversationId: string | null) => {
 
       const queryKey = ["conversation", conversationId, "reactions"];
       await queryClient.cancelQueries({ queryKey });
-      const previousReactions =
-        queryClient.getQueryData<MessageReaction[]>(queryKey);
+      const previousReactions = queryClient.getQueryData<MessageReaction[]>(queryKey);
 
       queryClient.setQueryData<MessageReaction[]>(queryKey, (existing) => {
         const current = existing ?? [];
         const existingIdx = current.findIndex(
-          (r) =>
-            r.messageId === messageId &&
-            r.userId === userId &&
-            r.emoji === emoji,
+          (r) => r.messageId === messageId && r.userId === userId && r.emoji === emoji,
         );
 
         if (existingIdx >= 0) {
@@ -508,16 +460,9 @@ const useEditMessage = (conversationId: string | null) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      messageId,
-      text,
-    }: {
-      messageId: string;
-      text: string;
-    }) => {
+    mutationFn: async ({ messageId, text }: { messageId: string; text: string }) => {
       if (!conversationId) throw new Error("Missing conversation id.");
-      if (!userId)
-        throw new Error("You must be signed in to edit messages.");
+      if (!userId) throw new Error("You must be signed in to edit messages.");
 
       const trimmed = text.trim();
       const bodyPayload = {
@@ -533,9 +478,7 @@ const useEditMessage = (conversationId: string | null) => {
         })
         .eq("id", messageId)
         .eq("sender_id", userId)
-        .select(
-          "id, conversation_id, sender_id, body, attachment_url, created_at",
-        )
+        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
         .single();
 
       if (error) {
@@ -574,8 +517,7 @@ const useDeleteMessage = (conversationId: string | null) => {
   return useMutation({
     mutationFn: async ({ messageId }: { messageId: string }) => {
       if (!conversationId) throw new Error("Missing conversation id.");
-      if (!userId)
-        throw new Error("You must be signed in to delete messages.");
+      if (!userId) throw new Error("You must be signed in to delete messages.");
 
       const deletedAt = new Date().toISOString();
       const bodyPayload = {
@@ -593,9 +535,7 @@ const useDeleteMessage = (conversationId: string | null) => {
         })
         .eq("id", messageId)
         .eq("sender_id", userId)
-        .select(
-          "id, conversation_id, sender_id, body, attachment_url, created_at",
-        )
+        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
         .single();
 
       if (error) {
@@ -655,27 +595,16 @@ const ChatImage: React.FC<{ path: string }> = ({ path }) => {
   }, [path]);
 
   if (error) {
-    return (
-      <div className="mt-1 text-[11px] text-mn-text-muted">
-        Image unavailable.
-      </div>
-    );
+    return <div className="mt-1 text-[11px] text-mn-text-muted">Image unavailable.</div>;
   }
 
   if (!url) {
-    return (
-      <div className="mt-1 h-32 w-40 animate-pulse rounded-xl bg-mn-border-subtle/40" />
-    );
+    return <div className="mt-1 h-32 w-40 animate-pulse rounded-xl bg-mn-border-subtle/40" />;
   }
 
   return (
     <div className="mt-1 overflow-hidden rounded-xl border border-mn-border-subtle/70 bg-mn-bg/80">
-      <img
-        src={url}
-        alt="Attachment"
-        className="max-h-64 w-full object-cover"
-        loading="lazy"
-      />
+      <img src={url} alt="Attachment" className="max-h-64 w-full object-cover" loading="lazy" />
     </div>
   );
 };
@@ -690,8 +619,7 @@ const ConversationPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: conversations, isLoading: isConversationsLoading } =
-    useConversations();
+  const { data: conversations, isLoading: isConversationsLoading } = useConversations();
   const {
     data: messages,
     isLoading: isMessagesLoading,
@@ -712,12 +640,8 @@ const ConversationPage: React.FC = () => {
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
   const [showGalleryPicker, setShowGalleryPicker] = useState(false);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(
-    null,
-  );
-  const [selectedImagePreview, setSelectedImagePreview] = useState<
-    string | null
-  >(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -763,11 +687,10 @@ const ConversationPage: React.FC = () => {
     isLoading: isBlockStatusLoading,
     block,
     unblock,
-  } = useBlockStatus(!isGroupConversation ? otherParticipant?.id ?? null : null);
+  } = useBlockStatus(!isGroupConversation ? (otherParticipant?.id ?? null) : null);
 
   const hasMessages = (messages?.length ?? 0) > 0;
-  const isLoading =
-    isConversationsLoading || isMessagesLoading || isBlockStatusLoading;
+  const isLoading = isConversationsLoading || isMessagesLoading || isBlockStatusLoading;
 
   const currentUserId = user?.id ?? null;
 
@@ -809,8 +732,7 @@ const ConversationPage: React.FC = () => {
 
   const { data: readReceipts } = useConversationReadReceipts(conversationId);
   const { data: reactions } = useConversationReactions(conversationId);
-  const { data: deliveryReceipts } =
-    useConversationDeliveryReceipts(conversationId);
+  const { data: deliveryReceipts } = useConversationDeliveryReceipts(conversationId);
 
   const toggleReaction = useToggleReaction(conversationId);
   const editMessageMutation = useEditMessage(conversationId);
@@ -831,10 +753,7 @@ const ConversationPage: React.FC = () => {
   const [editError, setEditError] = useState<string | null>(null);
 
   const reactionsByMessageId = useMemo(() => {
-    const map = new Map<
-      string,
-      { emoji: string; count: number; reactedBySelf: boolean }[]
-    >();
+    const map = new Map<string, { emoji: string; count: number; reactedBySelf: boolean }[]>();
 
     if (!reactions) return map;
 
@@ -880,14 +799,11 @@ const ConversationPage: React.FC = () => {
   useEffect(() => {
     if (!conversationId || !user?.id) return;
 
-    const channel = supabase.channel(
-      `supabase_realtime_typing:conversation:${conversationId}`,
-      {
-        config: {
-          broadcast: { self: false },
-        },
+    const channel = supabase.channel(`supabase_realtime_typing:conversation:${conversationId}`, {
+      config: {
+        broadcast: { self: false },
       },
-    );
+    });
 
     typingChannelRef.current = channel;
 
@@ -914,17 +830,13 @@ const ConversationPage: React.FC = () => {
 
           const timeoutId = window.setTimeout(() => {
             typingTimeoutsRef.current.delete(key);
-            setRemoteTypingUsers((prev) =>
-              prev.filter((name) => name !== displayName),
-            );
+            setRemoteTypingUsers((prev) => prev.filter((name) => name !== displayName));
           }, 4000);
 
           typingTimeoutsRef.current.set(key, timeoutId);
         } else {
           typingTimeoutsRef.current.delete(key);
-          setRemoteTypingUsers((prev) =>
-            prev.filter((name) => name !== displayName),
-          );
+          setRemoteTypingUsers((prev) => prev.filter((name) => name !== displayName));
         }
       })
       .subscribe((status) => {
@@ -932,9 +844,7 @@ const ConversationPage: React.FC = () => {
       });
 
     return () => {
-      typingTimeoutsRef.current.forEach((timeoutId) =>
-        window.clearTimeout(timeoutId),
-      );
+      typingTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       typingTimeoutsRef.current.clear();
 
       if (channel) {
@@ -949,9 +859,7 @@ const ConversationPage: React.FC = () => {
     if (!conversationId) return;
 
     const channel = supabase
-      .channel(
-        `supabase_realtime_messages_publication:conversation:${conversationId}`,
-      )
+      .channel(`supabase_realtime_messages_publication:conversation:${conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -988,16 +896,12 @@ const ConversationPage: React.FC = () => {
             ["conversation", conversationId, "messages"],
             (existing) => {
               const current = existing ?? [];
-              const alreadyExists = current.some(
-                (m) => m.id === newMessage.id,
-              );
+              const alreadyExists = current.some((m) => m.id === newMessage.id);
               if (alreadyExists) return current;
 
               const merged = [...current, newMessage];
               merged.sort(
-                (a, b) =>
-                  new Date(a.createdAt).getTime() -
-                  new Date(b.createdAt).getTime(),
+                (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
               );
               return merged;
             },
@@ -1016,10 +920,7 @@ const ConversationPage: React.FC = () => {
               })
               .then(({ error }) => {
                 if (error) {
-                  console.error(
-                    "[ConversationPage] Failed to insert delivery receipt",
-                    error,
-                  );
+                  console.error("[ConversationPage] Failed to insert delivery receipt", error);
                 }
               })
               .catch((err) => {
@@ -1073,15 +974,9 @@ const ConversationPage: React.FC = () => {
       );
 
     channel.subscribe((status) => {
-      console.log(
-        "[ConversationPage] Realtime channel status (messages)",
-        status,
-      );
+      console.log("[ConversationPage] Realtime channel status (messages)", status);
       if (status === "CHANNEL_ERROR") {
-        console.error(
-          "[ConversationPage] Realtime channel error for messages",
-          status,
-        );
+        console.error("[ConversationPage] Realtime channel error for messages", status);
       }
     });
 
@@ -1092,8 +987,7 @@ const ConversationPage: React.FC = () => {
 
   // Read receipts
   useEffect(() => {
-    if (!conversationId || !messages || messages.length === 0 || !user?.id)
-      return;
+    if (!conversationId || !messages || messages.length === 0 || !user?.id) return;
 
     const last = messages[messages.length - 1];
 
@@ -1125,10 +1019,7 @@ const ConversationPage: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["conversations"] });
       })
       .catch((error) => {
-        console.error(
-          "[ConversationPage] Failed to update read receipt",
-          error,
-        );
+        console.error("[ConversationPage] Failed to update read receipt", error);
       });
   }, [conversationId, messages, user?.id, queryClient]);
 
@@ -1137,9 +1028,7 @@ const ConversationPage: React.FC = () => {
     if (!conversationId) return;
 
     const channel = supabase
-      .channel(
-        `supabase_realtime_read_receipts:conversation:${conversationId}`,
-      )
+      .channel(`supabase_realtime_read_receipts:conversation:${conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -1169,15 +1058,9 @@ const ConversationPage: React.FC = () => {
         },
       )
       .subscribe((status) => {
-        console.log(
-          "[ConversationPage] Realtime channel status (read receipts)",
-          status,
-        );
+        console.log("[ConversationPage] Realtime channel status (read receipts)", status);
         if (status === "CHANNEL_ERROR") {
-          console.error(
-            "[ConversationPage] Realtime channel error for read receipts",
-            status,
-          );
+          console.error("[ConversationPage] Realtime channel error for read receipts", status);
         }
       });
 
@@ -1191,9 +1074,7 @@ const ConversationPage: React.FC = () => {
     if (!conversationId) return;
 
     const channel = supabase
-      .channel(
-        `supabase_realtime_message_reactions:conversation:${conversationId}`,
-      )
+      .channel(`supabase_realtime_message_reactions:conversation:${conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -1209,15 +1090,9 @@ const ConversationPage: React.FC = () => {
         },
       )
       .subscribe((status) => {
-        console.log(
-          "[ConversationPage] Realtime channel status (reactions)",
-          status,
-        );
+        console.log("[ConversationPage] Realtime channel status (reactions)", status);
         if (status === "CHANNEL_ERROR") {
-          console.error(
-            "[ConversationPage] Realtime channel error for reactions",
-            status,
-          );
+          console.error("[ConversationPage] Realtime channel error for reactions", status);
         }
       });
 
@@ -1231,9 +1106,7 @@ const ConversationPage: React.FC = () => {
     if (!conversationId) return;
 
     const channel = supabase
-      .channel(
-        `supabase_realtime_message_delivery_receipts:conversation:${conversationId}`,
-      )
+      .channel(`supabase_realtime_message_delivery_receipts:conversation:${conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -1249,15 +1122,9 @@ const ConversationPage: React.FC = () => {
         },
       )
       .subscribe((status) => {
-        console.log(
-          "[ConversationPage] Realtime channel status (delivery receipts)",
-          status,
-        );
+        console.log("[ConversationPage] Realtime channel status (delivery receipts)", status);
         if (status === "CHANNEL_ERROR") {
-          console.error(
-            "[ConversationPage] Realtime channel error for delivery receipts",
-            status,
-          );
+          console.error("[ConversationPage] Realtime channel error for delivery receipts", status);
         }
       });
 
@@ -1293,8 +1160,7 @@ const ConversationPage: React.FC = () => {
     textarea.style.height = "auto";
     const nextHeight = Math.min(140, textarea.scrollHeight);
     textarea.style.height = `${nextHeight}px`;
-    textarea.style.overflowY =
-      textarea.scrollHeight > nextHeight ? "auto" : "hidden";
+    textarea.style.overflowY = textarea.scrollHeight > nextHeight ? "auto" : "hidden";
   };
 
   useEffect(() => {
@@ -1417,9 +1283,7 @@ const ConversationPage: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleImageSelected = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     event.target.value = "";
@@ -1515,9 +1379,7 @@ const ConversationPage: React.FC = () => {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="max-w-md rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-5 py-6 text-center text-sm text-mn-text-primary shadow-mn-card">
-          <h1 className="text-base font-heading font-semibold">
-            Conversation not found
-          </h1>
+          <h1 className="text-base font-heading font-semibold">Conversation not found</h1>
           <p className="mt-2 text-xs text-mn-text-secondary">
             This page is meant to be opened from your messages list.
           </p>
@@ -1571,37 +1433,30 @@ const ConversationPage: React.FC = () => {
                       />
                     ) : (
                       <span className="text-[13px] font-semibold text-mn-text-primary">
-                        {(otherParticipant.displayName ?? "U")
-                          .slice(0, 2)
-                          .toUpperCase()}
+                        {(otherParticipant.displayName ?? "U").slice(0, 2).toUpperCase()}
                       </span>
                     )
                   ) : (
-                    <Users
-                      className="h-4 w-4 text-mn-text-secondary"
-                      aria-hidden="true"
-                    />
+                    <Users className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
                   )}
                 </div>
               </div>
 
               <div className="min-w-0">
                 <h1 className="truncate text-[15px] font-heading font-semibold text-mn-text-primary">
-                  {conversation?.title ??
-                    otherParticipant?.displayName ??
-                    "Conversation"}
+                  {conversation?.title ?? otherParticipant?.displayName ?? "Conversation"}
                 </h1>
                 <p className="truncate text-[11px] text-mn-text-secondary">
                   {conversation
                     ? conversation.lastMessageAtLabel
                       ? `Active ${conversation.lastMessageAtLabel}`
-                      : conversation.subtitle ??
+                      : (conversation.subtitle ??
                         (isGroupConversation
                           ? `${conversation.participants.length} participants`
-                          : "Active now")
+                          : "Active now"))
                     : isConversationsLoading
-                    ? "Loading…"
-                    : "Details unavailable"}
+                      ? "Loading…"
+                      : "Details unavailable"}
                 </p>
               </div>
             </div>
@@ -1649,10 +1504,7 @@ const ConversationPage: React.FC = () => {
                 className="ml-1 hidden items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 px-3 py-1.5 text-[11px] font-semibold text-mn-text-primary ring-1 ring-mn-border-subtle/70 transition hover:-translate-y-0.5 hover:text-mn-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:opacity-60 sm:inline-flex"
               >
                 {(block.isPending || unblock.isPending) && (
-                  <Loader2
-                    className="h-3 w-3 animate-spin"
-                    aria-hidden="true"
-                  />
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                 )}
                 <span>{youBlocked ? "Unblock" : "Block"}</span>
               </button>
@@ -1671,10 +1523,7 @@ const ConversationPage: React.FC = () => {
               {isLoading && !hasMessages && (
                 <div className="flex h-full items-center justify-center">
                   <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-3 py-1.5 text-[12px] text-mn-text-secondary">
-                    <Loader2
-                      className="h-3.5 w-3.5 animate-spin"
-                      aria-hidden="true"
-                    />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                     <span>Loading messages…</span>
                   </div>
                 </div>
@@ -1682,9 +1531,7 @@ const ConversationPage: React.FC = () => {
 
               {isMessagesError && (
                 <div className="mb-3 rounded-md border border-mn-border-subtle bg-mn-bg/90 px-3 py-2 text-[12px] text-mn-error">
-                  <p className="font-medium">
-                    We couldn&apos;t load this conversation.
-                  </p>
+                  <p className="font-medium">We couldn&apos;t load this conversation.</p>
                   {messagesError instanceof Error && (
                     <p className="mt-1 text-[11px] text-mn-text-secondary">
                       {messagesError.message}
@@ -1697,9 +1544,7 @@ const ConversationPage: React.FC = () => {
                 <div className="flex h-full items-center justify-center">
                   <div className="text-center text-[12px] text-mn-text-secondary">
                     <p className="font-medium">
-                      {isGroupConversation
-                        ? "No messages in this group yet."
-                        : "No messages yet."}
+                      {isGroupConversation ? "No messages in this group yet." : "No messages yet."}
                     </p>
                     <p className="mt-1">
                       {isGroupConversation
@@ -1718,30 +1563,21 @@ const ConversationPage: React.FC = () => {
 
                 const participant = participantsById.get(message.senderId);
                 const isSelf =
-                  participant?.isSelf ??
-                  (user?.id != null && message.senderId === user.id);
+                  participant?.isSelf ?? (user?.id != null && message.senderId === user.id);
 
-                const previous =
-                  index > 0 ? (messages?.[index - 1] ?? null) : null;
+                const previous = index > 0 ? (messages?.[index - 1] ?? null) : null;
                 const next =
-                  index < (messages?.length ?? 0) - 1
-                    ? (messages?.[index + 1] ?? null)
-                    : null;
+                  index < (messages?.length ?? 0) - 1 ? (messages?.[index + 1] ?? null) : null;
 
                 const previousSameSender =
                   previous != null && previous.senderId === message.senderId;
-                const nextSameSender =
-                  next != null && next.senderId === message.senderId;
+                const nextSameSender = next != null && next.senderId === message.senderId;
 
                 const isCloseToPrevious =
                   previousSameSender &&
-                  isWithinGroupingWindow(
-                    previous.createdAt,
-                    message.createdAt,
-                  );
+                  isWithinGroupingWindow(previous.createdAt, message.createdAt);
                 const isCloseToNext =
-                  nextSameSender &&
-                  isWithinGroupingWindow(message.createdAt, next.createdAt);
+                  nextSameSender && isWithinGroupingWindow(message.createdAt, next.createdAt);
 
                 const startsGroup = !(previousSameSender && isCloseToPrevious);
                 const endsGroup = !(nextSameSender && isCloseToNext);
@@ -1749,17 +1585,10 @@ const ConversationPage: React.FC = () => {
                 const showDateDivider =
                   index === 0 ||
                   (previous != null &&
-                    !isSameCalendarDate(
-                      new Date(previous.createdAt),
-                      new Date(message.createdAt),
-                    ));
+                    !isSameCalendarDate(new Date(previous.createdAt), new Date(message.createdAt)));
 
                 const stackSpacing =
-                  index === 0 || showDateDivider
-                    ? "mt-0"
-                    : startsGroup
-                    ? "mt-3"
-                    : "mt-1.5";
+                  index === 0 || showDateDivider ? "mt-0" : startsGroup ? "mt-3" : "mt-1.5";
 
                 const baseBubbleColors = isSelf
                   ? "bg-mn-primary/90 text-white shadow-md shadow-mn-primary/20"
@@ -1777,8 +1606,7 @@ const ConversationPage: React.FC = () => {
                 const bubbleShape = isSelf
                   ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
                   : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl";
-                const name =
-                  participant?.displayName ?? (isSelf ? "You" : "Someone");
+                const name = participant?.displayName ?? (isSelf ? "You" : "Someone");
 
                 const text = isDeletedMessage
                   ? "This message was deleted"
@@ -1786,8 +1614,7 @@ const ConversationPage: React.FC = () => {
 
                 const showAvatarAndName = !isSelf && endsGroup;
 
-                const messageReactions =
-                  reactionsByMessageId.get(message.id) ?? [];
+                const messageReactions = reactionsByMessageId.get(message.id) ?? [];
 
                 const deliveryStatus = getMessageDeliveryStatus(
                   message,
@@ -1798,6 +1625,20 @@ const ConversationPage: React.FC = () => {
                 );
 
                 const isLastOwnMessage = isSelf && lastOwnMessageId === message.id;
+
+                const handleBubbleToggle = () => {
+                  // One tap toggles reaction/action bar.
+                  // If this click comes right after a long press, ignore it so the menu doesn't instantly close.
+                  if (longPressTriggeredRef.current) {
+                    longPressTriggeredRef.current = false;
+                    return;
+                  }
+                  if (activeActionMessageId === message.id) {
+                    setActiveActionMessageId(null);
+                  } else {
+                    openMessageActions(message);
+                  }
+                };
 
                 return (
                   <React.Fragment key={message.id}>
@@ -1848,32 +1689,21 @@ const ConversationPage: React.FC = () => {
                           </>
                         )}
 
-                        <div
+                        <button
+                          type="button"
                           className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors} select-none transition-transform duration-150 ease-out`}
-                          onClick={() => {
-                            // One tap toggles reaction/action bar.
-                            // If this click comes right after a long press, ignore it so the menu doesn't instantly close.
-                            if (longPressTriggeredRef.current) {
-                              longPressTriggeredRef.current = false;
-                              return;
-                            }
-                            if (activeActionMessageId === message.id) {
-                              setActiveActionMessageId(null);
-                            } else {
-                              openMessageActions(message);
-                            }
-                          }}
+                          onClick={handleBubbleToggle}
                           onContextMenu={(event) => {
                             event.preventDefault();
-                            if (activeActionMessageId === message.id) {
-                              setActiveActionMessageId(null);
-                            } else {
-                              openMessageActions(message);
+                            handleBubbleToggle();
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              handleBubbleToggle();
                             }
                           }}
-                          onTouchStart={() =>
-                            handleBubbleTouchStart(message)
-                          }
+                          onTouchStart={() => handleBubbleTouchStart(message)}
                           onTouchEnd={handleBubbleTouchEndOrCancel}
                           onTouchCancel={handleBubbleTouchEndOrCancel}
                         >
@@ -1888,7 +1718,7 @@ const ConversationPage: React.FC = () => {
                               <ChatImage path={message.attachmentUrl} />
                             )}
                           </div>
-                        </div>
+                        </button>
                       </div>
 
                       {messageReactions.length > 0 && (
@@ -1960,8 +1790,7 @@ const ConversationPage: React.FC = () => {
                                   onClick={() => {
                                     setEditingMessage({
                                       messageId: message.id,
-                                      text:
-                                        parseMessageText(message.body) ?? "",
+                                      text: parseMessageText(message.body) ?? "",
                                     });
                                     setEditError(null);
                                     setActiveActionMessageId(null);
@@ -1991,11 +1820,7 @@ const ConversationPage: React.FC = () => {
                         </div>
                       )}
 
-                      <div
-                        className={`flex w-full ${
-                          isSelf ? "justify-end" : "justify-start"
-                        }`}
-                      >
+                      <div className={`flex w-full ${isSelf ? "justify-end" : "justify-start"}`}>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-mn-text-muted">
                           <span>{formatMessageTime(message.createdAt)}</span>
 
@@ -2011,19 +1836,13 @@ const ConversationPage: React.FC = () => {
                           {isSelf && isLastOwnMessage && deliveryStatus && !isDeletedMessage && (
                             <span className="inline-flex items-center gap-0.5">
                               {deliveryStatus.status === "sending" && (
-                                <Loader2
-                                  className="h-3 w-3 animate-spin"
-                                  aria-hidden="true"
-                                />
+                                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                               )}
                               {deliveryStatus.status === "sent" && (
                                 <Check className="h-3 w-3" aria-hidden="true" />
                               )}
                               {deliveryStatus.status === "delivered" && (
-                                <CheckCheck
-                                  className="h-3 w-3"
-                                  aria-hidden="true"
-                                />
+                                <CheckCheck className="h-3 w-3" aria-hidden="true" />
                               )}
                               {deliveryStatus.status === "seen" && (
                                 <>
@@ -2032,9 +1851,7 @@ const ConversationPage: React.FC = () => {
                                     aria-hidden="true"
                                   />
                                   {deliveryStatus.seenAt && (
-                                    <span>
-                                      {formatMessageTime(deliveryStatus.seenAt)}
-                                    </span>
+                                    <span>{formatMessageTime(deliveryStatus.seenAt)}</span>
                                   )}
                                 </>
                               )}
@@ -2053,14 +1870,11 @@ const ConversationPage: React.FC = () => {
                       ? remoteTypingUsers.length === 1
                         ? `${remoteTypingUsers[0]} is typing…`
                         : remoteTypingUsers.length === 2
-                        ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
-                        : "Several people are typing…"
+                          ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
+                          : "Several people are typing…"
                       : "Typing…"}
                   </span>
-                  <span
-                    className="inline-flex items-center gap-0.5"
-                    aria-hidden="true"
-                  >
+                  <span className="inline-flex items-center gap-0.5" aria-hidden="true">
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
@@ -2154,9 +1968,7 @@ const ConversationPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    <p className="font-semibold">
-                      Couldn&apos;t send. Please try again.
-                    </p>
+                    <p className="font-semibold">Couldn&apos;t send. Please try again.</p>
                   </div>
                   {lastFailedText && (
                     <button
@@ -2203,9 +2015,7 @@ const ConversationPage: React.FC = () => {
                     value={draft}
                     ref={textareaRef}
                     onChange={handleDraftChange}
-                    onKeyDown={(
-                      event: React.KeyboardEvent<HTMLTextAreaElement>,
-                    ) => {
+                    onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
                         if (draft.trim()) {
@@ -2241,10 +2051,7 @@ const ConversationPage: React.FC = () => {
 
           {isBlocked && !blockedYou && (
             <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-mn-border-subtle bg-mn-bg/95 px-4 py-3 text-center text-[11px] text-mn-text-muted">
-              <p>
-                You&apos;ve blocked this user. Unblock them to continue the
-                conversation.
-              </p>
+              <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
             </div>
           )}
         </section>
@@ -2255,9 +2062,7 @@ const ConversationPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-[15px] font-semibold text-mn-text-primary">
-                Edit message
-              </h2>
+              <h2 className="text-[15px] font-semibold text-mn-text-primary">Edit message</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -2275,20 +2080,14 @@ const ConversationPage: React.FC = () => {
               <textarea
                 value={editingMessage.text}
                 onChange={(event) =>
-                  setEditingMessage((prev) =>
-                    prev
-                      ? { ...prev, text: event.target.value }
-                      : prev,
-                  )
+                  setEditingMessage((prev) => (prev ? { ...prev, text: event.target.value } : prev))
                 }
                 rows={3}
                 className="w-full resize-none border-0 bg-transparent text-[13px] text-mn-text-primary outline-none focus:outline-none focus:ring-0"
               />
             </div>
 
-            {editError && (
-              <p className="mt-2 text-[11px] text-mn-error">{editError}</p>
-            )}
+            {editError && <p className="mt-2 text-[11px] text-mn-error">{editError}</p>}
 
             <div className="mt-4 flex justify-end gap-2 text-[13px]">
               <button
@@ -2303,9 +2102,7 @@ const ConversationPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={
-                  !editingMessage.text.trim() || editMessageMutation.isPending
-                }
+                disabled={!editingMessage.text.trim() || editMessageMutation.isPending}
                 onClick={() => {
                   const text = editingMessage.text.trim();
                   if (!text) return;
@@ -2320,9 +2117,7 @@ const ConversationPage: React.FC = () => {
                         setEditingMessage(null);
                       },
                       onError: () => {
-                        setEditError(
-                          "Couldn't save changes. Please try again.",
-                        );
+                        setEditError("Couldn't save changes. Please try again.");
                       },
                     },
                   );
@@ -2330,10 +2125,7 @@ const ConversationPage: React.FC = () => {
                 className="inline-flex items-center gap-1 rounded-full bg-mn-primary px-3 py-1.5 text-white shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {editMessageMutation.isPending && (
-                  <Loader2
-                    className="h-3 w-3 animate-spin"
-                    aria-hidden="true"
-                  />
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                 )}
                 <span>Save</span>
               </button>
@@ -2351,9 +2143,7 @@ const ConversationPage: React.FC = () => {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-mn-error/10 text-mn-error">
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </div>
-                <h2 className="text-[15px] font-semibold text-mn-text-primary">
-                  Delete message
-                </h2>
+                <h2 className="text-[15px] font-semibold text-mn-text-primary">Delete message</h2>
               </div>
               <button
                 type="button"
@@ -2366,7 +2156,8 @@ const ConversationPage: React.FC = () => {
             </div>
 
             <p className="mt-3 text-[12px] text-mn-text-secondary">
-              Choose whether to remove this message only from your chat or from the conversation for everyone.
+              Choose whether to remove this message only from your chat or from the conversation for
+              everyone.
             </p>
 
             <div className="mt-5 flex flex-col gap-3">
@@ -2400,10 +2191,7 @@ const ConversationPage: React.FC = () => {
                   className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-mn-error px-3 py-2 text-[13px] font-semibold text-white shadow-mn-soft transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {deleteMessageMutation.isPending && (
-                    <Loader2
-                      className="h-3.5 w-3.5 animate-spin"
-                      aria-hidden="true"
-                    />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   )}
                   <span>Delete for everyone</span>
                 </button>
@@ -2442,8 +2230,7 @@ const ConversationPage: React.FC = () => {
                   Send from your gallery
                 </h2>
                 <p className="text-[12px] text-mn-text-secondary">
-                  Pick a recent photo to drop into the chat—just like Instagram
-                  DMs.
+                  Pick a recent photo to drop into the chat—just like Instagram DMs.
                 </p>
               </div>
             </div>
@@ -2483,10 +2270,7 @@ const ConversationPage: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white الكرةshadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploadingImage ? (
-                    <Loader2
-                      className="h-4 w-4 animate-spin"
-                      aria-hidden="true"
-                    />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
                     <Send className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -2566,9 +2350,7 @@ const getMessageDeliveryStatus = (
 
   const allDeliveryReceipts = deliveryReceipts ?? [];
   const deliveredUsers = allDeliveryReceipts.filter(
-    (r) =>
-      r.messageId === message.id &&
-      otherIds.includes(r.userId),
+    (r) => r.messageId === message.id && otherIds.includes(r.userId),
   );
   const deliveredCount = deliveredUsers.length;
 
@@ -2590,8 +2372,7 @@ const getMessageDeliveryStatus = (
   }
 
   if (seenCount === others.length && others.length > 0) {
-    const seenAtIso =
-      latestSeenAtMs != null ? new Date(latestSeenAtMs).toISOString() : null;
+    const seenAtIso = latestSeenAtMs != null ? new Date(latestSeenAtMs).toISOString() : null;
     return { status: "seen", seenAt: seenAtIso };
   }
 

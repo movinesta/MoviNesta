@@ -254,13 +254,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         fetchingRef.current = false;
       }
     },
-    [
-      appendCards,
-      fetchCombinedBatch,
-      fetchFromSource,
-      kind,
-      limit,
-    ],
+    [appendCards, fetchCombinedBatch, fetchFromSource, kind, limit],
   );
 
   useEffect(() => {
@@ -283,18 +277,15 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     [],
   );
 
-  const trimConsumed = useCallback(
-    (count: number) => {
-      if (count <= 0) return;
-      setCards((prev) => {
-        if (!prev.length) return prev;
-        const next = prev.slice(Math.min(count, prev.length));
-        cardsRef.current = next;
-        return next;
-      });
-    },
-    [],
-  );
+  const trimConsumed = useCallback((count: number) => {
+    if (count <= 0) return;
+    setCards((prev) => {
+      if (!prev.length) return prev;
+      const next = prev.slice(Math.min(count, prev.length));
+      cardsRef.current = next;
+      return next;
+    });
+  }, []);
 
   const swipeMutation = useMutation({
     mutationFn: async ({

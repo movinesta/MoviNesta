@@ -120,7 +120,8 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         supabaseResults = rows.map((row: any): TitleSearchResult => {
           const external = row.external_ratings ?? null;
 
-          const posterUrl = (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null;
+          const posterUrl =
+            (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null;
 
           return {
             id: row.id as string,

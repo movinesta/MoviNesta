@@ -23,12 +23,8 @@ import NotFoundPage from "./modules/misc/NotFoundPage";
 import OnboardingPage from "./modules/misc/OnboardingPage";
 
 const MessagesPage = React.lazy(() => import("./modules/messages/MessagesPage"));
-const ConversationPage = React.lazy(
-  () => import("./modules/messages/ConversationPage"),
-);
-const RealtimeChatPage = React.lazy(
-  () => import("./modules/messages/RealtimeChatPage"),
-);
+const ConversationPage = React.lazy(() => import("./modules/messages/ConversationPage"));
+const RealtimeChatPage = React.lazy(() => import("./modules/messages/RealtimeChatPage"));
 const TitleDetailPage = React.lazy(() => import("./modules/title/TitleDetailPage"));
 
 const SuspenseFallback: React.FC = () => (
@@ -71,20 +67,14 @@ const AppRoutes: React.FC = () => {
             <Route path="/swipe" element={<SwipePage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/messages/realtime" element={<RealtimeChatPage />} />
-            <Route
-              path="/messages/:conversationId"
-              element={<ConversationPage />}
-            />
+            <Route path="/messages/:conversationId" element={<ConversationPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/diary" element={<DiaryPage />} />
             <Route path="/title/:titleId" element={<TitleDetailPage />} />
             <Route path="/u/:username" element={<ProfilePage />} />
             <Route path="/settings/profile" element={<SettingsProfilePage />} />
             <Route path="/settings/account" element={<SettingsAccountPage />} />
-            <Route
-              path="/settings/notifications"
-              element={<SettingsNotificationsPage />}
-            />
+            <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />
             <Route path="/settings/app" element={<SettingsAppPage />} />
           </Route>
         </Route>
