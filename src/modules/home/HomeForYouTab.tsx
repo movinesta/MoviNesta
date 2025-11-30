@@ -94,6 +94,7 @@ interface TitleBasicRow {
   runtime_minutes: number | null;
   type?: string | null;
   poster_url?: string | null;
+  backdrop_url?: string | null;
   external_ratings?: {
     imdb_rating: number | null;
     rt_tomato_meter: number | null;
@@ -103,6 +104,11 @@ interface TitleBasicRow {
 interface FollowsRow {
   followed_id: string;
 }
+
+const getPosterWithFallback = (
+  posterUrl?: string | null,
+  backdropUrl?: string | null,
+): string | null => posterUrl ?? backdropUrl ?? null;
 
 const fetchHomeRecommendations = async (
   userId: string,
@@ -213,7 +219,7 @@ const fetchHomeRecommendations = async (
   const animeResult = await supabase
     .from("titles")
     .select(
-      "id, title, year, runtime_minutes, type, poster_url, external_ratings (imdb_rating, rt_tomato_meter)",
+      "id, title, year, runtime_minutes, type, poster_url, backdrop_url, external_ratings (imdb_rating, rt_tomato_meter)",
     )
     .eq("type", "anime")
     .order("year", { ascending: false })
@@ -244,7 +250,7 @@ const fetchHomeRecommendations = async (
   const titlesResult = await supabase
     .from("titles")
     .select(
-      `id, title, year, runtime_minutes, type, poster_url, external_ratings (imdb_rating, rt_tomato_meter)`,
+      `id, title, year, runtime_minutes, type, poster_url, backdrop_url, external_ratings (imdb_rating, rt_tomato_meter)`,
     )
     .in("id", allTitleIds);
 
@@ -285,7 +291,7 @@ const fetchHomeRecommendations = async (
           ? "Animated, emotional, and perfect for a late-night binge."
           : "Feels like the right vibe for tonight based on your recent watches.",
       friendsWatchingCount: friendRatings.filter((row) => row.title_id === seedTitleId).length,
-      posterUrl: t.poster_url ?? null,
+      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
       imdbRating: t.external_ratings?.imdb_rating ?? null,
       rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
     };
@@ -311,7 +317,7 @@ const fetchHomeRecommendations = async (
       year: t.year ?? new Date().getFullYear(),
       friendsWatchingCount,
       moodTag: t.type === "anime" ? "Anime night" : "Friends love this",
-      posterUrl: t.poster_url ?? null,
+      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
       imdbRating: t.external_ratings?.imdb_rating ?? null,
       rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
     });
@@ -343,7 +349,7 @@ const fetchHomeRecommendations = async (
         name: t.title ?? "Untitled",
         year: t.year ?? new Date().getFullYear(),
         matchReason: `On your watchlist after ${seedTitle.title ?? "that favorite"}.`,
-        posterUrl: t.poster_url ?? null,
+        posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
         imdbRating: t.external_ratings?.imdb_rating ?? null,
         rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
       });
@@ -372,7 +378,7 @@ const fetchHomeRecommendations = async (
       name: t.title ?? "Untitled",
       year: t.year ?? new Date().getFullYear(),
       matchReason: "Anime in your catalog and trending in MoviNesta.",
-      posterUrl: t.poster_url ?? null,
+      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
       imdbRating: t.external_ratings?.imdb_rating ?? null,
       rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
     });
@@ -412,7 +418,7 @@ const fetchHomeRecommendations = async (
       year: t.year ?? new Date().getFullYear(),
       runtimeMinutes: t.runtime_minutes ?? undefined,
       matchReason,
-      posterUrl: t.poster_url ?? null,
+      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
       imdbRating: er?.imdb_rating ?? null,
       rtTomatoMeter: er?.rt_tomato_meter ?? null,
     });

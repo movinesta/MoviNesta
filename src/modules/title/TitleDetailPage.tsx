@@ -185,6 +185,8 @@ const TitleDetailPage: React.FC = () => {
   if (data.year) metaPieces.push(String(data.year));
   if (data.type) metaPieces.push(data.type);
 
+  const posterImage = data.poster_url ?? data.backdrop_url;
+
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-5xl flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
       {data.backdrop_url && (
@@ -208,9 +210,9 @@ const TitleDetailPage: React.FC = () => {
       <PageSection>
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="w-28 flex-shrink-0 sm:w-32 md:w-40">
-            {data.poster_url ? (
+            {posterImage ? (
               <img
-                src={data.poster_url}
+                src={posterImage}
                 alt={data.title ?? "Poster"}
                 className="aspect-[2/3] w-full rounded-mn-card object-cover shadow-mn-card"
               />

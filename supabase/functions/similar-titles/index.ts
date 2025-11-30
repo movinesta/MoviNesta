@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
       type,
       runtime_minutes,
       poster_url,
+      backdrop_url,
       tmdb_popularity,
       title_stats (
         avg_rating,
@@ -193,7 +194,8 @@ Deno.serve(async (req) => {
         year: (meta.year as number | null) ?? null,
         runtimeMinutes: (meta.runtime_minutes as number | null) ?? null,
         type: (meta.type as string | null) ?? null,
-        posterUrl: (meta.poster_url as string | null) ?? null,
+        posterUrl:
+          (meta.poster_url as string | null) ?? (meta.backdrop_url as string | null) ?? null,
         scores: {
           similarity,
           quality: qualityScore,

@@ -302,6 +302,7 @@ Deno.serve(async (req) => {
       imdb_id,
       type,
       poster_url,
+      backdrop_url,
       runtime_minutes,
       synopsis,
       title_stats (
@@ -382,7 +383,7 @@ Deno.serve(async (req) => {
       mood: null,
       vibeTag: null,
       type: (t.type as string | null) ?? null,
-      posterUrl: (t.poster_url as string | null) ?? null,
+      posterUrl: (t.poster_url as string | null) ?? (t.backdrop_url as string | null) ?? null,
       friendLikesCount: watchCount,
       topFriendName: null,
       topFriendInitials: null,

@@ -375,6 +375,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             runtime_minutes,
             synopsis,
             poster_url,
+            backdrop_url,
             external_ratings (
               imdb_rating,
               rt_tomato_meter
@@ -397,7 +398,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             tagline: row.synopsis ?? null,
             imdbRating: row.external_ratings?.imdb_rating ?? null,
             rtTomatoMeter: row.external_ratings?.rt_tomato_meter ?? null,
-            posterUrl: row.poster_url ?? null,
+            posterUrl: row.poster_url ?? row.backdrop_url ?? null,
             source,
           }));
           console.debug(
