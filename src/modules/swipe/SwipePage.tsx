@@ -21,8 +21,7 @@ const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const formatRuntime = (minutes?: number | null): string | null => {
   if (!minutes || minutes <= 0) return null;
@@ -51,9 +50,7 @@ interface CardMetadataProps {
 const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   const runtimeLabel = formatRuntime(card.runtimeMinutes);
   const hasImdbRating =
-    typeof card.imdbRating === "number" &&
-    !Number.isNaN(card.imdbRating) &&
-    card.imdbRating > 0;
+    typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating) && card.imdbRating > 0;
   const hasTomatometer =
     typeof card.rtTomatoMeter === "number" &&
     !Number.isNaN(card.rtTomatoMeter) &&
@@ -74,17 +71,13 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
           <h2 className="truncate text-2xl font-heading font-semibold text-mn-text-primary">
             {card.title}
           </h2>
-          <p className="text-[12px] text-mn-text-secondary">
-            {metaPieces.join(" · ")}
-          </p>
+          <p className="text-[12px] text-mn-text-secondary">{metaPieces.join(" · ")}</p>
         </div>
         <span className="mt-1 text-[10px]" />
       </div>
 
       {card.tagline && (
-        <p className="line-clamp-3 text-[12px] text-mn-text-secondary">
-          {card.tagline}
-        </p>
+        <p className="line-clamp-3 text-[12px] text-mn-text-secondary">{card.tagline}</p>
       )}
     </div>
   );
@@ -98,7 +91,9 @@ const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
       </div>
       <span className="text-[12px] font-semibold">Artwork unavailable</span>
       {title && (
-        <span className="max-w-[240px] truncate text-[11px] text-mn-text-secondary/80">for {title}</span>
+        <span className="max-w-[240px] truncate text-[11px] text-mn-text-secondary/80">
+          for {title}
+        </span>
       )}
     </div>
   </div>
@@ -203,9 +198,7 @@ const SwipePage: React.FC = () => {
 
   useEffect(() => {
     const hasSeen =
-      typeof window !== "undefined"
-        ? localStorage.getItem(ONBOARDING_STORAGE_KEY)
-        : null;
+      typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
     setShowOnboarding(!hasSeen);
   }, []);
 
@@ -388,9 +381,7 @@ const SwipePage: React.FC = () => {
     lastMoveTime.current = now;
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = window.requestAnimationFrame(
-      () => setCardTransform(dragDelta.current),
-    );
+    rafRef.current = window.requestAnimationFrame(() => setCardTransform(dragDelta.current));
   };
 
   const finishDrag = () => {
@@ -545,12 +536,10 @@ const SwipePage: React.FC = () => {
               {showOnboarding && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-mn-bg/70 via-mn-bg/50 to-mn-bg/80">
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
-                    <p className="text-sm font-semibold text-mn-text-primary">
-                      Swipe to decide
-                    </p>
+                    <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to pass or right to like. You can also use
-                      the buttons below.
+                      Drag the card left to pass or right to like. You can also use the buttons
+                      below.
                     </p>
                     <button
                       type="button"

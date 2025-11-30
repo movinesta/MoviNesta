@@ -92,20 +92,18 @@ const MessagesPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase
-      .channel("supabase_realtime_messages_publication:messages-list")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
-        (payload) => {
-          console.log("[MessagesPage] Realtime message for list", payload);
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
-        },
-      );
+    const channel = supabase.channel("supabase_realtime_messages_publication:messages-list").on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      (payload) => {
+        console.log("[MessagesPage] Realtime message for list", payload);
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      },
+    );
 
     channel.subscribe((status) => {
       console.log("[MessagesPage] Realtime channel status (list)", status);
@@ -119,10 +117,7 @@ const MessagesPage: React.FC = () => {
   const trimmedQuery = query.trim().toLowerCase();
   const hasQuery = trimmedQuery.length > 0;
 
-  const totalUnread = useMemo(
-    () => (data ?? []).filter((conv) => conv.hasUnread).length,
-    [data],
-  );
+  const totalUnread = useMemo(() => (data ?? []).filter((conv) => conv.hasUnread).length, [data]);
 
   const conversations = useMemo(
     () =>
@@ -141,9 +136,7 @@ const MessagesPage: React.FC = () => {
             conv.subtitle,
             conv.lastMessagePreview ?? "",
             ...conv.participants.map((p) => p.displayName),
-            ...conv.participants
-              .map((p) => p.username)
-              .filter((u): u is string => Boolean(u)),
+            ...conv.participants.map((p) => p.username).filter((u): u is string => Boolean(u)),
           ]
             .join(" ")
             .toLowerCase();
@@ -323,8 +316,8 @@ const MessagesPage: React.FC = () => {
                                 />
                               ) : (
                                 (participant.displayName?.[0]?.toUpperCase() ??
-                                  participant.username?.[0]?.toUpperCase() ??
-                                  "?")
+                                participant.username?.[0]?.toUpperCase() ??
+                                "?")
                               )}
                             </span>
                           ))}
@@ -373,9 +366,7 @@ const MessagesPage: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        <span className="shrink-0 text-[11px] text-mn-text-muted">
-                          {timeLabel}
-                        </span>
+                        <span className="shrink-0 text-[11px] text-mn-text-muted">{timeLabel}</span>
                       </div>
                       <p
                         className={`truncate text-[12px] ${
