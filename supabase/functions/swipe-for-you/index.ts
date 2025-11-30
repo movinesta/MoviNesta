@@ -31,10 +31,6 @@ type SwipeCardData = {
   rtTomatoMeter?: number | null;
 };
 
-type SwipeDeckResponse = {
-  cards: SwipeCardData[];
-};
-
 type RequestBody = {
   limit?: number;
 };
@@ -54,88 +50,10 @@ function normalizeRating(rating: number | null | undefined): number {
   return Math.max(0, Math.min(1, rating / 5));
 }
 
-async function buildTrendingFallback(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  limit: number,
-): Promise<SwipeCardData[]> {
-  // Take popular titles we already have in our DB as a safe fallback.
-  const { data: popularTitles, error: popularError } = await supabase
-    .from("titles")
-    .select(
-      `
-      id,
-      title,
-      year,
-      type,
-      runtime_minutes,
-      poster_url,
-      backdrop_url,
-      tmdb_popularity,
-      synopsis
-    `,
-    )
-    .order("tmdb_popularity", { ascending: false, nullsLast: true })
-    .limit(limit * 3);
-
-  if (popularError || !popularTitles?.length) {
-    console.warn("[swipe-for-you] trending fallback titles error:", popularError?.message);
-    return [];
-  }
-
-  // Exclude titles the user has rated already.
-  const { data: userRatings } = await supabase
-    .from("ratings")
-    .select("title_id, rating")
-    .eq("user_id", userId);
-
-  const ratedSet = new Set((userRatings ?? []).map((r: any) => r.title_id as string));
-
-  // Library entries for watchlist info.
-  const { data: libraryRows } = await supabase
-    .from("library_entries")
-    .select("title_id, status")
-    .eq("user_id", userId);
-
-  const libraryByTitle = new Map<string, any>();
-  for (const row of libraryRows ?? []) {
-    libraryByTitle.set(row.title_id as string, row);
-  }
-
-  const cards: SwipeCardData[] = [];
-
-  for (const row of popularTitles) {
-    const id = row.id as string;
-    if (ratedSet.has(id)) continue;
-
-    const synopsis = (row.synopsis as string | null) ?? "";
-    const tagline =
-      synopsis.length > 0 ? synopsis.slice(0, 120).trimEnd() + (synopsis.length > 120 ? "…" : "") : null;
-
-    const libraryRow = libraryByTitle.get(id);
-
-    cards.push({
-      id,
-      title: (row.title as string | null) ?? "Untitled",
-      year: (row.year as number | null) ?? null,
-      runtimeMinutes: (row.runtime_minutes as number | null) ?? null,
-      tagline,
-      mood: null,
-      vibeTag: null,
-      type: (row.type as string | null) ?? null,
-      posterUrl: (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null,
-      friendLikesCount: null,
-      topFriendName: null,
-      topFriendInitials: null,
-      topFriendReviewSnippet: null,
-      initialRating: null,
-      initiallyInWatchlist: libraryRow?.status === "want_to_watch",
-    });
-
-    if (cards.length >= limit) break;
-  }
-
-  return cards;
+function respond(cards: SwipeCardData[]): Response {
+  return new Response(JSON.stringify({ cards }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req) => {
@@ -192,14 +110,8 @@ Deno.serve(async (req) => {
     return rating >= 3.5;
   });
 
-  // If we really have nothing to go on, fall back to popular titles.
-  if (positiveRatings.length === 0) {
-    const cards = await buildTrendingFallback(supabase, user.id, limit);
-    const response: SwipeDeckResponse = { cards };
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  // If we really have nothing to go on, return an empty set.
+  if (positiveRatings.length === 0) return respond([]);
 
   const ratedIds = Array.from(new Set(positiveRatings.map((r) => r.title_id as string)));
 
@@ -219,13 +131,7 @@ Deno.serve(async (req) => {
   }
 
   const firstEmbedding = embedRows?.[0]?.embedding as number[] | undefined;
-  if (!firstEmbedding || !Array.isArray(firstEmbedding) || firstEmbedding.length === 0) {
-    const cards = await buildTrendingFallback(supabase, user.id, limit);
-    const response: SwipeDeckResponse = { cards };
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (!firstEmbedding || !Array.isArray(firstEmbedding) || firstEmbedding.length === 0) return respond([]);
 
   const dims = firstEmbedding.length;
   const now = Date.now();
@@ -252,13 +158,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (weightSum <= 0) {
-    const cards = await buildTrendingFallback(supabase, user.id, limit);
-    const response: SwipeDeckResponse = { cards };
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (weightSum <= 0) return respond([]);
 
   for (let i = 0; i < dims; i++) {
     userEmbedding[i] /= weightSum;
@@ -273,11 +173,7 @@ Deno.serve(async (req) => {
 
   if (matchError) {
     console.error("[swipe-for-you] match_titles error:", matchError.message);
-    const cards = await buildTrendingFallback(supabase, user.id, limit);
-    const response: SwipeDeckResponse = { cards };
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return respond([]);
   }
 
   const ratedSet = new Set((ratings ?? []).map((r) => r.title_id as string));
@@ -287,13 +183,7 @@ Deno.serve(async (req) => {
 
   const candidateIds = candidateMatches.slice(0, limit * 4).map((m: any) => m.title_id as string);
 
-  if (candidateIds.length === 0) {
-    const cards = await buildTrendingFallback(supabase, user.id, limit);
-    const response: SwipeDeckResponse = { cards };
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (candidateIds.length === 0) return respond([]);
 
   // 4) Load title metadata + ratings + external ratings
   const { data: titleRows, error: titleError } = await supabase
@@ -429,13 +319,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!internal.length) {
-    const cards = await buildTrendingFallback(supabase, user.id, limit);
-    const response: SwipeDeckResponse = { cards };
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (!internal.length) return respond([]);
 
   const cardsScored = internal.map((c) => {
     const contentSim = c.similarity;
@@ -495,9 +379,5 @@ Deno.serve(async (req) => {
     };
   });
 
-  const response: SwipeDeckResponse = { cards };
-
-  return new Response(JSON.stringify(response), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return respond(cards);
 });
