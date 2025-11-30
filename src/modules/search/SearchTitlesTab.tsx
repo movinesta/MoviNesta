@@ -69,15 +69,23 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     toSync.forEach((item) => {
       already.add(item.id);
       supabase.functions
-        .invoke("sync-title-metadata", {
+        .invoke("catalog-sync", {
           body: {
-            imdbId: item.imdbId ?? undefined,
-            tmdbId: item.tmdbId ?? undefined,
-            type: item.type ?? "movie",
+            mode: "title",
+            external: {
+              tmdbId: item.tmdbId ?? undefined,
+              imdbId: item.imdbId ?? undefined,
+              type: item.type === "series" ? "tv" : "movie",
+            },
+            options: {
+              syncOmdb: true,
+              syncYoutube: true,
+              forceRefresh: false,
+            },
           },
         })
         .catch((err) => {
-          console.warn("[SearchTitlesTab] sync-title-metadata failed for", item.id, err);
+          console.warn("[SearchTitlesTab] catalog-sync failed for", item.id, err);
         });
     });
   }, [data]);
