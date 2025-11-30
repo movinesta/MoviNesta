@@ -26,6 +26,23 @@ export interface TitleSearchResult {
   tmdbId: number | null;
 }
 
+interface TitleRow {
+  id: string;
+  title: string | null;
+  year: number | null;
+  type: TitleType | null;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  original_language: string | null;
+  age_rating: string | null;
+  imdb_id: string | null;
+  tmdb_id: number | null;
+  external_ratings?: {
+    imdb_rating: number | null;
+    rt_tomato_meter: number | null;
+  } | null;
+}
+
 /**
  * useSearchTitles
  *
@@ -109,32 +126,31 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
 
       let supabaseResults: TitleSearchResult[] = [];
       try {
-        const { data, error } = await builder;
+        const { data, error } = await builder.returns<TitleRow[]>();
 
         if (error) {
           throw new Error(error.message);
         }
 
-        const rows = (data ?? []) as any[];
+        const rows = data ?? [];
 
-        supabaseResults = rows.map((row: any): TitleSearchResult => {
+        supabaseResults = rows.map((row): TitleSearchResult => {
           const external = row.external_ratings ?? null;
 
-          const posterUrl =
-            (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null;
+          const posterUrl = row.poster_url ?? row.backdrop_url ?? null;
 
           return {
-            id: row.id as string,
-            title: (row.title as string | null) ?? "Untitled",
-            year: (row.year as number | null) ?? null,
-            type: (row.type as TitleType | null) ?? null,
+            id: row.id,
+            title: row.title ?? "Untitled",
+            year: row.year,
+            type: row.type,
             posterUrl,
-            originalLanguage: (row.original_language as string | null) ?? null,
-            ageRating: (row.age_rating as string | null) ?? null,
+            originalLanguage: row.original_language,
+            ageRating: row.age_rating,
             imdbRating: external?.imdb_rating ?? null,
             rtTomatoMeter: external?.rt_tomato_meter ?? null,
-            imdbId: (row.imdb_id as string | null) ?? null,
-            tmdbId: (row.tmdb_id as number | null) ?? null,
+            imdbId: row.imdb_id,
+            tmdbId: row.tmdb_id,
           };
         });
       } catch (err) {

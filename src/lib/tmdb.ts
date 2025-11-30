@@ -2,6 +2,18 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 const TMDB_READ_TOKEN = import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN;
 
+type TmdbTitleResult = {
+  id?: number;
+  media_type?: string;
+  title?: string;
+  name?: string;
+  overview?: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  poster_path?: string | null;
+  vote_average?: number;
+};
+
 function buildHeaders() {
   const headers: Record<string, string> = { accept: "application/json" };
   if (TMDB_READ_TOKEN) {
@@ -68,11 +80,16 @@ export async function fetchTrendingTitles(limit = 20): Promise<TmdbTitle[]> {
     page: 1,
   });
 
-  const results = (body?.results ?? []) as any[];
-  if (!Array.isArray(results)) return [];
+  const results = Array.isArray(body?.results) ? (body.results as TmdbTitleResult[]) : [];
 
   return results
-    .filter((item) => item && (item.media_type === "movie" || item.media_type === "tv") && item.id)
+    .filter((item): item is TmdbTitleResult & { id: number; media_type: "movie" | "tv" } => {
+      return Boolean(
+        item &&
+          typeof item.id === "number" &&
+          (item.media_type === "movie" || item.media_type === "tv"),
+      );
+    })
     .slice(0, limit)
     .map((item) => {
       const releaseDate = item.release_date ?? item.first_air_date ?? null;

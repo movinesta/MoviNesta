@@ -10,6 +10,20 @@ interface SearchPeopleTabProps {
   query: string;
 }
 
+interface ConversationParticipantRow {
+  conversation_id: string;
+}
+
+interface ConversationRow {
+  id: string;
+  is_group: boolean;
+  updated_at: string;
+}
+
+interface NewConversationRow {
+  id: string;
+}
+
 const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const trimmedQuery = query.trim();
   const { data, isLoading, isError, error } = useSearchPeople(trimmedQuery);
@@ -41,15 +55,14 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
       const { data: myParticipantRows, error: myParticipantsError } = await supabase
         .from("conversation_participants")
         .select("conversation_id")
+        .returns<ConversationParticipantRow[]>()
         .eq("user_id", myUserId);
 
       if (myParticipantsError) {
         throw myParticipantsError;
       }
 
-      const myConversationIds = (myParticipantRows ?? []).map(
-        (row: any) => row.conversation_id as string,
-      );
+      const myConversationIds = (myParticipantRows ?? []).map((row) => row.conversation_id);
 
       let directConversationId: string | null = null;
 
@@ -58,6 +71,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
         const { data: theirParticipantRows, error: theirParticipantsError } = await supabase
           .from("conversation_participants")
           .select("conversation_id")
+          .returns<ConversationParticipantRow[]>()
           .eq("user_id", targetUserId)
           .in("conversation_id", myConversationIds);
 
@@ -66,7 +80,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
         }
 
         const sharedConversationIds = Array.from(
-          new Set((theirParticipantRows ?? []).map((row: any) => row.conversation_id as string)),
+          new Set((theirParticipantRows ?? []).map((row) => row.conversation_id)),
         );
 
         if (sharedConversationIds.length > 0) {
@@ -74,6 +88,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
           const { data: existingConversations, error: conversationsError } = await supabase
             .from("conversations")
             .select("id, is_group, updated_at")
+            .returns<ConversationRow[]>()
             .in("id", sharedConversationIds)
             .eq("is_group", false)
             .order("updated_at", { ascending: false })
@@ -84,7 +99,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
           }
 
           if (existingConversations && existingConversations.length > 0) {
-            directConversationId = existingConversations[0].id as string;
+            directConversationId = existingConversations[0].id;
           }
         }
       }
@@ -99,13 +114,13 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
             created_by: myUserId,
           })
           .select("id")
-          .single();
+          .single<NewConversationRow>();
 
         if (newConvError) {
           throw newConvError;
         }
 
-        const conversationId = newConversation?.id as string;
+        const conversationId = newConversation?.id ?? null;
 
         const { error: participantsInsertError } = await supabase
           .from("conversation_participants")
@@ -134,11 +149,13 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
       }
 
       navigate(`/messages/${directConversationId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[SearchPeopleTab] Failed to start conversation", err);
-      alert(
-        err?.message ?? "Something went wrong while starting the conversation. Please try again.",
-      );
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while starting the conversation. Please try again.";
+      alert(message);
     } finally {
       setStartingConversationFor(null);
     }

@@ -13,6 +13,10 @@ interface ToggleFollowResult {
   isFollowing: boolean;
 }
 
+const isErrorWithCode = (error: unknown): error is { code?: string } => {
+  return typeof error === "object" && error !== null && "code" in error;
+};
+
 /**
  * useToggleFollow
  *
@@ -54,7 +58,7 @@ export const useToggleFollow = () => {
       });
 
       // Ignore "duplicate key" errors (race conditions).
-      if (error && (error as any).code !== "23505") {
+      if (error && (!isErrorWithCode(error) || error.code !== "23505")) {
         throw error;
       }
 
