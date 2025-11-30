@@ -97,7 +97,15 @@ Deno.serve(async (req) => {
     libraryStatus = "dropped";
   }
 
-  if (ratingValue !== null) {
+  const { data: titleRow } = await supabase
+    .from("titles")
+    .select("content_type")
+    .eq("title_id", titleId)
+    .maybeSingle();
+
+  const contentType = titleRow?.content_type ?? null;
+
+  if (ratingValue !== null && contentType) {
     const { data: existingRating, error: selectRatingError } = await supabase
       .from("ratings")
       .select("id")
@@ -126,6 +134,7 @@ Deno.serve(async (req) => {
         .insert({
           user_id: user.id,
           title_id: titleId,
+          content_type: contentType,
           rating: ratingValue,
         });
       if (insertRatingError) {
@@ -134,7 +143,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (libraryStatus !== null) {
+  if (libraryStatus !== null && contentType) {
     const { data: existingEntry, error: selectLibError } = await supabase
       .from("library_entries")
       .select("id")
@@ -163,6 +172,7 @@ Deno.serve(async (req) => {
         .insert({
           user_id: user.id,
           title_id: titleId,
+          content_type: contentType,
           status: libraryStatus,
         });
       if (insertLibError) {
