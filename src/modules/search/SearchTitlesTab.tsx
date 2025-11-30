@@ -232,15 +232,18 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         {results.map((item) => {
           const metaPieces: string[] = [];
           if (item.type) {
-            metaPieces.push(
+            const typeLabel =
               item.type === "movie"
                 ? "Movie"
                 : item.type === "series"
                   ? "Series"
                   : item.type === "anime"
                     ? "Anime"
-                    : "Short",
-            );
+                    : null;
+
+            if (typeLabel) {
+              metaPieces.push(typeLabel);
+            }
           }
           if (item.ageRating) {
             metaPieces.push(item.ageRating);

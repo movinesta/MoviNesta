@@ -92,8 +92,8 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       if (titleIds.length) {
         const { data: titles, error: titlesError } = await supabase
           .from("titles")
-          .select("id, title, year, poster_url, backdrop_url")
-          .in("id", titleIds);
+          .select("title_id:id, primary_title:title, release_year:year, poster_url, backdrop_url")
+          .in("title_id", titleIds);
 
         if (!titlesError && titles) {
           titlesById = new Map((titles as TitleRow[]).map((t) => [t.id, t]));

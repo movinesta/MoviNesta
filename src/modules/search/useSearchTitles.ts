@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { searchExternalTitles } from "./externalMovieSearch";
 
-export type TitleType = "movie" | "series" | "anime" | "short";
+export type TitleType = "movie" | "series" | "anime";
 
 export interface TitleSearchFilters {
   type?: TitleType | "all";
@@ -28,19 +28,18 @@ export interface TitleSearchResult {
 
 interface TitleRow {
   id: string;
-  title: string | null;
-  year: number | null;
-  type: TitleType | null;
+  primary_title: string | null;
+  original_title: string | null;
+  release_year: number | null;
+  content_type: TitleType | null;
   poster_url: string | null;
   backdrop_url: string | null;
-  original_language: string | null;
-  age_rating: string | null;
-  imdb_id: string | null;
+  language: string | null;
+  omdb_rated: string | null;
+  omdb_imdb_id: string | null;
   tmdb_id: number | null;
-  external_ratings?: {
-    imdb_rating: number | null;
-    rt_tomato_meter: number | null;
-  } | null;
+  imdb_rating: number | null;
+  omdb_rt_rating_pct: number | null;
 }
 
 /**
@@ -59,20 +58,19 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
     enabled: trimmedQuery.length > 0,
     queryFn: async () => {
       const columns = `
-        id,
-        title,
-        year,
-        type,
+        title_id:id,
+        primary_title,
+        original_title,
+        release_year,
+        content_type,
         poster_url,
         backdrop_url,
-        original_language,
-        age_rating,
-        imdb_id,
+        language,
+        omdb_rated,
+        omdb_imdb_id,
         tmdb_id,
-        external_ratings (
-          imdb_rating,
-          rt_tomato_meter
-        )
+        imdb_rating,
+        omdb_rt_rating_pct
       `;
       const selectColumns = filters?.genreIds?.length
         ? `${columns}, title_genres!inner(genre_id, genres(id, name))`
@@ -80,7 +78,7 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
       let builder = supabase
         .from("titles")
         .select(selectColumns, { distinct: true })
-        .order("year", { ascending: false })
+        .order("release_year", { ascending: false })
         .limit(30);
 
       if (trimmedQuery) {
@@ -95,29 +93,26 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
          * This hook keeps all DB work in Supabase and only falls back to OMDb
          * via `searchExternalTitles` when the local catalog has no matches.
          */
-        if (trimmedQuery.length >= 3) {
-          builder = builder.textSearch("search_vector", trimmedQuery, {
-            type: "plain",
-          });
-        } else {
-          builder = builder.ilike("title", `%${trimmedQuery}%`);
-        }
+        const ilikeQuery = `%${trimmedQuery}%`;
+        builder = builder.or(
+          `primary_title.ilike.${ilikeQuery},original_title.ilike.${ilikeQuery}`,
+        );
       }
 
       if (filters?.type && filters.type !== "all") {
-        builder = builder.eq("type", filters.type);
+        builder = builder.eq("content_type", filters.type);
       }
 
       if (typeof filters?.minYear === "number") {
-        builder = builder.gte("year", filters.minYear);
+        builder = builder.gte("release_year", filters.minYear);
       }
 
       if (typeof filters?.maxYear === "number") {
-        builder = builder.lte("year", filters.maxYear);
+        builder = builder.lte("release_year", filters.maxYear);
       }
 
       if (filters?.originalLanguage) {
-        builder = builder.eq("original_language", filters.originalLanguage);
+        builder = builder.eq("language", filters.originalLanguage);
       }
 
       if (filters?.genreIds?.length) {
@@ -135,21 +130,19 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         const rows = data ?? [];
 
         supabaseResults = rows.map((row): TitleSearchResult => {
-          const external = row.external_ratings ?? null;
-
           const posterUrl = row.poster_url ?? row.backdrop_url ?? null;
 
           return {
             id: row.id,
-            title: row.title ?? "Untitled",
-            year: row.year,
-            type: row.type,
+            title: row.primary_title ?? row.original_title ?? "Untitled",
+            year: row.release_year,
+            type: row.content_type,
             posterUrl,
-            originalLanguage: row.original_language,
-            ageRating: row.age_rating,
-            imdbRating: external?.imdb_rating ?? null,
-            rtTomatoMeter: external?.rt_tomato_meter ?? null,
-            imdbId: row.imdb_id,
+            originalLanguage: row.language,
+            ageRating: row.omdb_rated,
+            imdbRating: row.imdb_rating,
+            rtTomatoMeter: row.omdb_rt_rating_pct,
+            imdbId: row.omdb_imdb_id,
             tmdbId: row.tmdb_id,
           };
         });

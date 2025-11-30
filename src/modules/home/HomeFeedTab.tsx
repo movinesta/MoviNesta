@@ -348,8 +348,8 @@ const fetchHomeFeed = async (
     titleIds.length
       ? supabase
           .from("titles")
-          .select("id, title, year, poster_url, backdrop_url")
-          .in("id", titleIds)
+          .select("title_id:id, primary_title:title, release_year:year, poster_url, backdrop_url")
+          .in("title_id", titleIds)
       : Promise.resolve({ data: [] as TitleRow[], error: null }),
     actorUserIds.length
       ? supabase

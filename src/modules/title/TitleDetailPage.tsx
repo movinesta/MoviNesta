@@ -7,20 +7,17 @@ import TopBar from "../../components/shared/TopBar";
 import { useSimilarTitles } from "./useSimilarTitles";
 import { supabase } from "../../lib/supabase";
 
-interface ExternalRatingsRow {
-  imdb_rating: number | null;
-  rt_tomato_meter: number | null;
-  metacritic_score: number | null;
-}
-
 interface TitleRow {
   id: string;
-  title: string | null;
-  year: number | null;
-  type: string | null;
+  primary_title: string | null;
+  original_title: string | null;
+  release_year: number | null;
+  content_type: string | null;
   poster_url: string | null;
   backdrop_url: string | null;
-  external_ratings: ExternalRatingsRow | null;
+  imdb_rating: number | null;
+  omdb_rt_rating_pct: number | null;
+  metascore: number | null;
 }
 
 function useTrailerForTitle(title?: string | null, year?: number | null) {
@@ -51,25 +48,32 @@ function useTrailerForTitle(title?: string | null, year?: number | null) {
   });
 }
 
-type ExternalRatingsProps = {
-  external_ratings: ExternalRatingsRow | null;
+type RatingsProps = {
+  imdb_rating: number | null;
+  omdb_rt_rating_pct: number | null;
+  metascore: number | null;
 };
 
-const ExternalRatingsChips: React.FC<ExternalRatingsProps> = ({ external_ratings }) => {
-  if (!external_ratings) return null;
+const ExternalRatingsChips: React.FC<RatingsProps> = ({
+  imdb_rating,
+  omdb_rt_rating_pct,
+  metascore,
+}) => {
+  const hasAnyRating =
+    (typeof imdb_rating === "number" && imdb_rating > 0) ||
+    (typeof omdb_rt_rating_pct === "number" && omdb_rt_rating_pct > 0) ||
+    (typeof metascore === "number" && metascore > 0);
 
-  const { imdb_rating, rt_tomato_meter, metacritic_score } = external_ratings;
+  if (!hasAnyRating) return null;
 
   const hasImdbRating =
     typeof imdb_rating === "number" && !Number.isNaN(imdb_rating) && imdb_rating > 0;
   const hasTomatometer =
-    typeof rt_tomato_meter === "number" && !Number.isNaN(rt_tomato_meter) && rt_tomato_meter > 0;
+    typeof omdb_rt_rating_pct === "number" &&
+    !Number.isNaN(omdb_rt_rating_pct) &&
+    omdb_rt_rating_pct > 0;
   const hasMetacriticScore =
-    typeof metacritic_score === "number" && !Number.isNaN(metacritic_score) && metacritic_score > 0;
-
-  if (!hasImdbRating && !hasTomatometer && !hasMetacriticScore) {
-    return null;
-  }
+    typeof metascore === "number" && !Number.isNaN(metascore) && metascore > 0;
 
   return (
     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-mn-text-muted">
@@ -83,14 +87,14 @@ const ExternalRatingsChips: React.FC<ExternalRatingsProps> = ({ external_ratings
       {hasTomatometer && (
         <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
           <span className="mr-1 font-semibold">Tomatometer</span>
-          {rt_tomato_meter}%
+          {omdb_rt_rating_pct}%
         </span>
       )}
 
       {hasMetacriticScore && (
         <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
           <span className="mr-1 font-semibold">MC</span>
-          {metacritic_score}
+          {metascore}
         </span>
       )}
     </div>
@@ -110,20 +114,19 @@ const TitleDetailPage: React.FC = () => {
         .from("titles")
         .select(
           `
-          id,
-          title,
-          year,
-          type,
+          title_id:id,
+          primary_title,
+          original_title,
+          release_year,
+          content_type,
           poster_url,
           backdrop_url,
-          external_ratings (
-            imdb_rating,
-            rt_tomato_meter,
-            metacritic_score
-          )
+          imdb_rating,
+          omdb_rt_rating_pct,
+          metascore
         `,
         )
-        .eq("id", titleId)
+        .eq("title_id", titleId)
         .maybeSingle();
 
       if (error) {
@@ -134,7 +137,10 @@ const TitleDetailPage: React.FC = () => {
     },
   });
 
-  const trailerQuery = useTrailerForTitle(data?.title ?? null, data?.year ?? null);
+  const trailerQuery = useTrailerForTitle(
+    data?.primary_title ?? data?.original_title ?? null,
+    data?.release_year ?? null,
+  );
   const trailer = trailerQuery.data;
   const similarQuery = useSimilarTitles(titleId ?? null);
 
@@ -181,9 +187,10 @@ const TitleDetailPage: React.FC = () => {
     );
   }
 
+  const displayTitle = data.primary_title ?? data.original_title ?? "Untitled";
   const metaPieces: string[] = [];
-  if (data.year) metaPieces.push(String(data.year));
-  if (data.type) metaPieces.push(data.type);
+  if (data.release_year) metaPieces.push(String(data.release_year));
+  if (data.content_type) metaPieces.push(data.content_type);
 
   const posterImage = data.poster_url ?? data.backdrop_url;
 
@@ -193,7 +200,7 @@ const TitleDetailPage: React.FC = () => {
         <div className="relative overflow-hidden rounded-3xl border border-mn-border-subtle bg-mn-bg-elevated/80 shadow-mn-soft">
           <img
             src={data.backdrop_url}
-            alt={data.title ?? "Backdrop"}
+            alt={displayTitle}
             className="h-48 w-full object-cover sm:h-56 md:h-64"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mn-bg/90 via-mn-bg/30 to-transparent" />
@@ -201,11 +208,15 @@ const TitleDetailPage: React.FC = () => {
       )}
 
       <TopBar
-        title={data.title ?? "Untitled"}
+        title={displayTitle}
         subtitle={metaPieces.length > 0 ? metaPieces.join(" · ") : "Title details"}
       />
 
-      <ExternalRatingsChips external_ratings={data.external_ratings} />
+      <ExternalRatingsChips
+        imdb_rating={data.imdb_rating}
+        omdb_rt_rating_pct={data.omdb_rt_rating_pct}
+        metascore={data.metascore}
+      />
 
       <PageSection>
         <div className="flex flex-col gap-4 md:flex-row">
@@ -213,7 +224,7 @@ const TitleDetailPage: React.FC = () => {
             {posterImage ? (
               <img
                 src={posterImage}
-                alt={data.title ?? "Poster"}
+                alt={displayTitle}
                 className="aspect-[2/3] w-full rounded-mn-card object-cover shadow-mn-card"
               />
             ) : (
@@ -238,7 +249,7 @@ const TitleDetailPage: React.FC = () => {
                   <iframe
                     className="h-full w-full rounded-2xl"
                     src={`https://www.youtube.com/embed/${trailer.videoId}`}
-                    title={`${data.title ?? "Trailer"}`}
+                    title={`${displayTitle ?? "Trailer"}`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />

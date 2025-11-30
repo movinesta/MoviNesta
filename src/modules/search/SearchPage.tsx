@@ -10,7 +10,7 @@ import SearchPeopleTab from "./SearchPeopleTab";
 
 type SearchTabKey = "titles" | "people";
 
-const validTypes: TitleSearchFilters["type"][] = ["all", "movie", "series", "anime", "short"];
+const validTypes: TitleSearchFilters["type"][] = ["all", "movie", "series", "anime"];
 
 const parseTabFromParams = (params: URLSearchParams): SearchTabKey => {
   const tabParam = params.get("tab");
@@ -340,7 +340,6 @@ const SearchPage: React.FC = () => {
                       { key: "movie", label: "Movies" },
                       { key: "series", label: "Series" },
                       { key: "anime", label: "Anime" },
-                      { key: "short", label: "Shorts" },
                     ] as const
                   ).map((option) => {
                     const isActive = titleFilters.type === option.key;

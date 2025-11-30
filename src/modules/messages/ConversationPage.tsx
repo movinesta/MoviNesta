@@ -114,7 +114,7 @@ const useConversationMessages = (conversationId: string | null) => {
 
       const { data, error } = await supabase
         .from("messages")
-        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
+        .select("id, conversation_id, user_id, body, attachment_url, created_at")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
@@ -126,7 +126,7 @@ const useConversationMessages = (conversationId: string | null) => {
       return (data ?? []).map((row: any) => ({
         id: row.id as string,
         conversationId: row.conversation_id as string,
-        senderId: row.sender_id as string,
+        senderId: row.user_id as string,
         body: (row.body as string | null) ?? null,
         attachmentUrl: (row.attachment_url as string | null) ?? null,
         createdAt: row.created_at as string,
@@ -259,11 +259,11 @@ const useSendMessage = (conversationId: string | null) => {
         .from("messages")
         .insert({
           conversation_id: conversationId,
-          sender_id: userId,
+          user_id: userId,
           body: JSON.stringify(bodyPayload),
           attachment_url: attachmentPath ?? null,
         })
-        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
+        .select("id, conversation_id, user_id, body, attachment_url, created_at")
         .single();
 
       if (error) {
@@ -274,7 +274,7 @@ const useSendMessage = (conversationId: string | null) => {
       const row: ConversationMessage = {
         id: data.id as string,
         conversationId: data.conversation_id as string,
-        senderId: data.sender_id as string,
+        senderId: data.user_id as string,
         body: (data.body as string | null) ?? null,
         attachmentUrl: (data.attachment_url as string | null) ?? null,
         createdAt: data.created_at as string,
@@ -477,8 +477,8 @@ const useEditMessage = (conversationId: string | null) => {
           body: JSON.stringify(bodyPayload),
         })
         .eq("id", messageId)
-        .eq("sender_id", userId)
-        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
+        .eq("user_id", userId)
+        .select("id, conversation_id, user_id, body, attachment_url, created_at")
         .single();
 
       if (error) {
@@ -489,7 +489,7 @@ const useEditMessage = (conversationId: string | null) => {
       const updated: ConversationMessage = {
         id: data.id as string,
         conversationId: data.conversation_id as string,
-        senderId: data.sender_id as string,
+        senderId: data.user_id as string,
         body: (data.body as string | null) ?? null,
         attachmentUrl: (data.attachment_url as string | null) ?? null,
         createdAt: data.created_at as string,
@@ -534,8 +534,8 @@ const useDeleteMessage = (conversationId: string | null) => {
           attachment_url: null,
         })
         .eq("id", messageId)
-        .eq("sender_id", userId)
-        .select("id, conversation_id, sender_id, body, attachment_url, created_at")
+        .eq("user_id", userId)
+        .select("id, conversation_id, user_id, body, attachment_url, created_at")
         .single();
 
       if (error) {
@@ -546,7 +546,7 @@ const useDeleteMessage = (conversationId: string | null) => {
       const updated: ConversationMessage = {
         id: data.id as string,
         conversationId: data.conversation_id as string,
-        senderId: data.sender_id as string,
+        senderId: data.user_id as string,
         body: (data.body as string | null) ?? null,
         attachmentUrl: (data.attachment_url as string | null) ?? null,
         createdAt: data.created_at as string,
@@ -873,20 +873,20 @@ const ConversationPage: React.FC = () => {
           const row = payload.new as {
             id: string;
             conversation_id: string;
-            sender_id: string;
+            user_id: string;
             body: string | null;
             attachment_url: string | null;
             created_at: string;
           };
 
-          if (user?.id && row.sender_id === user.id) {
+          if (user?.id && row.user_id === user.id) {
             return;
           }
 
           const newMessage: ConversationMessage = {
             id: row.id,
             conversationId: row.conversation_id,
-            senderId: row.sender_id,
+            senderId: row.user_id,
             body: row.body,
             attachmentUrl: row.attachment_url,
             createdAt: row.created_at,
@@ -910,7 +910,7 @@ const ConversationPage: React.FC = () => {
           queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
           // Insert delivery receipt on the receiver client
-          if (user?.id && row.sender_id !== user.id) {
+          if (user?.id && row.user_id !== user.id) {
             supabase
               .from("message_delivery_receipts")
               .insert({
@@ -944,7 +944,7 @@ const ConversationPage: React.FC = () => {
           const row = payload.new as {
             id: string;
             conversation_id: string;
-            sender_id: string;
+            user_id: string;
             body: string | null;
             attachment_url: string | null;
             created_at: string;
@@ -953,7 +953,7 @@ const ConversationPage: React.FC = () => {
           const updatedMessage: ConversationMessage = {
             id: row.id,
             conversationId: row.conversation_id,
-            senderId: row.sender_id,
+            senderId: row.user_id,
             body: row.body,
             attachmentUrl: row.attachment_url,
             createdAt: row.created_at,
