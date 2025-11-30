@@ -7,15 +7,46 @@ import { useSearchTitles, type TitleSearchFilters } from "./useSearchTitles";
 interface SearchTitlesTabProps {
   query: string;
   filters: TitleSearchFilters;
+  onResetFilters?: () => void;
 }
 
-const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => {
+const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onResetFilters }) => {
   const trimmedQuery = query.trim();
 
   const { data, isLoading, isError, error } = useSearchTitles({
     query: trimmedQuery,
     filters,
   });
+
+  const activeFilterLabels = React.useMemo(() => {
+    const labels: string[] = [];
+
+    if (filters.type && filters.type !== "all") {
+      labels.push(`Type: ${filters.type.charAt(0).toUpperCase()}${filters.type.slice(1)}`);
+    }
+
+    if (filters.minYear || filters.maxYear) {
+      const min = filters.minYear ?? "Any";
+      const max = filters.maxYear ?? "Now";
+      labels.push(`Years ${min}–${max}`);
+    }
+
+    if (filters.originalLanguage) {
+      labels.push(`Language ${filters.originalLanguage.toUpperCase()}`);
+    }
+
+    return labels;
+  }, [filters.maxYear, filters.minYear, filters.originalLanguage, filters.type]);
+
+  const hasFiltersApplied =
+    filters.type !== "all" ||
+    typeof filters.minYear === "number" ||
+    typeof filters.maxYear === "number" ||
+    Boolean(filters.originalLanguage);
+
+  const filterSummary = activeFilterLabels.length
+    ? activeFilterLabels.join(" • ")
+    : "No filters applied";
 
   // Lazily trigger metadata sync (TMDb + OMDb) for titles that are missing external ratings.
   // We only fire a few per search to avoid spamming the edge function.
@@ -134,30 +165,66 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
   if (!results.length) {
     return (
       <div className="space-y-3">
-        <p className="text-[12px] text-mn-text-secondary">
-          No titles found for{" "}
-          <span className="rounded border border-mn-border-subtle/80 bg-mn-bg px-1.5 py-0.5 text-[11px] font-medium text-mn-text-primary">
-            &ldquo;{trimmedQuery}&rdquo;
-          </span>
-          . Try another spelling, or a different title.
-        </p>
+        <div className="space-y-1">
+          <p className="text-[12px] text-mn-text-secondary">
+            No titles found for{" "}
+            <span className="rounded border border-mn-border-subtle/80 bg-mn-bg px-1.5 py-0.5 text-[11px] font-medium text-mn-text-primary">
+              &ldquo;{trimmedQuery}&rdquo;
+            </span>
+            . Try another spelling, a different title, or adjust your filters.
+          </p>
+          {hasFiltersApplied ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg/70 px-2 py-1 text-[10px] text-mn-text-secondary">
+              <SlidersHorizontal className="h-3 w-3" aria-hidden />
+              <span className="leading-tight">
+                Filters are active:{" "}
+                {filterSummary === "No filters applied" ? "custom options" : filterSummary}.
+              </span>
+              {onResetFilters ? (
+                <button
+                  type="button"
+                  onClick={onResetFilters}
+                  className="rounded-full bg-mn-primary/10 px-2 py-1 text-[10px] font-semibold text-mn-primary transition hover:bg-mn-primary/15"
+                >
+                  Reset filters
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-mn-text-secondary">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-mn-text-secondary" aria-live="polite">
           Showing {results.length} title{results.length === 1 ? "" : "s"} for{" "}
           <span className="rounded border border-mn-border-subtle/80 bg-mn-bg px-1.5 py-0.5 text-[11px] font-medium text-mn-text-primary">
             &ldquo;{trimmedQuery}&rdquo;
           </span>
           .
         </p>
-        <div className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-muted">
-          <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
-          <span>Filters coming soon</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex max-w-[60%] items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-muted">
+            <SlidersHorizontal className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span
+              className="line-clamp-2 text-left leading-tight text-mn-text-secondary"
+              aria-live="polite"
+            >
+              {filterSummary}
+            </span>
+          </div>
+          {hasFiltersApplied && onResetFilters ? (
+            <button
+              type="button"
+              onClick={onResetFilters}
+              className="inline-flex items-center gap-1 rounded-full border border-transparent bg-mn-primary/10 px-2 py-1 text-[10px] font-semibold text-mn-primary transition hover:bg-mn-primary/15"
+            >
+              Reset filters
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -181,20 +248,19 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
           if (item.originalLanguage) {
             metaPieces.push(item.originalLanguage.toUpperCase());
           }
-          if (
+
+          const imdbRating =
             typeof item.imdbRating === "number" &&
             !Number.isNaN(item.imdbRating) &&
             item.imdbRating > 0
-          ) {
-            metaPieces.push(`IMDb Rating ${item.imdbRating.toFixed(1)}`);
-          }
-          if (
+              ? item.imdbRating
+              : null;
+          const rtRating =
             typeof item.rtTomatoMeter === "number" &&
             !Number.isNaN(item.rtTomatoMeter) &&
             item.rtTomatoMeter > 0
-          ) {
-            metaPieces.push(`Tomatometer ${item.rtTomatoMeter}%`);
-          }
+              ? item.rtTomatoMeter
+              : null;
 
           return (
             <li key={item.id}>
@@ -202,22 +268,59 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters }) => 
                 to={`/title/${item.id}`}
                 className="flex gap-3 px-3 py-2 transition hover:bg-mn-border-subtle/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
               >
-                <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-mn-primary/20 text-mn-primary">
-                  <Film className="h-4 w-4" aria-hidden="true" />
+                <div className="relative mt-0.5 h-16 w-12 shrink-0 overflow-hidden rounded-md bg-mn-border-subtle/50">
+                  {item.posterUrl ? (
+                    <img
+                      src={item.posterUrl}
+                      alt={`Poster for ${item.title}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-mn-primary/70">
+                      <Film className="h-5 w-5" aria-hidden="true" />
+                      <span className="sr-only">No poster available</span>
+                    </div>
+                  )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-mn-text-primary">
-                    {item.title}
-                    {item.year ? (
-                      <span className="ml-1 text-[11px] font-normal text-mn-text-muted">
-                        ({item.year})
-                      </span>
-                    ) : null}
-                  </p>
-                  {metaPieces.length > 0 && (
-                    <p className="mt-0.5 text-[11px] text-mn-text-secondary">
-                      {metaPieces.join(" • ")}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-[13px] font-medium text-mn-text-primary">
+                      {item.title}
+                      {item.year ? (
+                        <span className="ml-1 text-[11px] font-normal text-mn-text-muted">
+                          ({item.year})
+                        </span>
+                      ) : null}
                     </p>
+                    <div
+                      className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] text-mn-text-secondary"
+                      aria-live="polite"
+                    >
+                      {imdbRating ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-0.5 font-semibold text-mn-text-primary">
+                          <Star className="h-3 w-3 text-amber-500" aria-hidden />
+                          IMDb {imdbRating.toFixed(1)}
+                        </span>
+                      ) : null}
+                      {rtRating ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-0.5 font-semibold text-mn-text-primary">
+                          <span aria-hidden className="text-[12px]">
+                            🍅
+                          </span>
+                          RT {rtRating}%
+                        </span>
+                      ) : null}
+                      {!imdbRating && !rtRating ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg px-2 py-0.5 font-medium text-mn-text-muted">
+                          <Star className="h-3 w-3 text-mn-text-muted" aria-hidden />
+                          Not rated yet
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  {metaPieces.length > 0 && (
+                    <p className="text-[11px] text-mn-text-secondary">{metaPieces.join(" • ")}</p>
                   )}
                 </div>
               </Link>
