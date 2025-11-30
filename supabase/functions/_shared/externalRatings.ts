@@ -4,16 +4,14 @@ const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 
 export type TitleLikeRow = {
-  id: string;
+  title_id: string;
   tmdb_id?: number | null;
-  imdb_id?: string | null;
-  type?: string | null;
-  external_ratings?: {
-    imdb_rating?: number | null;
-    rt_tomato_meter?: number | null;
-    imdb_votes?: number | null;
-    last_synced_at?: string | null;
-  } | null;
+  omdb_imdb_id?: string | null;
+  content_type?: string | null;
+  imdb_rating?: number | null;
+  imdb_votes?: number | null;
+  omdb_rt_rating_pct?: number | null;
+  last_synced_at?: string | null;
 };
 
 async function fetchTmdbJson(path: string): Promise<any | null> {
@@ -78,13 +76,11 @@ async function fetchOmdbRatings(imdbId: string): Promise<{
 
 function needsSync(row?: TitleLikeRow): boolean {
   if (!row) return false;
-  const ext = row.external_ratings;
-  if (!ext) return true;
   const hasRatings =
-    typeof ext.imdb_rating === "number" || typeof ext.rt_tomato_meter === "number";
+    typeof row.imdb_rating === "number" || typeof row.omdb_rt_rating_pct === "number";
   if (!hasRatings) return true;
-  if (!ext.last_synced_at) return true;
-  const last = new Date(ext.last_synced_at).getTime();
+  if (!row.last_synced_at) return true;
+  const last = new Date(row.last_synced_at).getTime();
   const ageDays = (Date.now() - last) / (1000 * 60 * 60 * 24);
   return ageDays > 14;
 }
@@ -98,16 +94,19 @@ export async function syncExternalRatingsForTitles(
   for (const title of titles) {
     if (!needsSync(title)) continue;
 
-    let imdbId = title.imdb_id ?? null;
+    let imdbId = title.omdb_imdb_id ?? null;
     if (!imdbId && title.tmdb_id) {
       const tmdb = await fetchTmdbExternalIds(
         title.tmdb_id,
-        (title.type as string) === "series" ? "tv" : "movie",
+        (title.content_type as string) === "series" ? "tv" : "movie",
       );
       imdbId = tmdb?.imdb_id ?? null;
 
       if (imdbId) {
-        await supabase.from("titles").update({ imdb_id: imdbId }).eq("id", title.id);
+        await supabase
+          .from("titles")
+          .update({ omdb_imdb_id: imdbId })
+          .eq("title_id", title.title_id);
       }
     }
 
@@ -115,32 +114,29 @@ export async function syncExternalRatingsForTitles(
 
     const omdb = await fetchOmdbRatings(imdbId);
     const payload = {
-      title_id: title.id,
       imdb_rating: omdb.imdbRating,
       imdb_votes: omdb.imdbVotes,
-      rt_tomato_meter: omdb.rtTomatoMeter,
+      omdb_rt_rating_pct: omdb.rtTomatoMeter,
+      omdb_imdb_id: imdbId,
+      updated_at: new Date().toISOString(),
       last_synced_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from("external_ratings")
-      .upsert(payload, { onConflict: "title_id" })
-      .select("imdb_rating, rt_tomato_meter, imdb_votes, last_synced_at")
-      .maybeSingle();
+    const { error } = await supabase
+      .from("titles")
+      .update(payload)
+      .eq("title_id", title.title_id);
 
     if (error) {
-      console.warn("[external-ratings] failed to upsert external_ratings", error.message);
+      console.warn("[external-ratings] failed to update titles", error.message);
       continue;
     }
 
-    title.external_ratings = {
-      ...(title.external_ratings ?? {}),
-      imdb_rating: data?.imdb_rating ?? payload.imdb_rating,
-      rt_tomato_meter: data?.rt_tomato_meter ?? payload.rt_tomato_meter,
-      imdb_votes: data?.imdb_votes ?? payload.imdb_votes,
-      last_synced_at: data?.last_synced_at ?? payload.last_synced_at,
-    };
-    title.imdb_id = imdbId;
+    title.imdb_rating = payload.imdb_rating;
+    title.omdb_rt_rating_pct = payload.omdb_rt_rating_pct;
+    title.omdb_imdb_id = imdbId;
+    title.imdb_votes = payload.imdb_votes ?? null;
+    title.last_synced_at = payload.last_synced_at;
   }
 
   return titles;

@@ -191,21 +191,19 @@ Deno.serve(async (req) => {
     .from("titles")
     .select(
       `
-      id,
-      title,
-      year,
-      type,
+      title_id,
+      primary_title,
+      release_year,
+      content_type,
       poster_url,
       backdrop_url,
       runtime_minutes,
-      synopsis,
-      external_ratings (
-        imdb_rating,
-        rt_tomato_meter
-      )
+      plot,
+      imdb_rating,
+      omdb_rt_rating_pct
     `,
     )
-    .in("id", titleIds);
+    .in("title_id", titleIds);
 
   if (titlesError) {
     console.error("[swipe-from-friends] titlesError:", titlesError);
@@ -220,7 +218,7 @@ Deno.serve(async (req) => {
   const cards: SwipeCardData[] = [];
 
   for (const row of titleRows) {
-    const group = groupByTitle.get(row.id as string);
+    const group = groupByTitle.get(row.title_id as string);
     if (!group) continue;
 
     const friendCount = group.friendIds.length;
@@ -239,23 +237,21 @@ Deno.serve(async (req) => {
       .toUpperCase()
       .slice(0, 2);
 
-    const synopsis: string | null = row.synopsis ?? null;
+    const synopsis: string | null = row.plot ?? null;
     const shortTagline =
       synopsis && synopsis.length > 110
         ? synopsis.slice(0, 107) + "…"
         : synopsis;
 
-    const er = row.external_ratings ?? null;
-
     cards.push({
-      id: row.id as string,
-      title: (row.title as string | null) ?? "Untitled",
-      year: (row.year as number | null) ?? null,
+      id: row.title_id as string,
+      title: (row.primary_title as string | null) ?? "Untitled",
+      year: (row.release_year as number | null) ?? null,
       runtimeMinutes: (row.runtime_minutes as number | null) ?? null,
       tagline: shortTagline,
       mood: null,
       vibeTag: null,
-      type: (row.type as string | null) ?? null,
+      type: (row.content_type as string | null) ?? null,
       posterUrl: (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null,
       friendLikesCount: friendCount,
       topFriendName: displayName,
@@ -263,8 +259,8 @@ Deno.serve(async (req) => {
       topFriendReviewSnippet: null,
       initialRating: null,
       initiallyInWatchlist: false,
-      imdbRating: er?.imdb_rating ?? null,
-      rtTomatoMeter: er?.rt_tomato_meter ?? null,
+      imdbRating: (row.imdb_rating as number | null) ?? null,
+      rtTomatoMeter: (row.omdb_rt_rating_pct as number | null) ?? null,
     });
 
     if (cards.length >= limit) break;

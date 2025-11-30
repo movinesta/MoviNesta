@@ -6,7 +6,6 @@ import { syncExternalRatingsForTitles } from "../_shared/externalRatings.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,38 +54,6 @@ async function fetchTmdbJson(path: string) {
   }
 
   return await res.json();
-}
-
-// Embeddings DISABLED: this is a no-op.
-// We always return null so nothing is written into title_embeddings.
-async function createEmbedding(input: string): Promise<number[] | null> {
-  if (!OPENAI_API_KEY) return null;
-
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "text-embedding-3-large",
-      input,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error(
-      "[sync-title-metadata] OpenAI embeddings error",
-      res.status,
-      await res.text(),
-    );
-    return null;
-  }
-
-  const json = await res.json();
-  const vector = json.data?.[0]?.embedding;
-  if (!Array.isArray(vector)) return null;
-  return vector as number[];
 }
 
 Deno.serve(async (req) => {
@@ -139,11 +106,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 1. If we only have IMDb ID, resolve to TMDb via /find
   if (!tmdbId && imdbId) {
-    const findPath = `/find/${encodeURIComponent(
-      imdbId,
-    )}?external_source=imdb_id`;
+    const findPath = `/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`;
     const found = await fetchTmdbJson(findPath);
     if (!found) {
       return new Response("TMDb find failed", {
@@ -152,9 +116,7 @@ Deno.serve(async (req) => {
       });
     }
     const result =
-      tmdbMediaType === "tv"
-        ? found?.tv_results?.[0]
-        : found?.movie_results?.[0];
+      tmdbMediaType === "tv" ? found?.tv_results?.[0] : found?.movie_results?.[0];
     if (result?.id) tmdbId = result.id;
   }
 
@@ -165,7 +127,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 2. Fetch TMDb details
   const tmdbPath = tmdbMediaType === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
   const tmdb = await fetchTmdbJson(tmdbPath);
   if (!tmdb) {
@@ -178,7 +139,7 @@ Deno.serve(async (req) => {
   const title = tmdb.title ?? tmdb.name ?? "Untitled";
   const overview = tmdb.overview ?? null;
   const releaseDate = tmdb.release_date ?? tmdb.first_air_date ?? null;
-  const year = releaseDate ? Number(releaseDate.slice(0, 4)) : null;
+  const year = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
   const runtimeMinutes =
     (tmdb.runtime as number | undefined) ??
     (Array.isArray(tmdb.episode_run_time) && tmdb.episode_run_time[0]) ??
@@ -196,31 +157,29 @@ Deno.serve(async (req) => {
     ? `https://image.tmdb.org/t/p/w780${tmdb.backdrop_path}`
     : null;
 
-  // 2b. Ensure we always have a non-null title id
-  // Try to find an existing title row by tmdb_id or imdb_id, otherwise generate a new id.
   let titleId: string | null = null;
 
   if (tmdbId) {
     const { data: existingByTmdb } = await supabase
       .from("titles")
-      .select("id")
+      .select("title_id")
       .eq("tmdb_id", tmdbId)
       .maybeSingle();
 
-    if (existingByTmdb?.id) {
-      titleId = existingByTmdb.id as string;
+    if (existingByTmdb?.title_id) {
+      titleId = existingByTmdb.title_id as string;
     }
   }
 
   if (!titleId && imdbId) {
     const { data: existingByImdb } = await supabase
       .from("titles")
-      .select("id")
-      .eq("imdb_id", imdbId)
+      .select("title_id")
+      .eq("omdb_imdb_id", imdbId)
       .maybeSingle();
 
-    if (existingByImdb?.id) {
-      titleId = existingByImdb.id as string;
+    if (existingByImdb?.title_id) {
+      titleId = existingByImdb.title_id as string;
     }
   }
 
@@ -228,31 +187,45 @@ Deno.serve(async (req) => {
     titleId = crypto.randomUUID();
   }
 
-  const storedType =
-    type ?? (tmdbMediaType === "tv" ? "series" : "movie");
+  const storedType = type ?? (tmdbMediaType === "tv" ? "series" : "movie");
+
+  const genres = Array.isArray(tmdb.genres)
+    ? tmdb.genres.map((g: any) => g.name).filter(Boolean)
+    : [];
 
   const row = {
-    id: titleId,
-    title,
-    type: storedType,
-    year,
-    synopsis: overview,
-    runtime_minutes: runtimeMinutes,
+    title_id: titleId,
+    content_type: storedType,
+    primary_title: title,
+    original_title: tmdb.original_title ?? tmdb.original_name ?? null,
+    sort_title: title,
+    release_year: year,
     release_date: releaseDate,
-    original_language: originalLanguage,
-    imdb_id: imdbId,
-    tmdb_id: tmdbId,
+    runtime_minutes: runtimeMinutes,
+    language: originalLanguage,
     poster_url: posterUrl,
     backdrop_url: backdropUrl,
+    plot: overview,
+    genres: genres.length ? genres : null,
+    omdb_imdb_id: imdbId,
+    tmdb_id: tmdbId,
+    tmdb_title: tmdb.title ?? tmdb.name ?? null,
+    tmdb_original_title: tmdb.original_title ?? tmdb.original_name ?? null,
+    tmdb_original_language: tmdb.original_language ?? null,
     tmdb_popularity: tmdbPopularity,
     tmdb_vote_average: tmdbVoteAverage,
     tmdb_vote_count: tmdbVoteCount,
-  };
+    tmdb_release_date: releaseDate,
+    tmdb_poster_path: tmdb.poster_path ?? null,
+    tmdb_backdrop_path: tmdb.backdrop_path ?? null,
+    data_source: "tmdb",
+    raw_payload: tmdb,
+  } as const;
 
   const { data: upsertedTitle, error: upsertError } = await supabase
     .from("titles")
-    .upsert(row, { onConflict: "id" })
-    .select("id, imdb_id")
+    .upsert(row, { onConflict: "title_id" })
+    .select("title_id, omdb_imdb_id, content_type")
     .single();
 
   if (upsertError || !upsertedTitle) {
@@ -266,61 +239,21 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { id: titleIdFinal, imdb_id: storedImdbId } = upsertedTitle;
-
-  // 3. External ratings are synced via OMDb/TMDb for every title change to
-  // keep `external_ratings` in lock-step with `titles`.
   await syncExternalRatingsForTitles(supabase, [
     {
-      id: titleIdFinal,
-      tmdb_id: tmdbId,
-      imdb_id: storedImdbId,
-      type: storedType,
-      external_ratings: null,
+      title_id: upsertedTitle.title_id as string,
+      omdb_imdb_id: imdbId,
+      tmdb_id: tmdbId ?? null,
+      content_type: upsertedTitle.content_type as string,
+      imdb_rating: null,
+      omdb_rt_rating_pct: null,
+      imdb_votes: null,
+      last_synced_at: null,
     },
   ]);
 
-  // 4. Embedding (disabled – createEmbedding always returns null)
-  try {
-    const genres =
-      tmdb.genres?.map((g: any) => g.name).join(", ") ?? "";
-    const inputText = [
-      `${title} (${year ?? ""})`,
-      genres ? `Genres: ${genres}` : "",
-      overview ?? "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-
-
-    const embedding = await createEmbedding(inputText);
-    if (embedding) {
-      const { error: embError } = await supabase
-        .from("title_embeddings")
-        .upsert(
-          {
-            title_id: titleIdFinal,
-            embedding,
-            source: "tmdb",
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "title_id" },
-        );
-
-      if (embError) {
-        console.error(
-          "[sync-title-metadata] upsert title_embeddings error:",
-          embError.message,
-        );
-      }
-    }
-  } catch (err) {
-    console.error("[sync-title-metadata] embedding error:", err);
-  }
-
   return new Response(
-    JSON.stringify({ ok: true, titleId: titleIdFinal, imdbId: storedImdbId }),
+    JSON.stringify({ ok: true, titleId: upsertedTitle.title_id, imdbId: imdbId ?? null }),
     {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     },

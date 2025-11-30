@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -57,8 +56,7 @@ Deno.serve(async (req) => {
   };
 
   const titleId = body.titleId;
-  const limit =
-    body.limit && body.limit > 0 && body.limit <= 50 ? body.limit : 16;
+  const limit = body.limit && body.limit > 0 && body.limit <= 50 ? body.limit : 16;
 
   if (!titleId) {
     return new Response("titleId required", {
@@ -67,149 +65,77 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { data: embRow, error: embError } = await supabase
-    .from("title_embeddings")
-    .select("embedding")
+  const { data: target, error: targetError } = await supabase
+    .from("titles")
+    .select("title_id, genres, content_type")
     .eq("title_id", titleId)
     .maybeSingle();
 
-  if (embError) {
-    console.error("[similar-titles] embedding error:", embError.message);
+  if (targetError) {
+    console.error("[similar-titles] target fetch error:", targetError.message);
   }
-  if (!embRow?.embedding) {
+
+  if (!target) {
     return new Response(
-      JSON.stringify({ items: [], reason: "no_embedding" }),
+      JSON.stringify({ items: [], reason: "not_found" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
-  const queryEmbedding = embRow.embedding as number[];
+  const genres = (target.genres as string[] | null) ?? [];
+  const hasGenres = Array.isArray(genres) && genres.length > 0;
 
-  const { data: matches, error: matchError } = await supabase.rpc(
-    "match_titles",
-    {
-      query_embedding: queryEmbedding,
-      match_threshold: 1.0,
-      match_count: limit * 4,
-    },
-  );
-
-  if (matchError) {
-    console.error(
-      "[similar-titles] match_titles error:",
-      matchError.message,
-    );
-    return new Response("Internal error", {
-      status: 500,
-      headers: corsHeaders,
-    });
-  }
-
-  const candidates = (matches ?? []).filter(
-    (m: any) => m.title_id !== titleId,
-  );
-
-  const ids = candidates.slice(0, limit * 2).map((m: any) => m.title_id);
-
-  if (!ids.length) {
-    return new Response(
-      JSON.stringify({ items: [], reason: "no_candidates" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
-
-  const { data: titleRows, error: titleError } = await supabase
+  let query = supabase
     .from("titles")
     .select(
-      `
-      id,
-      title,
-      year,
-      type,
-      runtime_minutes,
-      poster_url,
-      backdrop_url,
-      tmdb_popularity,
-      title_stats (
-        avg_rating,
-        ratings_count
-      ),
-      external_ratings (
-        imdb_rating,
-        rt_tomato_meter
-      )
-    `,
+      `title_id, primary_title, release_year, runtime_minutes, content_type, poster_url, backdrop_url, tmdb_popularity, imdb_rating, omdb_rt_rating_pct`,
     )
-    .in("id", ids);
+    .neq("title_id", titleId)
+    .eq("content_type", target.content_type);
 
-  if (titleError) {
-    console.error("[similar-titles] titles error:", titleError.message);
+  if (hasGenres) {
+    query = query.overlaps("genres", genres);
   }
 
-  const metaById = new Map<string, any>();
-  for (const t of titleRows ?? []) {
-    metaById.set(t.id, t);
+  const { data: candidates, error: matchError } = await query
+    .order("tmdb_popularity", { ascending: false, nullsFirst: false })
+    .limit(limit * 3);
+
+  if (matchError) {
+    console.error("[similar-titles] titles error:", matchError.message);
   }
 
-  let maxPopularity = 0;
-  for (const c of candidates) {
-    const meta = metaById.get(c.title_id);
-    if (!meta) continue;
-    const pop = Number(meta.tmdb_popularity ?? 0) || 0;
-    if (pop > maxPopularity) maxPopularity = pop;
-  }
-  if (maxPopularity <= 0) maxPopularity = 1;
-
-  const items = candidates
-    .map((m: any) => {
-      const meta = metaById.get(m.title_id);
-      if (!meta) return null;
-      const ts = meta.title_stats ?? {};
-      const er = meta.external_ratings ?? {};
-
-      const similarity = Number(m.similarity ?? 0);
-      const appRating = Number(ts.avg_rating ?? 0) || 0;
-      const imdbRating = Number(er.imdb_rating ?? 0) || 0;
-      const rtMeter = Number(er.rt_tomato_meter ?? 0) || 0;
+  const items = (candidates ?? [])
+    .map((meta) => {
       const popularity = Number(meta.tmdb_popularity ?? 0) || 0;
+      const imdbRating = Number(meta.imdb_rating ?? 0) || 0;
+      const rtMeter = Number(meta.omdb_rt_rating_pct ?? 0) || 0;
 
-      const appScore = appRating > 0 ? Math.min(1, appRating / 5) : 0;
-      const imdbScore =
-        imdbRating > 0 ? Math.min(1, imdbRating / 10) : 0;
-      const rtScore = rtMeter > 0 ? Math.min(1, rtMeter / 100) : 0;
-      const popNorm =
-        popularity > 0 ? Math.min(1, popularity / maxPopularity) : 0;
-
-      const qualityScore = (appScore + imdbScore) / 2;
-
-      const finalScore =
-        0.65 * similarity +
-        0.15 * popNorm +
-        0.1 * rtScore +
-        0.1 * qualityScore;
+      const qualityScore = imdbRating > 0 ? Math.min(1, imdbRating / 10) : 0;
+      const criticScore = rtMeter > 0 ? Math.min(1, rtMeter / 100) : 0;
+      const finalScore = 0.7 * qualityScore + 0.3 * criticScore + popularity / 1000;
 
       return {
-        id: meta.id as string,
-        title: (meta.title as string | null) ?? "Untitled",
-        year: (meta.year as number | null) ?? null,
+        id: meta.title_id as string,
+        title: (meta.primary_title as string | null) ?? "Untitled",
+        year: (meta.release_year as number | null) ?? null,
         runtimeMinutes: (meta.runtime_minutes as number | null) ?? null,
-        type: (meta.type as string | null) ?? null,
+        type: (meta.content_type as string | null) ?? null,
         posterUrl:
           (meta.poster_url as string | null) ?? (meta.backdrop_url as string | null) ?? null,
         scores: {
-          similarity,
+          similarity: hasGenres ? 1 : 0,
           quality: qualityScore,
-          popularity: popNorm,
+          popularity: popularity,
           finalScore,
         },
       };
     })
-    .filter(Boolean) as any[];
-
-  items.sort((a, b) => b.scores.finalScore - a.scores.finalScore);
+    .sort((a, b) => b.scores.finalScore - a.scores.finalScore)
+    .slice(0, limit);
 
   return new Response(
-    JSON.stringify({ items: items.slice(0, limit) }),
+    JSON.stringify({ items }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
