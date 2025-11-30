@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey =
@@ -19,7 +20,7 @@ let cachedClient: ReturnType<typeof createBrowserClient> | null = null;
 export function createClient() {
   if (cachedClient) return cachedClient;
 
-  cachedClient = createBrowserClient(supabaseUrl, supabaseKey, {
+  cachedClient = createBrowserClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
