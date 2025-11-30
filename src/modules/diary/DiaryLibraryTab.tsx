@@ -27,7 +27,6 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "movie", label: "Movies" },
   { value: "series", label: "Series" },
   { value: "anime", label: "Anime" },
-  { value: "short", label: "Shorts" },
 ];
 
 const statusPillClasses = (status: DiaryStatus): string => {
@@ -183,13 +182,17 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
             const order: DiaryStatus[] = ["want_to_watch", "watching", "watched", "dropped"];
             const idx = order.indexOf(entry.status);
             const next = order[(idx + 1) % order.length];
-            updateStatus.mutate({ titleId: entry.titleId, status: next });
+            updateStatus.mutate({ titleId: entry.titleId, status: next, type: entry.type });
           };
 
           const handleStarClick = (value: number) => {
             if (!canEdit) return;
             const nextRating = entry.rating === value ? null : value;
-            updateRating.mutate({ titleId: entry.titleId, rating: nextRating });
+            updateRating.mutate({
+              titleId: entry.titleId,
+              rating: nextRating,
+              type: entry.type,
+            });
           };
 
           const titleUrl = `/title/${entry.titleId}`;

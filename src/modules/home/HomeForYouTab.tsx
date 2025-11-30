@@ -95,10 +95,8 @@ interface TitleBasicRow {
   type?: string | null;
   poster_url?: string | null;
   backdrop_url?: string | null;
-  external_ratings?: {
-    imdb_rating: number | null;
-    rt_tomato_meter: number | null;
-  } | null;
+  imdb_rating?: number | null;
+  omdb_rt_rating_pct?: number | null;
 }
 
 interface FollowsRow {
@@ -219,10 +217,10 @@ const fetchHomeRecommendations = async (
   const animeResult = await supabase
     .from("titles")
     .select(
-      "id, title, year, runtime_minutes, type, poster_url, backdrop_url, external_ratings (imdb_rating, rt_tomato_meter)",
+      "title_id:id, primary_title:title, release_year:year, runtime_minutes, content_type:type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct",
     )
-    .eq("type", "anime")
-    .order("year", { ascending: false })
+    .eq("content_type", "anime")
+    .order("release_year", { ascending: false })
     .limit(16);
 
   if (animeResult.error) {
@@ -250,9 +248,9 @@ const fetchHomeRecommendations = async (
   const titlesResult = await supabase
     .from("titles")
     .select(
-      `id, title, year, runtime_minutes, type, poster_url, backdrop_url, external_ratings (imdb_rating, rt_tomato_meter)`,
+      `title_id:id, primary_title:title, release_year:year, runtime_minutes, content_type:type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct`,
     )
-    .in("id", allTitleIds);
+    .in("title_id", allTitleIds);
 
   if (titlesResult.error) {
     throw new Error(titlesResult.error.message);
@@ -292,8 +290,8 @@ const fetchHomeRecommendations = async (
           : "Feels like the right vibe for tonight based on your recent watches.",
       friendsWatchingCount: friendRatings.filter((row) => row.title_id === seedTitleId).length,
       posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: t.external_ratings?.imdb_rating ?? null,
-      rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
+      imdbRating: t.imdb_rating ?? null,
+      rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
     };
     usedTitleIds.add(seedTitleId);
   }
@@ -318,8 +316,8 @@ const fetchHomeRecommendations = async (
       friendsWatchingCount,
       moodTag: t.type === "anime" ? "Anime night" : "Friends love this",
       posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: t.external_ratings?.imdb_rating ?? null,
-      rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
+      imdbRating: t.imdb_rating ?? null,
+      rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
     });
     usedTitleIds.add(titleId);
   });
@@ -350,8 +348,8 @@ const fetchHomeRecommendations = async (
         year: t.year ?? new Date().getFullYear(),
         matchReason: `On your watchlist after ${seedTitle.title ?? "that favorite"}.`,
         posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-        imdbRating: t.external_ratings?.imdb_rating ?? null,
-        rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
+        imdbRating: t.imdb_rating ?? null,
+        rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
       });
       usedTitleIds.add(titleId);
     });
@@ -379,8 +377,8 @@ const fetchHomeRecommendations = async (
       year: t.year ?? new Date().getFullYear(),
       matchReason: "Anime in your catalog and trending in MoviNesta.",
       posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: t.external_ratings?.imdb_rating ?? null,
-      rtTomatoMeter: t.external_ratings?.rt_tomato_meter ?? null,
+      imdbRating: t.imdb_rating ?? null,
+      rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
     });
     usedTitleIds.add(t.id);
   });
@@ -403,7 +401,8 @@ const fetchHomeRecommendations = async (
     if (!t || usedTitleIds.has(titleId)) return;
 
     const libraryEntry = libraryEntries.find((entry) => entry.title_id === titleId);
-    const er = t.external_ratings ?? null;
+    const imdbRating = t.imdb_rating ?? null;
+    const rtTomatoMeter = t.omdb_rt_rating_pct ?? null;
 
     let matchReason: string | undefined;
     if (libraryEntry?.status === "watching") {
@@ -419,8 +418,8 @@ const fetchHomeRecommendations = async (
       runtimeMinutes: t.runtime_minutes ?? undefined,
       matchReason,
       posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: er?.imdb_rating ?? null,
-      rtTomatoMeter: er?.rt_tomato_meter ?? null,
+      imdbRating,
+      rtTomatoMeter,
     });
     usedTitleIds.add(titleId);
   });

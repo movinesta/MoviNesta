@@ -140,7 +140,7 @@ export const useConversations = () => {
       // 6) Fetch recent messages for these conversations (we'll compute "last message")
       const { data: messagesData, error: messagesError } = await supabase
         .from("messages")
-        .select("id, conversation_id, sender_id, body, created_at")
+        .select("id, conversation_id, user_id, body, created_at")
         .in("conversation_id", conversationIds)
         .order("created_at", { ascending: false });
 
@@ -261,7 +261,7 @@ export const useConversations = () => {
           (!selfLastReadAt ||
             new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime());
 
-        const lastMessageIsFromSelf = !!lastMessage && (lastMessage.sender_id as string) === userId;
+        const lastMessageIsFromSelf = !!lastMessage && (lastMessage.user_id as string) === userId;
 
         let lastMessageSeenByOthers = false;
 
