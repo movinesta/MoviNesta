@@ -196,6 +196,7 @@ Deno.serve(async (req) => {
       year,
       type,
       poster_url,
+      backdrop_url,
       runtime_minutes,
       synopsis,
       external_ratings (
@@ -255,7 +256,7 @@ Deno.serve(async (req) => {
       mood: null,
       vibeTag: null,
       type: (row.type as string | null) ?? null,
-      posterUrl: (row.poster_url as string | null) ?? null,
+      posterUrl: (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null,
       friendLikesCount: friendCount,
       topFriendName: displayName,
       topFriendInitials: initials,

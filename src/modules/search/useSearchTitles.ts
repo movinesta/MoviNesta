@@ -47,6 +47,7 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         year,
         type,
         poster_url,
+        backdrop_url,
         original_language,
         age_rating,
         imdb_id,
@@ -119,12 +120,14 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         supabaseResults = rows.map((row: any): TitleSearchResult => {
           const external = row.external_ratings ?? null;
 
+          const posterUrl = (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null;
+
           return {
             id: row.id as string,
             title: (row.title as string | null) ?? "Untitled",
             year: (row.year as number | null) ?? null,
             type: (row.type as TitleType | null) ?? null,
-            posterUrl: (row.poster_url as string | null) ?? null,
+            posterUrl,
             originalLanguage: (row.original_language as string | null) ?? null,
             ageRating: (row.age_rating as string | null) ?? null,
             imdbRating: external?.imdb_rating ?? null,

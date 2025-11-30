@@ -70,6 +70,7 @@ async function buildTrendingFallback(
       type,
       runtime_minutes,
       poster_url,
+      backdrop_url,
       tmdb_popularity,
       synopsis
     `,
@@ -122,7 +123,7 @@ async function buildTrendingFallback(
       mood: null,
       vibeTag: null,
       type: (row.type as string | null) ?? null,
-      posterUrl: (row.poster_url as string | null) ?? null,
+      posterUrl: (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null,
       friendLikesCount: null,
       topFriendName: null,
       topFriendInitials: null,
@@ -305,6 +306,7 @@ Deno.serve(async (req) => {
       type,
       runtime_minutes,
       poster_url,
+      backdrop_url,
       synopsis,
       tmdb_popularity,
       title_stats (
@@ -480,7 +482,8 @@ Deno.serve(async (req) => {
       mood: null,
       vibeTag: null,
       type: (meta.type as string | null) ?? null,
-      posterUrl: (meta.poster_url as string | null) ?? null,
+      posterUrl:
+        (meta.poster_url as string | null) ?? (meta.backdrop_url as string | null) ?? null,
       friendLikesCount: friendLikesByTitle.get(id) ?? null,
       topFriendName: null,
       topFriendInitials: null,

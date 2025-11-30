@@ -212,6 +212,7 @@ interface TitleRow {
   title: string | null;
   year: number | null;
   poster_url?: string | null;
+  backdrop_url?: string | null;
 }
 
 interface ProfileRow {
@@ -345,7 +346,10 @@ const fetchHomeFeed = async (
 
   const [titlesResult, profilesResult] = await Promise.all([
     titleIds.length
-      ? supabase.from("titles").select("id, title, year, poster_url").in("id", titleIds)
+      ? supabase
+          .from("titles")
+          .select("id, title, year, poster_url, backdrop_url")
+          .in("id", titleIds)
       : Promise.resolve({ data: [] as TitleRow[], error: null }),
     actorUserIds.length
       ? supabase
@@ -403,7 +407,7 @@ const fetchHomeFeed = async (
           id: row.title_id as string,
           name: titleRow.title ?? "Untitled",
           year: titleRow.year ?? new Date().getFullYear(),
-          posterUrl: titleRow.poster_url ?? undefined,
+          posterUrl: titleRow.poster_url ?? titleRow.backdrop_url ?? undefined,
         }
       : undefined;
 

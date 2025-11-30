@@ -33,6 +33,7 @@ interface LibraryRow {
     year: number | null;
     type: TitleType | null;
     poster_url: string | null;
+    backdrop_url: string | null;
   } | null;
 }
 
@@ -54,7 +55,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
       const { data, error } = await supabase
         .from("library_entries")
         .select(
-          "id, title_id, status, updated_at, titles!inner ( id, title, year, type, poster_url )",
+          "id, title_id, status, updated_at, titles!inner ( id, title, year, type, poster_url, backdrop_url )",
         )
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
@@ -105,7 +106,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
           title: (title?.title ?? "Untitled") as string,
           year: title?.year ?? null,
           type: (title?.type ?? null) as TitleType | null,
-          posterUrl: title?.poster_url ?? null,
+          posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
           rating,
         };
       });

@@ -23,6 +23,7 @@ interface TitleRow {
   title: string | null;
   year: number | null;
   poster_url?: string | null;
+  backdrop_url?: string | null;
 }
 
 export type DiaryEventKind = "rating" | "review" | "watchlist" | "follow" | "other";
@@ -91,7 +92,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       if (titleIds.length) {
         const { data: titles, error: titlesError } = await supabase
           .from("titles")
-          .select("id, title, year, poster_url")
+          .select("id, title, year, poster_url, backdrop_url")
           .in("id", titleIds);
 
         if (!titlesError && titles) {
@@ -113,7 +114,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
           titleId: row.title_id,
           title: title?.title ?? null,
           year: title?.year ?? null,
-          posterUrl: title?.poster_url ?? null,
+          posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
           rating: payload.rating ?? null,
           reviewSnippet: payload.review_snippet ?? null,
           headline: payload.headline ?? null,
