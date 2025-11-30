@@ -13,6 +13,24 @@ export interface PeopleSearchResult {
   isFollowing: boolean;
 }
 
+interface ProfileRow {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+}
+
+interface UserStatsRow {
+  user_id: string;
+  followers_count: number | null;
+  following_count: number | null;
+}
+
+interface FollowRow {
+  followed_id: string;
+}
+
 /**
  * useSearchPeople
  *
@@ -33,6 +51,7 @@ export const useSearchPeople = (query: string) => {
       const profilesResult = await supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, bio")
+        .returns<ProfileRow[]>()
         .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
         .limit(20);
 
@@ -40,7 +59,7 @@ export const useSearchPeople = (query: string) => {
         throw new Error(profilesResult.error.message);
       }
 
-      const profiles = (profilesResult.data ?? []) as any[];
+      const profiles = profilesResult.data ?? [];
 
       const profileIds = profiles.map((row) => row.id as string);
 
@@ -51,6 +70,7 @@ export const useSearchPeople = (query: string) => {
         const statsResult = await supabase
           .from("user_stats")
           .select("user_id, followers_count, following_count")
+          .returns<UserStatsRow[]>()
           .in("user_id", profileIds);
 
         if (statsResult.error) {
@@ -58,11 +78,11 @@ export const useSearchPeople = (query: string) => {
           console.warn("[useSearchPeople] Failed to load user_stats", statsResult.error.message);
         } else {
           statsByUserId = new Map(
-            (statsResult.data ?? []).map((row: any) => [
-              row.user_id as string,
+            (statsResult.data ?? []).map((row) => [
+              row.user_id,
               {
-                followersCount: (row.followers_count as number | null) ?? 0,
-                followingCount: (row.following_count as number | null) ?? 0,
+                followersCount: row.followers_count ?? 0,
+                followingCount: row.following_count ?? 0,
               },
             ]),
           );
@@ -90,6 +110,7 @@ export const useSearchPeople = (query: string) => {
       const followsResult = await supabase
         .from("follows")
         .select("followed_id")
+        .returns<FollowRow[]>()
         .eq("follower_id", user.id);
 
       if (followsResult.error) {
@@ -100,9 +121,7 @@ export const useSearchPeople = (query: string) => {
         );
       }
 
-      const followedIds = new Set<string>(
-        (followsResult.data ?? []).map((row: any) => row.followed_id as string),
-      );
+      const followedIds = new Set<string>((followsResult.data ?? []).map((row) => row.followed_id));
 
       return profiles.map((row) => {
         const stats = statsByUserId.get(row.id as string);

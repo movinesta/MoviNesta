@@ -2,6 +2,17 @@ import { fetchTmdbJson, tmdbImageUrl } from "../../lib/tmdb";
 
 type ExternalMediaType = "movie" | "tv";
 
+type TmdbMultiResult = {
+  id?: number;
+  media_type?: string;
+  title?: string;
+  name?: string;
+  release_date?: string;
+  first_air_date?: string;
+  imdb_id?: string | null;
+  poster_path?: string | null;
+};
+
 export type ExternalTitleResult = {
   tmdbId: number;
   imdbId: string | null;
@@ -22,11 +33,17 @@ export async function searchExternalTitles(query: string): Promise<ExternalTitle
     page: 1,
   });
 
-  const results = (body?.results ?? []) as any[];
-  if (!Array.isArray(results) || !results.length) return [];
+  const results = Array.isArray(body?.results) ? (body.results as TmdbMultiResult[]) : [];
+  if (!results.length) return [];
 
   return results
-    .filter((item) => (item.media_type === "movie" || item.media_type === "tv") && item.id)
+    .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
+      return Boolean(
+        item &&
+          typeof item.id === "number" &&
+          (item.media_type === "movie" || item.media_type === "tv"),
+      );
+    })
     .slice(0, 20)
     .map((item) => {
       const mediaType: ExternalMediaType = item.media_type === "tv" ? "tv" : "movie";
