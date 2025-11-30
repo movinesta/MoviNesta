@@ -90,7 +90,7 @@ const SearchPage: React.FC = () => {
       params.delete("q");
     }
 
-    if (activeTab === "titles") {
+    if (activeTab === "titles" && query.trim()) {
       params.set("type", titleFilters.type);
       if (titleFilters.minYear) {
         params.set("minYear", String(titleFilters.minYear));
@@ -109,6 +109,11 @@ const SearchPage: React.FC = () => {
       } else {
         params.delete("lang");
       }
+    } else {
+      params.delete("type");
+      params.delete("minYear");
+      params.delete("maxYear");
+      params.delete("lang");
     }
     return params;
   }, [activeTab, query, searchParams, titleFilters]);
@@ -148,6 +153,7 @@ const SearchPage: React.FC = () => {
 
   const handleClearQuery = () => {
     setQuery("");
+    setIsFiltersOpen(false);
   };
 
   const updateFilters = useCallback((updates: Partial<TitleSearchFilters>) => {
@@ -161,6 +167,7 @@ const SearchPage: React.FC = () => {
       maxYear: undefined,
       originalLanguage: undefined,
     });
+    setIsFiltersOpen(false);
   };
 
   const activeFilterChips = useMemo(() => {
@@ -191,6 +198,14 @@ const SearchPage: React.FC = () => {
 
     return chips;
   }, [titleFilters, updateFilters]);
+
+  const activeFilterCount = activeFilterChips.length;
+  const filtersButtonLabel =
+    activeFilterCount > 0 ? `Filters (${activeFilterCount} active)` : "Filters (none applied)";
+  const canOpenFilters = activeTab === "titles" && (Boolean(query.trim()) || activeFilterCount > 0);
+  const filterAvailabilityLabel = canOpenFilters
+    ? filtersButtonLabel
+    : "Filters are locked until you start typing a title";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -233,22 +248,39 @@ const SearchPage: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              if (activeTab !== "titles") return;
+              if (!canOpenFilters) return;
               setIsFiltersOpen((prev) => !prev);
             }}
             className={`inline-flex items-center justify-center gap-1 rounded-full border px-3 py-2 text-[11px] font-medium shadow-mn-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg ${
-              activeTab === "titles"
+              canOpenFilters
                 ? "border-mn-border-subtle bg-mn-bg text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-text-primary"
                 : "cursor-not-allowed border-mn-border-subtle/60 bg-mn-bg/70 text-mn-text-muted"
             } ${isFiltersOpen ? "border-mn-primary/70 text-mn-text-primary" : ""}`}
-            disabled={activeTab !== "titles"}
-            aria-pressed={activeTab === "titles" && isFiltersOpen}
-            aria-expanded={activeTab === "titles" && isFiltersOpen}
+            disabled={!canOpenFilters}
+            aria-pressed={canOpenFilters && isFiltersOpen}
+            aria-expanded={canOpenFilters && isFiltersOpen}
             aria-controls="search-title-filters"
+            aria-label={filterAvailabilityLabel}
+            title={filterAvailabilityLabel}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{isFiltersOpen ? "Hide filters" : "Filters"}</span>
+            {activeFilterCount > 0 ? (
+              <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-mn-primary/15 px-1 text-[10px] font-semibold text-mn-primary">
+                {activeFilterCount}
+              </span>
+            ) : null}
           </button>
+
+          {!canOpenFilters ? (
+            <span className="text-[10px] text-mn-text-muted sm:ml-1 sm:inline" aria-live="polite">
+              Start typing to enable title filters.
+            </span>
+          ) : (
+            <span className="sr-only" aria-live="polite">
+              Filters are available. {filtersButtonLabel}
+            </span>
+          )}
         </form>
 
         {activeTab === "titles" && (
@@ -445,7 +477,11 @@ const SearchPage: React.FC = () => {
           className="flex-1 rounded-mn-card border border-dashed border-mn-border-subtle/80 bg-mn-bg-elevated/60 px-3 py-3 text-[12px] text-mn-text-secondary"
         >
           {activeTab === "titles" ? (
-            <SearchTitlesTab query={debouncedQuery} filters={titleFilters} />
+            <SearchTitlesTab
+              query={debouncedQuery}
+              filters={titleFilters}
+              onResetFilters={handleResetFilters}
+            />
           ) : (
             <SearchPeopleTab query={debouncedQuery} />
           )}
