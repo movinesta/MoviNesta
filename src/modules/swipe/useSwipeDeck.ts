@@ -187,9 +187,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const hasSupabaseEnv = true;
 
   // Optional TMDB secondary source.
-  const hasTmdbEnv = Boolean(
-    import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN || import.meta.env.VITE_TMDB_API_KEY,
-  );
+  const hasTmdbEnv = Boolean(import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN);
 
   const cacheKey = useMemo(() => `mn_swipe_cache_${kind}`, [kind]);
   const seenIdsRef = useRef<Set<string>>(new Set());

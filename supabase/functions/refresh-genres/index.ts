@@ -4,13 +4,13 @@
 // Expects environment variables:
 // - SUPABASE_URL
 // - SUPABASE_SERVICE_ROLE_KEY
-// - TMDB_API_KEY
+// - TMDB_API_READ_ACCESS_TOKEN
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
+const TMDB_READ_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +19,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TMDB_API_KEY) {
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TMDB_READ_TOKEN) {
   console.error("Missing required environment variables for refresh-genres");
 }
 
@@ -40,9 +40,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const tmdbRes = await fetch(
-      `https://api.themoviedb.org/3/genre/movie/list?api_key=${TMDB_API_KEY}&language=en-US`,
-    );
+    const tmdbRes = await fetch(`https://api.themoviedb.org/3/genre/movie/list?language=en-US`, {
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${TMDB_READ_TOKEN}`,
+      },
+    });
 
     if (!tmdbRes.ok) {
       console.error("[refresh-genres] TMDB error:", tmdbRes.status, await tmdbRes.text());
