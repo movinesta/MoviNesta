@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Flame,
   Info,
+  ImageOff,
   SkipForward,
   Sparkles,
   ThumbsDown,
@@ -89,6 +90,20 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   );
 };
 
+const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
+  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg text-center">
+    <div className="flex flex-col items-center gap-2 text-mn-text-secondary">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mn-surface-elevated/70 shadow-mn-soft">
+        <ImageOff className="h-6 w-6 text-mn-text-secondary" />
+      </div>
+      <span className="text-[12px] font-semibold">Artwork unavailable</span>
+      {title && (
+        <span className="max-w-[240px] truncate text-[11px] text-mn-text-secondary/80">for {title}</span>
+      )}
+    </div>
+  </div>
+);
+
 /**
  * Animated loading skeleton that matches the real card’s size/position
  * and does a subtle “swipe wiggle” left/right.
@@ -169,9 +184,14 @@ const SwipePage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isNextPreviewActive, setIsNextPreviewActive] = useState(false);
+  const [activePosterFailed, setActivePosterFailed] = useState(false);
+  const [nextPosterFailed, setNextPosterFailed] = useState(false);
 
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
+
+  const showActivePoster = Boolean(activeCard?.posterUrl && !activePosterFailed);
+  const showNextPoster = Boolean(nextCard?.posterUrl && !nextPosterFailed);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragStartX = useRef<number | null>(null);
@@ -188,6 +208,14 @@ const SwipePage: React.FC = () => {
         : null;
     setShowOnboarding(!hasSeen);
   }, []);
+
+  useEffect(() => {
+    setActivePosterFailed(false);
+  }, [activeCard?.id]);
+
+  useEffect(() => {
+    setNextPosterFailed(false);
+  }, [nextCard?.id]);
 
   useEffect(
     () => () => {
@@ -431,7 +459,7 @@ const SwipePage: React.FC = () => {
                   }}
                 >
                   <div className="relative h-full w-full overflow-hidden rounded-[30px] border border-mn-border-subtle/40 shadow-mn-card">
-                    {nextCard.posterUrl ? (
+                    {showNextPoster ? (
                       <>
                         <img
                           src={nextCard.posterUrl}
@@ -439,11 +467,12 @@ const SwipePage: React.FC = () => {
                           className="h-full w-full object-cover blur-[7px] brightness-[0.8]"
                           loading="lazy"
                           draggable={false}
+                          onError={() => setNextPosterFailed(true)}
                         />
                         <div className="absolute inset-0 bg-gradient-to-b from-mn-bg/0 via-mn-bg/30 to-mn-bg/90" />
                       </>
                     ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg blur-[3px]" />
+                      <PosterFallback title={nextCard?.title} />
                     )}
                   </div>
                 </div>
@@ -463,18 +492,17 @@ const SwipePage: React.FC = () => {
                 style={{ touchAction: "pan-y" }}
               >
                 <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
-                  {activeCard.posterUrl ? (
+                  {showActivePoster ? (
                     <img
                       src={activeCard.posterUrl}
                       alt={`${activeCard.title} poster`}
                       className="h-full w-full object-cover"
                       draggable={false}
                       loading="lazy"
+                      onError={() => setActivePosterFailed(true)}
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg text-sm text-mn-text-secondary">
-                      No artwork available
-                    </div>
+                    <PosterFallback title={activeCard.title} />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
