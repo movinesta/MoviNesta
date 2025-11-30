@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
@@ -60,7 +60,6 @@ function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCar
 export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number }) {
   const limit = options?.limit ?? 40;
 
-  const cacheKey = useMemo(() => `mn_swipe_cache_${kind}`, [kind]);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<SwipeCardData[]>([]);
   const fetchingRef = useRef(false);
@@ -72,32 +71,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     "from-friends": 1,
     trending: 1,
   });
-
-  const cacheCards = useCallback(
-    (nextCards: SwipeCardData[]) => {
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(nextCards.slice(0, 80)));
-      } catch (error) {
-        console.warn("[useSwipeDeck] failed to cache cards", error);
-      }
-    },
-    [cacheKey],
-  );
-
-  const loadCachedCards = useCallback((): SwipeCardData[] => {
-    try {
-      const stored = localStorage.getItem(cacheKey);
-      if (!stored) return [];
-      const parsed = JSON.parse(stored) as SwipeCardData[];
-      for (const card of parsed) {
-        seenIdsRef.current.add(card.id);
-      }
-      return parsed;
-    } catch (error) {
-      console.warn("[useSwipeDeck] failed to parse cache", error);
-      return [];
-    }
-  }, [cacheKey]);
 
   const scheduleAssetPrefetch = useCallback((incoming: SwipeCardData[]) => {
     const idle = (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback })
@@ -152,12 +125,11 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       setCards((prev) => {
         const next = [...prev, ...deduped];
         cardsRef.current = next;
-        cacheCards(next);
         scheduleAssetPrefetch(deduped);
         return next;
       });
     },
-    [cacheCards, getNewCards, scheduleAssetPrefetch],
+    [getNewCards, scheduleAssetPrefetch],
   );
 
   const fetchFromSource = useCallback(
@@ -204,55 +176,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         } else {
           console.warn("[useSwipeDeck] invoke error from", fnName, err);
         }
-      }
-
-      // 2) Direct Supabase table fallback
-      try {
-        const { data: rows, error: tableError } = await supabase
-          .from("titles")
-          .select(
-            `
-            id,
-            title,
-            year,
-            runtime_minutes,
-            synopsis,
-            poster_url,
-            backdrop_url,
-            external_ratings (
-              imdb_rating,
-              rt_tomato_meter
-            )
-          `,
-          )
-          .order("year", { ascending: false })
-          .limit(Math.max(count, 16));
-
-        if (tableError) {
-          console.warn("[useSwipeDeck] titles table fallback error", tableError);
-        }
-
-        if (rows && rows.length) {
-          const tableCards: SwipeCardData[] = rows.map((row: any) => ({
-            id: String(row.id),
-            title: row.title ?? "Untitled",
-            year: row.year ?? null,
-            runtimeMinutes: row.runtime_minutes ?? null,
-            tagline: row.synopsis ?? null,
-            imdbRating: row.external_ratings?.imdb_rating ?? null,
-            rtTomatoMeter: row.external_ratings?.rt_tomato_meter ?? null,
-            posterUrl: row.poster_url ?? row.backdrop_url ?? null,
-            source,
-          }));
-          console.debug(
-            "[useSwipeDeck] titles table fallback returned",
-            tableCards.length,
-            "cards",
-          );
-          return tableCards;
-        }
-      } catch (err) {
-        console.warn("[useSwipeDeck] titles table fallback threw", err);
       }
 
       return [];
@@ -312,14 +235,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             : await fetchFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
 
         if (!raw.length) {
-          const cached = loadCachedCards();
-          if (cached.length) {
-            setCards(cached);
-            cardsRef.current = cached;
-            setIsError(false);
-          } else {
-            setIsError(true);
-          }
+          setIsError(true);
           return;
         }
 
@@ -327,15 +243,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       } catch (error) {
         console.warn("[useSwipeDeck] fetch error", error);
         setIsError(true);
-
-        if (!cardsRef.current.length) {
-          const cached = loadCachedCards();
-          if (cached.length) {
-            setCards(cached);
-            cardsRef.current = cached;
-            setIsError(false);
-          }
-        }
 
         window.setTimeout(() => {
           fetchingRef.current = false;
@@ -353,7 +260,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       fetchFromSource,
       kind,
       limit,
-      loadCachedCards,
     ],
   );
 
@@ -384,11 +290,10 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         if (!prev.length) return prev;
         const next = prev.slice(Math.min(count, prev.length));
         cardsRef.current = next;
-        cacheCards(next);
         return next;
       });
     },
-    [cacheCards],
+    [],
   );
 
   const swipeMutation = useMutation({
