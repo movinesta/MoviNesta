@@ -1,0 +1,56 @@
+name: Catalog Sync
+
+on:
+  workflow_dispatch:      # allow manual "Run workflow" button
+    inputs:
+      tmdbId:
+        description: "TMDb ID to sync (e.g. 27205)"
+        required: true
+        default: "27205"
+      type:
+        description: "Content type"
+        required: true
+        default: "movie"
+        type: choice
+        options:
+          - movie
+          - tv
+  schedule:
+    # Example: run every night at 02:00 UTC with a fixed title list or genres mode
+    - cron: "0 2 * * *"
+
+jobs:
+  sync-title:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call catalog-sync (title mode)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_FUNCTION_URL_CATALOG_SYNC }}" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-catalog-admin-token: ${{ secrets.CATALOG_ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"mode\": \"title\",
+              \"external\": {
+                \"tmdbId\": ${{ github.event.inputs.tmdbId }},
+                \"type\": \"${{ github.event.inputs.type }}\"
+              },
+              \"options\": {
+                \"syncOmdb\": true,
+                \"syncYoutube\": true,
+                \"forceRefresh\": false
+              }
+            }"
+
+      - name: Call catalog-sync (genres mode - nightly)
+        if: github.event_name == 'schedule'
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_FUNCTION_URL_CATALOG_SYNC }}" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-catalog-admin-token: ${{ secrets.CATALOG_ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "mode": "genres"
+            }'
