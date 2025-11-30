@@ -1,7 +1,6 @@
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 const TMDB_READ_TOKEN = import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN;
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 function buildHeaders() {
   const headers: Record<string, string> = { accept: "application/json" };
@@ -11,20 +10,12 @@ function buildHeaders() {
   return headers;
 }
 
-function appendApiKey(url: URL) {
-  if (!TMDB_READ_TOKEN && TMDB_API_KEY) {
-    url.searchParams.set("api_key", TMDB_API_KEY);
-  }
-}
-
 export async function fetchTmdbJson(
   path: string,
   params?: Record<string, string | number | undefined>,
 ) {
-  if (!TMDB_READ_TOKEN && !TMDB_API_KEY) {
-    console.warn(
-      "[tmdb] Missing TMDB credentials. Set VITE_TMDB_API_READ_ACCESS_TOKEN or VITE_TMDB_API_KEY.",
-    );
+  if (!TMDB_READ_TOKEN) {
+    console.warn("[tmdb] Missing TMDB credentials. Set VITE_TMDB_API_READ_ACCESS_TOKEN.");
     return null;
   }
 
@@ -36,8 +27,6 @@ export async function fetchTmdbJson(
       }
     }
   }
-  appendApiKey(url);
-
   try {
     const res = await fetch(url.toString(), {
       headers: buildHeaders(),
