@@ -169,21 +169,31 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
           let titleId = `tmdb-${item.tmdbId}`;
 
           try {
-            const { data: syncResult } = await supabase.functions.invoke<{ titleId?: string }>(
-              "sync-title-metadata",
-              {
-                body: {
+            const { data: syncResult } = await supabase.functions.invoke<{
+              titleId?: string;
+              tmdbId?: number;
+              imdbId?: string;
+            }>("catalog-sync", {
+              body: {
+                mode: "title",
+                external: {
                   tmdbId: item.tmdbId,
+                  imdbId: item.imdbId ?? undefined,
                   type: item.type === "tv" ? "tv" : "movie",
                 },
+                options: {
+                  syncOmdb: true,
+                  syncYoutube: true,
+                  forceRefresh: false,
+                },
               },
-            );
+            });
 
             if (syncResult?.titleId) {
               titleId = syncResult.titleId;
             }
           } catch (err) {
-            console.warn("[useSearchTitles] Failed to sync TMDb title", item.tmdbId, err);
+            console.warn("[useSearchTitles] Failed to catalog-sync TMDb title", item.tmdbId, err);
           }
 
           const type: TitleType = item.type === "tv" ? "series" : "movie";
