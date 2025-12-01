@@ -7,7 +7,8 @@
 // - Canonical fields (primary_title, release_year, poster_url, etc.)
 //   use OMDb first, then TMDb as fallback.
 // - NO onConflict, NO upsert – we use insert/update by title_id.
-// - NO YouTube (so no quota issues here).
+// - NO YouTube.
+// - IMPORTANT: TMDb media_type ("movie"/"tv") is mapped to DB enum content_type ("movie"/"series").
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -35,6 +36,7 @@ type TitleModePayload = {
   external: {
     tmdbId?: number;
     imdbId?: string;
+    // TMDb media type
     type?: "movie" | "tv";
   };
   options?: {
@@ -112,9 +114,11 @@ async function handleTitleMode(
     return jsonError("Either external.tmdbId or external.imdbId is required", 400);
   }
 
+  // TMDb media type
+  let tmdbMediaType: "movie" | "tv" = typeRaw ?? "movie";
+
   let tmdbId: number | null = tmdbIdRaw ?? null;
   let imdbId: string | null = imdbIdRaw ?? null;
-  let contentType: "movie" | "tv" = typeRaw ?? "movie";
 
   // If only IMDb id is provided, resolve TMDb id via /find
   if (!tmdbId && imdbId) {
@@ -123,7 +127,7 @@ async function handleTitleMode(
       return jsonError("Could not resolve TMDb id from IMDb id", 502);
     }
     tmdbId = resolved.id;
-    contentType = resolved.media_type === "tv" ? "tv" : "movie";
+    tmdbMediaType = resolved.media_type; // "movie" | "tv"
   }
 
   if (!tmdbId) {
@@ -131,7 +135,7 @@ async function handleTitleMode(
   }
 
   // TMDb details
-  const tmdbDetails = await tmdbGetDetails(tmdbId, contentType);
+  const tmdbDetails = await tmdbGetDetails(tmdbId, tmdbMediaType);
   if (!tmdbDetails) {
     return jsonError("TMDb details fetch failed", 502);
   }
@@ -141,13 +145,19 @@ async function handleTitleMode(
     imdbId = String(tmdbDetails.imdb_id);
   }
 
-  const tmdbBlock = buildTmdbBlock(tmdbDetails, contentType);
+  const tmdbBlock = buildTmdbBlock(tmdbDetails, tmdbMediaType);
 
   // OMDb (optional)
   let omdbBlock: OmdbBlock | null = null;
   if ((options?.syncOmdb ?? true) && OMDB_API_KEY && imdbId) {
     omdbBlock = await fetchOmdbBlock(imdbId);
   }
+
+  // Map TMDb media type -> DB enum content_type
+  // 🔴 IMPORTANT: if your enum uses something else (e.g. "show"),
+  // change "series" here to that value.
+  const dbContentType: "movie" | "series" =
+    tmdbMediaType === "movie" ? "movie" : "series";
 
   // Find existing row
   const { data: existing, error: existingError } = await supabase
@@ -173,14 +183,14 @@ async function handleTitleMode(
   const titleId = existing?.title_id ?? crypto.randomUUID();
 
   const normalized = buildNormalizedFields({
-    contentType,
+    mediaType: tmdbMediaType,
     tmdb: tmdbBlock,
     omdb: omdbBlock,
   });
 
   const baseRow: Record<string, any> = {
     title_id: titleId,
-    content_type: contentType,
+    content_type: dbContentType, // ✅ always "movie" or "series" now
 
     // canonical fields
     ...normalized,
@@ -297,7 +307,7 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
 
   return {
     tmdb_id: details.id ?? null,
-    tmdb_media_type: type,
+    tmdb_media_type: type, // "movie" | "tv"
     tmdb_original_title:
       details.original_title ?? details.original_name ?? null,
     tmdb_poster_path: posterPath,
@@ -386,11 +396,11 @@ function extractRottenTomatoesPct(ratings: any): number | null {
 // ============================================================================
 
 function buildNormalizedFields({
-  contentType,
+  mediaType,
   tmdb,
   omdb,
 }: {
-  contentType: "movie" | "tv";
+  mediaType: "movie" | "tv";
   tmdb: TmdbBlock;
   omdb: OmdbBlock | null;
 }) {
@@ -406,7 +416,7 @@ function buildNormalizedFields({
     omdb?.omdb_year ??
     extractYear(
       tmdb.tmdb_release_date ??
-        (contentType === "tv" ? tmdb.tmdb_first_air_date : null),
+        (mediaType === "tv" ? tmdb.tmdb_first_air_date : null),
     );
 
   const runtime_minutes =
