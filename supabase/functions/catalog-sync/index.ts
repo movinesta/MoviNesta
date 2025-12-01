@@ -5,11 +5,10 @@
 // - TMDb → tmdb_* columns
 // - OMDb → omdb_* columns
 // - Canonical columns (primary_title, release_year, poster_url, imdb_rating, etc.)
-//   filled as OMDb → TMDb → null.
-// - Handles:
-//   * TMDb "movie"/"tv" → DB enum content_type "movie"/"series"
-//   * Invalid/empty dates → null
-//   * Duplicate tmdb_id unique constraint → update existing row.
+//   are filled as OMDb → TMDb → null.
+// - Handles movies and series (content_type enum: "movie" | "series").
+// - Uses TMDb external_ids to get IMDb ID for TV (Breaking Bad, etc).
+// - Handles duplicate tmdb_id by updating the existing row instead of failing.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -33,7 +32,8 @@ type TitleModePayload = {
   external: {
     tmdbId?: number;
     imdbId?: string;
-    type?: "movie" | "tv"; // TMDb media_type
+    // TMDb media_type
+    type?: "movie" | "tv";
   };
   options?: {
     syncOmdb?: boolean;
@@ -129,9 +129,21 @@ async function handleTitleMode(
     return jsonError("TMDb details fetch failed", 502);
   }
 
-  // IMDb from TMDb if missing
-  if (!imdbId && tmdbDetails.imdb_id) {
-    imdbId = String(tmdbDetails.imdb_id);
+  // Resolve IMDb ID from TMDb, including external_ids for TV
+  if (!imdbId) {
+    const imdbFromMovie = tmdbDetails.imdb_id;
+    const imdbFromExternal =
+      tmdbDetails.external_ids?.imdb_id ??
+      tmdbDetails.external_ids?.imdb ??
+      null;
+
+    const resolvedImdb = imdbFromMovie ?? imdbFromExternal ?? null;
+    if (resolvedImdb) {
+      imdbId = String(resolvedImdb);
+      console.log("[catalog-sync:title] resolved imdbId from TMDb:", imdbId);
+    } else {
+      console.log("[catalog-sync:title] no imdbId available from TMDb details");
+    }
   }
 
   const tmdbBlock = buildTmdbBlock(tmdbDetails, tmdbMediaType);
@@ -142,7 +154,7 @@ async function handleTitleMode(
     omdbBlock = await fetchOmdbBlock(imdbId);
   }
 
-  // Map TMDb type -> DB enum content_type ("movie" | "series")
+  // Map TMDb media_type -> DB enum content_type ("movie" | "series")
   const dbContentType: "movie" | "series" =
     tmdbMediaType === "movie" ? "movie" : "series";
 
@@ -169,7 +181,7 @@ async function handleTitleMode(
   const now = new Date().toISOString();
   const titleId = existing?.title_id ?? crypto.randomUUID();
 
-  // Canonical (OMDb → TMDb)
+  // Canonical fields (OMDb → TMDb)
   const normalized = buildNormalizedFields({
     mediaType: tmdbMediaType,
     tmdb: tmdbBlock,
@@ -193,7 +205,6 @@ async function handleTitleMode(
     last_synced_at: now,
     updated_at: now,
 
-    // source flags
     data_source: omdbBlock ? "omdb" : "tmdb",
     source_priority: omdbBlock ? 1 : 2,
     raw_payload: {
@@ -334,8 +345,9 @@ async function tmdbGetDetails(
   type: "movie" | "tv",
 ): Promise<any | null> {
   const path = type === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+  // external_ids is needed for TV IMDb IDs
   return await tmdbRequest(path, {
-    append_to_response: "credits,release_dates",
+    append_to_response: "credits,release_dates,external_ids",
   });
 }
 
@@ -431,7 +443,10 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
   return {
     omdb_imdb_id: data.imdbID ?? imdbId,
     omdb_title: data.Title ?? null,
-    omdb_year: parseIntSafe(data.Year),
+    omdb_year: parseIntSafe(
+      // "2008–2013" → 2008
+      typeof data.Year === "string" ? data.Year.split(/–/)[0] : data.Year,
+    ),
 
     omdb_rated: nullIfEmpty(data.Rated),
     omdb_released: nullIfEmpty(data.Released),
