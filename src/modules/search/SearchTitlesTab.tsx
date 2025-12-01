@@ -1,3 +1,4 @@
+// src/modules/search/SearchTitlesTab.tsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { Film, Star, SlidersHorizontal } from "lucide-react";
@@ -18,25 +19,21 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     filters,
   });
 
-  const activeFilterLabels = React.useMemo(() => {
-    const labels: string[] = [];
-
-    if (filters.type && filters.type !== "all") {
-      labels.push(`Type: ${filters.type.charAt(0).toUpperCase()}${filters.type.slice(1)}`);
-    }
-
-    if (filters.minYear || filters.maxYear) {
-      const min = filters.minYear ?? "Any";
-      const max = filters.maxYear ?? "Now";
-      labels.push(`Years ${min}–${max}`);
-    }
-
-    if (filters.originalLanguage) {
-      labels.push(`Language ${filters.originalLanguage.toUpperCase()}`);
-    }
-
-    return labels;
-  }, [filters.maxYear, filters.minYear, filters.originalLanguage, filters.type]);
+  const activeFilterLabels: string[] = [];
+  if (filters.type && filters.type !== "all") {
+    activeFilterLabels.push(filters.type === "movie" ? "Movies" : "Series");
+  }
+  if (typeof filters.minYear === "number") {
+    activeFilterLabels.push(`From ${filters.minYear}`);
+  }
+  if (typeof filters.maxYear === "number") {
+    activeFilterLabels.push(`Up to ${filters.maxYear}`);
+  }
+  if (filters.originalLanguage) {
+    activeFilterLabels.push(
+      `Language: ${filters.originalLanguage === "en" ? "English" : filters.originalLanguage}`,
+    );
+  }
 
   const hasFiltersApplied =
     filters.type !== "all" ||
@@ -68,18 +65,19 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
 
     toSync.forEach((item) => {
       already.add(item.id);
+
+      // 🔄 NEW: call the universal catalog-sync function instead of sync-title-metadata
       supabase.functions
         .invoke("catalog-sync", {
           body: {
-            mode: "title",
             external: {
               tmdbId: item.tmdbId ?? undefined,
               imdbId: item.imdbId ?? undefined,
+              // TitleType "series" maps to TMDb "tv"
               type: item.type === "series" ? "tv" : "movie",
             },
             options: {
               syncOmdb: true,
-              syncYoutube: true,
               forceRefresh: false,
             },
           },
@@ -101,20 +99,17 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         <div className="space-y-1.5">
           <p className="text-[11px] font-medium text-mn-text-primary">Try searching for</p>
           <div className="flex flex-wrap gap-1.5 text-[11px]">
-            {[
-              "Comfort movie for a rainy night",
-              "Slow & cozy drama",
-              "Animated comfort series",
-              "Sci‑fi with found family",
-            ].map((label) => (
-              <span
-                key={label}
-                className="inline-flex items-center rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] text-mn-text-secondary"
-              >
-                <Film className="mr-1 h-3 w-3 text-mn-text-muted" aria-hidden="true" />
-                {label}
-              </span>
-            ))}
+            {["Sci-fi romance", "Feel-good comedies", "Films from 2020s", "Cozy rainy-day movies"].map(
+              (label) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-1 text-mn-text-muted"
+                >
+                  <Film className="mr-1 h-3 w-3 text-mn-text-muted" aria-hidden="true" />
+                  {label}
+                </span>
+              ),
+            )}
           </div>
         </div>
 
@@ -124,8 +119,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
             <span>Trending this week</span>
           </p>
           <p className="text-[11px] text-mn-text-muted">
-            Once analytics are wired up, you can show what your friends and the community are
-            watching the most here.
+            Once analytics are wired up, you can show what your friends and the community are watching
+            the most here.
           </p>
         </div>
       </div>
@@ -134,204 +129,109 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
 
   if (isLoading) {
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="h-3 w-40 rounded bg-mn-border-subtle/40" />
-          <div className="h-3 w-32 rounded bg-mn-border-subtle/30" />
-        </div>
-        <div className="space-y-1.5 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2.5">
-          {[0, 1, 2].map((idx) => (
-            <div key={idx} className="flex items-center gap-3 rounded-xl px-1 py-1.5">
-              <div className="h-9 w-9 rounded-lg bg-mn-border-subtle/40" />
-              <div className="flex-1 space-y-1">
-                <div className="h-3 w-32 rounded bg-mn-border-subtle/40" />
-                <div className="h-2.5 w-24 rounded bg-mn-border-subtle/30" />
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="space-y-3">
+        <p className="text-[12px] text-mn-text-secondary">
+          Searching for <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>…
+        </p>
+        <p className="text-[11px] text-mn-text-muted">Fetching matching titles from the catalog.</p>
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div
-        role="alert"
-        className="space-y-1 rounded-mn-card border border-mn-error/60 bg-mn-error/10 p-3 text-[11px] text-mn-error"
-      >
-        <p className="font-medium">We couldn&apos;t search titles right now.</p>
-        <p className="text-[10px] opacity-90">
-          {error instanceof Error ? error.message : "Unknown error. Please try again."}
+      <div className="space-y-3">
+        <p className="text-[12px] text-mn-text-destructive">
+          Something went wrong while searching for titles.
         </p>
+        {error && (
+          <p className="text-[11px] text-mn-text-muted">
+            <span className="font-semibold">Details: </span>
+            {error.message}
+          </p>
+        )}
       </div>
     );
   }
 
-  const results = data ?? [];
-
-  if (!results.length) {
+  if (!data || data.length === 0) {
     return (
       <div className="space-y-3">
-        <div className="space-y-1">
-          <p className="text-[12px] text-mn-text-secondary">
-            No titles found for{" "}
-            <span className="rounded border border-mn-border-subtle/80 bg-mn-bg px-1.5 py-0.5 text-[11px] font-medium text-mn-text-primary">
-              &ldquo;{trimmedQuery}&rdquo;
-            </span>
-            . Try another spelling, a different title, or adjust your filters.
-          </p>
-          {hasFiltersApplied ? (
-            <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg/70 px-2 py-1 text-[10px] text-mn-text-secondary">
-              <SlidersHorizontal className="h-3 w-3" aria-hidden />
-              <span className="leading-tight">
-                Filters are active:{" "}
-                {filterSummary === "No filters applied" ? "custom options" : filterSummary}.
-              </span>
-              {onResetFilters ? (
-                <button
-                  type="button"
-                  onClick={onResetFilters}
-                  className="rounded-full bg-mn-primary/10 px-2 py-1 text-[10px] font-semibold text-mn-primary transition hover:bg-mn-primary/15"
-                >
-                  Reset filters
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        <p className="text-[12px] text-mn-text-secondary">
+          No titles found matching{" "}
+          <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>.
+        </p>
+        <p className="text-[11px] text-mn-text-muted">
+          Try adjusting your search or removing some filters to see more results.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] text-mn-text-secondary" aria-live="polite">
-          Showing {results.length} title{results.length === 1 ? "" : "s"} for{" "}
-          <span className="rounded border border-mn-border-subtle/80 bg-mn-bg px-1.5 py-0.5 text-[11px] font-medium text-mn-text-primary">
-            &ldquo;{trimmedQuery}&rdquo;
-          </span>
-          .
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-mn-text-secondary">
+          Showing <span className="font-semibold text-mn-text-primary">{data.length}</span> result
+          {data.length === 1 ? "" : "s"} for{" "}
+          <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex max-w-[60%] items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-muted">
-            <SlidersHorizontal className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span
-              className="line-clamp-2 text-left leading-tight text-mn-text-secondary"
-              aria-live="polite"
-            >
-              {filterSummary}
-            </span>
-          </div>
-          {hasFiltersApplied && onResetFilters ? (
-            <button
-              type="button"
-              onClick={onResetFilters}
-              className="inline-flex items-center gap-1 rounded-full border border-transparent bg-mn-primary/10 px-2 py-1 text-[10px] font-semibold text-mn-primary transition hover:bg-mn-primary/15"
-            >
-              Reset filters
-            </button>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle px-2 py-1 text-[10px] text-mn-text-muted hover:border-mn-border-strong hover:text-mn-text-primary"
+          onClick={onResetFilters}
+        >
+          <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
+          <span>Reset filters</span>
+        </button>
       </div>
 
-      <ul className="divide-y divide-mn-border-subtle/60 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60">
-        {results.map((item) => {
+      <div className="rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-3">
+        <p className="flex items-center gap-2 text-[11px] text-mn-text-secondary">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-mn-surface-muted text-[10px] font-medium text-mn-text-muted">
+            <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
+          </span>
+          <span className="truncate">{filterSummary}</span>
+        </p>
+      </div>
+
+      <ul className="space-y-2">
+        {data.map((item) => {
           const metaPieces: string[] = [];
-          if (item.type) {
-            const typeLabel =
-              item.type === "movie"
-                ? "Movie"
-                : item.type === "series"
-                  ? "Series"
-                  : item.type === "anime"
-                    ? "Anime"
-                    : null;
-
-            if (typeLabel) {
-              metaPieces.push(typeLabel);
-            }
-          }
-          if (item.ageRating) {
-            metaPieces.push(item.ageRating);
-          }
-          if (item.originalLanguage) {
-            metaPieces.push(item.originalLanguage.toUpperCase());
-          }
-
-          const imdbRating =
-            typeof item.imdbRating === "number" &&
-            !Number.isNaN(item.imdbRating) &&
-            item.imdbRating > 0
-              ? item.imdbRating
-              : null;
-          const rtRating =
-            typeof item.rtTomatoMeter === "number" &&
-            !Number.isNaN(item.rtTomatoMeter) &&
-            item.rtTomatoMeter > 0
-              ? item.rtTomatoMeter
-              : null;
+          if (item.year) metaPieces.push(String(item.year));
+          if (item.type === "movie") metaPieces.push("Movie");
+          if (item.type === "series") metaPieces.push("Series");
+          if (item.originalLanguage) metaPieces.push(`Language: ${item.originalLanguage}`);
+          if (item.ageRating) metaPieces.push(item.ageRating);
+          if (item.imdbRating) metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
+          if (item.rtTomatoMeter) metaPieces.push(`RT ${item.rtTomatoMeter}%`);
 
           return (
             <li key={item.id}>
               <Link
-                to={`/title/${item.id}`}
-                className="flex gap-3 px-3 py-2 transition hover:bg-mn-border-subtle/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                to={`/titles/${item.id}`}
+                className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2 hover:bg-mn-bg-elevated/80"
               >
-                <div className="relative mt-0.5 h-16 w-12 shrink-0 overflow-hidden rounded-md bg-mn-border-subtle/50">
-                  {item.posterUrl ? (
-                    <img
-                      src={item.posterUrl}
-                      alt={`Poster for ${item.title}`}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-mn-primary/70">
-                      <Film className="h-5 w-5" aria-hidden="true" />
-                      <span className="sr-only">No poster available</span>
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-[13px] font-medium text-mn-text-primary">
-                      {item.title}
-                      {item.year ? (
-                        <span className="ml-1 text-[11px] font-normal text-mn-text-muted">
-                          ({item.year})
-                        </span>
-                      ) : null}
-                    </p>
-                    <div
-                      className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] text-mn-text-secondary"
-                      aria-live="polite"
-                    >
-                      {imdbRating ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-0.5 font-semibold text-mn-text-primary">
-                          <Star className="h-3 w-3 text-amber-500" aria-hidden />
-                          IMDb {imdbRating.toFixed(1)}
-                        </span>
-                      ) : null}
-                      {rtRating ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-0.5 font-semibold text-mn-text-primary">
-                          <span aria-hidden className="text-[12px]">
-                            🍅
-                          </span>
-                          RT {rtRating}%
-                        </span>
-                      ) : null}
-                      {!imdbRating && !rtRating ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg px-2 py-0.5 font-medium text-mn-text-muted">
-                          <Star className="h-3 w-3 text-mn-text-muted" aria-hidden />
-                          Not rated yet
-                        </span>
-                      ) : null}
-                    </div>
+                {item.posterUrl ? (
+                  <img
+                    src={item.posterUrl}
+                    alt={item.title}
+                    className="h-20 w-14 rounded-mn-card object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-14 items-center justify-center rounded-mn-card bg-mn-surface-muted">
+                    <Film className="h-5 w-5 text-mn-text-muted" aria-hidden="true" />
                   </div>
+                )}
+
+                <div className="flex min-w-0 flex-1 flex-col justify-center">
+                  <p className="truncate text-[12px] font-medium text-mn-text-primary">
+                    {item.title}
+                  </p>
                   {metaPieces.length > 0 && (
-                    <p className="text-[11px] text-mn-text-secondary">{metaPieces.join(" • ")}</p>
+                    <p className="text-[11px] text-mn-text-secondary">
+                      {metaPieces.join(" • ")}
+                    </p>
                   )}
                 </div>
               </Link>
