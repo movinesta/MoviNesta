@@ -56,7 +56,6 @@ serve(async (req) => {
 
     const supabase = getSupabaseAdminClient(req);
 
-    // Require authenticated user
     const {
       data: { user },
       error: authError,
@@ -102,26 +101,19 @@ async function handleSearch(
     return jsonError("TMDb search failed", 502);
   }
 
-  const items = (tmdbResults.results ?? []).filter((item: any) =>
-    item.media_type === "movie" ||
-    item.media_type === "tv" ||
-    type === "movie" ||
-    type === "tv"
-  );
+  let items = tmdbResults.results ?? [];
+  if (type === "multi") {
+    items = items.filter(
+      (item: any) => item.media_type === "movie" || item.media_type === "tv",
+    );
+  }
 
-  const movieAndTv = items.filter((item: any) =>
-    item.media_type === "movie" ||
-    item.media_type === "tv" ||
-    type === "movie" ||
-    type === "tv"
-  );
-
-  const tmdbIds = movieAndTv
+  const tmdbIds = items
     .map((r: any) => r.id)
     .filter((id: any) => typeof id === "number");
 
   // 2) Load local titles by tmdb_id
-  let localMap = new Map<number, any>();
+  const localMap = new Map<number, any>();
   if (tmdbIds.length > 0) {
     const { data: localRows, error: localError } = await supabase
       .from("titles")
@@ -158,9 +150,9 @@ async function handleSearch(
   }
 
   // 3) Build merged results
-  const merged = movieAndTv.map((item: any) => {
+  const merged = items.map((item: any) => {
     const mediaType: "movie" | "tv" =
-      item.media_type === "tv" || type === "tv" ? "tv" : "movie";
+      item.media_type === "tv" ? "tv" : "movie";
 
     const tmdbData = {
       id: item.id,
@@ -184,14 +176,17 @@ async function handleSearch(
     };
   });
 
-  return jsonOk({
-    ok: true,
-    query,
-    page: tmdbResults.page,
-    total_pages: tmdbResults.total_pages,
-    total_results: tmdbResults.total_results,
-    results: merged,
-  }, 200);
+  return jsonOk(
+    {
+      ok: true,
+      query,
+      page: tmdbResults.page,
+      total_pages: tmdbResults.total_pages,
+      total_results: tmdbResults.total_results,
+      results: merged,
+    },
+    200,
+  );
 }
 
 // ============================================================================
