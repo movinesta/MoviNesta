@@ -169,164 +169,290 @@ create index if not exists profiles_email_idx on public.profiles(email);
 -- ============================================================================
 
 create table if not exists public.titles (
-  title_id      uuid primary key default gen_random_uuid(),
-  content_type  public.content_type not null,
-
-  omdb_imdb_id  text,
-  tmdb_id       integer,
-
-  primary_title   text,
-  original_title  text,
-  sort_title      text,
-
-  release_year    integer,
-  release_date    date,
-
-  runtime_minutes integer,
-  is_adult        boolean default false,
-
-  poster_url   text,
-  backdrop_url text,
-
-  plot          text,
-  tagline       text,
-  genres        text[],
-
-  language      text,
-  country       text,
-
-  imdb_rating    numeric(3,1) check (imdb_rating between 0 and 10),
-  imdb_votes     integer      check (imdb_votes >= 0),
-
-  metascore      smallint     check (metascore between 0 and 100),
-
-  omdb_rated     text,
-  omdb_released  text,
-  omdb_runtime   text,
-  omdb_genre     text,
-  omdb_director  text,
-  omdb_writer    text,
-  omdb_actors    text,
-  omdb_plot      text,
-  omdb_language  text,
-  omdb_country   text,
-  omdb_awards    text,
-  omdb_poster    text,
-  omdb_type      text,
-  omdb_dvd       text,
-  omdb_box_office_str text,
-  omdb_production    text,
-  omdb_website       text,
-  omdb_response      text,
-
-  omdb_rt_rating_pct  smallint     check (omdb_rt_rating_pct between 0 and 100),
-  omdb_box_office     numeric(12,2) check (omdb_box_office >= 0),
-  omdb_response_ok    boolean,
-
-  tmdb_adult              boolean,
-  tmdb_video              boolean,
-  tmdb_genre_ids          integer[],
-
-  tmdb_original_language  text,
-  tmdb_original_title     text,
-  tmdb_title              text,
-
-  tmdb_overview           text,
-  tmdb_popularity         numeric(8,4) check (tmdb_popularity >= 0),
-  tmdb_vote_average       numeric(3,2)  check (tmdb_vote_average between 0 and 10),
-  tmdb_vote_count         integer       check (tmdb_vote_count >= 0),
-
-  tmdb_release_date       date,
-  tmdb_poster_path        text,
-  tmdb_backdrop_path      text,
-
-  data_source      text default 'omdb',
-  source_priority  smallint default 1,
-  raw_payload      jsonb,
-
-  youtube_trailer_video_id      text,
-  youtube_trailer_title         text,
-  youtube_trailer_published_at  timestamptz,
-  youtube_trailer_thumb_url     text,
-
-  deleted_at      timestamptz,
-  created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now()
+  title_id uuid not null default gen_random_uuid(),
+  content_type public.content_type not null,
+  omdb_imdb_id text null,
+  tmdb_id integer null,
+  primary_title text null,
+  original_title text null,
+  sort_title text null,
+  release_year integer null,
+  release_date date null,
+  runtime_minutes integer null,
+  is_adult boolean null default false,
+  poster_url text null,
+  backdrop_url text null,
+  plot text null,
+  tagline text null,
+  genres text[] null,
+  language text null,
+  country text null,
+  imdb_rating numeric(3, 1) null,
+  imdb_votes integer null,
+  metascore smallint null,
+  omdb_rated text null,
+  omdb_released text null,
+  omdb_runtime text null,
+  omdb_genre text null,
+  omdb_director text null,
+  omdb_writer text null,
+  omdb_actors text null,
+  omdb_plot text null,
+  omdb_language text null,
+  omdb_country text null,
+  omdb_awards text null,
+  omdb_poster text null,
+  omdb_type text null,
+  omdb_dvd text null,
+  omdb_box_office_str text null,
+  omdb_production text null,
+  omdb_website text null,
+  omdb_response text null,
+  omdb_rt_rating_pct smallint null,
+  omdb_box_office numeric(12, 2) null,
+  omdb_response_ok boolean null,
+  tmdb_adult boolean null,
+  tmdb_video boolean null,
+  tmdb_genre_ids integer[] null,
+  tmdb_original_language text null,
+  tmdb_original_title text null,
+  tmdb_title text null,
+  tmdb_overview text null,
+  tmdb_popularity numeric(8, 4) null,
+  tmdb_vote_average numeric(3, 2) null,
+  tmdb_vote_count integer null,
+  tmdb_release_date date null,
+  tmdb_poster_path text null,
+  tmdb_backdrop_path text null,
+  data_source text not null default 'omdb'::text,
+  source_priority smallint not null default 1,
+  raw_payload jsonb null,
+  youtube_trailer_video_id text null,
+  youtube_trailer_title text null,
+  youtube_trailer_published_at timestamp with time zone null,
+  youtube_trailer_thumb_url text null,
+  deleted_at timestamp with time zone null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  omdb_runtime_minutes integer null,
+  omdb_genre_names text[] null,
+  omdb_raw jsonb null,
+  tmdb_media_type text null,
+  tmdb_first_air_date date null,
+  tmdb_runtime integer null,
+  tmdb_episode_run_time integer[] null,
+  tmdb_genre_names text[] null,
+  tmdb_raw jsonb null,
+  youtube_trailer_url text null,
+  youtube_trailer_query text null,
+  youtube_raw jsonb null,
+  tmdb_last_synced_at timestamp with time zone null,
+  omdb_last_synced_at timestamp with time zone null,
+  youtube_last_synced_at timestamp with time zone null,
+  last_synced_at timestamp with time zone null,
+  rt_tomato_pct smallint null,
+  omdb_imdb_rating numeric(3, 1) null,
+  omdb_imdb_votes integer null,
+  omdb_metacritic_score smallint null,
+  omdb_poster_url text null,
+  omdb_title text null,
+  omdb_year integer null,
+  constraint titles_data_source_check check ((data_source = ANY (ARRAY['omdb'::text, 'tmdb'::text]))),
+  constraint titles_source_priority_check check (
+    (
+      (data_source = 'omdb'::text and source_priority = 1)
+      or (data_source = 'tmdb'::text and source_priority = 2)
+    )
+  ),
+  constraint titles_pkey primary key (title_id),
+  constraint titles_tmdb_id_key unique (tmdb_id),
+  constraint titles_metascore_check check (((metascore >= 0) and (metascore <= 100))),
+  constraint titles_omdb_box_office_check check ((omdb_box_office >= (0)::numeric)),
+  constraint titles_omdb_rt_rating_pct_check check (((omdb_rt_rating_pct >= 0) and (omdb_rt_rating_pct <= 100))),
+  constraint titles_tmdb_popularity_check check ((tmdb_popularity >= (0)::numeric)),
+  constraint titles_tmdb_vote_average_check check (((tmdb_vote_average >= (0)::numeric) and (tmdb_vote_average <= (10)::numeric))),
+  constraint titles_imdb_rating_check check (((imdb_rating >= (0)::numeric) and (imdb_rating <= (10)::numeric))),
+  constraint titles_tmdb_vote_count_check check ((tmdb_vote_count >= 0)),
+  constraint titles_imdb_votes_check check ((imdb_votes >= 0))
 );
 
 -- Alter for idempotency / evolution
 alter table public.titles
-  add column if not exists title_id      uuid default gen_random_uuid(),
-  add column if not exists content_type  public.content_type,
-  add column if not exists omdb_imdb_id  text,
-  add column if not exists tmdb_id       integer,
+  add column if not exists title_id uuid default gen_random_uuid(),
+  add column if not exists content_type public.content_type,
+  add column if not exists omdb_imdb_id text,
+  add column if not exists tmdb_id integer,
   add column if not exists primary_title text,
-  add column if not exists original_title  text,
-  add column if not exists sort_title      text,
-  add column if not exists release_year    integer,
-  add column if not exists release_date    date,
+  add column if not exists original_title text,
+  add column if not exists sort_title text,
+  add column if not exists release_year integer,
+  add column if not exists release_date date,
   add column if not exists runtime_minutes integer,
-  add column if not exists is_adult        boolean default false,
-  add column if not exists poster_url   text,
+  add column if not exists is_adult boolean default false,
+  add column if not exists poster_url text,
   add column if not exists backdrop_url text,
-  add column if not exists plot          text,
-  add column if not exists tagline       text,
-  add column if not exists genres        text[],
-  add column if not exists language      text,
-  add column if not exists country       text,
-  add column if not exists imdb_rating    numeric(3,1),
-  add column if not exists imdb_votes     integer,
-  add column if not exists metascore      smallint,
-  add column if not exists omdb_rated     text,
-  add column if not exists omdb_released  text,
-  add column if not exists omdb_runtime   text,
-  add column if not exists omdb_genre     text,
-  add column if not exists omdb_director  text,
-  add column if not exists omdb_writer    text,
-  add column if not exists omdb_actors    text,
-  add column if not exists omdb_plot      text,
-  add column if not exists omdb_language  text,
-  add column if not exists omdb_country   text,
-  add column if not exists omdb_awards    text,
-  add column if not exists omdb_poster    text,
-  add column if not exists omdb_type      text,
-  add column if not exists omdb_dvd       text,
+  add column if not exists plot text,
+  add column if not exists tagline text,
+  add column if not exists genres text[],
+  add column if not exists language text,
+  add column if not exists country text,
+  add column if not exists imdb_rating numeric(3, 1),
+  add column if not exists imdb_votes integer,
+  add column if not exists metascore smallint,
+  add column if not exists omdb_rated text,
+  add column if not exists omdb_released text,
+  add column if not exists omdb_runtime text,
+  add column if not exists omdb_genre text,
+  add column if not exists omdb_director text,
+  add column if not exists omdb_writer text,
+  add column if not exists omdb_actors text,
+  add column if not exists omdb_plot text,
+  add column if not exists omdb_language text,
+  add column if not exists omdb_country text,
+  add column if not exists omdb_awards text,
+  add column if not exists omdb_poster text,
+  add column if not exists omdb_type text,
+  add column if not exists omdb_dvd text,
   add column if not exists omdb_box_office_str text,
   add column if not exists omdb_production text,
-  add column if not exists omdb_website    text,
-  add column if not exists omdb_response   text,
-  add column if not exists omdb_rt_rating_pct  smallint,
-  add column if not exists omdb_box_office     numeric(12,2),
-  add column if not exists omdb_response_ok    boolean,
-  add column if not exists tmdb_adult              boolean,
-  add column if not exists tmdb_video              boolean,
-  add column if not exists tmdb_genre_ids          integer[],
-  add column if not exists tmdb_original_language  text,
-  add column if not exists tmdb_original_title     text,
-  add column if not exists tmdb_title              text,
-  add column if not exists tmdb_overview           text,
-  add column if not exists tmdb_popularity         numeric(8,4),
-  add column if not exists tmdb_vote_average       numeric(3,2),
-  add column if not exists tmdb_vote_count         integer,
-  add column if not exists tmdb_release_date       date,
-  add column if not exists tmdb_poster_path        text,
-  add column if not exists tmdb_backdrop_path      text,
-  add column if not exists data_source      text default 'omdb',
-  add column if not exists source_priority  smallint default 1,
-  add column if not exists raw_payload      jsonb,
-  add column if not exists youtube_trailer_video_id      text,
-  add column if not exists youtube_trailer_title         text,
-  add column if not exists youtube_trailer_published_at  timestamptz,
-  add column if not exists youtube_trailer_thumb_url     text,
-  add column if not exists deleted_at      timestamptz,
-  add column if not exists created_at      timestamptz default now(),
-  add column if not exists updated_at      timestamptz default now();
+  add column if not exists omdb_website text,
+  add column if not exists omdb_response text,
+  add column if not exists omdb_rt_rating_pct smallint,
+  add column if not exists omdb_box_office numeric(12, 2),
+  add column if not exists omdb_response_ok boolean,
+  add column if not exists tmdb_adult boolean,
+  add column if not exists tmdb_video boolean,
+  add column if not exists tmdb_genre_ids integer[],
+  add column if not exists tmdb_original_language text,
+  add column if not exists tmdb_original_title text,
+  add column if not exists tmdb_title text,
+  add column if not exists tmdb_overview text,
+  add column if not exists tmdb_popularity numeric(8, 4),
+  add column if not exists tmdb_vote_average numeric(3, 2),
+  add column if not exists tmdb_vote_count integer,
+  add column if not exists tmdb_release_date date,
+  add column if not exists tmdb_poster_path text,
+  add column if not exists tmdb_backdrop_path text,
+  add column if not exists data_source text default 'omdb'::text,
+  add column if not exists source_priority smallint default 1,
+  add column if not exists raw_payload jsonb,
+  add column if not exists youtube_trailer_video_id text,
+  add column if not exists youtube_trailer_title text,
+  add column if not exists youtube_trailer_published_at timestamptz,
+  add column if not exists youtube_trailer_thumb_url text,
+  add column if not exists deleted_at timestamptz,
+  add column if not exists created_at timestamptz default now(),
+  add column if not exists updated_at timestamptz default now(),
+  add column if not exists omdb_runtime_minutes integer,
+  add column if not exists omdb_genre_names text[],
+  add column if not exists omdb_raw jsonb,
+  add column if not exists tmdb_media_type text,
+  add column if not exists tmdb_first_air_date date,
+  add column if not exists tmdb_runtime integer,
+  add column if not exists tmdb_episode_run_time integer[],
+  add column if not exists tmdb_genre_names text[],
+  add column if not exists tmdb_raw jsonb,
+  add column if not exists youtube_trailer_url text,
+  add column if not exists youtube_trailer_query text,
+  add column if not exists youtube_raw jsonb,
+  add column if not exists tmdb_last_synced_at timestamptz,
+  add column if not exists omdb_last_synced_at timestamptz,
+  add column if not exists youtube_last_synced_at timestamptz,
+  add column if not exists last_synced_at timestamptz,
+  add column if not exists rt_tomato_pct smallint,
+  add column if not exists omdb_imdb_rating numeric(3, 1),
+  add column if not exists omdb_imdb_votes integer,
+  add column if not exists omdb_metacritic_score smallint,
+  add column if not exists omdb_poster_url text,
+  add column if not exists omdb_title text,
+  add column if not exists omdb_year integer;
+
+-- Backfill source columns before tightening constraints
+update public.titles
+set data_source = 'omdb'
+where data_source is null
+   or data_source not in ('omdb', 'tmdb');
+
+update public.titles
+set source_priority = case when coalesce(data_source, 'omdb') = 'tmdb' then 2 else 1 end
+where source_priority is null
+   or source_priority not in (1, 2);
 
 alter table public.titles
   alter column title_id set default gen_random_uuid();
 
 alter table public.titles drop constraint if exists titles_pkey;
 alter table public.titles add constraint titles_pkey primary key (title_id);
+alter table public.titles drop constraint if exists titles_tmdb_id_key;
+alter table public.titles add constraint titles_tmdb_id_key unique (tmdb_id);
+
+alter table public.titles alter column data_source set default 'omdb'::text;
+alter table public.titles alter column data_source set not null;
+alter table public.titles alter column source_priority set default 1;
+alter table public.titles alter column source_priority set not null;
+
+alter table public.titles drop constraint if exists titles_data_source_check;
+alter table public.titles
+  add constraint titles_data_source_check check ((data_source = ANY (ARRAY['omdb'::text, 'tmdb'::text])));
+
+alter table public.titles drop constraint if exists titles_source_priority_check;
+alter table public.titles
+  add constraint titles_source_priority_check check (
+    (
+      (data_source = 'omdb'::text and source_priority = 1)
+      or (data_source = 'tmdb'::text and source_priority = 2)
+    )
+  );
+
+alter table public.titles drop constraint if exists titles_metascore_check;
+alter table public.titles
+  add constraint titles_metascore_check check (
+    (
+      (metascore >= 0)
+      and (metascore <= 100)
+    )
+  );
+
+alter table public.titles drop constraint if exists titles_omdb_box_office_check;
+alter table public.titles
+  add constraint titles_omdb_box_office_check check ((omdb_box_office >= (0)::numeric));
+
+alter table public.titles drop constraint if exists titles_omdb_rt_rating_pct_check;
+alter table public.titles
+  add constraint titles_omdb_rt_rating_pct_check check (
+    (
+      (omdb_rt_rating_pct >= 0)
+      and (omdb_rt_rating_pct <= 100)
+    )
+  );
+
+alter table public.titles drop constraint if exists titles_tmdb_popularity_check;
+alter table public.titles
+  add constraint titles_tmdb_popularity_check check ((tmdb_popularity >= (0)::numeric));
+
+alter table public.titles drop constraint if exists titles_tmdb_vote_average_check;
+alter table public.titles
+  add constraint titles_tmdb_vote_average_check check (
+    (
+      (tmdb_vote_average >= (0)::numeric)
+      and (tmdb_vote_average <= (10)::numeric)
+    )
+  );
+
+alter table public.titles drop constraint if exists titles_imdb_rating_check;
+alter table public.titles
+  add constraint titles_imdb_rating_check check (
+    (
+      (imdb_rating >= (0)::numeric)
+      and (imdb_rating <= (10)::numeric)
+    )
+  );
+
+alter table public.titles drop constraint if exists titles_tmdb_vote_count_check;
+alter table public.titles add constraint titles_tmdb_vote_count_check check ((tmdb_vote_count >= 0));
+
+alter table public.titles drop constraint if exists titles_imdb_votes_check;
+alter table public.titles add constraint titles_imdb_votes_check check ((imdb_votes >= 0));
 
 drop trigger if exists set_titles_updated_at on public.titles;
 create trigger set_titles_updated_at
@@ -335,13 +461,13 @@ for each row
 execute function public.set_updated_at();
 
 create index if not exists titles_content_type_idx
-  on public.titles(content_type);
+  on public.titles using btree (content_type);
 
 create index if not exists titles_primary_title_trgm_idx
-  on public.titles using gin (primary_title gin_trgm_ops);
+  on public.titles using gin (primary_title extensions.gin_trgm_ops);
 
 create index if not exists titles_release_date_idx
-  on public.titles(release_date);
+  on public.titles using btree (release_date);
 
 -- ============================================================================
 -- 6. MOVIES / SERIES / ANIME DETAIL TABLES
