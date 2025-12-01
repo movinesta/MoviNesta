@@ -127,10 +127,8 @@ serve(async (req) => {
   }
 
   try {
-    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-      console.error("[swipe-trending] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-      return jsonError("Server misconfigured", 500);
-    }
+    const configError = validateConfig();
+    if (configError) return configError;
 
     const supabase = getSupabaseAdminClient(req);
 
@@ -147,46 +145,7 @@ serve(async (req) => {
       return jsonError("Unauthorized", 401);
     }
 
-    const { data: rows, error: titlesError } = await supabase
-      .from("titles")
-      .select(
-        [
-          "title_id",
-          "content_type",
-          "tmdb_id",
-          "omdb_imdb_id",
-          "primary_title",
-          "release_year",
-          "poster_url",
-          "backdrop_url",
-          "imdb_rating",
-          "rt_tomato_pct",
-          "deleted_at",
-          "tmdb_popularity",
-        ].join(","),
-      )
-      .is("deleted_at", null)
-      .order("tmdb_popularity", { ascending: false })
-      .limit(50);
-
-    if (titlesError) {
-      console.error("[swipe-trending] titles query error:", titlesError.message);
-      return jsonError("Failed to load titles", 500);
-    }
-
-    const cards: SwipeCard[] =
-      (rows ?? []).map((meta: any) => ({
-        id: meta.title_id,
-        title: meta.primary_title ?? null,
-        year: meta.release_year ?? null,
-        posterUrl: meta.poster_url ?? null,
-        backdropUrl: meta.backdrop_url ?? null,
-        imdbRating: meta.imdb_rating ?? null,
-        rtTomatoMeter: meta.rt_tomato_pct ?? null,
-        tmdbId: meta.tmdb_id ?? null,
-        imdbId: meta.omdb_imdb_id ?? null,
-        contentType: meta.content_type ?? null,
-      })) ?? [];
+    const cards = await loadSwipeCards(supabase);
 
     await triggerCatalogSyncForCards(req, cards);
 
@@ -215,4 +174,62 @@ function jsonOk(body: unknown, status: number): Response {
 
 function jsonError(message: string, status: number): Response {
   return jsonOk({ ok: false, error: message }, status);
+}
+
+function validateConfig(): Response | null {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error("[swipe-trending] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
+    return jsonError("Server misconfigured", 500);
+  }
+
+  if (!SUPABASE_ANON_KEY) {
+    console.error("[swipe-trending] Missing SUPABASE_ANON_KEY");
+    return jsonError("Server misconfigured", 500);
+  }
+
+  return null;
+}
+
+async function loadSwipeCards(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+): Promise<SwipeCard[]> {
+  const { data: rows, error } = await supabase
+    .from("titles")
+    .select(
+      [
+        "title_id",
+        "content_type",
+        "tmdb_id",
+        "omdb_imdb_id",
+        "primary_title",
+        "release_year",
+        "poster_url",
+        "backdrop_url",
+        "imdb_rating",
+        "rt_tomato_pct",
+        "deleted_at",
+        "tmdb_popularity",
+      ].join(","),
+    )
+    .is("deleted_at", null)
+    .order("tmdb_popularity", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error("[swipe-trending] titles query error:", error.message);
+    throw new Error("Failed to load titles");
+  }
+
+  return (rows ?? []).map((meta: any) => ({
+    id: meta.title_id,
+    title: meta.primary_title ?? null,
+    year: meta.release_year ?? null,
+    posterUrl: meta.poster_url ?? null,
+    backdropUrl: meta.backdrop_url ?? null,
+    imdbRating: meta.imdb_rating ?? null,
+    rtTomatoMeter: meta.rt_tomato_pct ?? null,
+    tmdbId: meta.tmdb_id ?? null,
+    imdbId: meta.omdb_imdb_id ?? null,
+    contentType: meta.content_type ?? null,
+  }));
 }

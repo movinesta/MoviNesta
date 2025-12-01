@@ -21,7 +21,11 @@ interface SwipeEventPayload {
 }
 
 function buildSupabaseClient(req: Request) {
-  return createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    throw new Error("Supabase environment variables are not configured");
+  }
+
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     global: {
       headers: {
         Authorization: req.headers.get("Authorization") ?? "",
@@ -42,176 +46,188 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabase = buildSupabaseClient(req);
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return new Response("Unauthorized", {
-      status: 401,
-      headers: corsHeaders,
-    });
-  }
-
-  let body: SwipeEventPayload;
   try {
-    body = (await req.json()) as SwipeEventPayload;
-  } catch {
-    return new Response("Invalid JSON", {
-      status: 400,
-      headers: corsHeaders,
-    });
-  }
+    const supabase = buildSupabaseClient(req);
 
-  const { titleId, direction, source, rating, inWatchlist } = body;
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (!titleId || !["like", "dislike", "skip"].includes(direction)) {
-    return new Response("Invalid payload", {
-      status: 400,
-      headers: corsHeaders,
-    });
-  }
+    if (userError || !user) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
 
-  let ratingValue: number | null = rating ?? null;
-  let libraryStatus: string | null = null;
-  const explicitWatchlistChange = inWatchlist !== undefined && inWatchlist !== null;
+    let body: SwipeEventPayload;
+    try {
+      body = (await req.json()) as SwipeEventPayload;
+    } catch {
+      return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
 
-  if (ratingValue === null) {
-    if (direction === "like") {
-      ratingValue = 4.0;
+    const { titleId, direction, source, rating, inWatchlist } = body;
+
+    if (!titleId || !["like", "dislike", "skip"].includes(direction)) {
+      return jsonResponse({ error: "Invalid payload" }, 400);
+    }
+
+    let ratingValue: number | null = rating ?? null;
+    let libraryStatus: string | null = null;
+    const explicitWatchlistChange =
+      inWatchlist !== undefined && inWatchlist !== null;
+
+    if (ratingValue === null) {
+      if (direction === "like") {
+        ratingValue = 4.0;
+      } else if (direction === "dislike") {
+        ratingValue = 1.0;
+      } else if (direction === "skip") {
+        ratingValue = 2.5;
+      }
+    }
+
+    if (explicitWatchlistChange) {
+      libraryStatus = inWatchlist ? "want_to_watch" : null;
+    } else if (direction === "like") {
+      libraryStatus = "want_to_watch";
     } else if (direction === "dislike") {
-      ratingValue = 1.0;
-    } else if (direction === "skip") {
-      ratingValue = 2.5;
+      libraryStatus = "dropped";
     }
-  }
 
-  if (explicitWatchlistChange) {
-    libraryStatus = inWatchlist ? "want_to_watch" : null;
-  } else if (direction === "like") {
-    libraryStatus = "want_to_watch";
-  } else if (direction === "dislike") {
-    libraryStatus = "dropped";
-  }
-
-  const { data: titleRow } = await supabase
-    .from("titles")
-    .select("content_type")
-    .eq("title_id", titleId)
-    .maybeSingle();
-
-  const contentType = titleRow?.content_type ?? null;
-
-  if (ratingValue !== null && contentType) {
-    const { data: existingRating, error: selectRatingError } = await supabase
-      .from("ratings")
-      .select("id")
-      .eq("user_id", user.id)
+    const { data: titleRow, error: titleError } = await supabase
+      .from("titles")
+      .select("content_type")
       .eq("title_id", titleId)
       .maybeSingle();
 
-    if (selectRatingError && selectRatingError.code !== "PGRST116") {
-      console.error("[swipe-event] select ratings error:", selectRatingError);
+    if (titleError) {
+      console.error("[swipe-event] select title error:", titleError);
+      return jsonResponse({ error: "Failed to load title" }, 500);
     }
 
-    if (existingRating?.id) {
-      const { error: updateRatingError } = await supabase
+    if (!titleRow?.content_type) {
+      return jsonResponse({ error: "Title not found" }, 404);
+    }
+
+    const contentType = titleRow.content_type;
+
+    if (ratingValue !== null) {
+      const { data: existingRating, error: selectRatingError } = await supabase
         .from("ratings")
-        .update({
-          rating: ratingValue,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingRating.id);
-      if (updateRatingError) {
-        console.error("[swipe-event] update rating error:", updateRatingError);
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("title_id", titleId)
+        .maybeSingle();
+
+      if (selectRatingError && selectRatingError.code !== "PGRST116") {
+        console.error("[swipe-event] select ratings error:", selectRatingError);
       }
-    } else {
-      const { error: insertRatingError } = await supabase
-        .from("ratings")
-        .insert({
-          user_id: user.id,
-          title_id: titleId,
-          content_type: contentType,
-          rating: ratingValue,
-        });
-      if (insertRatingError) {
-        console.error("[swipe-event] insert rating error:", insertRatingError);
+
+      if (existingRating?.id) {
+        const { error: updateRatingError } = await supabase
+          .from("ratings")
+          .update({
+            rating: ratingValue,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingRating.id);
+        if (updateRatingError) {
+          console.error("[swipe-event] update rating error:", updateRatingError);
+        }
+      } else {
+        const { error: insertRatingError } = await supabase
+          .from("ratings")
+          .insert({
+            user_id: user.id,
+            title_id: titleId,
+            content_type: contentType,
+            rating: ratingValue,
+          });
+        if (insertRatingError) {
+          console.error("[swipe-event] insert rating error:", insertRatingError);
+        }
       }
     }
-  }
 
-  if (libraryStatus !== null && contentType) {
-    const { data: existingEntry, error: selectLibError } = await supabase
-      .from("library_entries")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("title_id", titleId)
-      .maybeSingle();
-
-    if (selectLibError && selectLibError.code !== "PGRST116") {
-      console.error("[swipe-event] select library error:", selectLibError);
-    }
-
-    if (existingEntry?.id) {
-      const { error: updateLibError } = await supabase
+    if (libraryStatus !== null) {
+      const { data: existingEntry, error: selectLibError } = await supabase
         .from("library_entries")
-        .update({
-          status: libraryStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingEntry.id);
-      if (updateLibError) {
-        console.error("[swipe-event] update library error:", updateLibError);
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("title_id", titleId)
+        .maybeSingle();
+
+      if (selectLibError && selectLibError.code !== "PGRST116") {
+        console.error("[swipe-event] select library error:", selectLibError);
       }
-    } else {
-      const { error: insertLibError } = await supabase
+
+      if (existingEntry?.id) {
+        const { error: updateLibError } = await supabase
+          .from("library_entries")
+          .update({
+            status: libraryStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingEntry.id);
+        if (updateLibError) {
+          console.error("[swipe-event] update library error:", updateLibError);
+        }
+      } else {
+        const { error: insertLibError } = await supabase
+          .from("library_entries")
+          .insert({
+            user_id: user.id,
+            title_id: titleId,
+            content_type: contentType,
+            status: libraryStatus,
+          });
+        if (insertLibError) {
+          console.error("[swipe-event] insert library error:", insertLibError);
+        }
+      }
+    } else if (explicitWatchlistChange === true) {
+      const { error: deleteLibError } = await supabase
         .from("library_entries")
-        .insert({
-          user_id: user.id,
-          title_id: titleId,
-          content_type: contentType,
-          status: libraryStatus,
-        });
-      if (insertLibError) {
-        console.error("[swipe-event] insert library error:", insertLibError);
+        .delete()
+        .eq("user_id", user.id)
+        .eq("title_id", titleId);
+      if (deleteLibError) {
+        console.error("[swipe-event] delete library error:", deleteLibError);
       }
     }
-  } else if (explicitWatchlistChange === true) {
-    const { error: deleteLibError } = await supabase
-      .from("library_entries")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("title_id", titleId);
-    if (deleteLibError) {
-      console.error("[swipe-event] delete library error:", deleteLibError);
+
+    const eventType =
+      direction === "skip" ? "swipe_skipped" : "rating_created";
+
+    const { error: activityError } = await supabase
+      .from("activity_events")
+      .insert({
+        user_id: user.id,
+        title_id: titleId,
+        event_type: eventType,
+        payload: {
+          source: source ?? "swipe",
+          direction,
+          rating: ratingValue,
+          watchlist: explicitWatchlistChange ? inWatchlist : undefined,
+        },
+      });
+
+    if (activityError) {
+      console.error("[swipe-event] activity_events error:", activityError);
     }
+
+    return jsonResponse({ ok: true });
+  } catch (err) {
+    console.error("[swipe-event] unhandled error:", err);
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return jsonResponse({ error: message }, 500);
   }
+});
 
-  const eventType =
-    direction === "skip" ? "swipe_skipped" : "rating_created";
-
-  const { error: activityError } = await supabase
-    .from("activity_events")
-    .insert({
-      user_id: user.id,
-      title_id: titleId,
-      event_type: eventType,
-      payload: {
-        source: source ?? "swipe",
-        direction,
-        rating: ratingValue,
-        watchlist: explicitWatchlistChange ? inWatchlist : undefined,
-      },
-    });
-
-  if (activityError) {
-    console.error("[swipe-event] activity_events error:", activityError);
-  }
-
-  return new Response(JSON.stringify({ ok: true }), {
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-});
+}
