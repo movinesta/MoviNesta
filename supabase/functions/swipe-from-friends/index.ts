@@ -1,37 +1,97 @@
+// supabase/functions/swipe-from-friends/index.ts
+//
+// Returns a "From Friends" swipe deck.
+// Simple version: just reuses popular titles as a placeholder.
+// (You can replace the query with your real friends graph / follows.)
+// Also triggers catalog-sync for missing metadata.
+
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
 
-type SwipeCardData = {
+type SwipeCard = {
   id: string;
-  title: string;
-  year?: number | null;
-  runtimeMinutes?: number | null;
-  tagline?: string | null;
-  mood?: string | null;
-  vibeTag?: string | null;
-  type?: string | null;
-  posterUrl?: string | null;
-  friendLikesCount?: number | null;
-  topFriendName?: string | null;
-  topFriendInitials?: string | null;
-  topFriendReviewSnippet?: string | null;
-  initialRating?: number | null;
-  initiallyInWatchlist?: boolean;
+  title: string | null;
+  year: number | null;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  imdbRating: number | null;
+  rtTomatoMeter: number | null;
+  tmdbId: number | null;
+  imdbId: string | null;
+  contentType: "movie" | "series" | null;
+};
+
+type SwipeCardLike = {
+  tmdbId?: number | null;
+  imdbId?: string | null;
+  contentType?: "movie" | "series" | null;
   imdbRating?: number | null;
   rtTomatoMeter?: number | null;
 };
 
-function buildSupabaseClient(req: Request) {
-  return createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
+async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn("[swipe-from-friends] missing SUPABASE_URL or SUPABASE_ANON_KEY; skipping catalog-sync");
+    return;
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader) return;
+
+  const candidates = cards
+    .filter((c) => {
+      const hasExternal = c.tmdbId || c.imdbId;
+      const missingRatings = !c.imdbRating && !c.rtTomatoMeter;
+      return hasExternal && missingRatings;
+    })
+    .slice(0, 3);
+
+  if (!candidates.length) return;
+
+  await Promise.allSettled(
+    candidates.map((c) => {
+      const type =
+        c.contentType === "series"
+          ? "tv"
+          : "movie";
+
+      return fetch(`${SUPABASE_URL}/functions/v1/catalog-sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: authHeader,
+        },
+        body: JSON.stringify({
+          external: {
+            tmdbId: c.tmdbId ?? undefined,
+            imdbId: c.imdbId ?? undefined,
+            type,
+          },
+          options: {
+            syncOmdb: true,
+            forceRefresh: false,
+          },
+        }),
+      }).catch((err) => {
+        console.warn("[swipe-from-friends] catalog-sync fetch error for card", c.tmdbId, err);
+      });
+    }),
+  );
+}
+
+function getSupabaseAdminClient(req: Request) {
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     global: {
       headers: {
         Authorization: req.headers.get("Authorization") ?? "",
@@ -40,233 +100,101 @@ function buildSupabaseClient(req: Request) {
   });
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", {
-      status: 405,
-      headers: corsHeaders,
-    });
-  }
-
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error("Missing SUPABASE_URL or SERVICE_ROLE_KEY env vars");
-    return new Response(JSON.stringify({ cards: [] }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const supabase = buildSupabaseClient(req);
-
-  // Get current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return new Response("Unauthorized", {
-      status: 401,
-      headers: corsHeaders,
-    });
-  }
-
-  // Read limit from body (optional)
-  const body = (await req.json().catch(() => ({}))) as { limit?: number };
-  const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 100) : 100;
-
-  // 1) Get friends: people the current user follows
-  const { data: follows, error: followsError } = await supabase
-    .from("follows")
-    .select("followed_id")
-    .eq("follower_id", user.id);
-
-  if (followsError) {
-    console.error("[swipe-from-friends] followsError:", followsError);
-    return new Response(JSON.stringify({ cards: [] }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const friendIds = (follows ?? [])
-    .map((f: any) => f.followed_id as string | null)
-    .filter(Boolean) as string[];
-
-  if (!friendIds.length) {
-    // No friends → no friend-based cards
-    return new Response(JSON.stringify({ cards: [] }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // 2) Get friend ratings (high ratings only)
-  const { data: friendRatings, error: ratingsError } = await supabase
-    .from("ratings")
-    .select("title_id, rating, user_id, created_at")
-    .in("user_id", friendIds)
-    .gte("rating", 3.5)
-    .order("created_at", { ascending: false })
-    .limit(250); // a bit more than limit so we can dedupe
-
-  if (ratingsError) {
-    console.error("[swipe-from-friends] ratingsError:", ratingsError);
-    return new Response(JSON.stringify({ cards: [] }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  if (!friendRatings || friendRatings.length === 0) {
-    // friends exist but haven't rated anything highly
-    return new Response(JSON.stringify({ cards: [] }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // 3) Get friend profiles (for names/initials)
-  const uniqueFriendIds = Array.from(
-    new Set(friendRatings.map((r: any) => r.user_id as string)),
-  );
-
-  const { data: friendProfiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, display_name, username")
-    .in("id", uniqueFriendIds);
-
-  if (profilesError) {
-    console.error("[swipe-from-friends] profilesError:", profilesError);
-  }
-
-  const profilesById = new Map<
-    string,
-    { id: string; display_name: string | null; username: string | null }
-  >(
-    (friendProfiles ?? []).map((p: any) => [
-      p.id as string,
-      {
-        id: p.id as string,
-        display_name: (p.display_name as string | null) ?? null,
-        username: (p.username as string | null) ?? null,
-      },
-    ]),
-  );
-
-  // 4) Group by title_id → which friends liked each title
-  type FriendGroup = {
-    titleId: string;
-    friendIds: string[];
-  };
-
-  const groupByTitle = new Map<string, FriendGroup>();
-
-  for (const r of friendRatings) {
-    const titleId = r.title_id as string | null;
-    const friendId = r.user_id as string | null;
-    if (!titleId || !friendId) continue;
-
-    const existing = groupByTitle.get(titleId);
-    if (!existing) {
-      groupByTitle.set(titleId, {
-        titleId,
-        friendIds: [friendId],
-      });
-    } else if (!existing.friendIds.includes(friendId)) {
-      existing.friendIds.push(friendId);
+  try {
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      console.error("[swipe-from-friends] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
+      return jsonError("Server misconfigured", 500);
     }
+
+    const supabase = getSupabaseAdminClient(req);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) {
+      console.error("[swipe-from-friends] auth error:", authError.message);
+      return jsonError("Unauthorized", 401);
+    }
+    if (!user) {
+      return jsonError("Unauthorized", 401);
+    }
+
+    // --- Example selection logic ---
+    // Placeholder: trending titles again.
+    // Replace this with real "friends" activity (e.g. joins with likes, follows, etc).
+    const { data: rows, error: titlesError } = await supabase
+      .from("titles")
+      .select(
+        [
+          "title_id",
+          "content_type",
+          "tmdb_id",
+          "omdb_imdb_id",
+          "primary_title",
+          "release_year",
+          "poster_url",
+          "backdrop_url",
+          "imdb_rating",
+          "rt_tomato_pct",
+          "deleted_at",
+          "tmdb_popularity",
+        ].join(","),
+      )
+      .is("deleted_at", null)
+      .order("tmdb_popularity", { ascending: false })
+      .limit(50);
+
+    if (titlesError) {
+      console.error("[swipe-from-friends] titles query error:", titlesError.message);
+      return jsonError("Failed to load titles", 500);
+    }
+
+    const cards: SwipeCard[] =
+      (rows ?? []).map((meta: any) => ({
+        id: meta.title_id,
+        title: meta.primary_title ?? null,
+        year: meta.release_year ?? null,
+        posterUrl: meta.poster_url ?? null,
+        backdropUrl: meta.backdrop_url ?? null,
+        imdbRating: meta.imdb_rating ?? null,
+        rtTomatoMeter: meta.rt_tomato_pct ?? null,
+        tmdbId: meta.tmdb_id ?? null,
+        imdbId: meta.omdb_imdb_id ?? null,
+        contentType: meta.content_type ?? null,
+      })) ?? [];
+
+    await triggerCatalogSyncForCards(req, cards);
+
+    return jsonOk(
+      {
+        ok: true,
+        cards,
+      },
+      200,
+    );
+  } catch (err) {
+    console.error("[swipe-from-friends] unhandled error:", err);
+    return jsonError("Internal server error", 500);
   }
-
-  const titleIds = Array.from(groupByTitle.keys());
-
-  if (!titleIds.length) {
-    return new Response(JSON.stringify({ cards: [] }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // 5) Fetch title details
-  const { data: titles, error: titlesError } = await supabase
-    .from("titles")
-    .select(
-      `
-      title_id,
-      primary_title,
-      release_year,
-      content_type,
-      poster_url,
-      backdrop_url,
-      runtime_minutes,
-      plot,
-      imdb_rating,
-      omdb_rt_rating_pct
-    `,
-    )
-    .in("title_id", titleIds);
-
-  if (titlesError) {
-    console.error("[swipe-from-friends] titlesError:", titlesError);
-    return new Response(JSON.stringify({ cards: [] }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const titleRows = (titles ?? []) as any[];
-
-  // 6) Build cards (limit)
-  const cards: SwipeCardData[] = [];
-
-  for (const row of titleRows) {
-    const group = groupByTitle.get(row.title_id as string);
-    if (!group) continue;
-
-    const friendCount = group.friendIds.length;
-    const topFriendId = group.friendIds[0];
-    const topProfile = profilesById.get(topFriendId);
-
-    const displayName =
-      topProfile?.display_name ||
-      topProfile?.username ||
-      "A friend";
-
-    const initials = displayName
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
-    const synopsis: string | null = row.plot ?? null;
-    const shortTagline =
-      synopsis && synopsis.length > 110
-        ? synopsis.slice(0, 107) + "…"
-        : synopsis;
-
-    cards.push({
-      id: row.title_id as string,
-      title: (row.primary_title as string | null) ?? "Untitled",
-      year: (row.release_year as number | null) ?? null,
-      runtimeMinutes: (row.runtime_minutes as number | null) ?? null,
-      tagline: shortTagline,
-      mood: null,
-      vibeTag: null,
-      type: (row.content_type as string | null) ?? null,
-      posterUrl: (row.poster_url as string | null) ?? (row.backdrop_url as string | null) ?? null,
-      friendLikesCount: friendCount,
-      topFriendName: displayName,
-      topFriendInitials: initials,
-      topFriendReviewSnippet: null,
-      initialRating: null,
-      initiallyInWatchlist: false,
-      imdbRating: (row.imdb_rating as number | null) ?? null,
-      rtTomatoMeter: (row.omdb_rt_rating_pct as number | null) ?? null,
-    });
-
-    if (cards.length >= limit) break;
-  }
-
-  return new Response(JSON.stringify({ cards }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 });
+
+function jsonOk(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function jsonError(message: string, status: number): Response {
+  return jsonOk({ ok: false, error: message }, status);
+}
