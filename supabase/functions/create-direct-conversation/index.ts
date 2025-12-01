@@ -1,13 +1,15 @@
 // supabase/functions/create-direct-conversation/index.ts
 //
 // Creates (or reuses) a one-on-one conversation between the current user
-// and a target user. Uses the service role key to bypass RLS, but still
-// respects the authenticated user from the Authorization header.
+// and a target user. Uses:
+//  - anon client + Authorization header to get auth user
+//  - service-role client (without Authorization) to bypass RLS for DB
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const corsHeaders: Record<string, string> = {
@@ -32,7 +34,7 @@ type CreateDirectConversationResponse = {
   error?: string;
 };
 
-function jsonOk(body: unknown, status: number): Response {
+function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -43,21 +45,22 @@ function jsonOk(body: unknown, status: number): Response {
 }
 
 function jsonError(message: string, status: number): Response {
-  return jsonOk({ ok: false, error: message }, status);
+  return jsonResponse({ ok: false, error: message }, status);
 }
 
 function validateConfig(): Response | null {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY) {
     console.error(
-      "[create-direct-conversation] Missing SUPABASE_URL or SERVICE_ROLE_KEY",
+      "[create-direct-conversation] Missing SUPABASE_URL, ANON_KEY, or SERVICE_ROLE_KEY",
     );
     return jsonError("Server misconfigured", 500);
   }
   return null;
 }
 
-function getSupabaseAdminClient(req: Request) {
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+function getAuthClient(req: Request) {
+  // Uses anon key + Authorization header so auth.getUser() works
+  return createClient(SUPABASE_URL, ANON_KEY, {
     global: {
       headers: {
         Authorization: req.headers.get("Authorization") ?? "",
@@ -66,12 +69,17 @@ function getSupabaseAdminClient(req: Request) {
   });
 }
 
+function getAdminClient() {
+  // Uses service role key, NO Authorization header -> bypasses RLS
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+}
+
 // ---------------------------------------------------------------------------
 // Helper: find existing one-on-one conversation between two users
 // ---------------------------------------------------------------------------
 
 async function findExistingDirectConversation(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabaseAdmin: ReturnType<typeof getAdminClient>,
   myUserId: string,
   targetUserId: string,
 ): Promise<string | null> {
@@ -80,8 +88,8 @@ async function findExistingDirectConversation(
     { myUserId, targetUserId },
   );
 
-  // 1) Find all conversation IDs where *I* am a participant
-  const { data: myRows, error: myError } = await supabase
+  // 1) All conversations where *I* am a participant
+  const { data: myRows, error: myError } = await supabaseAdmin
     .from("conversation_participants")
     .select("conversation_id")
     .eq("user_id", myUserId)
@@ -101,8 +109,8 @@ async function findExistingDirectConversation(
     return null;
   }
 
-  // 2) Among those, find conversations where the target user also participates
-  const { data: theirRows, error: theirError } = await supabase
+  // 2) Among those, find conversations where target user also participates
+  const { data: theirRows, error: theirError } = await supabaseAdmin
     .from("conversation_participants")
     .select("conversation_id")
     .eq("user_id", targetUserId)
@@ -117,20 +125,20 @@ async function findExistingDirectConversation(
     throw theirError;
   }
 
-  const sharedConversationIds = Array.from(
+  const sharedIds = Array.from(
     new Set((theirRows ?? []).map((row) => row.conversation_id)),
   );
 
-  if (sharedConversationIds.length === 0) {
+  if (sharedIds.length === 0) {
     console.log("[create-direct-conversation] no shared conversations found");
     return null;
   }
 
-  // 3) Filter to *non-group* conversations and pick the most recently updated
-  const { data: conversations, error: convError } = await supabase
+  // 3) Filter to non-group conversations and pick most recently updated
+  const { data: conversations, error: convError } = await supabaseAdmin
     .from("conversations")
     .select("id, is_group, updated_at")
-    .in("id", sharedConversationIds)
+    .in("id", sharedIds)
     .eq("is_group", false)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -172,17 +180,18 @@ serve(async (req) => {
     url: req.url,
   });
 
+  const cfgError = validateConfig();
+  if (cfgError) return cfgError;
+
   try {
-    const configError = validateConfig();
-    if (configError) return configError;
+    const supabaseAuth = getAuthClient(req);
+    const supabaseAdmin = getAdminClient();
 
-    const supabase = getSupabaseAdminClient(req);
-
-    // Require authenticated user
+    // 1) Auth: who is calling?
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabaseAuth.auth.getUser();
 
     if (authError) {
       console.error(
@@ -199,6 +208,7 @@ serve(async (req) => {
 
     const myUserId = user.id;
 
+    // 2) Parse body
     const body = (await req.json().catch((e) => {
       console.error("[create-direct-conversation] invalid JSON body:", e);
       return null;
@@ -215,15 +225,15 @@ serve(async (req) => {
       return jsonError("targetUserId cannot be yourself", 400);
     }
 
-    // Try to find existing direct conversation first
+    // 3) Try to find existing DM
     const existingId = await findExistingDirectConversation(
-      supabase,
+      supabaseAdmin,
       myUserId,
       targetUserId,
     );
 
     if (existingId) {
-      return jsonOk(
+      return jsonResponse(
         { ok: true, conversationId: existingId } satisfies CreateDirectConversationResponse,
         200,
       );
@@ -231,8 +241,8 @@ serve(async (req) => {
 
     console.log("[create-direct-conversation] creating new conversation");
 
-    // Create new conversation
-    const { data: conv, error: convError } = await supabase
+    // 4) Create conversation (admin client bypasses RLS)
+    const { data: conv, error: convError } = await supabaseAdmin
       .from("conversations")
       .insert({
         is_group: false,
@@ -252,8 +262,8 @@ serve(async (req) => {
 
     const conversationId = conv.id as string;
 
-    // Insert both participants (service role bypasses RLS)
-    const { error: participantsError } = await supabase
+    // 5) Insert both participants (bypassing RLS)
+    const { error: participantsError } = await supabaseAdmin
       .from("conversation_participants")
       .insert([
         {
@@ -281,7 +291,7 @@ serve(async (req) => {
       { conversationId },
     );
 
-    return jsonOk(
+    return jsonResponse(
       { ok: true, conversationId } satisfies CreateDirectConversationResponse,
       200,
     );
