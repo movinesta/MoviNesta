@@ -58,7 +58,7 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
     enabled: trimmedQuery.length > 0,
     queryFn: async () => {
       const columns = `
-        title_id:id,
+        id:title_id,
         primary_title,
         original_title,
         release_year,

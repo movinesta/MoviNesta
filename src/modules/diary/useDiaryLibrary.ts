@@ -55,7 +55,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
       const { data, error } = await supabase
         .from("library_entries")
         .select(
-          "id, title_id, status, updated_at, titles!inner ( title_id:id, primary_title:title, release_year:year, content_type:type, poster_url, backdrop_url )",
+          "id, title_id, status, updated_at, titles!inner ( id:title_id, title:primary_title, year:release_year, type:content_type, poster_url, backdrop_url )",
         )
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })

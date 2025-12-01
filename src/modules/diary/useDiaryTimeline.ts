@@ -92,7 +92,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       if (titleIds.length) {
         const { data: titles, error: titlesError } = await supabase
           .from("titles")
-          .select("title_id:id, primary_title:title, release_year:year, poster_url, backdrop_url")
+          .select("id:title_id, title:primary_title, year:release_year, poster_url, backdrop_url")
           .in("title_id", titleIds);
 
         if (!titlesError && titles) {

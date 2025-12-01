@@ -216,7 +216,7 @@ const fetchHomeRecommendations = async (
   const animeResult = await supabase
     .from("titles")
     .select(
-      "title_id:id, primary_title:title, release_year:year, runtime_minutes, content_type:type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct",
+      "id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct",
     )
     .eq("content_type", "anime")
     .order("release_year", { ascending: false })
@@ -247,7 +247,7 @@ const fetchHomeRecommendations = async (
   const titlesResult = await supabase
     .from("titles")
     .select(
-      `title_id:id, primary_title:title, release_year:year, runtime_minutes, content_type:type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct`,
+      `id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct`,
     )
     .in("title_id", allTitleIds);
 

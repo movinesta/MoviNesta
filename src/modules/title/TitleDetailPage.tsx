@@ -84,7 +84,7 @@ const TitleDetailPage: React.FC = () => {
         .from("titles")
         .select(
           `
-          title_id:id,
+          id:title_id,
           primary_title,
           original_title,
           release_year,
