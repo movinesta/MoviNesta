@@ -1,16 +1,15 @@
 // supabase/functions/catalog-sync/index.ts
 //
-// Universal seeding function for titles.
+// Universal seeding function for `public.titles`.
 //
 // - TMDb → tmdb_* columns
 // - OMDb → omdb_* columns
-// - Canonical fields (primary_title, release_year, poster_url, etc.)
-//   use OMDb first, then TMDb as fallback.
-// - NO explicit onConflict – we do insert/update manually.
+// - Canonical columns (primary_title, release_year, poster_url, etc.)
+//   are filled OMDb → TMDb → null.
 // - Handles:
 //   * TMDb "movie"/"tv" → DB enum content_type "movie"/"series"
-//   * Invalid date strings → null
-//   * Duplicate tmdb_id unique constraint → update existing row instead of failing.
+//   * Invalid/empty dates → null
+//   * Duplicate tmdb_id unique constraint → update existing row.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -34,7 +33,8 @@ type TitleModePayload = {
   external: {
     tmdbId?: number;
     imdbId?: string;
-    type?: "movie" | "tv"; // TMDb media_type
+    // TMDb media_type
+    type?: "movie" | "tv";
   };
   options?: {
     syncOmdb?: boolean;
@@ -87,7 +87,7 @@ serve(async (req) => {
 });
 
 // ============================================================================
-// Sync a single title
+// Main: sync one title
 // ============================================================================
 
 async function handleTitleMode(
@@ -110,7 +110,7 @@ async function handleTitleMode(
   let tmdbId: number | null = tmdbIdRaw ?? null;
   let imdbId: string | null = imdbIdRaw ?? null;
 
-  // If only IMDb ID provided, resolve TMDb via /find
+  // If only IMDb ID is given, resolve TMDb via /find
   if (!tmdbId && imdbId) {
     const resolved = await tmdbFindByImdbId(imdbId);
     if (!resolved) {
@@ -124,7 +124,7 @@ async function handleTitleMode(
     return jsonError("Could not determine TMDb id", 500);
   }
 
-  // TMDb details
+  // --- Fetch TMDb details ---
   const tmdbDetails = await tmdbGetDetails(tmdbId, tmdbMediaType);
   if (!tmdbDetails) {
     return jsonError("TMDb details fetch failed", 502);
@@ -137,17 +137,17 @@ async function handleTitleMode(
 
   const tmdbBlock = buildTmdbBlock(tmdbDetails, tmdbMediaType);
 
-  // OMDb (optional)
+  // --- Fetch OMDb (if allowed & possible) ---
   let omdbBlock: OmdbBlock | null = null;
   if ((options?.syncOmdb ?? true) && OMDB_API_KEY && imdbId) {
     omdbBlock = await fetchOmdbBlock(imdbId);
   }
 
-  // Map TMDb media type -> DB enum content_type ("movie"/"series")
+  // Map TMDb type -> DB enum content_type ("movie" | "series")
   const dbContentType: "movie" | "series" =
     tmdbMediaType === "movie" ? "movie" : "series";
 
-  // Find existing row
+  // --- Check if row already exists ---
   const { data: existing, error: existingError } = await supabase
     .from("titles")
     .select("title_id, tmdb_id, omdb_imdb_id, omdb_last_synced_at")
@@ -170,20 +170,22 @@ async function handleTitleMode(
   const now = new Date().toISOString();
   const titleId = existing?.title_id ?? crypto.randomUUID();
 
+  // --- Canonical fields (OMDb → TMDb) ---
   const normalized = buildNormalizedFields({
     mediaType: tmdbMediaType,
     tmdb: tmdbBlock,
     omdb: omdbBlock,
   });
 
+  // --- DB row ---
   const baseRow: Record<string, any> = {
     title_id: titleId,
     content_type: dbContentType,
 
-    // canonical (OMDb → TMDb)
+    // canonical columns
     ...normalized,
 
-    // provider-specific
+    // provider-specific columns
     ...tmdbBlock,
     ...omdbBlock,
 
@@ -193,7 +195,7 @@ async function handleTitleMode(
     last_synced_at: now,
     updated_at: now,
 
-    // convenience
+    // convenience / origin tracking
     data_source: omdbBlock ? "omdb" : "tmdb",
     source_priority: omdbBlock ? 1 : 2,
     raw_payload: {
@@ -206,17 +208,19 @@ async function handleTitleMode(
   let finalTitleId: string = titleId;
 
   if (existing) {
+    // UPDATE existing
     const { error } = await supabase
       .from("titles")
       .update(baseRow)
       .eq("title_id", titleId);
     mutationError = error;
   } else {
+    // INSERT new
     const { error } = await supabase.from("titles").insert(baseRow);
     mutationError = error;
   }
 
-  // handle duplicate tmdb_id (unique constraint)
+  // --- Handle duplicate tmdb_id (unique constraint) ---
   if (mutationError) {
     const code = (mutationError as any).code;
     const msg = (mutationError as any).message ?? "";
@@ -285,7 +289,7 @@ async function handleTitleMode(
 }
 
 // ============================================================================
-// TMDb helpers
+// TMDb helpers (map to tmdb_* columns)
 // ============================================================================
 
 async function tmdbRequest(path: string, params: Record<string, string> = {}) {
@@ -355,7 +359,7 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
   const genreIds: number[] =
     Array.isArray(details.genres) && details.genres.length
       ? details.genres
-          .map((g: any) => typeof g.id === "number" ? g.id : null)
+          .map((g: any) => (typeof g.id === "number" ? g.id : null))
           .filter((x: any) => x !== null)
       : [];
 
@@ -363,8 +367,9 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
   const firstAirDate = safeDateOrNull(details.first_air_date);
 
   return {
+    // provider-specific
     tmdb_id: details.id ?? null,
-    tmdb_media_type: type,
+    tmdb_media_type: type, // "movie" | "tv"
     tmdb_adult: details.adult ?? null,
     tmdb_video: details.video ?? null,
     tmdb_genre_ids: genreIds.length ? genreIds : null,
@@ -388,7 +393,7 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
 }
 
 // ============================================================================
-// OMDb helpers
+// OMDb helpers (map to omdb_* columns)
 // ============================================================================
 
 type OmdbBlock = Record<string, any>;
@@ -412,6 +417,7 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
     return null;
   }
 
+  // Ratings and votes
   const imdbRating = parseFloatSafe(data.imdbRating);
   const imdbVotes = parseIntSafe(data.imdbVotes);
   const rtPct = extractRottenTomatoesPct(data.Ratings);
@@ -429,9 +435,12 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
   const boxOfficeNumeric = parseCurrency(data.BoxOffice);
 
   return {
+    // Provider IDs
     omdb_imdb_id: data.imdbID ?? imdbId,
     omdb_title: data.Title ?? null,
     omdb_year: parseIntSafe(data.Year),
+
+    // Direct OMDb fields
     omdb_rated: nullIfEmpty(data.Rated),
     omdb_released: nullIfEmpty(data.Released),
     omdb_runtime: nullIfEmpty(data.Runtime),
@@ -456,10 +465,14 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
     omdb_website: nullIfEmpty(data.Website),
     omdb_response: nullIfEmpty(data.Response),
     omdb_response_ok: data.Response === "True",
+
+    // Derived ratings
     omdb_imdb_rating: imdbRating,
     omdb_imdb_votes: imdbVotes,
     omdb_rt_rating_pct: rtPct,
     omdb_metacritic_score: metascore,
+
+    // Raw payload
     omdb_raw: data,
   };
 }
@@ -475,7 +488,7 @@ function extractRottenTomatoesPct(ratings: any): number | null {
 }
 
 // ============================================================================
-// Canonical normalization (OMDb → TMDb → null)
+// Canonical columns (OMDb → TMDb → null)
 // ============================================================================
 
 function buildNormalizedFields({
@@ -499,16 +512,15 @@ function buildNormalizedFields({
     omdb?.omdb_title ??
     null;
 
-  // sort_title: lowercased, strip leading articles
   const sort_title = primary_title ? buildSortTitle(primary_title) : null;
 
-  // Year + dates
-  const omdbReleaseDateIso = omdb?.omdb_released
+  // Dates
+  const omdbReleaseIso = omdb?.omdb_released
     ? parseOmdbDateToISO(omdb.omdb_released)
     : null;
 
   const release_date =
-    omdbReleaseDateIso ??
+    omdbReleaseIso ??
     tmdb.tmdb_release_date ??
     (mediaType === "tv" ? tmdb.tmdb_first_air_date : null) ??
     null;
@@ -531,7 +543,7 @@ function buildNormalizedFields({
         ? tmdb.tmdb_episode_run_time[0]
         : null);
 
-  // Plot / tagline
+  // Plot and tagline
   const plot =
     omdb?.omdb_plot ??
     tmdb.tmdb_overview ??
@@ -551,7 +563,7 @@ function buildNormalizedFields({
       ? `https://image.tmdb.org/t/p/w780${tmdb.tmdb_backdrop_path}`
       : null;
 
-  // Languages / country
+  // Language / country
   const language =
     (omdb?.omdb_language
       ? omdb.omdb_language.split(",")[0].trim()
@@ -562,9 +574,9 @@ function buildNormalizedFields({
   const country =
     (omdb?.omdb_country
       ? omdb.omdb_country.split(",")[0].trim()
-      : null) ?? null; // could extend with TMDb production_countries if needed
+      : null) ?? null;
 
-  // Ratings
+  // Ratings (canonical)
   const imdb_rating =
     omdb?.omdb_imdb_rating ??
     null;
@@ -581,7 +593,7 @@ function buildNormalizedFields({
     omdb?.omdb_metacritic_score ??
     null;
 
-  // Genres: merge and de-duplicate
+  // Genres (merge OMDb + TMDb)
   const genresSet = new Set<string>();
   if (Array.isArray(omdb?.omdb_genre_names)) {
     for (const g of omdb!.omdb_genre_names) {
@@ -595,6 +607,9 @@ function buildNormalizedFields({
   }
   const genres = genresSet.size ? Array.from(genresSet) : null;
 
+  // is_adult canonical
+  const is_adult = tmdb.tmdb_adult ?? false;
+
   return {
     primary_title,
     original_title,
@@ -602,17 +617,18 @@ function buildNormalizedFields({
     release_year,
     release_date,
     runtime_minutes,
+    is_adult,
     plot,
     tagline,
     poster_url,
     backdrop_url,
+    genres,
     language,
     country,
     imdb_rating,
     imdb_votes,
     rt_tomato_pct,
     metascore,
-    genres,
   };
 }
 
