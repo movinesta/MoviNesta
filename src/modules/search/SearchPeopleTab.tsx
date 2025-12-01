@@ -10,18 +10,10 @@ interface SearchPeopleTabProps {
   query: string;
 }
 
-interface ConversationParticipantRow {
-  conversation_id: string;
-}
-
-interface ConversationRow {
-  id: string;
-  is_group: boolean;
-  updated_at: string;
-}
-
-interface NewConversationRow {
-  id: string;
+interface CreateDirectConversationResponse {
+  ok: boolean;
+  conversationId?: string;
+  error?: string;
 }
 
 const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
@@ -30,7 +22,8 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const toggleFollow = useToggleFollow();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [startingConversationFor, setStartingConversationFor] = useState<string | null>(null);
+  const [startingConversationFor, setStartingConversationFor] =
+    useState<string | null>(null);
 
   const results = data ?? [];
 
@@ -49,106 +42,35 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     setStartingConversationFor(targetUserId);
 
     try {
-      const myUserId = user.id;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 25000);
 
-      // 1) Find any conversations where the current user participates
-      const { data: myParticipantRows, error: myParticipantsError } = await supabase
-        .from("conversation_participants")
-        .select("conversation_id")
-        .returns<ConversationParticipantRow[]>()
-        .eq("user_id", myUserId);
-
-      if (myParticipantsError) {
-        throw myParticipantsError;
-      }
-
-      const myConversationIds = (myParticipantRows ?? []).map((row) => row.conversation_id);
-
-      let directConversationId: string | null = null;
-
-      if (myConversationIds.length > 0) {
-        // 2) Among those, find conversations where the target user also participates
-        const { data: theirParticipantRows, error: theirParticipantsError } = await supabase
-          .from("conversation_participants")
-          .select("conversation_id")
-          .returns<ConversationParticipantRow[]>()
-          .eq("user_id", targetUserId)
-          .in("conversation_id", myConversationIds);
-
-        if (theirParticipantsError) {
-          throw theirParticipantsError;
-        }
-
-        const sharedConversationIds = Array.from(
-          new Set((theirParticipantRows ?? []).map((row) => row.conversation_id)),
-        );
-
-        if (sharedConversationIds.length > 0) {
-          // 3) Filter to one-on-one (non-group) conversations and pick the most recently updated
-          const { data: existingConversations, error: conversationsError } = await supabase
-            .from("conversations")
-            .select("id, is_group, updated_at")
-            .returns<ConversationRow[]>()
-            .in("id", sharedConversationIds)
-            .eq("is_group", false)
-            .order("updated_at", { ascending: false })
-            .limit(1);
-
-          if (conversationsError) {
-            throw conversationsError;
-          }
-
-          if (existingConversations && existingConversations.length > 0) {
-            directConversationId = existingConversations[0].id;
-          }
-        }
-      }
-
-      if (!directConversationId) {
-        // 4) No existing DM found; create a new one
-        const { data: newConversation, error: newConvError } = await supabase
-          .from("conversations")
-          .insert({
-            is_group: false,
-            title: null,
-            created_by: myUserId,
-          })
-          .select("id")
-          .single<NewConversationRow>();
-
-        if (newConvError) {
-          throw newConvError;
-        }
-
-        const conversationId = newConversation?.id ?? null;
-
-        const { error: participantsInsertError } = await supabase
-          .from("conversation_participants")
-          .insert([
+      try {
+        const { data, error } =
+          await supabase.functions.invoke<CreateDirectConversationResponse>(
+            "create-direct-conversation",
             {
-              conversation_id: conversationId,
-              user_id: myUserId,
-              role: "member",
+              body: { targetUserId },
+              signal: controller.signal,
             },
-            {
-              conversation_id: conversationId,
-              user_id: targetUserId,
-              role: "member",
-            },
-          ]);
+          );
 
-        if (participantsInsertError) {
-          throw participantsInsertError;
+        if (error) {
+          console.error(
+            "[SearchPeopleTab] create-direct-conversation error",
+            error,
+          );
+          throw new Error(error.message ?? "Failed to start conversation.");
         }
 
-        directConversationId = conversationId;
-      }
+        if (!data?.ok || !data.conversationId) {
+          throw new Error(data?.error ?? "Failed to get conversation id.");
+        }
 
-      if (!directConversationId) {
-        throw new Error("Failed to determine conversation id.");
+        navigate(`/messages/${data.conversationId}`);
+      } finally {
+        window.clearTimeout(timeout);
       }
-
-      navigate(`/messages/${directConversationId}`);
     } catch (err: unknown) {
       console.error("[SearchPeopleTab] Failed to start conversation", err);
       const message =
@@ -165,8 +87,9 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     return (
       <div className="space-y-3">
         <p className="text-[12px] text-mn-text-secondary">
-          Start typing a name or @username to find people. Once the social graph is wired up,
-          you&apos;ll be able to follow friends and start conversations from here.
+          Start typing a name or @username to find people. Once the social graph
+          is wired up, you&apos;ll be able to follow friends and start
+          conversations from here.
         </p>
         <div className="flex items-center gap-2 rounded-mn-card border border-dashed border-mn-border-subtle bg-mn-bg-elevated/60 px-3 py-2 text-[11px] text-mn-text-muted">
           <Users className="h-4 w-4" aria-hidden="true" />
@@ -179,9 +102,12 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <p className="text-[12px] text-mn-text-secondary">Searching for people…</p>
+        <p className="text-[12px] text-mn-text-secondary">
+          Searching for people…
+        </p>
         <div className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-3 py-4 text-[11px] text-mn-text-muted">
-          We&apos;ll show matching profiles here as soon as the results come back.
+          We&apos;ll show matching profiles here as soon as the results come
+          back.
         </div>
       </div>
     );
@@ -190,9 +116,12 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   if (isError) {
     return (
       <div className="space-y-3">
-        <p className="text-[12px] text-mn-text-primary">Something went wrong.</p>
+        <p className="text-[12px] text-mn-text-primary">
+          Something went wrong.
+        </p>
         <p className="text-[11px] text-mn-text-muted">
-          {error?.message ?? "We couldn&apos;t search for people right now. Please try again."}
+          {error?.message ??
+            "We couldn&apos;t search for people right now. Please try again."}
         </p>
       </div>
     );
@@ -216,7 +145,8 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-mn-text-secondary">
-          Showing {results.length} profile{results.length === 1 ? "" : "s"} for{" "}
+          Showing {results.length} profile
+          {results.length === 1 ? "" : "s"} for{" "}
           <span className="rounded border border-mn-border-subtle bg-mn-bg-elevated px-1.5 py-0.5 text-[11px] font-medium text-mn-text-primary">
             &ldquo;{trimmedQuery}&rdquo;
           </span>
@@ -225,7 +155,8 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
 
       <ul className="divide-y divide-mn-border-subtle/60 rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80">
         {results.map((person) => {
-          const displayName = person.displayName ?? person.username ?? "Unknown user";
+          const displayName =
+            person.displayName ?? person.username ?? "Unknown user";
           const handle = person.username ? `@${person.username}` : null;
 
           return (
@@ -254,7 +185,11 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                   <p className="truncate text-[13px] font-medium text-mn-text-primary">
                     {displayName}
                   </p>
-                  {handle && <p className="mt-0.5 text-[11px] text-mn-text-muted">{handle}</p>}
+                  {handle && (
+                    <p className="mt-0.5 text-[11px] text-mn-text-muted">
+                      {handle}
+                    </p>
+                  )}
                   {person.bio && (
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-mn-text-secondary">
                       {person.bio}
@@ -270,7 +205,9 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                         </span>
                       )}
                       {typeof person.followersCount === "number" &&
-                        typeof person.followingCount === "number" && <span>{" · "}</span>}
+                        typeof person.followingCount === "number" && (
+                          <span>{" · "}</span>
+                        )}
                       {typeof person.followingCount === "number" && (
                         <span>following {person.followingCount}</span>
                       )}
@@ -319,7 +256,10 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                       <span>Starting…</span>
                     ) : (
                       <>
-                        <MessageCircle className="h-3 w-3" aria-hidden="true" />
+                        <MessageCircle
+                          className="h-3 w-3"
+                          aria-hidden="true"
+                        />
                         <span>Message</span>
                       </>
                     )}
