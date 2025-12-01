@@ -1,7 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,7 +98,7 @@ Deno.serve(async (req) => {
 
     const { data: titleRow, error: titleError } = await supabase
       .from("titles")
-      .select("content_type")
+      .select("content_type, tmdb_id, omdb_imdb_id")
       .eq("title_id", titleId)
       .maybeSingle();
 
@@ -110,6 +112,16 @@ Deno.serve(async (req) => {
     }
 
     const contentType = titleRow.content_type;
+
+    await triggerCatalogSyncForTitle(
+      req,
+      {
+        tmdbId: titleRow.tmdb_id ?? undefined,
+        imdbId: titleRow.omdb_imdb_id ?? undefined,
+        contentType,
+      },
+      { prefix: "[swipe-event]" },
+    );
 
     if (ratingValue !== null) {
       const { data: existingRating, error: selectRatingError } = await supabase
