@@ -6,6 +6,7 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -41,19 +42,6 @@ type SwipeCardLike = {
 async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) {
   console.log("[swipe-trending] triggerCatalogSyncForCards called, cards.length =", cards.length);
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error("[swipe-trending] missing SUPABASE_URL or SUPABASE_ANON_KEY; cannot call catalog-sync");
-    return;
-  }
-
-  const authHeader = req.headers.get("Authorization") ?? "";
-  console.log("[swipe-trending] Authorization header present:", !!authHeader);
-
-  if (!authHeader) {
-    console.warn("[swipe-trending] no Authorization header, skipping catalog-sync");
-    return;
-  }
-
   const candidates = cards
     .filter((c) => c.tmdbId || c.imdbId)
     .slice(0, 3);
@@ -63,51 +51,10 @@ async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) 
     return;
   }
 
-  console.log("[swipe-trending] calling catalog-sync for", candidates.length, "cards");
-
   await Promise.allSettled(
-    candidates.map((c) => {
-      const type =
-        c.contentType === "series"
-          ? "tv"
-          : "movie";
-
-      const payload = {
-        external: {
-          tmdbId: c.tmdbId ?? undefined,
-          imdbId: c.imdbId ?? undefined,
-          type,
-        },
-        options: {
-          syncOmdb: true,
-          forceRefresh: false,
-        },
-      };
-
-      console.log("[swipe-trending] catalog-sync payload:", payload);
-
-      return fetch(`${SUPABASE_URL}/functions/v1/catalog-sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: authHeader,
-        },
-        body: JSON.stringify(payload),
-      })
-        .then(async (res) => {
-          const txt = await res.text().catch(() => "");
-          console.log(
-            "[swipe-trending] catalog-sync response status=",
-            res.status,
-            "body=",
-            txt,
-          );
-        })
-        .catch((err) => {
-          console.warn("[swipe-trending] catalog-sync fetch error for card", c.tmdbId, err);
-        });
-    }),
+    candidates.map((card) =>
+      triggerCatalogSyncForTitle(req, card, { prefix: "[swipe-trending]" })
+    ),
   );
 }
 
