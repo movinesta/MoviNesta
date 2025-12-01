@@ -1,8 +1,8 @@
 // supabase/functions/swipe-for-you/index.ts
 //
 // Returns a "For You" swipe deck for the current user.
-// Simple version: popular + recent titles, filtered to non-deleted.
-// Also triggers catalog-sync for titles that are missing ratings/metadata.
+// Simple version: popular, recent titles, not deleted.
+// Also triggers `catalog-sync` for up to 3 cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -38,36 +38,58 @@ type SwipeCardLike = {
   rtTomatoMeter?: number | null;
 };
 
-// --- Helper to call catalog-sync for "empty" cards ---
+// ---------------------------------------------------------------------------
+// Helper: call catalog-sync for some cards
+// ---------------------------------------------------------------------------
 
 async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) {
+  console.log("[swipe-for-you] triggerCatalogSyncForCards called, cards.length =", cards.length);
+
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn("[swipe-for-you] missing SUPABASE_URL or SUPABASE_ANON_KEY; skipping catalog-sync");
+    console.error("[swipe-for-you] missing SUPABASE_URL or SUPABASE_ANON_KEY; cannot call catalog-sync");
     return;
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
+  console.log("[swipe-for-you] Authorization header present:", !!authHeader);
+
   if (!authHeader) {
-    // user not logged in – do not sync
+    console.warn("[swipe-for-you] no Authorization header, skipping catalog-sync");
     return;
   }
 
+  // For now: sync any card that has tmdbId or imdbId
   const candidates = cards
-    .filter((c) => {
-      const hasExternal = c.tmdbId || c.imdbId;
-      const missingRatings = !c.imdbRating && !c.rtTomatoMeter;
-      return hasExternal && missingRatings;
-    })
-    .slice(0, 3); // soft limit per request
+    .filter((c) => c.tmdbId || c.imdbId)
+    .slice(0, 3); // soft limit per request to protect TMDb/OMDb quotas
 
-  if (!candidates.length) return;
+  if (!candidates.length) {
+    console.log("[swipe-for-you] no cards with tmdbId/imdbId to sync");
+    return;
+  }
+
+  console.log("[swipe-for-you] calling catalog-sync for", candidates.length, "cards");
 
   await Promise.allSettled(
     candidates.map((c) => {
       const type =
         c.contentType === "series"
-          ? "tv" // TMDb media type
+          ? "tv" // TMDb media_type
           : "movie";
+
+      const payload = {
+        external: {
+          tmdbId: c.tmdbId ?? undefined,
+          imdbId: c.imdbId ?? undefined,
+          type,
+        },
+        options: {
+          syncOmdb: true,
+          forceRefresh: false,
+        },
+      };
+
+      console.log("[swipe-for-you] catalog-sync payload:", payload);
 
       return fetch(`${SUPABASE_URL}/functions/v1/catalog-sync`, {
         method: "POST",
@@ -76,20 +98,20 @@ async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) 
           apikey: SUPABASE_ANON_KEY,
           Authorization: authHeader,
         },
-        body: JSON.stringify({
-          external: {
-            tmdbId: c.tmdbId ?? undefined,
-            imdbId: c.imdbId ?? undefined,
-            type,
-          },
-          options: {
-            syncOmdb: true,
-            forceRefresh: false,
-          },
-        }),
-      }).catch((err) => {
-        console.warn("[swipe-for-you] catalog-sync fetch error for card", c.tmdbId, err);
-      });
+        body: JSON.stringify(payload),
+      })
+        .then(async (res) => {
+          const txt = await res.text().catch(() => "");
+          console.log(
+            "[swipe-for-you] catalog-sync response status=",
+            res.status,
+            "body=",
+            txt,
+          );
+        })
+        .catch((err) => {
+          console.warn("[swipe-for-you] catalog-sync fetch error for card", c.tmdbId, err);
+        });
     }),
   );
 }
@@ -103,6 +125,10 @@ function getSupabaseAdminClient(req: Request) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -131,8 +157,7 @@ serve(async (req) => {
       return jsonError("Unauthorized", 401);
     }
 
-    // --- Example selection logic ---
-    // You can replace this query with your own personalization logic.
+    // Simple "for you" selection (you can replace with your real logic)
     const { data: rows, error: titlesError } = await supabase
       .from("titles")
       .select(
@@ -148,6 +173,7 @@ serve(async (req) => {
           "imdb_rating",
           "rt_tomato_pct",
           "deleted_at",
+          "tmdb_popularity",
         ].join(","),
       )
       .is("deleted_at", null)
@@ -171,10 +197,10 @@ serve(async (req) => {
         rtTomatoMeter: meta.rt_tomato_pct ?? null,
         tmdbId: meta.tmdb_id ?? null,
         imdbId: meta.omdb_imdb_id ?? null,
-        contentType: meta.content_type ?? null,
+        contentType: meta.content_type ?? null, // "movie" | "series"
       })) ?? [];
 
-    // 🔄 trigger catalog-sync for "empty" cards
+    // 🔄 trigger catalog-sync for some cards
     await triggerCatalogSyncForCards(req, cards);
 
     return jsonOk(
