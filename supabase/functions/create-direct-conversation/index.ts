@@ -32,6 +32,30 @@ type CreateDirectConversationResponse = {
   error?: string;
 };
 
+function jsonOk(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function jsonError(message: string, status: number): Response {
+  return jsonOk({ ok: false, error: message }, status);
+}
+
+function validateConfig(): Response | null {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error(
+      "[create-direct-conversation] Missing SUPABASE_URL or SERVICE_ROLE_KEY",
+    );
+    return jsonError("Server misconfigured", 500);
+  }
+  return null;
+}
+
 function getSupabaseAdminClient(req: Request) {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     global: {
@@ -42,22 +66,21 @@ function getSupabaseAdminClient(req: Request) {
   });
 }
 
-function jsonResponse(body: CreateDirectConversationResponse, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
+// ---------------------------------------------------------------------------
+// Helper: find existing one-on-one conversation between two users
+// ---------------------------------------------------------------------------
 
 async function findExistingDirectConversation(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
   myUserId: string,
   targetUserId: string,
 ): Promise<string | null> {
-  // 1) Find all conversations where the current user participates
+  console.log(
+    "[create-direct-conversation] findExistingDirectConversation",
+    { myUserId, targetUserId },
+  );
+
+  // 1) Find all conversation IDs where *I* am a participant
   const { data: myRows, error: myError } = await supabase
     .from("conversation_participants")
     .select("conversation_id")
@@ -65,12 +88,18 @@ async function findExistingDirectConversation(
     .returns<ConversationParticipantRow[]>();
 
   if (myError) {
-    console.error("[create-direct-conversation] error loading my participants:", myError);
+    console.error(
+      "[create-direct-conversation] error loading my participants:",
+      myError,
+    );
     throw myError;
   }
 
   const myConversationIds = (myRows ?? []).map((row) => row.conversation_id);
-  if (myConversationIds.length === 0) return null;
+  if (myConversationIds.length === 0) {
+    console.log("[create-direct-conversation] no conversations for current user");
+    return null;
+  }
 
   // 2) Among those, find conversations where the target user also participates
   const { data: theirRows, error: theirError } = await supabase
@@ -81,16 +110,23 @@ async function findExistingDirectConversation(
     .returns<ConversationParticipantRow[]>();
 
   if (theirError) {
-    console.error("[create-direct-conversation] error loading target participants:", theirError);
+    console.error(
+      "[create-direct-conversation] error loading target participants:",
+      theirError,
+    );
     throw theirError;
   }
 
   const sharedConversationIds = Array.from(
     new Set((theirRows ?? []).map((row) => row.conversation_id)),
   );
-  if (sharedConversationIds.length === 0) return null;
 
-  // 3) Filter to one-on-one (non-group) conversations and pick the most recently updated
+  if (sharedConversationIds.length === 0) {
+    console.log("[create-direct-conversation] no shared conversations found");
+    return null;
+  }
+
+  // 3) Filter to *non-group* conversations and pick the most recently updated
   const { data: conversations, error: convError } = await supabase
     .from("conversations")
     .select("id, is_group, updated_at")
@@ -101,72 +137,101 @@ async function findExistingDirectConversation(
     .returns<ConversationRow[]>();
 
   if (convError) {
-    console.error("[create-direct-conversation] error loading conversations:", convError);
+    console.error(
+      "[create-direct-conversation] error loading conversations:",
+      convError,
+    );
     throw convError;
   }
 
   if (!conversations || conversations.length === 0) {
+    console.log(
+      "[create-direct-conversation] no non-group shared conversations found",
+    );
     return null;
   }
 
+  console.log(
+    "[create-direct-conversation] reusing conversation",
+    conversations[0].id,
+  );
   return conversations[0].id;
 }
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error("[create-direct-conversation] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    return jsonResponse(
-      { ok: false, error: "Server misconfigured (missing env vars)" },
-      500,
-    );
-  }
+  console.log("[create-direct-conversation] incoming request", {
+    method: req.method,
+    url: req.url,
+  });
 
   try {
+    const configError = validateConfig();
+    if (configError) return configError;
+
     const supabase = getSupabaseAdminClient(req);
 
+    // Require authenticated user
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
     if (authError) {
-      console.error("[create-direct-conversation] auth error:", authError.message);
-      return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+      console.error(
+        "[create-direct-conversation] auth error:",
+        authError.message,
+      );
+      return jsonError("Unauthorized", 401);
     }
 
     if (!user) {
-      return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+      console.error("[create-direct-conversation] no user in auth context");
+      return jsonError("Unauthorized", 401);
     }
 
     const myUserId = user.id;
-    const body = (await req.json()) as { targetUserId?: string };
 
-    const targetUserId = body?.targetUserId;
+    const body = (await req.json().catch((e) => {
+      console.error("[create-direct-conversation] invalid JSON body:", e);
+      return null;
+    })) as { targetUserId?: string } | null;
 
-    if (!targetUserId) {
-      return jsonResponse({ ok: false, error: "targetUserId is required" }, 400);
+    if (!body || !body.targetUserId) {
+      console.error("[create-direct-conversation] missing targetUserId");
+      return jsonError("targetUserId is required", 400);
     }
+
+    const targetUserId = body.targetUserId;
 
     if (targetUserId === myUserId) {
-      return jsonResponse({ ok: false, error: "targetUserId cannot be yourself" }, 400);
+      return jsonError("targetUserId cannot be yourself", 400);
     }
 
-    // Try to find an existing DM conversation first
-    const existingConversationId = await findExistingDirectConversation(
+    // Try to find existing direct conversation first
+    const existingId = await findExistingDirectConversation(
       supabase,
       myUserId,
       targetUserId,
     );
 
-    if (existingConversationId) {
-      return jsonResponse({ ok: true, conversationId: existingConversationId }, 200);
+    if (existingId) {
+      return jsonOk(
+        { ok: true, conversationId: existingId } satisfies CreateDirectConversationResponse,
+        200,
+      );
     }
 
-    // No existing DM: create a new conversation
+    console.log("[create-direct-conversation] creating new conversation");
+
+    // Create new conversation
     const { data: conv, error: convError } = await supabase
       .from("conversations")
       .insert({
@@ -178,12 +243,16 @@ serve(async (req) => {
       .single();
 
     if (convError || !conv) {
-      console.error("[create-direct-conversation] error creating conversation:", convError);
-      return jsonResponse({ ok: false, error: "Failed to create conversation" }, 500);
+      console.error(
+        "[create-direct-conversation] error creating conversation:",
+        convError,
+      );
+      return jsonError("Failed to create conversation", 500);
     }
 
     const conversationId = conv.id as string;
 
+    // Insert both participants (service role bypasses RLS)
     const { error: participantsError } = await supabase
       .from("conversation_participants")
       .insert([
@@ -204,15 +273,20 @@ serve(async (req) => {
         "[create-direct-conversation] error inserting participants:",
         participantsError,
       );
-      return jsonResponse({ ok: false, error: "Failed to add participants" }, 500);
+      return jsonError("Failed to add participants", 500);
     }
 
-    return jsonResponse({ ok: true, conversationId }, 200);
+    console.log(
+      "[create-direct-conversation] success",
+      { conversationId },
+    );
+
+    return jsonOk(
+      { ok: true, conversationId } satisfies CreateDirectConversationResponse,
+      200,
+    );
   } catch (err) {
     console.error("[create-direct-conversation] unexpected error:", err);
-    return jsonResponse(
-      { ok: false, error: "Internal server error" },
-      500,
-    );
+    return jsonError("Internal server error", 500);
   }
 });
