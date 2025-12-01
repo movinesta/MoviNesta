@@ -1,10 +1,8 @@
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { PlayCircle } from "lucide-react";
 import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
-import { useSimilarTitles } from "./useSimilarTitles";
 import { supabase } from "../../lib/supabase";
 
 interface TitleRow {
@@ -18,34 +16,6 @@ interface TitleRow {
   imdb_rating: number | null;
   omdb_rt_rating_pct: number | null;
   metascore: number | null;
-}
-
-function useTrailerForTitle(title?: string | null, year?: number | null) {
-  return useQuery({
-    queryKey: ["trailer", title, year],
-    enabled: !!title,
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke<{
-        videoId: string | null;
-        url: string | null;
-        query: string;
-      }>("fetch-trailer", {
-        method: "POST",
-        body: {
-          title,
-          year,
-        },
-      });
-
-      if (error) {
-        console.warn("[TitleDetailPage] trailer fetch error:", error);
-        return null;
-      }
-
-      return data ?? null;
-    },
-    staleTime: 1000 * 60 * 60, // cache for 1 hour
-  });
 }
 
 type RatingsProps = {
@@ -136,13 +106,6 @@ const TitleDetailPage: React.FC = () => {
       return data as TitleRow | null;
     },
   });
-
-  const trailerQuery = useTrailerForTitle(
-    data?.primary_title ?? data?.original_title ?? null,
-    data?.release_year ?? null,
-  );
-  const trailer = trailerQuery.data;
-  const similarQuery = useSimilarTitles(titleId ?? null);
 
   if (!titleId) {
     return (
@@ -235,28 +198,6 @@ const TitleDetailPage: React.FC = () => {
           </div>
 
           <div className="flex flex-1 flex-col gap-3">
-            {trailerQuery.isLoading && (
-              <p className="text-xs text-mn-text-secondary">Loading trailer…</p>
-            )}
-
-            {trailer && trailer.videoId && (
-              <div className="mt-1 space-y-2">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-mn-primary/10 px-2.5 py-1 text-[11px] font-medium text-mn-primary">
-                  <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Official trailer</span>
-                </div>
-                <div className="aspect-video w-full max-w-2xl">
-                  <iframe
-                    className="h-full w-full rounded-2xl"
-                    src={`https://www.youtube.com/embed/${trailer.videoId}`}
-                    title={`${displayTitle ?? "Trailer"}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="rounded-2xl border border-dashed border-mn-border-subtle/70 bg-mn-bg/70 px-3 py-3 text-[12px] text-mn-text-secondary">
               <p className="font-semibold text-mn-text-primary">More coming soon</p>
               <p className="mt-1 text-[11.5px] text-mn-text-muted">
@@ -264,53 +205,6 @@ const TitleDetailPage: React.FC = () => {
                 friends&apos; reactions.
               </p>
             </div>
-
-            {similarQuery.data && similarQuery.data.length > 0 && (
-              <div className="mt-4">
-                <h3 className="mb-2 text-sm font-heading font-semibold text-mn-text-primary">
-                  Similar titles
-                </h3>
-                <div className="-mx-1 overflow-x-auto pb-1">
-                  <div className="flex snap-x snap-mandatory gap-2 px-1">
-                    {similarQuery.data.map((item) => (
-                      <Link
-                        key={item.id}
-                        to={`/title/${item.id}`}
-                        className="group flex w-[140px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 shadow-mn-soft"
-                      >
-                        <div className="relative h-32 overflow-hidden">
-                          {item.posterUrl ? (
-                            <img
-                              src={item.posterUrl}
-                              alt={item.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-mn-bg-subtle text-[10px] text-mn-text-muted">
-                              No poster
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-1 flex-col justify-between px-2.5 py-2">
-                          <div className="space-y-0.5">
-                            <p className="line-clamp-2 text-[12px] font-semibold text-mn-text-primary">
-                              {item.title}
-                            </p>
-                            <p className="text-[10px] text-mn-text-muted">
-                              {[item.year, item.type].filter(Boolean).join(" · ")}
-                            </p>
-                          </div>
-                          <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-mn-primary group-hover:underline">
-                            <span>Open</span>
-                            <PlayCircle className="h-3 w-3" aria-hidden="true" />
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </PageSection>
