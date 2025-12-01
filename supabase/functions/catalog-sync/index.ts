@@ -1,18 +1,27 @@
 // supabase/functions/catalog-sync/index.ts
+//
+// Universal seeding function for titles.
+//
+// - TMDb → tmdb_* columns
+// - OMDb → omdb_* columns
+// - Canonical fields (primary_title, release_year, poster_url, etc.)
+//   use OMDb first, then TMDb as fallback.
+// - NO onConflict, NO upsert – we use insert/update by title_id.
+// - NO YouTube (so no quota issues here).
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// --- Env vars ---
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY") ?? "";
-const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY") ?? "";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const OMDB_BASE = "https://www.omdbapi.com/";
-const YT_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -20,10 +29,9 @@ const corsHeaders: Record<string, string> = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-type CatalogSyncMode = "title" | "genres";
+// --- Request body ---
 
 type TitleModePayload = {
-  mode?: "title";
   external: {
     tmdbId?: number;
     imdbId?: string;
@@ -31,16 +39,11 @@ type TitleModePayload = {
   };
   options?: {
     syncOmdb?: boolean;
-    syncYoutube?: boolean;
     forceRefresh?: boolean;
   };
 };
 
-type GenresModePayload = {
-  mode: "genres";
-};
-
-type CatalogSyncPayload = TitleModePayload | GenresModePayload;
+// --- Supabase client ---
 
 function getSupabaseAdminClient(req: Request) {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -51,6 +54,8 @@ function getSupabaseAdminClient(req: Request) {
     },
   });
 }
+
+// --- Main handler ---
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -74,27 +79,22 @@ serve(async (req) => {
       console.error("[catalog-sync] auth error:", authError.message);
       return jsonError("Unauthorized", 401);
     }
-
     if (!user) {
       return jsonError("Unauthorized", 401);
     }
 
-    const body = (await req.json().catch(() => ({}))) as CatalogSyncPayload;
-    const mode: CatalogSyncMode = body.mode ?? "title";
+    const body = (await req.json().catch(() => ({}))) as TitleModePayload;
 
-    switch (mode) {
-      case "title":
-        return await handleTitleMode(supabase, body as TitleModePayload);
-      case "genres":
-        return await handleGenresMode(supabase);
-      default:
-        return jsonError(`Unsupported mode: ${String(mode)}`, 400);
-    }
+    return await handleTitleMode(supabase, body);
   } catch (err) {
     console.error("[catalog-sync] unhandled error:", err);
     return jsonError("Internal server error", 500);
   }
 });
+
+// ============================================================================
+// Sync a single title
+// ============================================================================
 
 async function handleTitleMode(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
@@ -116,6 +116,7 @@ async function handleTitleMode(
   let imdbId: string | null = imdbIdRaw ?? null;
   let contentType: "movie" | "tv" = typeRaw ?? "movie";
 
+  // If only IMDb id is provided, resolve TMDb id via /find
   if (!tmdbId && imdbId) {
     const resolved = await tmdbFindByImdbId(imdbId);
     if (!resolved) {
@@ -129,41 +130,29 @@ async function handleTitleMode(
     return jsonError("Could not determine TMDb id", 500);
   }
 
+  // TMDb details
   const tmdbDetails = await tmdbGetDetails(tmdbId, contentType);
   if (!tmdbDetails) {
     return jsonError("TMDb details fetch failed", 502);
   }
 
+  // IMDb id from TMDb if missing
   if (!imdbId && tmdbDetails.imdb_id) {
     imdbId = String(tmdbDetails.imdb_id);
   }
 
   const tmdbBlock = buildTmdbBlock(tmdbDetails, contentType);
 
+  // OMDb (optional)
   let omdbBlock: OmdbBlock | null = null;
   if ((options?.syncOmdb ?? true) && OMDB_API_KEY && imdbId) {
     omdbBlock = await fetchOmdbBlock(imdbId);
   }
 
-  let youtubeBlock: YoutubeBlock | null = null;
-  if (options?.syncYoutube ?? true) {
-    const titleForYoutube =
-      omdbBlock?.omdb_title ??
-      tmdbDetails.title ??
-      tmdbDetails.name ??
-      "";
-    const yearForYoutube =
-      omdbBlock?.omdb_year ??
-      extractYear(tmdbDetails.release_date ?? tmdbDetails.first_air_date);
-
-    youtubeBlock = await fetchYoutubeTrailerBlock(titleForYoutube, yearForYoutube);
-  }
-
+  // Find existing row
   const { data: existing, error: existingError } = await supabase
     .from("titles")
-    .select(
-      "title_id, tmdb_id, omdb_imdb_id, omdb_last_synced_at, youtube_last_synced_at",
-    )
+    .select("title_id, tmdb_id, omdb_imdb_id, omdb_last_synced_at")
     .or(
       [
         tmdbId ? `tmdb_id.eq.${tmdbId}` : "",
@@ -187,95 +176,60 @@ async function handleTitleMode(
     contentType,
     tmdb: tmdbBlock,
     omdb: omdbBlock,
-    youtube: youtubeBlock,
   });
 
-  const row: Record<string, any> = {
+  const baseRow: Record<string, any> = {
     title_id: titleId,
     content_type: contentType,
+
+    // canonical fields
     ...normalized,
+
+    // provider-specific blocks
     ...tmdbBlock,
     ...omdbBlock,
-    ...youtubeBlock,
+
     tmdb_last_synced_at: now,
     omdb_last_synced_at: omdbBlock ? now : existing?.omdb_last_synced_at ?? null,
-    youtube_last_synced_at: youtubeBlock
-      ? now
-      : existing?.youtube_last_synced_at ?? null,
+    last_synced_at: now,
+
     updated_at: now,
   };
 
-  const { data: upserted, error: upsertError } = await supabase
-    .from("titles")
-    .upsert(row, {
-      onConflict: "tmdb_id,omdb_imdb_id",
-    })
-    .select("title_id, tmdb_id, omdb_imdb_id")
-    .single();
+  let mutationError = null;
 
-  if (upsertError) {
-    console.error("[catalog-sync:title] upsert error:", upsertError.message);
+  if (existing) {
+    // UPDATE existing row
+    const { error } = await supabase
+      .from("titles")
+      .update(baseRow)
+      .eq("title_id", titleId);
+    mutationError = error;
+  } else {
+    // INSERT new row
+    const { error } = await supabase.from("titles").insert(baseRow);
+    mutationError = error;
+  }
+
+  if (mutationError) {
+    console.error(
+      "[catalog-sync:title] mutation error:",
+      mutationError.message,
+    );
     return jsonError("Failed to upsert title", 500);
   }
 
   return jsonOk({
     ok: true,
-    mode: "title",
-    titleId: upserted.title_id,
-    tmdbId: upserted.tmdb_id,
+    titleId,
+    tmdbId,
     imdbId,
   });
 }
 
-async function handleGenresMode(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
-): Promise<Response> {
-  if (!TMDB_TOKEN) {
-    console.error("[catalog-sync:genres] Missing TMDB_API_READ_ACCESS_TOKEN");
-    return jsonError("TMDb not configured", 500);
-  }
-
-  const [movieGenres, tvGenres] = await Promise.all([
-    tmdbGetGenres("movie"),
-    tmdbGetGenres("tv"),
-  ]);
-
-  if (!movieGenres && !tvGenres) {
-    return jsonError("Failed to fetch genres from TMDb", 502);
-  }
-
-  const now = new Date().toISOString();
-
-  const rows = [
-    ...(movieGenres ?? []).map((g) => ({
-      tmdb_id: g.id,
-      name: g.name,
-      kind: "movie",
-      updated_at: now,
-    })),
-    ...(tvGenres ?? []).map((g) => ({
-      tmdb_id: g.id,
-      name: g.name,
-      kind: "tv",
-      updated_at: now,
-    })),
-  ];
-
-  if (!rows.length) {
-    return jsonOk({ ok: true, mode: "genres", updated: 0 });
-  }
-
-  const { error } = await supabase
-    .from("genres")
-    .upsert(rows, { onConflict: "tmdb_id,kind" });
-
-  if (error) {
-    console.error("[catalog-sync:genres] upsert error:", error.message);
-    return jsonError("Failed to upsert genres", 500);
-  }
-
-  return jsonOk({ ok: true, mode: "genres", updated: rows.length });
-}
+// ============================================================================
+// TMDb helpers
+// ============================================================================
 
 async function tmdbRequest(path: string, params: Record<string, string> = {}) {
   const url = new URL(TMDB_BASE + path);
@@ -328,15 +282,6 @@ async function tmdbGetDetails(
   });
 }
 
-async function tmdbGetGenres(
-  type: "movie" | "tv",
-): Promise<{ id: number; name: string }[] | null> {
-  const path = type === "movie" ? "/genre/movie/list" : "/genre/tv/list";
-  const data = await tmdbRequest(path, { language: "en-US" });
-  if (!data || !Array.isArray(data.genres)) return null;
-  return data.genres;
-}
-
 type TmdbBlock = Record<string, any>;
 
 function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
@@ -370,6 +315,10 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     tmdb_genre_names: genresArray,
   };
 }
+
+// ============================================================================
+// OMDb helpers
+// ============================================================================
 
 type OmdbBlock = Record<string, any>;
 
@@ -432,58 +381,18 @@ function extractRottenTomatoesPct(ratings: any): number | null {
   return match ? parseIntSafe(match[1]) : null;
 }
 
-type YoutubeBlock = Record<string, any>;
-
-async function fetchYoutubeTrailerBlock(
-  title: string,
-  year: number | null,
-): Promise<YoutubeBlock | null> {
-  if (!YOUTUBE_API_KEY || !title) return null;
-
-  const query = year
-    ? `${title} official trailer ${year}`
-    : `${title} official trailer`;
-
-  const url = new URL(YT_SEARCH_URL);
-  url.searchParams.set("key", YOUTUBE_API_KEY);
-  url.searchParams.set("part", "snippet");
-  url.searchParams.set("type", "video");
-  url.searchParams.set("maxResults", "1");
-  url.searchParams.set("q", query);
-
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    console.error("[YouTube] request failed", res.status, await res.text());
-    return null;
-  }
-  const data = await res.json();
-
-  const item =
-    Array.isArray(data.items) && data.items.length ? data.items[0] : null;
-
-  if (!item?.id?.videoId) return null;
-
-  const videoId = item.id.videoId;
-  const urlFull = `https://www.youtube.com/watch?v=${videoId}`;
-
-  return {
-    youtube_trailer_video_id: videoId,
-    youtube_trailer_url: urlFull,
-    youtube_trailer_query: query,
-    youtube_raw: item,
-  };
-}
+// ============================================================================
+// Normalization – canonical fields from TMDb/OMDb to titles.*
+// ============================================================================
 
 function buildNormalizedFields({
   contentType,
   tmdb,
   omdb,
-  youtube,
 }: {
   contentType: "movie" | "tv";
   tmdb: TmdbBlock;
   omdb: OmdbBlock | null;
-  youtube?: YoutubeBlock | null;
 }) {
   const primary_title =
     omdb?.omdb_title ??
@@ -552,6 +461,10 @@ function buildNormalizedFields({
   };
 }
 
+// ============================================================================
+// Small helpers
+// ============================================================================
+
 function parseFloatSafe(value: any): number | null {
   const n = parseFloat(String(value).replace(",", ""));
   return Number.isFinite(n) ? n : null;
@@ -568,7 +481,7 @@ function extractYear(dateStr: string | null | undefined): number | null {
   return match ? parseIntSafe(match[1]) : null;
 }
 
-function jsonOk(body: unknown, status = 200): Response {
+function jsonOk(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -578,6 +491,6 @@ function jsonOk(body: unknown, status = 200): Response {
   });
 }
 
-function jsonError(message: string, status = 400): Response {
+function jsonError(message: string, status: number): Response {
   return jsonOk({ ok: false, error: message }, status);
 }
