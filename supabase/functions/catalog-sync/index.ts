@@ -107,7 +107,8 @@ async function handleTitleMode(
 
   let tmdbMediaType: "movie" | "tv" = typeRaw ?? "movie";
   let tmdbId: number | null = tmdbIdRaw ?? null;
-  let imdbId: string | null = imdbIdRaw ?? null;
+  const rawImdbId: string | null = imdbIdRaw ?? null;
+  let imdbId: string | null = normalizeImdbId(rawImdbId);
 
   // If only IMDb ID is provided, resolve TMDb via /find
   if (!tmdbId && imdbId) {
@@ -152,6 +153,8 @@ async function handleTitleMode(
   let omdbBlock: OmdbBlock | null = null;
   if ((options?.syncOmdb ?? true) && OMDB_API_KEY && imdbId) {
     omdbBlock = await fetchOmdbBlock(imdbId);
+  } else if ((options?.syncOmdb ?? true) && OMDB_API_KEY && rawImdbId && !imdbId) {
+    console.warn("[catalog-sync:title] Skipping OMDb sync due to invalid IMDb ID format:", rawImdbId);
   }
 
   // Map TMDb media_type -> DB enum content_type ("movie" | "series")
@@ -420,7 +423,7 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
   }
   const data = await res.json();
   if (data.Response === "False") {
-    console.warn("[OMDb] Response false:", data.Error);
+    console.warn("[OMDb] Response false for imdbId", imdbId, ":", data.Error);
     return null;
   }
 
@@ -704,6 +707,14 @@ function parseCurrency(value: any): number | null {
   if (!s) return null;
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeImdbId(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  // IMDb title ids look like "tt1234567"
+  if (!/^tt\d+$/.test(trimmed)) return null;
+  return trimmed;
 }
 
 function parseOmdbDateToISO(value: string): string | null {
