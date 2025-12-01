@@ -7,6 +7,7 @@
 // - Looks up existing rows in public.titles by tmdb_id
 // - Returns merged result: { tmdb: ..., local: ... }
 // - NO writes, NO upsert, NO onConflict, NO YouTube.
+// - NO auth requirement (public read), safe because it's just metadata.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -44,6 +45,8 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  console.log("[catalog-search] incoming request");
+
   try {
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       console.error("[catalog-search] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
@@ -55,19 +58,6 @@ serve(async (req) => {
     }
 
     const supabase = getSupabaseAdminClient(req);
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) {
-      console.error("[catalog-search] auth error:", authError.message);
-      return jsonError("Unauthorized", 401);
-    }
-    if (!user) {
-      return jsonError("Unauthorized", 401);
-    }
 
     const body = (await req.json().catch(() => ({}))) as SearchPayload;
     const query = body.query?.trim();
