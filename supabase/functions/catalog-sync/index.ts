@@ -6,9 +6,12 @@
 // - OMDb → omdb_* columns
 // - Canonical fields (primary_title, release_year, poster_url, etc.)
 //   use OMDb first, then TMDb as fallback.
-// - NO onConflict, NO upsert – we use insert/update by title_id.
+// - NO onConflict, NO explicit upsert – we do insert/update by title_id.
 // - NO YouTube.
-// - IMPORTANT: TMDb media_type ("movie"/"tv") is mapped to DB enum content_type ("movie"/"series").
+// - Handles:
+//   * TMDb "movie"/"tv" → DB enum content_type "movie"/"series"
+//   * Invalid date strings ("" or malformed) → null
+//   * Duplicate tmdb_id (unique constraint) → fallback to update existing row.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -154,8 +157,7 @@ async function handleTitleMode(
   }
 
   // Map TMDb media type -> DB enum content_type
-  // 🔴 IMPORTANT: if your enum uses something else (e.g. "show"),
-  // change "series" here to that value.
+  // If your enum uses something else (like "show"), change "series" below.
   const dbContentType: "movie" | "series" =
     tmdbMediaType === "movie" ? "movie" : "series";
 
@@ -190,7 +192,7 @@ async function handleTitleMode(
 
   const baseRow: Record<string, any> = {
     title_id: titleId,
-    content_type: dbContentType, // ✅ always "movie" or "series" now
+    content_type: dbContentType, // ✅ always enum-safe
 
     // canonical fields
     ...normalized,
@@ -206,7 +208,8 @@ async function handleTitleMode(
     updated_at: now,
   };
 
-  let mutationError = null;
+  let mutationError: any = null;
+  let finalTitleId: string = titleId;
 
   if (existing) {
     // UPDATE existing row
@@ -221,20 +224,73 @@ async function handleTitleMode(
     mutationError = error;
   }
 
+  // Handle duplicate tmdb_id unique constraint: titles_tmdb_id_key
   if (mutationError) {
-    console.error(
-      "[catalog-sync:title] mutation error:",
-      mutationError.message,
-    );
+    const code = (mutationError as any).code;
+    const msg = (mutationError as any).message ?? "";
+
+    // 23505 = unique_violation
+    if (code === "23505" && msg.includes("titles_tmdb_id_key") && tmdbBlock.tmdb_id != null) {
+      console.warn("[catalog-sync:title] detected duplicate tmdb_id, falling back to update existing row");
+
+      // Look up the row by tmdb_id and update it instead
+      const { data: conflictRow, error: conflictSelectError } = await supabase
+        .from("titles")
+        .select("title_id")
+        .eq("tmdb_id", tmdbBlock.tmdb_id)
+        .maybeSingle();
+
+      if (!conflictSelectError && conflictRow?.title_id) {
+        finalTitleId = conflictRow.title_id;
+
+        const { error: updateError } = await supabase
+          .from("titles")
+          .update({
+            ...baseRow,
+            title_id: conflictRow.title_id, // ensure we don't change PK
+          })
+          .eq("title_id", conflictRow.title_id);
+
+        if (!updateError) {
+          return jsonOk(
+            {
+              ok: true,
+              titleId: conflictRow.title_id,
+              tmdbId,
+              imdbId,
+            },
+            200,
+          );
+        }
+
+        console.error(
+          "[catalog-sync:title] conflict update error:",
+          updateError.message,
+        );
+        return jsonError("Failed to update existing title", 500);
+      }
+
+      console.error(
+        "[catalog-sync:title] conflict select error:",
+        conflictSelectError?.message,
+      );
+      return jsonError("Failed to resolve duplicate tmdb_id", 500);
+    }
+
+    // Other errors (e.g. date issues if any slip through)
+    console.error("[catalog-sync:title] mutation error:", mutationError.message);
     return jsonError("Failed to upsert title", 500);
   }
 
-  return jsonOk({
-    ok: true,
-    titleId,
-    tmdbId,
-    imdbId,
-  });
+  return jsonOk(
+    {
+      ok: true,
+      titleId: finalTitleId,
+      tmdbId,
+      imdbId,
+    },
+    200,
+  );
 }
 
 // ============================================================================
@@ -315,8 +371,8 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     tmdb_popularity: details.popularity ?? null,
     tmdb_vote_average: details.vote_average ?? null,
     tmdb_vote_count: details.vote_count ?? null,
-    tmdb_release_date: details.release_date ?? null,
-    tmdb_first_air_date: details.first_air_date ?? null,
+    tmdb_release_date: safeDateOrNull(details.release_date),
+    tmdb_first_air_date: safeDateOrNull(details.first_air_date),
     tmdb_runtime: details.runtime ?? null,
     tmdb_episode_run_time: details.episode_run_time ?? null,
     tmdb_overview: details.overview ?? null,
@@ -474,6 +530,15 @@ function buildNormalizedFields({
 // ============================================================================
 // Small helpers
 // ============================================================================
+
+function safeDateOrNull(value: any): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Only accept strict YYYY-MM-DD, otherwise treat as null to avoid Postgres date errors
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
 
 function parseFloatSafe(value: any): number | null {
   const n = parseFloat(String(value).replace(",", ""));
