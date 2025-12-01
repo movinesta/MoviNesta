@@ -1,9 +1,9 @@
 // supabase/functions/swipe-from-friends/index.ts
 //
 // Returns a "From Friends" swipe deck.
-// Simple version: just reuses popular titles as a placeholder.
-// (You can replace the query with your real friends graph / follows.)
-// Also triggers catalog-sync for missing metadata.
+// Placeholder version: same as trending (you can replace the query with
+// real "friends activity").
+// Also triggers `catalog-sync` for up to 3 cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -40,23 +40,31 @@ type SwipeCardLike = {
 };
 
 async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) {
+  console.log("[swipe-from-friends] triggerCatalogSyncForCards called, cards.length =", cards.length);
+
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn("[swipe-from-friends] missing SUPABASE_URL or SUPABASE_ANON_KEY; skipping catalog-sync");
+    console.error("[swipe-from-friends] missing SUPABASE_URL or SUPABASE_ANON_KEY; cannot call catalog-sync");
     return;
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader) return;
+  console.log("[swipe-from-friends] Authorization header present:", !!authHeader);
+
+  if (!authHeader) {
+    console.warn("[swipe-from-friends] no Authorization header, skipping catalog-sync");
+    return;
+  }
 
   const candidates = cards
-    .filter((c) => {
-      const hasExternal = c.tmdbId || c.imdbId;
-      const missingRatings = !c.imdbRating && !c.rtTomatoMeter;
-      return hasExternal && missingRatings;
-    })
+    .filter((c) => c.tmdbId || c.imdbId)
     .slice(0, 3);
 
-  if (!candidates.length) return;
+  if (!candidates.length) {
+    console.log("[swipe-from-friends] no cards with tmdbId/imdbId to sync");
+    return;
+  }
+
+  console.log("[swipe-from-friends] calling catalog-sync for", candidates.length, "cards");
 
   await Promise.allSettled(
     candidates.map((c) => {
@@ -65,6 +73,20 @@ async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) 
           ? "tv"
           : "movie";
 
+      const payload = {
+        external: {
+          tmdbId: c.tmdbId ?? undefined,
+          imdbId: c.imdbId ?? undefined,
+          type,
+        },
+        options: {
+          syncOmdb: true,
+          forceRefresh: false,
+        },
+      };
+
+      console.log("[swipe-from-friends] catalog-sync payload:", payload);
+
       return fetch(`${SUPABASE_URL}/functions/v1/catalog-sync`, {
         method: "POST",
         headers: {
@@ -72,20 +94,20 @@ async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) 
           apikey: SUPABASE_ANON_KEY,
           Authorization: authHeader,
         },
-        body: JSON.stringify({
-          external: {
-            tmdbId: c.tmdbId ?? undefined,
-            imdbId: c.imdbId ?? undefined,
-            type,
-          },
-          options: {
-            syncOmdb: true,
-            forceRefresh: false,
-          },
-        }),
-      }).catch((err) => {
-        console.warn("[swipe-from-friends] catalog-sync fetch error for card", c.tmdbId, err);
-      });
+        body: JSON.stringify(payload),
+      })
+        .then(async (res) => {
+          const txt = await res.text().catch(() => "");
+          console.log(
+            "[swipe-from-friends] catalog-sync response status=",
+            res.status,
+            "body=",
+            txt,
+          );
+        })
+        .catch((err) => {
+          console.warn("[swipe-from-friends] catalog-sync fetch error for card", c.tmdbId, err);
+        });
     }),
   );
 }
@@ -126,9 +148,8 @@ serve(async (req) => {
       return jsonError("Unauthorized", 401);
     }
 
-    // --- Example selection logic ---
-    // Placeholder: trending titles again.
-    // Replace this with real "friends" activity (e.g. joins with likes, follows, etc).
+    // Placeholder: same as trending for now.
+    // Replace with "friends" logic when you have your social model ready.
     const { data: rows, error: titlesError } = await supabase
       .from("titles")
       .select(
