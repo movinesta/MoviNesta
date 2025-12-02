@@ -56,6 +56,9 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const isSystemRequest =
+    req.headers.get("x-system-catalog-sync") === "true";
+
   try {
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       console.error("[catalog-sync] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
@@ -69,12 +72,21 @@ serve(async (req) => {
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError) {
-      console.error("[catalog-sync] auth error:", authError.message);
-      return jsonError("Unauthorized", 401);
-    }
-    if (!user) {
-      return jsonError("Unauthorized", 401);
+    if (!isSystemRequest) {
+      if (authError) {
+        console.error("[catalog-sync] auth error:", authError.message);
+        return jsonError("Unauthorized", 401);
+      }
+      if (!user) {
+        return jsonError("Unauthorized", 401);
+      }
+    } else if (authError) {
+      // For system requests we log auth errors but don't block the operation,
+      // since they are invoked without a user JWT on purpose.
+      console.warn(
+        "[catalog-sync] system request auth error (ignored):",
+        authError.message,
+      );
     }
 
     const body = (await req.json().catch(() => ({}))) as TitleModePayload;
@@ -84,10 +96,7 @@ serve(async (req) => {
     return jsonError("Internal server error", 500);
   }
 });
-
-// ============================================================================
-// Main: sync a single title
-// ============================================================================
+========================
 
 async function handleTitleMode(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
@@ -164,7 +173,7 @@ async function handleTitleMode(
   // Existing row?
   const { data: existing, error: existingError } = await supabase
     .from("titles")
-    .select("title_id, tmdb_id, omdb_imdb_id, omdb_last_synced_at")
+    .select("title_id, tmdb_id, omdb_imdb_id, omdb_last_synced_at, last_synced_at")
     .or(
       [
         tmdbId ? `tmdb_id.eq.${tmdbId}` : "",
@@ -181,7 +190,43 @@ async function handleTitleMode(
     return jsonError("Database error", 500);
   }
 
+  // If we already have a fairly recent sync and the caller did not request a
+  // forced refresh, skip the external API calls and just return the existing
+  // title id. This protects TMDb/OMDb quotas and keeps background backfills
+  // cheap when rerun frequently.
+  if (existing && !options?.forceRefresh) {
+    const lastSyncedRaw = (existing as any).last_synced_at as string | null | undefined;
+    if (lastSyncedRaw) {
+      const lastSyncedTime = Date.parse(lastSyncedRaw);
+      if (!Number.isNaN(lastSyncedTime)) {
+        const nowMs = Date.now();
+        const ageMs = nowMs - lastSyncedTime;
+        const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+        if (ageMs >= 0 && ageMs < twentyFourHoursMs) {
+          console.log(
+            "[catalog-sync:title] skipping refresh for",
+            (existing as any).title_id,
+            "last_synced_at=",
+            lastSyncedRaw,
+          );
+          return jsonOk(
+            {
+              ok: true,
+              titleId: (existing as any).title_id,
+              tmdbId,
+              imdbId,
+              skipped: true,
+              reason: "recently_synced",
+            },
+            200,
+          );
+        }
+      }
+    }
+  }
+
   const now = new Date().toISOString();
+
   const titleId = existing?.title_id ?? crypto.randomUUID();
 
   // Canonical fields (OMDb → TMDb)
@@ -215,6 +260,33 @@ async function handleTitleMode(
       omdb: omdbBlock?.omdb_raw ?? null,
     },
   };
+
+  // Ensure per-type detail tables stay in sync with `titles`.
+  // Currently we only guarantee that a row exists in `movies` / `series`
+  // for the given title_id so that downstream code can safely join on them.
+  async function upsertDetailTables(
+    supabase: ReturnType<typeof getSupabaseAdminClient>,
+    contentType: "movie" | "series",
+    titleId: string,
+  ): Promise<void> {
+    try {
+      if (contentType === "movie") {
+        await supabase.from("movies").upsert(
+          { title_id: titleId },
+          { onConflict: "title_id" },
+        );
+      } else if (contentType === "series") {
+        await supabase.from("series").upsert(
+          { title_id: titleId },
+          { onConflict: "title_id" },
+        );
+      }
+    } catch (err) {
+      console.warn("[catalog-sync:title] upsertDetailTables error:", err);
+    }
+  }
+
+
 
   let mutationError: any = null;
   let finalTitleId: string = titleId;
@@ -258,6 +330,8 @@ async function handleTitleMode(
           .eq("title_id", conflictRow.title_id);
 
         if (!updateError) {
+          await upsertDetailTables(supabase, dbContentType, conflictRow.title_id);
+
           return jsonOk(
             {
               ok: true,
@@ -286,6 +360,8 @@ async function handleTitleMode(
     console.error("[catalog-sync:title] mutation error:", mutationError.message);
     return jsonError("Failed to upsert title", 500);
   }
+
+  await upsertDetailTables(supabase, dbContentType, finalTitleId);
 
   return jsonOk(
     {

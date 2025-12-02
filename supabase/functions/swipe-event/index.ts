@@ -94,18 +94,24 @@ Deno.serve(async (req) => {
       inWatchlist !== undefined && inWatchlist !== null;
 
     if (ratingValue === null) {
+      // Pick sensible defaults on a 0–10 scale when the client does not send
+      // an explicit rating. These roughly correspond to:
+      //   like    → 8.0
+      //   dislike → 3.0
+      //   skip    → 5.0 (neutral)
       if (direction === "like") {
-        ratingValue = 4.0;
+        ratingValue = 8.0;
       } else if (direction === "dislike") {
-        ratingValue = 1.0;
+        ratingValue = 3.0;
       } else if (direction === "skip") {
-        ratingValue = 2.5;
+        ratingValue = 5.0;
       }
     }
 
-    // Normalize rating to a safe range; defensive in case a client sends bad data.
+    // Normalize rating to the 0–10 range accepted by the DB (half‑step increments).
+    // Defensive in case a client sends bad data.
     if (ratingValue !== null) {
-      ratingValue = Math.max(0, Math.min(5, ratingValue));
+      ratingValue = Math.max(0, Math.min(10, ratingValue));
     }
 
     if (explicitWatchlistChange) {
@@ -133,7 +139,9 @@ Deno.serve(async (req) => {
 
     const contentType = titleRow.content_type;
 
-    await triggerCatalogSyncForTitle(
+    // Kick off catalog-sync in the background so a swipe is not blocked on
+    // TMDb/OMDb network calls.
+    triggerCatalogSyncForTitle(
       req,
       {
         tmdbId: titleRow.tmdb_id ?? undefined,
@@ -249,13 +257,182 @@ Deno.serve(async (req) => {
       console.error("[swipe-event] activity_events error:", activityError);
     }
 
+    // Keep denormalized stats tables in sync with this interaction.
+    const adminClient = buildSupabaseClient(req);
+    await Promise.allSettled([
+      updateTitleStats(adminClient, titleId),
+      updateUserStats(adminClient, user.id),
+    ]);
+
     return jsonResponse({ ok: true });
+
   } catch (err) {
     console.error("[swipe-event] unhandled error:", err);
     const message = err instanceof Error ? err.message : "Internal server error";
     return jsonError(message, 500, "INTERNAL_ERROR");
   }
 });
+
+
+
+async function updateTitleStats(
+  supabase: ReturnType<typeof buildSupabaseClient>,
+  titleId: string,
+): Promise<void> {
+  try {
+    // Aggregate ratings for this title
+    const { data: ratingAgg, error: ratingAggError } = await supabase
+      .from("ratings")
+      .select("avg(rating)::numeric as avg_rating, count(*)::int as ratings_count")
+      .eq("title_id", titleId)
+      .single();
+
+    if (ratingAggError) {
+      console.warn("[swipe-event] updateTitleStats ratings agg error:", ratingAggError.message);
+    }
+
+    const { data: reviewAgg, error: reviewAggError } = await supabase
+      .from("reviews")
+      .select("count(*)::int as reviews_count")
+      .eq("title_id", titleId)
+      .single();
+
+    if (reviewAggError) {
+      console.warn("[swipe-event] updateTitleStats reviews agg error:", reviewAggError.message);
+    }
+
+    // For watch_count we approximate "has some non-want_to_watch entry"
+    const { data: watchAgg, error: watchAggError } = await supabase
+      .from("library_entries")
+      .select("count(*)::int as watch_count")
+      .eq("title_id", titleId)
+      .neq("status", "want_to_watch")
+      .single();
+
+    if (watchAggError) {
+      console.warn("[swipe-event] updateTitleStats watch agg error:", watchAggError.message);
+    }
+
+    const now = new Date().toISOString();
+
+    const avgRating = (ratingAgg as any)?.avg_rating ?? null;
+    const ratingsCount = (ratingAgg as any)?.ratings_count ?? 0;
+    const reviewsCount = (reviewAgg as any)?.reviews_count ?? 0;
+    const watchCount = (watchAgg as any)?.watch_count ?? 0;
+
+    await supabase
+      .from("title_stats")
+      .upsert(
+        {
+          title_id: titleId,
+          avg_rating: avgRating,
+          ratings_count: ratingsCount,
+          reviews_count: reviewsCount,
+          watch_count: watchCount,
+          last_updated_at: now,
+        },
+        { onConflict: "title_id" },
+      );
+  } catch (err) {
+    console.warn("[swipe-event] updateTitleStats unexpected error:", err);
+  }
+}
+
+async function updateUserStats(
+  supabase: ReturnType<typeof buildSupabaseClient>,
+  userId: string,
+): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+
+    // Ratings
+    const { data: ratingsAgg, error: ratingsAggError } = await supabase
+      .from("ratings")
+      .select("count(*)::int as ratings_count")
+      .eq("user_id", userId)
+      .single();
+
+    if (ratingsAggError) {
+      console.warn("[swipe-event] updateUserStats ratings agg error:", ratingsAggError.message);
+    }
+
+    const { data: reviewsAgg, error: reviewsAggError } = await supabase
+      .from("reviews")
+      .select("count(*)::int as reviews_count")
+      .eq("user_id", userId)
+      .single();
+
+    if (reviewsAggError) {
+      console.warn("[swipe-event] updateUserStats reviews agg error:", reviewsAggError.message);
+    }
+
+    const { data: watchlistAgg, error: watchlistAggError } = await supabase
+      .from("library_entries")
+      .select("count(*)::int as watchlist_count")
+      .eq("user_id", userId)
+      .eq("status", "want_to_watch")
+      .single();
+
+    if (watchlistAggError) {
+      console.warn("[swipe-event] updateUserStats watchlist agg error:", watchlistAggError.message);
+    }
+
+    const { data: commentsAgg, error: commentsAggError } = await supabase
+      .from("comments")
+      .select("count(*)::int as comments_count")
+      .eq("user_id", userId)
+      .single();
+
+    if (commentsAggError) {
+      console.warn("[swipe-event] updateUserStats comments agg error:", commentsAggError.message);
+    }
+
+    const { data: listsAgg, error: listsAggError } = await supabase
+      .from("lists")
+      .select("count(*)::int as lists_count")
+      .eq("user_id", userId)
+      .single();
+
+    if (listsAggError) {
+      console.warn("[swipe-event] updateUserStats lists agg error:", listsAggError.message);
+    }
+
+    const { data: messagesAgg, error: messagesAggError } = await supabase
+      .from("messages")
+      .select("count(*)::int as messages_sent_count")
+      .eq("user_id", userId)
+      .single();
+
+    if (messagesAggError) {
+      console.warn("[swipe-event] updateUserStats messages agg error:", messagesAggError.message);
+    }
+
+    const ratingsCount = (ratingsAgg as any)?.ratings_count ?? 0;
+    const reviewsCount = (reviewsAgg as any)?.reviews_count ?? 0;
+    const watchlistCount = (watchlistAgg as any)?.watchlist_count ?? 0;
+    const commentsCount = (commentsAgg as any)?.comments_count ?? 0;
+    const listsCount = (listsAgg as any)?.lists_count ?? 0;
+    const messagesSentCount = (messagesAgg as any)?.messages_sent_count ?? 0;
+
+    await supabase
+      .from("user_stats")
+      .upsert(
+        {
+          user_id: userId,
+          ratings_count: ratingsCount,
+          reviews_count: reviewsCount,
+          watchlist_count: watchlistCount,
+          comments_count: commentsCount,
+          lists_count: listsCount,
+          messages_sent_count: messagesSentCount,
+          last_active_at: now,
+        },
+        { onConflict: "user_id" },
+      );
+  } catch (err) {
+    console.warn("[swipe-event] updateUserStats unexpected error:", err);
+  }
+}
 
 function jsonError(message: string, status: number, code?: string) {
   return jsonResponse({ ok: false, error: message, errorCode: code }, status);

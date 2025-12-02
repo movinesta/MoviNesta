@@ -45,18 +45,48 @@ async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) 
 
   const candidates = cards
     .filter((c) => c.tmdbId || c.imdbId)
-    .slice(0, 3);
+    .slice(0, 3); // soft limit per request to protect TMDb/OMDb quotas
 
   if (!candidates.length) {
     console.log("[swipe-trending] no cards with tmdbId/imdbId to sync");
     return;
   }
 
-  await Promise.allSettled(
+  // Fire-and-forget: we intentionally do not await this in the handler.
+  void Promise.allSettled(
     candidates.map((card) =>
-      triggerCatalogSyncForTitle(req, card, { prefix: "[swipe-trending]" })
+      triggerCatalogSyncForTitle(req, card, { prefix: "[swipe-trending]" }),
     ),
   );
+}
+
+async function triggerCatalogBackfill(reason: string) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn("[swipe-trending] cannot trigger catalog-backfill, missing URL or ANON key");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ reason }),
+    });
+
+    const text = await res.text().catch(() => "");
+    console.log(
+      "[swipe-trending] catalog-backfill status=",
+      res.status,
+      "body=",
+      text,
+    );
+  } catch (err) {
+    console.warn("[swipe-trending] catalog-backfill request error:", err);
+  }
+}
 }
 
 function getSupabaseAdminClient(req: Request) {
@@ -97,9 +127,17 @@ serve(async (req) => {
     const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
 
     const allCards = await loadSwipeCards(supabase);
+
+    if (!allCards.length) {
+      // If the titles table is empty (fresh database), kick off a background
+      // catalog backfill so future swipe requests have data to work with.
+      triggerCatalogBackfill("swipe-trending:titles-empty");
+    }
+
     const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
 
-    await triggerCatalogSyncForCards(req, cards);
+    // Do not block on catalog-sync; keep the swipe experience snappy.
+    triggerCatalogSyncForCards(req, cards);
 
     return jsonOk(
       {
@@ -161,9 +199,13 @@ async function loadSwipeCards(
         "rt_tomato_pct",
         "deleted_at",
         "tmdb_popularity",
+        "title_stats(avg_rating, ratings_count, watch_count)",
       ].join(","),
     )
+    .leftJoin("title_stats", "title_stats.title_id", "titles.title_id" as any)
     .is("deleted_at", null)
+    .order("title_stats.watch_count", { ascending: false } as any)
+    .order("title_stats.ratings_count", { ascending: false } as any)
     .order("tmdb_popularity", { ascending: false })
     .limit(50);
 

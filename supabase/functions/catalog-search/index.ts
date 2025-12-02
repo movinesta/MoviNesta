@@ -12,6 +12,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
@@ -165,6 +166,38 @@ async function handleSearch(
       local,
     };
   });
+
+
+  // Fire-and-forget catalog-sync for a small subset of TMDb results that are
+  // not yet present locally. This helps keep the `titles` table fresh based
+  // on what users actually search for, without blocking the search response.
+  try {
+    const syncCandidates = merged
+      .filter((item) => !item.local && item.tmdb && item.tmdb.id)
+      .slice(0, 5);
+
+    for (const item of syncCandidates) {
+      const mediaType =
+        item.tmdb.media_type === "tv" ? "series" :
+        item.tmdb.media_type === "movie" ? "movie" :
+        item.tmdb.title ? "movie" : "series";
+
+      triggerCatalogSyncForTitle(
+        // We don't need auth for catalog-sync here, but we pass a fake Request
+        // that carries no Authorization header; the helper will fall back to
+        // the anon key.
+        new Request("http://localhost/catalog-search-sync", { method: "POST" }),
+        {
+          tmdbId: item.tmdb.id,
+          imdbId: undefined,
+          contentType: mediaType as "movie" | "series",
+        },
+        { prefix: "[catalog-search]" },
+      );
+    }
+  } catch (err) {
+    console.warn("[catalog-search] background catalog-sync error:", err);
+  }
 
   return jsonOk(
     {
