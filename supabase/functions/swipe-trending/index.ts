@@ -125,11 +125,21 @@ serve(async (req) => {
     // Titles this user has already interacted with (ratings, library entries, swipe events)
     const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
 
-    const allCards = await loadSwipeCards(supabase);
+    // Prefer titles that are actually trending in recent activity; fall back to
+    // the generic popularity-based deck if there is not enough recent data.
+    let allCards = await loadTrendingCards(supabase);
 
     if (!allCards.length) {
-      // If the titles table is empty (fresh database), kick off a background
-      // catalog backfill so future swipe requests have data to work with.
+      allCards = await loadSwipeCards(supabase);
+
+      if (!allCards.length) {
+        // If the titles table is empty (fresh database), kick off a background
+        // catalog backfill so future swipe requests have data to work with.
+        triggerCatalogBackfill("swipe-trending:titles-empty");
+      }
+    }
+
+    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
       triggerCatalogBackfill("swipe-trending:titles-empty");
     }
 
@@ -179,6 +189,101 @@ function validateConfig(): Response | null {
   return null;
 }
 
+
+async function loadTrendingCards(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+): Promise<SwipeCard[]> {
+  const since = new Date();
+  since.setDate(since.getDate() - 7);
+
+  const { data: aggRows, error: aggError } = await supabase
+    .from("activity_events")
+    .select("title_id, count:count(*)")
+    .gte("created_at", since.toISOString())
+    .not("title_id", "is", null)
+    .group("title_id")
+    .order("count", { ascending: false })
+    .limit(200);
+
+  if (aggError) {
+    console.warn("[swipe-trending] activity_events aggregate error:", aggError.message);
+    return [];
+  }
+
+  const titleIds = (aggRows ?? [])
+    .map((r: any) => r.title_id as string | null)
+    .filter(Boolean) as string[];
+
+  if (!titleIds.length) {
+    return [];
+  }
+
+  const { data: titleRows, error: titleError } = await supabase
+    .from("titles")
+    .select(
+      [
+        "title_id",
+        "content_type",
+        "tmdb_id",
+        "omdb_imdb_id",
+        "primary_title",
+        "release_year",
+        "poster_url",
+        "backdrop_url",
+        "imdb_rating",
+        "rt_tomato_pct",
+        "deleted_at",
+        "tmdb_popularity",
+      ].join(","),
+    )
+    .in("title_id", titleIds)
+    .is("deleted_at", null);
+
+  if (titleError) {
+    console.warn("[swipe-trending] titles query error:", titleError.message);
+    return [];
+  }
+
+  const byId = new Map<string, any>();
+  for (const row of titleRows ?? []) {
+    byId.set((row as any).title_id as string, row);
+  }
+
+  type Scored = { score: number; meta: any };
+  const scored: Scored[] = [];
+
+  for (const row of aggRows ?? []) {
+    const titleId = (row as any).title_id as string | null;
+    if (!titleId) continue;
+    const meta = byId.get(titleId);
+    if (!meta) continue;
+
+    const interactions = Number((row as any).count ?? 0);
+    const popularity = Number((meta as any).tmdb_popularity ?? 0);
+
+    let score = interactions;
+    score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
+
+    scored.push({ score, meta });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const top = scored.slice(0, 50);
+
+  return top.map(({ meta }) => ({
+    id: meta.title_id,
+    title: meta.primary_title ?? null,
+    year: meta.release_year ?? null,
+    posterUrl: meta.poster_url ?? null,
+    backdropUrl: meta.backdrop_url ?? null,
+    imdbRating: meta.imdb_rating ?? null,
+    rtTomatoMeter: meta.rt_tomato_pct ?? null,
+    tmdbId: meta.tmdb_id ?? null,
+    imdbId: meta.omdb_imdb_id ?? null,
+    contentType: meta.content_type ?? null,
+  }));
+}
 async function loadSwipeCards(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
 ): Promise<SwipeCard[]> {

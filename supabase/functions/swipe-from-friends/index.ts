@@ -9,6 +9,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 
+import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -125,11 +126,15 @@ serve(async (req) => {
     }
 
     // Titles this user has already interacted with (ratings, library entries, swipes)
-    const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
+    // and a richer preference profile built from ratings, library, and activity events.
+    const [seenTitleIds, profile] = await Promise.all([
+      loadSeenTitleIdsForUser(supabase, user.id),
+      computeUserProfile(supabase, user.id),
+    ]);
 
-    // Prefer titles that friends have recently interacted with.
-    let allCards = await loadSwipeCardsFromFriends(supabase, user.id);
-
+    // Prefer titles that friends have recently interacted with, and that also line up
+    // reasonably well with this user's own taste profile.
+    let allCards = await loadSwipeCardsFromFriends(supabase, user.id, profile);
     // If we don't have enough friend-based cards, fall back to a generic deck.
     if (!allCards.length) {
       allCards = await loadSwipeCards(supabase);
@@ -189,8 +194,182 @@ function validateConfig(): Response | null {
 
 
 
+
 async function loadSwipeCardsFromFriends(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
+  userId: string,
+  profile: UserProfile | null,
+): Promise<SwipeCard[]> {
+  // 1) Load recent "friend activity" events.
+  const {
+    data: events,
+    error: eventsError,
+  } = await supabase
+    .from("activity_events")
+    .select("title_id, event_type, created_at, payload")
+    .neq("user_id", userId)
+    .not("title_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  if (eventsError) {
+    console.error(
+      "[swipe-from-friends] activity_events error:",
+      eventsError.message,
+    );
+    throw new Error("Failed to load friend activity");
+  }
+
+  type TitleScore = {
+    baseScore: number;
+  };
+
+  const now = Date.now();
+  const perTitle = new Map<string, TitleScore>();
+
+  for (const ev of events ?? []) {
+    const titleId = (ev as any).title_id as string | null;
+    if (!titleId) continue;
+
+    const createdAtStr = (ev as any).created_at as string | null;
+    let recencyFactor = 1;
+    if (createdAtStr) {
+      const createdAt = new Date(createdAtStr).getTime();
+      const days = Math.max(0, (now - createdAt) / (1000 * 60 * 60 * 24));
+      recencyFactor = 1 / (1 + days / 7);
+    }
+
+    const prev = perTitle.get(titleId) ?? { baseScore: 0 };
+    prev.baseScore += 1 * recencyFactor;
+    perTitle.set(titleId, prev);
+  }
+
+  if (!perTitle.size) {
+    return [];
+  }
+
+  const candidateTitleIds = Array.from(perTitle.keys());
+
+  const { data: titleRows, error: titleError } = await supabase
+    .from("titles")
+    .select(
+      [
+        "title_id",
+        "content_type",
+        "tmdb_id",
+        "omdb_imdb_id",
+        "primary_title",
+        "release_year",
+        "poster_url",
+        "backdrop_url",
+        "imdb_rating",
+        "rt_tomato_pct",
+        "deleted_at",
+        "tmdb_popularity",
+        "genres",
+        "omdb_genre_names",
+        "tmdb_genre_names",
+      ].join(","),
+    )
+    .in("title_id", candidateTitleIds)
+    .is("deleted_at", null);
+
+  if (titleError) {
+    console.error(
+      "[swipe-from-friends] titles query error:",
+      titleError.message,
+    );
+    throw new Error("Failed to load titles");
+  }
+
+  const favSet = new Set(
+    (profile?.favoriteGenres ?? [])
+      .map((g) => g.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const dislikedSet = new Set(
+    (profile?.dislikedGenres ?? [])
+      .map((g) => g.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const ctWeights = profile?.contentTypeWeights ?? {};
+  const currentYear = new Date().getFullYear();
+
+  type Scored = { score: number; meta: any };
+  const scored: Scored[] = [];
+
+  for (const meta of titleRows ?? []) {
+    const titleId = (meta as any).title_id as string | null;
+    if (!titleId) continue;
+
+    const baseScore = perTitle.get(titleId)?.baseScore ?? 0;
+    if (baseScore <= 0) continue;
+
+    const rawGenres: unknown =
+      (meta as any).genres ??
+      (meta as any).omdb_genre_names ??
+      (meta as any).tmdb_genre_names ??
+      [];
+    const genres: string[] = Array.isArray(rawGenres)
+      ? rawGenres
+          .map((g) => String(g).trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+
+    const popularity = Number((meta as any).tmdb_popularity ?? 0);
+    const year = (meta as any).release_year as number | null;
+    const contentTypeRaw = (meta as any).content_type as string | null;
+    const contentType = contentTypeRaw ? contentTypeRaw.toLowerCase() : "";
+
+    let score = baseScore;
+
+    let favMatches = 0;
+    let badMatches = 0;
+    for (const g of genres) {
+      if (favSet.has(g)) favMatches += 1;
+      if (dislikedSet.has(g)) badMatches += 1;
+    }
+
+    score += favMatches * 4;
+    score -= badMatches * 6;
+
+    if (contentType) {
+      const ctWeight = ctWeights[contentType] ?? 0;
+      score += ctWeight * 2;
+    }
+
+    score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
+
+    if (typeof year === "number" && Number.isFinite(year)) {
+      const age = Math.max(0, currentYear - year);
+      const recencyBoost = age < 10 ? (10 - age) * 0.2 : 0;
+      score += recencyBoost;
+    }
+
+    scored.push({ score, meta });
+  }
+
+  if (!scored.length) {
+    return [];
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const top = scored.slice(0, 50);
+
+  return top.map(({ meta }) => ({
+    id: meta.title_id,
+    title: meta.primary_title ?? null,
+    year: meta.release_year ?? null,
+    posterUrl: meta.poster_url ?? null,
+    backdropUrl: meta.backdrop_url ?? null,
+    imdbRating: meta.imdb_rating ?? null,
+    rtTomatoMeter: meta.rt_tomato_pct ?? null,
+    tmdbId: meta.tmdb_id ?? null,
+    imdbId: meta.omdb_imdb_id ?? null,
+    contentType: meta.content_type ?? null,
+  }));
+}
   userId: string,
 ): Promise<SwipeCard[]> {
   // 1) Find people this user follows.

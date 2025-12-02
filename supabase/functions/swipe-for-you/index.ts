@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -131,15 +132,16 @@ serve(async (req) => {
     if (!user) {
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
-
     // Titles this user has already interacted with (ratings, library entries, swipes)
-    const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
+    // and a richer preference profile built from ratings, library, and activity events.
+    const [seenTitleIds, profile] = await Promise.all([
+      loadSeenTitleIdsForUser(supabase, user.id),
+      computeUserProfile(supabase, user.id),
+    ]);
 
-    // Try to build a simple genre-based preference profile from the user's ratings.
-    const favoriteGenres = await computeUserGenrePreferences(supabase, user.id);
-
-    // Load a personalized deck if we have preferences; otherwise fall back to a generic deck.
-    const allCards = await loadPersonalizedSwipeCards(supabase, favoriteGenres);
+    // Load a personalized deck using the richer profile; if profile is missing we still
+    // fall back to a popularity-based deck inside the helper.
+    const allCards = await loadPersonalizedSwipeCardsV2(supabase, profile);
 
     if (!allCards.length) {
       // If the titles table is empty (fresh database), kick off a background
@@ -271,6 +273,132 @@ async function computeUserGenrePreferences(
 
 async function loadPersonalizedSwipeCards(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
+
+async function loadPersonalizedSwipeCardsV2(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  profile: UserProfile | null,
+): Promise<SwipeCard[]> {
+  // If we have no preferences yet, just fall back to the generic query.
+  if (!profile || !profile.favoriteGenres.length) {
+    return loadSwipeCards(supabase);
+  }
+
+  const { favoriteGenres, dislikedGenres, contentTypeWeights } = profile;
+
+  const { data: rows, error } = await supabase
+    .from("titles")
+    .select(
+      [
+        "title_id",
+        "content_type",
+        "tmdb_id",
+        "omdb_imdb_id",
+        "primary_title",
+        "release_year",
+        "poster_url",
+        "backdrop_url",
+        "imdb_rating",
+        "rt_tomato_pct",
+        "deleted_at",
+        "tmdb_popularity",
+        "genres",
+        "omdb_genre_names",
+        "tmdb_genre_names",
+      ].join(","),
+    )
+    .is("deleted_at", null)
+    .order("tmdb_popularity", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error("[swipe-for-you] personalized titles query error:", error.message);
+    throw new Error("Failed to load titles");
+  }
+
+  type Scored = { score: number; meta: any };
+
+  const favSet = new Set(
+    favoriteGenres.map((g) => g.trim().toLowerCase()).filter(Boolean),
+  );
+  const dislikedSet = new Set(
+    (dislikedGenres ?? [])
+      .map((g) => g.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  const scored: Scored[] = [];
+  const currentYear = new Date().getFullYear();
+
+  for (const meta of rows ?? []) {
+    const rawGenres: unknown =
+      (meta as any).genres ??
+      (meta as any).omdb_genre_names ??
+      (meta as any).tmdb_genre_names ??
+      [];
+
+    const genres: string[] = Array.isArray(rawGenres)
+      ? rawGenres
+          .map((g) => String(g).trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+
+    const popularity = Number((meta as any).tmdb_popularity ?? 0);
+    const year = (meta as any).release_year as number | null;
+    const contentTypeRaw = (meta as any).content_type as string | null;
+    const contentType = contentTypeRaw ? contentTypeRaw.toLowerCase() : "";
+
+    let score = 0;
+
+    // Genre match / mismatch
+    let favMatches = 0;
+    let badMatches = 0;
+    for (const g of genres) {
+      if (favSet.has(g)) favMatches += 1;
+      if (dislikedSet.has(g)) badMatches += 1;
+    }
+
+    score += favMatches * 8;  // reward liked genres
+    score -= badMatches * 10; // strongly penalize disliked genres
+
+    // Content type preference (movie vs series)
+    if (contentType) {
+      const ctWeight = contentTypeWeights[contentType] ?? 0;
+      score += ctWeight * 3;
+    }
+
+    // Popularity with diminishing returns
+    score += Math.log10(1 + Math.max(0, popularity));
+
+    // Recency boost for titles from roughly last 5 years
+    if (typeof year === "number" && Number.isFinite(year)) {
+      const age = Math.max(0, currentYear - year);
+      const recencyBoost = age < 5 ? 5 - age : 0;
+      score += recencyBoost * 1.5;
+    }
+
+    // Light exploration noise to avoid deterministic ordering for ties
+    score += (Math.random() - 0.5) * 0.5;
+
+    scored.push({ score, meta });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const top = scored.slice(0, 50);
+
+  return top.map(({ meta }) => ({
+    id: meta.title_id,
+    title: meta.primary_title ?? null,
+    year: meta.release_year ?? null,
+    posterUrl: meta.poster_url ?? null,
+    backdropUrl: meta.backdrop_url ?? null,
+    imdbRating: meta.imdb_rating ?? null,
+    rtTomatoMeter: meta.rt_tomato_pct ?? null,
+    tmdbId: meta.tmdb_id ?? null,
+    imdbId: meta.omdb_imdb_id ?? null,
+    contentType: meta.content_type ?? null,
+  }));
+}
   favoriteGenres: string[] | null,
 ): Promise<SwipeCard[]> {
   // If we have no preferences yet, just fall back to the generic query.
