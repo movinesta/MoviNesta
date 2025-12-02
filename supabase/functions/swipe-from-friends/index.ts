@@ -417,3 +417,5 @@ async function loadSwipeCards(
     imdbId: meta.omdb_imdb_id ?? null,
     contentType: meta.content_type ?? null,
   }));
+
+}
