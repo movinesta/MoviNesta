@@ -1,4 +1,3 @@
-
 // supabase/functions/swipe-more-like-this/index.ts
 //
 // Returns a "More like this" swipe deck based on a seed title.
