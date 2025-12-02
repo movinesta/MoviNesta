@@ -50,11 +50,11 @@ serve(async (req) => {
   try {
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       console.error("[catalog-search] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-      return jsonError("Server misconfigured", 500);
+      return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
     }
     if (!TMDB_TOKEN) {
       console.error("[catalog-search] Missing TMDB_API_READ_ACCESS_TOKEN");
-      return jsonError("TMDb not configured", 500);
+      return jsonError("TMDb not configured", 500, "TMDB_NOT_CONFIGURED");
     }
 
     const supabase = getSupabaseAdminClient(req);
@@ -62,7 +62,7 @@ serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as SearchPayload;
     const query = body.query?.trim();
     if (!query) {
-      return jsonError("query is required", 400);
+      return jsonError("query is required", 400, "BAD_REQUEST_MISSING_QUERY");
     }
 
     const page = body.page && body.page > 0 ? body.page : 1;
@@ -71,7 +71,7 @@ serve(async (req) => {
     return await handleSearch(supabase, { query, page, type });
   } catch (err) {
     console.error("[catalog-search] unhandled error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
@@ -88,7 +88,7 @@ async function handleSearch(
   // 1) Search TMDb
   const tmdbResults = await tmdbSearch(query, page, type);
   if (!tmdbResults) {
-    return jsonError("TMDb search failed", 502);
+    return jsonError("TMDb search failed", 502, "TMDB_SEARCH_FAILED");
   }
 
   let items = tmdbResults.results ?? [];
@@ -234,6 +234,6 @@ function jsonOk(body: unknown, status = 200): Response {
   });
 }
 
-function jsonError(message: string, status: number): Response {
-  return jsonOk({ ok: false, error: message }, status);
+function jsonError(message: string, status: number, code?: string): Response {
+  return jsonOk({ ok: false, error: message, errorCode: code }, status);
 }

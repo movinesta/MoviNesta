@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+import { log } from "../_shared/logger.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -21,6 +23,20 @@ interface SwipeEventPayload {
   rating?: number | null;
   inWatchlist?: boolean | null;
 }
+const SwipeEventSchema = z.object({
+  titleId: z.string().min(1),
+  direction: z.enum(["like", "dislike", "skip"]),
+  source: z
+    .union([
+      z.literal("for-you"),
+      z.literal("from-friends"),
+      z.literal("trending"),
+      z.string(),
+    ])
+    .optional(),
+  rating: z.number().min(0).max(10).nullable().optional(),
+  inWatchlist: z.boolean().nullable().optional(),
+});
 
 function buildSupabaseClient(req: Request) {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -57,21 +73,20 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
     let body: SwipeEventPayload;
     try {
-      body = (await req.json()) as SwipeEventPayload;
-    } catch {
-      return jsonResponse({ error: "Invalid JSON" }, 400);
+      const raw = await req.json();
+      const parsed = SwipeEventSchema.parse(raw);
+      body = parsed as SwipeEventPayload;
+    } catch (err) {
+      console.error("[swipe-event] invalid payload:", err);
+      return jsonError("Invalid request body", 400, "BAD_REQUEST_INVALID_BODY");
     }
 
     const { titleId, direction, source, rating, inWatchlist } = body;
-
-    if (!titleId || !["like", "dislike", "skip"].includes(direction)) {
-      return jsonResponse({ error: "Invalid payload" }, 400);
-    }
 
     let ratingValue: number | null = rating ?? null;
     let libraryStatus: string | null = null;
@@ -86,6 +101,11 @@ Deno.serve(async (req) => {
       } else if (direction === "skip") {
         ratingValue = 2.5;
       }
+    }
+
+    // Normalize rating to a safe range; defensive in case a client sends bad data.
+    if (ratingValue !== null) {
+      ratingValue = Math.max(0, Math.min(5, ratingValue));
     }
 
     if (explicitWatchlistChange) {
@@ -182,7 +202,7 @@ Deno.serve(async (req) => {
           })
           .eq("id", existingEntry.id);
         if (updateLibError) {
-          console.error("[swipe-event] update library error:", updateLibError);
+          console.error("[swipe-event] update library error:", { userId: user.id, titleId, error: updateLibError });
         }
       } else {
         const { error: insertLibError } = await supabase
@@ -194,7 +214,7 @@ Deno.serve(async (req) => {
             status: libraryStatus,
           });
         if (insertLibError) {
-          console.error("[swipe-event] insert library error:", insertLibError);
+          console.error("[swipe-event] insert library error:", { userId: user.id, titleId, error: insertLibError });
         }
       }
     } else if (explicitWatchlistChange === true) {
@@ -204,7 +224,7 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id)
         .eq("title_id", titleId);
       if (deleteLibError) {
-        console.error("[swipe-event] delete library error:", deleteLibError);
+        console.error("[swipe-event] delete library error:", { userId: user.id, titleId, error: deleteLibError });
       }
     }
 
@@ -233,9 +253,13 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("[swipe-event] unhandled error:", err);
     const message = err instanceof Error ? err.message : "Internal server error";
-    return jsonResponse({ error: message }, 500);
+    return jsonError(message, 500, "INTERNAL_ERROR");
   }
 });
+
+function jsonError(message: string, status: number, code?: string) {
+  return jsonResponse({ ok: false, error: message, errorCode: code }, status);
+}
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {

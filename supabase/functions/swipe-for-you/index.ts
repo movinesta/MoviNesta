@@ -95,15 +95,19 @@ serve(async (req) => {
 
     if (authError) {
       console.error("[swipe-for-you] auth error:", authError.message);
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
     if (!user) {
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const cards = await loadSwipeCards(supabase);
+    // Titles this user has already interacted with (ratings, library entries, swipes)
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
 
-    // 🔄 trigger catalog-sync for some cards
+    const allCards = await loadSwipeCards(supabase);
+    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
+
+    // 🔄 trigger catalog-sync for some cards we are about to show
     await triggerCatalogSyncForCards(req, cards);
 
     return jsonOk(
@@ -115,7 +119,7 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("[swipe-for-you] unhandled error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
@@ -129,19 +133,19 @@ function jsonOk(body: unknown, status: number): Response {
   });
 }
 
-function jsonError(message: string, status: number): Response {
-  return jsonOk({ ok: false, error: message }, status);
+function jsonError(message: string, status: number, code?: string): Response {
+  return jsonOk({ ok: false, error: message, errorCode: code }, status);
 }
 
 function validateConfig(): Response | null {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error("[swipe-for-you] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
   if (!SUPABASE_ANON_KEY) {
     console.error("[swipe-for-you] Missing SUPABASE_ANON_KEY");
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
   return null;

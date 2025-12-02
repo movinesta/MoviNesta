@@ -7,6 +7,8 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+import { log } from "../_shared/logger.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -34,6 +36,18 @@ type CreateDirectConversationResponse = {
   error?: string;
 };
 
+const CreateDirectConversationPayloadSchema = z.object({
+  targetUserId: z.string().uuid(),
+  context: z
+    .object({
+      titleId: z.string().uuid().optional(),
+    })
+    .optional(),
+});
+
+type CreateDirectConversationPayload = z.infer<
+  typeof CreateDirectConversationPayloadSchema
+>;
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -44,8 +58,8 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-function jsonError(message: string, status: number): Response {
-  return jsonResponse({ ok: false, error: message }, status);
+function jsonError(message: string, status: number, code?: string): Response {
+  return jsonResponse({ ok: false, error: message, errorCode: code }, status);
 }
 
 function validateConfig(): Response | null {
@@ -53,7 +67,7 @@ function validateConfig(): Response | null {
     console.error(
       "[create-direct-conversation] Missing SUPABASE_URL, ANON_KEY, or SERVICE_ROLE_KEY",
     );
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
   return null;
 }
@@ -198,31 +212,35 @@ serve(async (req) => {
         "[create-direct-conversation] auth error:",
         authError.message,
       );
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
     if (!user) {
       console.error("[create-direct-conversation] no user in auth context");
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
     const myUserId = user.id;
 
     // 2) Parse body
-    const body = (await req.json().catch((e) => {
+    const rawBody = await req.json().catch((e) => {
       console.error("[create-direct-conversation] invalid JSON body:", e);
       return null;
-    })) as { targetUserId?: string } | null;
+    });
 
-    if (!body || !body.targetUserId) {
-      console.error("[create-direct-conversation] missing targetUserId");
-      return jsonError("targetUserId is required", 400);
+    const parsed = CreateDirectConversationPayloadSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      console.error(
+        "[create-direct-conversation] invalid payload",
+        parsed.error.flatten(),
+      );
+      return jsonError("Invalid request body", 400, "BAD_REQUEST_INVALID_BODY");
     }
 
-    const targetUserId = body.targetUserId;
+    const { targetUserId, context } = parsed.data;
 
     if (targetUserId === myUserId) {
-      return jsonError("targetUserId cannot be yourself", 400);
+      return jsonError("targetUserId cannot be yourself", 400, "BAD_REQUEST_SELF_TARGET");
     }
 
     // 3) Try to find existing DM
@@ -257,7 +275,7 @@ serve(async (req) => {
         "[create-direct-conversation] error creating conversation:",
         convError,
       );
-      return jsonError("Failed to create conversation", 500);
+      return jsonError("Failed to create conversation", 500, "CONVERSATION_CREATE_FAILED");
     }
 
     const conversationId = conv.id as string;
@@ -283,7 +301,7 @@ serve(async (req) => {
         "[create-direct-conversation] error inserting participants:",
         participantsError,
       );
-      return jsonError("Failed to add participants", 500);
+      return jsonError("Failed to add participants", 500, "CONVERSATION_PARTICIPANTS_FAILED");
     }
 
     console.log(
@@ -297,6 +315,6 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("[create-direct-conversation] unexpected error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });

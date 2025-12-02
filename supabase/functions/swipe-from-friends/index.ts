@@ -87,15 +87,18 @@ serve(async (req) => {
 
     if (authError) {
       console.error("[swipe-from-friends] auth error:", authError.message);
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
     if (!user) {
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    // Placeholder: same as trending for now.
-    // Replace with "friends" logic when you have your social model ready.
-    const cards = await loadSwipeCards(supabase);
+    // Placeholder: same as trending for now, but we avoid cards the user has already seen.
+    // Replace with real "friends" logic when your social graph is ready.
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
+
+    const allCards = await loadSwipeCards(supabase);
+    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
 
     await triggerCatalogSyncForCards(req, cards);
 
@@ -108,7 +111,7 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("[swipe-from-friends] unhandled error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
@@ -122,19 +125,19 @@ function jsonOk(body: unknown, status: number): Response {
   });
 }
 
-function jsonError(message: string, status: number): Response {
-  return jsonOk({ ok: false, error: message }, status);
+function jsonError(message: string, status: number, code?: string): Response {
+  return jsonOk({ ok: false, error: message, errorCode: code }, status);
 }
 
 function validateConfig(): Response | null {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error("[swipe-from-friends] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
   if (!SUPABASE_ANON_KEY) {
     console.error("[swipe-from-friends] Missing SUPABASE_ANON_KEY");
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
   return null;

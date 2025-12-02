@@ -7,6 +7,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
+import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -86,13 +87,17 @@ serve(async (req) => {
 
     if (authError) {
       console.error("[swipe-trending] auth error:", authError.message);
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
     if (!user) {
-      return jsonError("Unauthorized", 401);
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const cards = await loadSwipeCards(supabase);
+    // Titles this user has already interacted with (ratings, library entries, swipe events)
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
+
+    const allCards = await loadSwipeCards(supabase);
+    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
 
     await triggerCatalogSyncForCards(req, cards);
 
@@ -105,7 +110,7 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("[swipe-trending] unhandled error:", err);
-    return jsonError("Internal server error", 500);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
@@ -119,19 +124,19 @@ function jsonOk(body: unknown, status: number): Response {
   });
 }
 
-function jsonError(message: string, status: number): Response {
-  return jsonOk({ ok: false, error: message }, status);
+function jsonError(message: string, status: number, code?: string): Response {
+  return jsonOk({ ok: false, error: message, errorCode: code }, status);
 }
 
 function validateConfig(): Response | null {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error("[swipe-trending] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
   if (!SUPABASE_ANON_KEY) {
     console.error("[swipe-trending] Missing SUPABASE_ANON_KEY");
-    return jsonError("Server misconfigured", 500);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
   return null;
