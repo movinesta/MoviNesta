@@ -1,2 +1,5 @@
 [functions.catalog-backfill]
 verify_jwt = false
+
+[functions.catalog-sync]
+verify_jwt = false
