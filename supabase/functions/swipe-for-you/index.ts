@@ -165,38 +165,30 @@ serve(async (req) => {
 async function triggerCatalogBackfill(reason: string) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn(
-      "[swipe-for-you] Cannot trigger catalog backfill; missing env vars",
+      "[swipe-for-you] cannot trigger catalog-backfill, missing URL or ANON key",
     );
     return;
   }
 
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/functions/v1/catalog-sync`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          reason,
-          mode: "backfill_if_missing",
-          limit: 1000,
-        }),
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
       },
-    );
+      body: JSON.stringify({ reason }),
+    });
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.warn(
-        "[swipe-for-you] catalog-sync backfill call failed:",
-        res.status,
-        text,
-      );
-    }
+    const text = await res.text().catch(() => "");
+    console.log(
+      "[swipe-for-you] catalog-backfill status=",
+      res.status,
+      "body=",
+      text,
+    );
   } catch (err) {
-    console.warn("[swipe-for-you] catalog-sync backfill error:", err);
+    console.warn("[swipe-for-you] catalog-backfill request error:", err);
   }
 }
 
@@ -440,134 +432,4 @@ async function loadPersonalizedSwipeCardsV2(
       "[swipe-for-you] personalized titles query error:",
       error.message,
     );
-    throw new Error("Failed to load titles");
-  }
-
-  type Scored = { score: number; meta: any };
-
-  const favSet = new Set(
-    favoriteGenres.map((g) => g.trim().toLowerCase()).filter(Boolean),
-  );
-  const dislikedSet = new Set(
-    (dislikedGenres ?? [])
-      .map((g) => g.trim().toLowerCase())
-      .filter(Boolean),
-  );
-
-  const scored: Scored[] = [];
-  const currentYear = new Date().getFullYear();
-
-  for (const meta of rows ?? []) {
-    const rawGenres: unknown =
-      (meta as any).genres ??
-      (meta as any).omdb_genre_names ??
-      (meta as any).tmdb_genre_names ??
-      [];
-
-    const genres: string[] = Array.isArray(rawGenres)
-      ? rawGenres
-          .map((g) => String(g).trim().toLowerCase())
-          .filter(Boolean)
-      : [];
-
-    const popularity = Number((meta as any).tmdb_popularity ?? 0);
-    const year = (meta as any).release_year as number | null;
-    const contentTypeRaw = (meta as any).content_type as string | null;
-    const contentType = contentTypeRaw ? contentTypeRaw.toLowerCase() : "";
-
-    let score = 0;
-
-    // Genre match / mismatch
-    let favMatches = 0;
-    let badMatches = 0;
-    for (const g of genres) {
-      if (favSet.has(g)) favMatches += 1;
-      if (dislikedSet.has(g)) badMatches += 1;
-    }
-
-    score += favMatches * 8;  // reward liked genres
-    score -= badMatches * 10; // strongly penalize disliked genres
-
-    // Content type preference (movie vs series)
-    if (contentType) {
-      const ctWeight = contentTypeWeights[contentType] ?? 0;
-      score += ctWeight * 3;
-    }
-
-    // Popularity with diminishing returns
-    score += Math.log10(1 + Math.max(0, popularity));
-
-    // Recency boost for titles from roughly last 5 years
-    if (typeof year === "number" && Number.isFinite(year)) {
-      const age = Math.max(0, currentYear - year);
-      const recencyBoost = age < 5 ? 5 - age : 0;
-      score += recencyBoost * 1.5;
-    }
-
-    // Light exploration noise to avoid deterministic ordering for ties
-    score += (Math.random() - 0.5) * 0.5;
-
-    scored.push({ score, meta });
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-
-  const top = scored.slice(0, 50);
-
-  return top.map((meta: any) => ({
-    id: meta.title_id,
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null,
-  }));
-}
-
-async function loadSwipeCards(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
-): Promise<SwipeCard[]> {
-  const { data: rows, error } = await supabase
-    .from("titles")
-    .select(
-      [
-        "title_id",
-        "content_type",
-        "tmdb_id",
-        "omdb_imdb_id",
-        "primary_title",
-        "release_year",
-        "poster_url",
-        "backdrop_url",
-        "imdb_rating",
-        "rt_tomato_pct",
-        "deleted_at",
-        "tmdb_popularity",
-      ].join(","),
-    )
-    .is("deleted_at", null)
-    .order("tmdb_popularity", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    console.error("[swipe-for-you] titles query error:", error.message);
-    throw new Error("Failed to load titles");
-  }
-
-  return (rows ?? []).map((meta: any) => ({
-    id: meta.title_id,
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null, // "movie" | "series"
-  }));
-}
+ 
