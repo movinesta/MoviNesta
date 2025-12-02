@@ -161,38 +161,30 @@ serve(async (req) => {
 async function triggerCatalogBackfill(reason: string) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn(
-      "[swipe-trending] Cannot trigger catalog backfill; missing env vars",
+      "[swipe-trending] Cannot trigger catalog-backfill; missing env vars",
     );
     return;
   }
 
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/functions/v1/catalog-sync`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          reason,
-          mode: "backfill_if_missing",
-          limit: 1000,
-        }),
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
       },
-    );
+      body: JSON.stringify({ reason }),
+    });
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.warn(
-        "[swipe-trending] catalog-sync backfill call failed:",
-        res.status,
-        text,
-      );
-    }
+    const text = await res.text().catch(() => "");
+    console.log(
+      "[swipe-trending] catalog-backfill status=",
+      res.status,
+      "body=",
+      text,
+    );
   } catch (err) {
-    console.warn("[swipe-trending] catalog-sync backfill error", err);
+    console.warn("[swipe-trending] catalog-backfill request error:", err);
   }
 }
 
