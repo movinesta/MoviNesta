@@ -14,6 +14,7 @@ interface CreateDirectConversationResponse {
   ok: boolean;
   conversationId?: string;
   error?: string;
+  errorCode?: string;
 }
 
 const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
@@ -63,11 +64,28 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
           throw new Error(error.message ?? "Failed to start conversation.");
         }
 
-        if (!data?.ok || !data.conversationId) {
-          throw new Error(data?.error ?? "Failed to get conversation id.");
+        const payload = data as CreateDirectConversationResponse | null;
+
+        if (!payload?.ok || !payload.conversationId) {
+          const code = payload?.errorCode;
+          let friendly =
+            payload?.error ?? "Failed to get conversation id. Please try again.";
+
+          if (code === "UNAUTHORIZED") {
+            friendly = "You need to be signed in to start a conversation.";
+          } else if (code === "BAD_REQUEST_SELF_TARGET") {
+            friendly = "You can't start a conversation with yourself.";
+          } else if (code === "SERVER_MISCONFIGURED") {
+            friendly =
+              "Messaging is temporarily unavailable due to a server issue. Please try again later.";
+          }
+
+          const err = new Error(friendly);
+          (err as any).code = code;
+          throw err;
         }
 
-        navigate(`/messages/${data.conversationId}`);
+        navigate(`/messages/${payload.conversationId}`);
       } finally {
         window.clearTimeout(timeout);
       }

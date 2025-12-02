@@ -133,7 +133,24 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         <p className="text-[12px] text-mn-text-secondary">
           Searching for <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>…
         </p>
-        <p className="text-[11px] text-mn-text-muted">Fetching matching titles from the catalog.</p>
+        <p className="text-[11px] text-mn-text-muted">
+          Fetching matching titles from your catalog and external sources.
+        </p>
+
+        <div className="space-y-2">
+          {[0, 1, 2].map((idx) => (
+            <div
+              key={idx}
+              className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2"
+            >
+              <div className="h-16 w-11 animate-pulse rounded-xl bg-mn-bg-elevated/60" />
+              <div className="flex flex-1 flex-col justify-center space-y-1.5">
+                <div className="h-3 w-2/3 animate-pulse rounded bg-mn-bg-elevated/60" />
+                <div className="h-3 w-1/3 animate-pulse rounded bg-mn-bg-elevated/40" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -172,8 +189,9 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-mn-text-secondary">
-          Showing <span className="font-semibold text-mn-text-primary">{data.length}</span> result
-          {data.length === 1 ? "" : "s"} for{" "}
+          Showing{" "}
+          <span className="font-semibold text-mn-text-primary">{data.length}</span>{" "}
+          result{data.length === 1 ? "" : "s"} across your catalog and external sources for{" "}
           <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>.
         </p>
         <button
@@ -209,7 +227,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
           return (
             <li key={item.id}>
               <Link
-                to={`/titles/${item.id}`}
+                to={`/title/${item.id}`}
                 className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2 hover:bg-mn-bg-elevated/80"
               >
                 {item.posterUrl ? (

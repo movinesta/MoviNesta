@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Film, ListFilter, Star } from "lucide-react";
 import type { TitleType } from "../search/useSearchTitles";
 import { useDiaryLibrary, useDiaryLibraryMutations, type DiaryStatus } from "./useDiaryLibrary";
+import { diaryStatusLabel, diaryStatusPillClasses } from "./diaryStatus";
 
 interface DiaryLibraryTabProps {
   userId?: string | null;
@@ -29,20 +30,7 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "anime", label: "Anime" },
 ];
 
-const statusPillClasses = (status: DiaryStatus): string => {
-  switch (status) {
-    case "want_to_watch":
-      return "border-amber-500/40 bg-amber-500/10 text-amber-200";
-    case "watching":
-      return "border-sky-500/40 bg-sky-500/10 text-sky-200";
-    case "watched":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-200";
-    case "dropped":
-      return "border-rose-500/40 bg-rose-500/10 text-rose-200";
-    default:
-      return "border-mn-border-subtle bg-mn-bg/60 text-mn-text-secondary";
-  }
-};
+
 
 const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
   userId,
@@ -176,7 +164,27 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
 
       {/* Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {entries.map((entry) => {
+        {entries.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center py-12 text-center text-sm text-mn-text-muted">
+            <p className="font-medium text-mn-text-primary">
+              {isOwnProfile ? "Your diary is empty" : "No diary entries yet"}
+            </p>
+            <p className="mt-1 max-w-xs text-xs text-mn-text-muted">
+              {isOwnProfile
+                ? "Start by searching for a movie or show and adding it to your diary."
+                : "When they start logging what they watch, it will show up here."}
+            </p>
+            {isOwnProfile && (
+              <Link
+                to="/search"
+                className="mt-4 inline-flex items-center rounded-full bg-mn-primary px-4 py-1.5 text-xs font-medium text-mn-bg shadow-sm hover:bg-mn-primary/90"
+              >
+                Search titles
+              </Link>
+            )}
+          </div>
+        ) : (
+          entries.map((entry) => {
           const handleStatusCycle = () => {
             if (!canEdit) return;
             const order: DiaryStatus[] = ["want_to_watch", "watching", "watched", "dropped"];
@@ -237,8 +245,8 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
                     type="button"
                     onClick={handleStatusCycle}
                     disabled={isMutating || !canEdit}
-                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition ${statusPillClasses(
-                      entry.status,
+                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition ${diaryStatusPillClasses(
+                      entry.status ?? null,
                     )} ${
                       isMutating
                         ? "opacity-70"
@@ -247,41 +255,41 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
                           : "opacity-80"
                     }`}
                   >
-                    {entry.status === "want_to_watch"
-                      ? "Want to Watch"
-                      : entry.status === "watching"
-                        ? "Watching"
-                        : entry.status === "watched"
-                          ? "Watched"
-                          : "Dropped"}
+                    {diaryStatusLabel(entry.status ?? null)}
                   </button>
 
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, idx) => {
-                      const value = idx + 1;
-                      const isFilled = (entry.rating ?? 0) >= value;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="p-0.5"
-                          disabled={isMutating || !canEdit}
-                          onClick={() => handleStarClick(value)}
-                        >
-                          <Star
-                            className={`h-3.5 w-3.5 ${
-                              isFilled ? "fill-yellow-400 text-yellow-300" : "text-mn-text-muted"
-                            }`}
-                          />
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, idx) => {
+                        const value = idx + 1;
+                        const isFilled = (entry.rating ?? 0) >= value;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="p-0.5"
+                            disabled={isMutating || !canEdit}
+                            onClick={() => handleStarClick(value)}
+                          >
+                            <Star
+                              className={`h-3.5 w-3.5 ${
+                                isFilled ? "fill-yellow-400 text-yellow-300" : "text-mn-text-muted"
+                              }`}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[10px] text-mn-text-muted">
+                      {entry.rating != null ? `${entry.rating}/5` : "No rating"}
+                    </span>
                   </div>
                 </div>
               </div>
             </article>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );

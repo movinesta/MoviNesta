@@ -1,4 +1,5 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
@@ -30,6 +31,43 @@ export type SwipeDeckKindOrCombined = SwipeDeckKind | "combined";
 
 interface SwipeDeckResponse {
   cards: SwipeCardData[];
+}
+
+const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
+
+function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
+  if (typeof window === "undefined") {
+    return {
+      "for-you": 1,
+      "from-friends": 1,
+      trending: 1,
+    };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SOURCE_WEIGHTS_STORAGE_KEY);
+    if (!raw) {
+      return {
+        "for-you": 1,
+        "from-friends": 1,
+        trending: 1,
+      };
+    }
+
+    const parsed = JSON.parse(raw) as Partial<Record<SwipeDeckKind, number>>;
+    return {
+      "for-you": typeof parsed["for-you"] === "number" ? parsed["for-you"] : 1,
+      "from-friends":
+        typeof parsed["from-friends"] === "number" ? parsed["from-friends"] : 1,
+      trending: typeof parsed.trending === "number" ? parsed.trending : 1,
+    };
+  } catch {
+    return {
+      "for-you": 1,
+      "from-friends": 1,
+      trending: 1,
+    };
+  }
 }
 
 interface SwipeEventPayload {
@@ -66,11 +104,9 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const [cards, setCards] = useState<SwipeCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
-  const sourceWeightsRef = useRef<Record<SwipeDeckKind, number>>({
-    "for-you": 1,
-    "from-friends": 1,
-    trending: 1,
-  });
+  const sourceWeightsRef = useRef<Record<SwipeDeckKind, number>>(
+    loadInitialSourceWeights(),
+  );
 
   const scheduleAssetPrefetch = useCallback((incoming: SwipeCardData[]) => {
     const idle = (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback })
@@ -235,7 +271,9 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             : await fetchFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
 
         if (!raw.length) {
-          setIsError(true);
+          // No new cards available right now – this is a valid state (end of deck),
+          // not necessarily an error. Leave isError=false so the UI can show
+          // the "All caught up" message instead of an error state.
           return;
         }
 
@@ -269,10 +307,22 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     (source: SwipeDeckKind | undefined, direction: SwipeDirection) => {
       if (!source) return;
       const delta = direction === "like" ? 0.45 : direction === "dislike" ? -0.35 : -0.1;
-      sourceWeightsRef.current = {
-        ...sourceWeightsRef.current,
-        [source]: Math.max(0.2, Math.min(3.5, (sourceWeightsRef.current[source] ?? 1) + delta)),
+
+      const current = sourceWeightsRef.current;
+      const next: Record<SwipeDeckKind, number> = {
+        ...current,
+        [source]: Math.max(0.2, Math.min(3.5, (current[source] ?? 1) + delta)),
       };
+
+      sourceWeightsRef.current = next;
+
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(SOURCE_WEIGHTS_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // Ignore storage errors (private mode, quotas, etc.)
+        }
+      }
     },
     [],
   );
@@ -308,6 +358,13 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       if (error) {
         console.warn("[useSwipeDeck] swipe-event error", error);
       }
+    },
+    onSuccess: () => {
+      // Swiping updates ratings, library entries, and activity feed via the edge function.
+      // Invalidate relevant queries so the rest of the app (diary, stats, home) stays in sync.
+      queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(null) });
+      queryClient.invalidateQueries({ queryKey: qk.homeForYou(null) });
+      queryClient.invalidateQueries({ queryKey: qk.homeFeed(null) });
     },
   });
 

@@ -1,3 +1,4 @@
+import { qk } from "../../lib/queryKeys";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -459,7 +460,7 @@ const useFeed = (): UseFeedResult => {
 
   const { data, isLoading, isFetching, error, fetchNextPage, isFetchingNextPage, hasNextPage } =
     useInfiniteQuery<{ items: FeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
-      queryKey: ["home-feed", user?.id],
+      queryKey: qk.homeFeed(user?.id ?? null),
       enabled: Boolean(user?.id),
       initialPageParam: null as string | null,
       queryFn: async ({ pageParam }) => {

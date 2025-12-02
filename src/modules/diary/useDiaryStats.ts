@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 
 interface RatingRow {
@@ -62,7 +63,7 @@ export const useDiaryStats = () => {
   const userId = user?.id ?? null;
 
   const query = useQuery({
-    queryKey: ["diary", "stats", userId],
+    queryKey: qk.diaryStats(userId),
     enabled: Boolean(userId),
     queryFn: async (): Promise<DiaryStats> => {
       if (!userId) return EMPTY_STATS;

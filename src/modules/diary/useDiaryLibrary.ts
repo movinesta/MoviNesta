@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 import type { TitleType } from "../search/useSearchTitles";
 
@@ -193,9 +194,10 @@ export const useDiaryLibraryMutations = () => {
     },
     onSuccess: () => {
       if (userId) {
-        queryClient.invalidateQueries({ queryKey: ["diary", "library", userId] });
-        queryClient.invalidateQueries({ queryKey: ["diary", "stats", userId] });
-        queryClient.invalidateQueries({ queryKey: ["home-for-you", userId] });
+        queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.diaryStats(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.homeForYou(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.titleDiary(userId, undefined) });
       }
     },
   });
@@ -255,9 +257,10 @@ export const useDiaryLibraryMutations = () => {
     },
     onSuccess: () => {
       if (userId) {
-        queryClient.invalidateQueries({ queryKey: ["diary", "library", userId] });
-        queryClient.invalidateQueries({ queryKey: ["diary", "stats", userId] });
-        queryClient.invalidateQueries({ queryKey: ["home-for-you", userId] });
+        queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.diaryStats(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.homeForYou(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.titleDiary(userId, undefined) });
       }
     },
   });
