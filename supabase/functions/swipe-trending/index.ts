@@ -1,7 +1,8 @@
 // supabase/functions/swipe-trending/index.ts
 //
 // Returns a "Trending" swipe deck.
-// Simple version: order by tmdb_popularity desc, not deleted.
+// Trending = titles that have a lot of recent activity (last ~7 days),
+// with a fallback to global popularity if there isn't enough signal.
 // Also triggers `catalog-sync` for up to 3 cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -32,71 +33,57 @@ type SwipeCard = {
   contentType: "movie" | "series" | null;
 };
 
-type SwipeCardLike = {
-  tmdbId?: number | null;
-  imdbId?: string | null;
-  contentType?: "movie" | "series" | null;
-  imdbRating?: number | null;
-  rtTomatoMeter?: number | null;
-};
+type EnvConfigError = Response | null;
 
-async function triggerCatalogSyncForCards(req: Request, cards: SwipeCardLike[]) {
-  console.log("[swipe-trending] triggerCatalogSyncForCards called, cards.length =", cards.length);
-
-  const candidates = cards
-    .filter((c) => c.tmdbId || c.imdbId)
-    .slice(0, 3); // soft limit per request to protect TMDb/OMDb quotas
-
-  if (!candidates.length) {
-    console.log("[swipe-trending] no cards with tmdbId/imdbId to sync");
-    return;
-  }
-
-  // Fire-and-forget: we intentionally do not await this in the handler.
-  void Promise.allSettled(
-    candidates.map((card) =>
-      triggerCatalogSyncForTitle(req, card, { prefix: "[swipe-trending]" }),
-    ),
-  );
-}
-
-async function triggerCatalogBackfill(reason: string) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn("[swipe-trending] cannot trigger catalog-backfill, missing URL or ANON key");
-    return;
-  }
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ reason }),
-    });
-
-    const text = await res.text().catch(() => "");
-    console.log(
-      "[swipe-trending] catalog-backfill status=",
-      res.status,
-      "body=",
-      text,
-    );
-  } catch (err) {
-    console.warn("[swipe-trending] catalog-backfill request error:", err);
-  }
-}
-
-function getSupabaseAdminClient(req: Request) {
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-      },
+function jsonOk(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
     },
   });
 }
+
+function jsonError(message: string, status = 500, code?: string): Response {
+  return new Response(JSON.stringify({ error: message, code }), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+/**
+ * Validate basic environment configuration for this edge function.
+ */
+function validateConfig(): EnvConfigError {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error(
+      "[swipe-trending] Missing SUPABASE_URL or SERVICE_ROLE_KEY env vars",
+    );
+    return jsonError("Server not configured", 500, "CONFIG_ERROR");
+  }
+
+  return null;
+}
+
+function getSupabaseAdminClient(req: Request) {
+  const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    global: {
+      headers: {
+        Authorization: req.headers.get("Authorization") ?? "",
+        apikey: SUPABASE_ANON_KEY,
+      },
+    },
+  });
+
+  return client;
+}
+
+// Main handler
+// ---------------------------------------------------------------------------
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -109,6 +96,7 @@ serve(async (req) => {
 
     const supabase = getSupabaseAdminClient(req);
 
+    // Require authenticated user
     const {
       data: { user },
       error: authError,
@@ -118,6 +106,7 @@ serve(async (req) => {
       console.error("[swipe-trending] auth error:", authError.message);
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
+
     if (!user) {
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
@@ -140,62 +129,84 @@ serve(async (req) => {
     }
 
     const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
-      triggerCatalogBackfill("swipe-trending:titles-empty");
-    }
 
-    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
+    // Fire-and-forget: trigger catalog sync for a few of the cards.
+    const syncCandidates = cards.slice(0, 3);
+    Promise.allSettled(
+      syncCandidates.map((card) =>
+        triggerCatalogSyncForTitle(
+          req,
+          {
+            tmdbId: card.tmdbId,
+            imdbId: card.imdbId,
+            contentType: card.contentType ?? undefined,
+          },
+          { prefix: "[swipe-trending]" },
+        )
+      ),
+    ).catch((err) => {
+      console.warn("[swipe-trending] catalog-sync error", err);
+    });
 
-    // Do not block on catalog-sync; keep the swipe experience snappy.
-    triggerCatalogSyncForCards(req, cards);
-
-    return jsonOk(
-      {
-        ok: true,
-        cards,
-      },
-      200,
-    );
-  } catch (err) {
-    console.error("[swipe-trending] unhandled error:", err);
-    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
+    return jsonOk({ ok: true, cards });
+  } catch (error) {
+    console.error("[swipe-trending] unexpected error", error);
+    return jsonError("Unexpected error", 500, "UNEXPECTED_ERROR");
   }
 });
 
-function jsonOk(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
+// Helpers
+// ---------------------------------------------------------------------------
 
-function jsonError(message: string, status: number, code?: string): Response {
-  return jsonOk({ ok: false, error: message, errorCode: code }, status);
-}
-
-function validateConfig(): Response | null {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error("[swipe-trending] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
+async function triggerCatalogBackfill(reason: string) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn(
+      "[swipe-trending] Cannot trigger catalog backfill; missing env vars",
+    );
+    return;
   }
 
-  if (!SUPABASE_ANON_KEY) {
-    console.error("[swipe-trending] Missing SUPABASE_ANON_KEY");
-    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
-  }
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/functions/v1/catalog-sync`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reason,
+          mode: "backfill_if_missing",
+          limit: 1000,
+        }),
+      },
+    );
 
-  return null;
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn(
+        "[swipe-trending] catalog-sync backfill call failed:",
+        res.status,
+        text,
+      );
+    }
+  } catch (err) {
+    console.warn("[swipe-trending] catalog-sync backfill error", err);
+  }
 }
 
-
+/**
+ * Load a trending deck based on recent activity_events (last 7 days),
+ * aggregating counts per title, with a bit of weight from tmdb_popularity.
+ */
 async function loadTrendingCards(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
 ): Promise<SwipeCard[]> {
   const since = new Date();
-  since.setDate(since.getDate() - 7);
+  since.setDate(since.getDate() - 7); // last 7 days
 
+  // Aggregate interactions per title over the last week.
   const { data: aggRows, error: aggError } = await supabase
     .from("activity_events")
     .select("title_id, count:count(*)")
@@ -206,7 +217,10 @@ async function loadTrendingCards(
     .limit(200);
 
   if (aggError) {
-    console.warn("[swipe-trending] activity_events aggregate error:", aggError.message);
+    console.warn(
+      "[swipe-trending] activity_events aggregate error:",
+      aggError.message,
+    );
     return [];
   }
 
@@ -218,6 +232,7 @@ async function loadTrendingCards(
     return [];
   }
 
+  // Fetch metadata for these titles.
   const { data: titleRows, error: titleError } = await supabase
     .from("titles")
     .select(
@@ -240,8 +255,10 @@ async function loadTrendingCards(
     .is("deleted_at", null);
 
   if (titleError) {
-    console.warn("[swipe-trending] titles query error:", titleError.message);
-    return [];
+    console.warn(
+      "[swipe-trending] titles query error:",
+      titleError.message,
+    );
   }
 
   const byId = new Map<string, any>();
@@ -267,6 +284,10 @@ async function loadTrendingCards(
     scored.push({ score, meta });
   }
 
+  if (!scored.length) {
+    return [];
+  }
+
   scored.sort((a, b) => b.score - a.score);
 
   const top = scored.slice(0, 50);
@@ -284,6 +305,10 @@ async function loadTrendingCards(
     contentType: meta.content_type ?? null,
   }));
 }
+
+/**
+ * Generic popularity-based fallback deck.
+ */
 async function loadSwipeCards(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
 ): Promise<SwipeCard[]> {
@@ -303,15 +328,11 @@ async function loadSwipeCards(
         "rt_tomato_pct",
         "deleted_at",
         "tmdb_popularity",
-        "title_stats(avg_rating, ratings_count, watch_count)",
       ].join(","),
     )
-    .leftJoin("title_stats", "title_stats.title_id", "titles.title_id" as any)
     .is("deleted_at", null)
-    .order("title_stats.watch_count", { ascending: false } as any)
-    .order("title_stats.ratings_count", { ascending: false } as any)
     .order("tmdb_popularity", { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (error) {
     console.error("[swipe-trending] titles query error:", error.message);
