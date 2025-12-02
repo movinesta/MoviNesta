@@ -92,7 +92,6 @@ async function triggerCatalogBackfill(reason: string) {
     console.warn("[swipe-for-you] catalog-backfill request error:", err);
   }
 }
-}
 
 function getSupabaseAdminClient(req: Request) {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
