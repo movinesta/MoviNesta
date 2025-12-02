@@ -1,4 +1,3 @@
-
 // supabase/functions/_shared/preferences.ts
 //
 // User preference profiling for swipe decks.
@@ -55,6 +54,7 @@ export async function computeUserProfile(
 
   const titleWeights = new Map<string, number>();
 
+  // Ratings → positive/negative signal
   for (const row of ratings ?? []) {
     const titleId = (row as any).title_id as string | null;
     const rating = (row as any).rating as number | null;
@@ -69,6 +69,7 @@ export async function computeUserProfile(
     titleWeights.set(titleId, (titleWeights.get(titleId) ?? 0) + w);
   }
 
+  // Library → soft preference
   for (const row of libraryRows ?? []) {
     const titleId = (row as any).title_id as string | null;
     const status = ((row as any).status as string | null) ?? "";
@@ -86,6 +87,7 @@ export async function computeUserProfile(
     titleWeights.set(titleId, (titleWeights.get(titleId) ?? 0) + w);
   }
 
+  // Activity events → recency-weighted signal
   const now = Date.now();
   for (const row of events ?? []) {
     const titleId = (row as any).title_id as string | null;
