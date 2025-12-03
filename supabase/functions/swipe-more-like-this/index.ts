@@ -8,14 +8,13 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
+import {
+  corsHeaders,
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 type SwipeCard = {
   id: string;
@@ -142,32 +141,16 @@ function scoreCandidate(
 }
 
 function jsonError(message: string, status: number, code?: string): Response {
-  return new Response(
-    JSON.stringify({ ok: false, error: message, errorCode: code }),
-    {
-      status,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
-    },
-  );
+  return jsonResponse({ ok: false, error: message, errorCode: code }, status);
 }
 
 function jsonOk(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
+  return jsonResponse(body, status);
 }
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   if (req.method !== "GET") {
     return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
