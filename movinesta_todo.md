@@ -221,11 +221,12 @@ _For each task or subtask below:_
     - [ ] Indexes on `message_reactions(conversation_id, message_id)` or similar.
   - [ ] Extract reaction logic from `ConversationPage` into a smaller hook or utility to simplify the main component.
 
-- [ ] Blocked users enforcement
+  - [ ] Blocked users enforcement
   - [ ] Confirm `blocked_users` is used consistently:
     - [ ] Integrate checks into conversation creation and message send logic (no messaging when blocked).
-    - [ ] Ensure `useBlockStatus` remains type-safe and uses a single Supabase client.
-  - [ ] Add tests for the “blocked” behavior at least at the hook/service level.
+    - [✔️] Ensure `useBlockStatus` remains type-safe and uses a single Supabase client.
+      DONE – 2025-12-03 16:10 – Typed the blocked user lookup in `src/modules/messages/useBlockStatus.ts` against Supabase rows so the hook avoids `any` casts while continuing to use the shared client.
+    - [ ] Add tests for the “blocked” behavior at least at the hook/service level.
 
 - [ ] Global realtime chat (experimental)
   - [ ] Decide if `RealtimeChatPage` + `realtime-chat.tsx` is a supported feature or experimental demo.
