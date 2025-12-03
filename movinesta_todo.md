@@ -156,12 +156,13 @@ _For each task or subtask below:_
 
 ## 4. Supabase + TMDB integration
 
-- [ ] Reusable Edge Function caller in frontend
-  - [ ] Add `src/lib/callSupabaseFunction.ts` with:
-    - [ ] `callSupabaseFunction<T>(name: string, body: unknown, opts?: { timeoutMs?: number }): Promise<T>`.
-    - [ ] An `AbortController` + default timeout (e.g. 25s).
-    - [ ] Clear error throwing when `error` exists or `data` is missing.
-  - [ ] Refactor all `supabase.functions.invoke` usages (search, catalog sync, swipe, etc.) to use this helper.
+- [✔️] Reusable Edge Function caller in frontend
+  DONE – 2025-12-03 21:37 – Added `callSupabaseFunction` helper with default timeout/error handling and refactored search, title conversations, and swipe flows to reuse it.
+  - [✔️] Add `src/lib/callSupabaseFunction.ts` with:
+    - [✔️] `callSupabaseFunction<T>(name: string, body: unknown, opts?: { timeoutMs?: number }): Promise<T>`.
+    - [✔️] An `AbortController` + default timeout (e.g. 25s).
+    - [✔️] Clear error throwing when `error` exists or `data` is missing.
+  - [✔️] Refactor all `supabase.functions.invoke` usages (search, catalog sync, swipe, etc.) to use this helper.
 
 - [ ] TMDB proxy Edge Function
   - [ ] Implement a `tmdb-proxy` Edge Function that:

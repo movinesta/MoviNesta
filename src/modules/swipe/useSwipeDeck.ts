@@ -9,7 +9,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -226,26 +226,16 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
 
       // 1) Edge function primary
       try {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 25000);
+        const response = await callSupabaseFunction<SwipeDeckResponse>(
+          fnName,
+          { limit: count },
+          { timeoutMs: 25000 },
+        );
 
-        try {
-          const { data, error } = await supabase.functions.invoke<SwipeDeckResponse>(fnName, {
-            body: { limit: count },
-            signal: controller.signal,
-          });
-
-          if (error) {
-            console.warn("[useSwipeDeck] error from", fnName, error);
-          }
-
-          const cards = extractSwipeCards(data).map((card) => ({ ...card, source }));
-          if (cards.length) {
-            console.debug("[useSwipeDeck]", fnName, "returned", cards.length, "cards");
-            return cards;
-          }
-        } finally {
-          window.clearTimeout(timeout);
+        const cards = extractSwipeCards(response).map((card) => ({ ...card, source }));
+        if (cards.length) {
+          console.debug("[useSwipeDeck]", fnName, "returned", cards.length, "cards");
+          return cards;
         }
       } catch (err) {
         if ((err as Error)?.name === "AbortError") {
@@ -388,20 +378,13 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       sourceOverride,
       title,
     }: SwipeEventPayload) => {
-      const { error } = await supabase.functions.invoke("swipe-event", {
-        body: {
-          titleId: cardId,
-          direction,
-          source: sourceOverride ?? (kind === "combined" ? undefined : kind),
-          rating,
-          inWatchlist,
-        },
+      await callSupabaseFunction("swipe-event", {
+        titleId: cardId,
+        direction,
+        source: sourceOverride ?? (kind === "combined" ? undefined : kind),
+        rating,
+        inWatchlist,
       });
-
-      if (error) {
-        console.warn("[useSwipeDeck] swipe-event error", error);
-        throw new Error(error.message ?? "Failed to log swipe");
-      }
     },
     onError: (error, variables) => {
       const message =

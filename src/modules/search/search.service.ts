@@ -1,5 +1,6 @@
 import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
+import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { searchExternalTitles } from "./externalMovieSearch";
 
 export type TitleType = "movie" | "series" | "anime";
@@ -170,12 +171,13 @@ export const searchTitles = async (
       let titleId = `tmdb-${item.tmdbId}`;
 
       try {
-        const { data: syncResult } = await supabase.functions.invoke<{
+        const syncResult = await callSupabaseFunction<{
           titleId?: string;
           tmdbId?: number;
           imdbId?: string;
-        }>("catalog-sync", {
-          body: {
+        }>(
+          "catalog-sync",
+          {
             mode: "title",
             external: {
               tmdbId: item.tmdbId,
@@ -188,8 +190,8 @@ export const searchTitles = async (
               forceRefresh: false,
             },
           },
-          signal,
-        });
+          { signal },
+        );
 
         if (syncResult?.titleId) {
           titleId = syncResult.titleId;
