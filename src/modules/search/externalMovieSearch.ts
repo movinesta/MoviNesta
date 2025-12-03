@@ -22,7 +22,10 @@ export type ExternalTitleResult = {
   posterUrl: string | null;
 };
 
-export async function searchExternalTitles(query: string): Promise<ExternalTitleResult[]> {
+export async function searchExternalTitles(
+  query: string,
+  signal?: AbortSignal,
+): Promise<ExternalTitleResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
@@ -31,7 +34,7 @@ export async function searchExternalTitles(query: string): Promise<ExternalTitle
     include_adult: "false",
     language: "en-US",
     page: 1,
-  });
+  }, signal);
 
   const results = Array.isArray(body?.results) ? (body.results as TmdbMultiResult[]) : [];
   if (!results.length) return [];

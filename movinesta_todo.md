@@ -525,9 +525,12 @@ _For each task or subtask below:_
   - [✔️] Use `keepPreviousData` / `placeholderData` for paginated lists to avoid flicker.
     DONE – 2025-12-03 17:59 – Enabled previous data retention for the home feed infinite query and added placeholders to search results.
 
-- [ ] Cancellable work
-  - [ ] Ensure all multi-step workflows (combined search, complex feed building) accept `AbortSignal` and check `signal.aborted`.
-  - [ ] Propagate `signal` down into underlying fetch calls.
+- [✔️] Cancellable work
+  DONE – 2025-12-03 18:04 – Threaded `AbortSignal` through title search and TMDB helpers so combined catalog+external lookups can cancel promptly.
+  - [✔️] Ensure all multi-step workflows (combined search, complex feed building) accept `AbortSignal` and check `signal.aborted`.
+    DONE – 2025-12-03 18:04 – Added abort handling to the title search React Query hook, including early abort guards and passing signals to Supabase and TMDB requests.
+  - [✔️] Propagate `signal` down into underlying fetch calls.
+    DONE – 2025-12-03 18:04 – TMDB fetch utilities and catalog sync invocations now forward React Query signals to network calls for cooperative cancellation.
 
 ---
 

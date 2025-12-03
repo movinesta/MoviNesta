@@ -61,7 +61,11 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
     refetchOnWindowFocus: false,
     keepPreviousData: true,
     placeholderData: [],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+
       const columns = `
         id:title_id,
         primary_title,
@@ -85,6 +89,10 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         .select(selectColumns, { distinct: true })
         .order("release_year", { ascending: false })
         .limit(30);
+
+      if (signal) {
+        builder = builder.abortSignal(signal);
+      }
 
       if (trimmedQuery) {
         /**
@@ -155,7 +163,7 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
         console.warn("[useSearchTitles] Supabase search failed, falling back to TMDb", err);
       }
 
-      const externalResults = await searchExternalTitles(trimmedQuery);
+      const externalResults = await searchExternalTitles(trimmedQuery, signal);
       if (!externalResults.length && supabaseResults.length > 0) {
         return supabaseResults;
       }
@@ -192,6 +200,7 @@ export const useSearchTitles = (params: { query: string; filters?: TitleSearchFi
                   forceRefresh: false,
                 },
               },
+              signal,
             });
 
             if (syncResult?.titleId) {
