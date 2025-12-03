@@ -497,7 +497,8 @@ _For each task or subtask below:_
   - [✔️] Connect React Query global error handler to show a toast when requests fail.
     DONE – 2025-12-03 16:59 – Wired React Query defaults to surface query/mutation errors through the toast helper in `src/lib/react-query.ts`.
   - [ ] Show inline failure states for:
-    - [ ] Message send failures (with retry).
+    - [✔️] Message send failures (with retry).
+      DONE – 2025-12-03 17:06 – Added inline failed-message state with retry controls in `src/modules/messages/ConversationPage.tsx` so unsent chats can be resent without losing context.
     - [ ] Swipe logging failures (optional retry).
 
 ---

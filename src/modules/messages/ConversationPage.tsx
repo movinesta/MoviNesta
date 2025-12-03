@@ -60,7 +60,7 @@ interface MessageDeliveryReceipt {
   deliveredAt: string;
 }
 
-type MessageDeliveryStatusValue = "sending" | "sent" | "delivered" | "seen";
+type MessageDeliveryStatusValue = "sending" | "sent" | "delivered" | "seen" | "failed";
 
 interface MessageDeliveryStatus {
   status: MessageDeliveryStatusValue;
@@ -71,6 +71,11 @@ type ParsedBodyMeta = {
   editedAt?: string;
   deletedAt?: string;
   deleted?: boolean;
+};
+
+type FailedMessagePayload = {
+  text: string;
+  attachmentPath: string | null;
 };
 
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
@@ -238,7 +243,13 @@ interface SendMessageArgs {
   attachmentPath?: string | null;
 }
 
-const useSendMessage = (conversationId: string | null) => {
+const useSendMessage = (
+  conversationId: string | null,
+  options?: {
+    onFailed?: (tempId: string, payload: FailedMessagePayload) => void;
+    onRecovered?: (tempId: string | null) => void;
+  },
+) => {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
@@ -326,15 +337,31 @@ const useSendMessage = (conversationId: string | null) => {
         },
       );
 
-      return { previousMessages, tempId };
+      return {
+        previousMessages,
+        tempId,
+        optimistic,
+        payload: { text: text.trim(), attachmentPath: attachmentPath ?? null },
+      };
     },
     onError: (error, _variables, context) => {
       console.error("[ConversationPage] sendMessage error", error);
-      if (context?.previousMessages && conversationId) {
-        queryClient.setQueryData(
-          ["conversation", conversationId, "messages"],
-          context.previousMessages,
-        );
+      if (conversationId) {
+        const { previousMessages, optimistic, payload, tempId } = context ?? {};
+        const base = previousMessages ??
+          queryClient.getQueryData<ConversationMessage[]>([
+            "conversation",
+            conversationId,
+            "messages",
+          ]) ?? [];
+
+        const next = optimistic ? [...base, optimistic] : [...base];
+        next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        queryClient.setQueryData(["conversation", conversationId, "messages"], next);
+
+        if (tempId && payload && options?.onFailed) {
+          options.onFailed(tempId, payload);
+        }
       }
     },
     onSuccess: (row, _variables, context) => {
@@ -361,6 +388,10 @@ const useSendMessage = (conversationId: string | null) => {
       );
 
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
+
+      if (options?.onRecovered) {
+        options.onRecovered(context?.tempId ?? null);
+      }
     },
   });
 };
@@ -628,11 +659,33 @@ const ConversationPage: React.FC = () => {
     error: messagesError,
   } = useConversationMessages(conversationId);
 
-  const sendMessage = useSendMessage(conversationId);
-
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
-  const [lastFailedText, setLastFailedText] = useState<string | null>(null);
+  const [lastFailedPayload, setLastFailedPayload] = useState<FailedMessagePayload | null>(null);
+  const [failedMessages, setFailedMessages] = useState<Record<string, FailedMessagePayload>>({});
+
+  const handleSendFailed = (tempId: string, payload: FailedMessagePayload) => {
+    setSendError("Couldn't send. Please try again.");
+    setDraft(payload.text);
+    resizeTextarea();
+    setLastFailedPayload(payload);
+    setFailedMessages((prev) => ({ ...prev, [tempId]: payload }));
+  };
+
+  const handleSendRecovered = (tempId: string | null) => {
+    if (!tempId) return;
+    setFailedMessages((prev) => {
+      if (!(tempId in prev)) return prev;
+      const next = { ...prev };
+      delete next[tempId];
+      return next;
+    });
+  };
+
+  const sendMessage = useSendMessage(conversationId, {
+    onFailed: handleSendFailed,
+    onRecovered: handleSendRecovered,
+  });
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -654,6 +707,22 @@ const ConversationPage: React.FC = () => {
       }
     };
   }, [selectedImagePreview]);
+
+  useEffect(() => {
+    if (!messages) return;
+    setFailedMessages((prev) => {
+      const validIds = new Set(messages.map((m) => m.id));
+      let changed = false;
+      const next = { ...prev };
+      for (const id of Object.keys(next)) {
+        if (!validIds.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [messages]);
 
   const conversation: ConversationListItem | null = useMemo(() => {
     if (!conversationId || !conversations) return null;
@@ -1235,23 +1304,20 @@ const ConversationPage: React.FC = () => {
     });
   };
 
-  const attemptSend = (text: string) => {
-    sendMessage.mutate(
-      { text, attachmentPath: null },
-      {
-        onError: (error) => {
-          console.error("[ConversationPage] sendMessage mutate error", error);
-          setSendError("Couldn't send. Please try again.");
-          setDraft(text);
-          resizeTextarea();
-          setLastFailedText(text);
-        },
-        onSuccess: () => {
-          setSendError(null);
-          setLastFailedText(null);
-        },
+  const attemptSend = (payload: FailedMessagePayload) => {
+    sendMessage.mutate({ text: payload.text, attachmentPath: payload.attachmentPath }, {
+      onError: (error) => {
+        console.error("[ConversationPage] sendMessage mutate error", error);
+        setSendError("Couldn't send. Please try again.");
+        setDraft(payload.text);
+        resizeTextarea();
+        setLastFailedPayload(payload);
       },
-    );
+      onSuccess: () => {
+        setSendError(null);
+        setLastFailedPayload(null);
+      },
+    });
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -1265,16 +1331,33 @@ const ConversationPage: React.FC = () => {
     setDraft("");
     resizeTextarea();
     setSendError(null);
-    setLastFailedText(null);
+    setLastFailedPayload(null);
     notifyTyping("");
 
-    attemptSend(text);
+    attemptSend({ text, attachmentPath: null });
   };
 
   const handleRetrySend = () => {
-    if (!lastFailedText) return;
+    if (!lastFailedPayload) return;
     setSendError(null);
-    attemptSend(lastFailedText);
+    attemptSend(lastFailedPayload);
+  };
+
+  const handleRetryMessage = (messageId: string) => {
+    const payload = failedMessages[messageId];
+    if (!payload || !conversationId) return;
+    setSendError(null);
+    setFailedMessages((prev) => {
+      if (!(messageId in prev)) return prev;
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
+    });
+    queryClient.setQueryData<ConversationMessage[]>(
+      ["conversation", conversationId, "messages"],
+      (existing) => (existing ?? []).filter((m) => m.id !== messageId),
+    );
+    attemptSend(payload);
   };
 
   const handleCameraClick = () => {
@@ -1333,7 +1416,7 @@ const ConversationPage: React.FC = () => {
         return;
       }
 
-      sendMessage.mutate({ text: "", attachmentPath: path });
+      attemptSend({ text: "", attachmentPath: path });
       handleCloseGallery();
     } catch (error) {
       console.error("[ConversationPage] handleSendSelectedImage failed", error);
@@ -1623,9 +1706,15 @@ const ConversationPage: React.FC = () => {
                   deliveryReceipts,
                   readReceipts,
                   user?.id ?? null,
+                  failedMessages,
                 );
 
                 const isLastOwnMessage = isSelf && lastOwnMessageId === message.id;
+                const showDeliveryStatus =
+                  isSelf &&
+                  !isDeletedMessage &&
+                  deliveryStatus &&
+                  (deliveryStatus.status === "failed" || isLastOwnMessage);
 
                 const handleBubbleToggle = () => {
                   // One tap toggles reaction/action bar.
@@ -1834,8 +1923,12 @@ const ConversationPage: React.FC = () => {
                           )}
 
                           {/* Only show delivery/seen indicator on the last outgoing message */}
-                          {isSelf && isLastOwnMessage && deliveryStatus && !isDeletedMessage && (
-                            <span className="inline-flex items-center gap-0.5">
+                          {showDeliveryStatus && deliveryStatus && (
+                            <span
+                              className={`inline-flex items-center gap-1 ${
+                                deliveryStatus.status === "failed" ? "text-mn-error" : ""
+                              }`}
+                            >
                               {deliveryStatus.status === "sending" && (
                                 <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                               )}
@@ -1854,6 +1947,19 @@ const ConversationPage: React.FC = () => {
                                   {deliveryStatus.seenAt && (
                                     <span>{formatMessageTime(deliveryStatus.seenAt)}</span>
                                   )}
+                                </>
+                              )}
+                              {deliveryStatus.status === "failed" && (
+                                <>
+                                  <Info className="h-3 w-3" aria-hidden="true" />
+                                  <span>Failed to send</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRetryMessage(message.id)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-2 py-0.5 text-[10px] font-semibold text-mn-primary ring-1 ring-mn-primary/40 transition hover:-translate-y-0.5"
+                                  >
+                                    Retry
+                                  </button>
                                 </>
                               )}
                             </span>
@@ -1971,7 +2077,7 @@ const ConversationPage: React.FC = () => {
                     <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
                     <p className="font-semibold">Couldn&apos;t send. Please try again.</p>
                   </div>
-                  {lastFailedText && (
+                  {lastFailedPayload && (
                     <button
                       type="button"
                       onClick={handleRetrySend}
@@ -2335,9 +2441,14 @@ const getMessageDeliveryStatus = (
   deliveryReceipts: MessageDeliveryReceipt[] | undefined,
   readReceipts: ConversationReadReceipt[] | undefined,
   currentUserId: string | null | undefined,
+  failedMessages: Record<string, FailedMessagePayload>,
 ): MessageDeliveryStatus | null => {
   if (!conversation || !currentUserId) return null;
   if (message.senderId !== currentUserId) return null;
+
+  if (failedMessages[message.id]) {
+    return { status: "failed" };
+  }
 
   if (message.id.startsWith("temp-")) {
     return { status: "sending" };
