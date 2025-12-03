@@ -1,11 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { log } from "../_shared/logger.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+import { getUserClient } from "../_shared/supabase.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,20 +34,6 @@ const SwipeEventSchema = z.object({
   inWatchlist: z.boolean().nullable().optional(),
 });
 
-function buildSupabaseClient(req: Request) {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    throw new Error("Supabase environment variables are not configured");
-  }
-
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-      },
-    },
-  });
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -65,7 +47,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = buildSupabaseClient(req);
+    const supabase = getUserClient(req);
 
     const {
       data: { user },

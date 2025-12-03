@@ -51,11 +51,12 @@ _For each task or subtask below:_
 
 ## 2. Supabase clients, type-safety, security & RLS
 
-- [ ] Split user vs admin Supabase clients for Edge Functions
-  - [ ] Create `supabase/functions/_shared/supabase.ts` with:
-    - [ ] `getUserClient()` that uses `SUPABASE_URL` + `SUPABASE_ANON_KEY` and respects RLS.
-    - [ ] `getAdminClient()` that uses `SUPABASE_SERVICE_ROLE_KEY` for cross-user or aggregation workflows that truly need it.
-  - [ ] Refactor existing Edge Functions (`swipe-*`, `catalog-*`, `create-direct-conversation`, etc.) to use these helpers instead of re-creating clients inline.
+- [✔️] Split user vs admin Supabase clients for Edge Functions
+  DONE – 2025-12-03 16:34 – Added shared Supabase client helpers for user/admin contexts and refactored edge functions to consume them.
+  - [✔️] Create `supabase/functions/_shared/supabase.ts` with:
+    - [✔️] `getUserClient()` that uses `SUPABASE_URL` + `SUPABASE_ANON_KEY` and respects RLS.
+    - [✔️] `getAdminClient()` that uses `SUPABASE_SERVICE_ROLE_KEY` for cross-user or aggregation workflows that truly need it.
+  - [✔️] Refactor existing Edge Functions (`swipe-*`, `catalog-*`, `create-direct-conversation`, etc.) to use these helpers instead of re-creating clients inline.
   - [ ] Make sure `getAdminClient()` is only used when strictly necessary.
 
 - [ ] Frontend Supabase client hygiene
