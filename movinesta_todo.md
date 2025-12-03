@@ -492,8 +492,10 @@ _For each task or subtask below:_
     DONE – 2025-12-03 16:42 – Updated chat messages, conversation timestamps, diary stats/timeline, and settings account info to rely on the shared format helpers.
 
 - [ ] Toasts & inline error feedback
-  - [ ] Implement a minimal toast system for global notifications.
-  - [ ] Connect React Query global error handler to show a toast when requests fail.
+  - [✔️] Implement a minimal toast system for global notifications.
+    DONE – 2025-12-03 16:59 – Added reusable toast store, helpers, and provider overlay for global notifications in `src/components/toasts` rendered via `App`.
+  - [✔️] Connect React Query global error handler to show a toast when requests fail.
+    DONE – 2025-12-03 16:59 – Wired React Query defaults to surface query/mutation errors through the toast helper in `src/lib/react-query.ts`.
   - [ ] Show inline failure states for:
     - [ ] Message send failures (with retry).
     - [ ] Swipe logging failures (optional retry).
