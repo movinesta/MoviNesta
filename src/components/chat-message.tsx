@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/hooks/use-realtime-chat";
+import { formatTime } from "@/utils/format";
 import { Link } from "react-router-dom";
 
 interface ChatMessageItemProps {
@@ -39,7 +40,7 @@ export const ChatMessageItem = ({ message, isOwnMessage, showHeader }: ChatMessa
               <span className={"font-medium"}>{message.user.name}</span>
             )}
             <span className="text-foreground/50 text-xs">
-              {new Date(message.createdAt).toLocaleTimeString("en-US", {
+              {formatTime(message.createdAt, {
                 hour: "2-digit",
                 minute: "2-digit",
                 hour12: true,

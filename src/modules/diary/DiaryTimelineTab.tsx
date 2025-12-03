@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { BookmarkPlus, Film, MessageCircle, Sparkles, Star, Users } from "lucide-react";
 import { useDiaryTimeline, type DiaryTimelineItem } from "./useDiaryTimeline";
+import { formatDateTime } from "@/utils/format";
 
 interface DiaryTimelineTabProps {
   userId?: string | null;
@@ -9,17 +10,6 @@ interface DiaryTimelineTabProps {
   displayName?: string | null;
   username?: string | null;
 }
-
-const formatDateTime = (iso: string): string => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
 
 const eventLabel = (item: DiaryTimelineItem): string => {
   switch (item.kind) {

@@ -480,10 +480,14 @@ _For each task or subtask below:_
   - [✔️] Keep `AppShell` and core layout non-lazy.
   - [✔️] Provide meaningful fallbacks (skeletons, loading text) during lazy loading.
 
-- [ ] Date & number formatting
-  - [ ] Centralize date formatting via `Intl.DateTimeFormat`, respecting language/locale settings.
-  - [ ] Centralize ratings and other numeric formatting via `Intl.NumberFormat`.
-  - [ ] Use these helpers consistently across messages, diary, stats, and home feed.
+- [✔️] Date & number formatting
+  DONE – 2025-12-03 16:42 – Added shared Intl-based helpers in `src/utils/format.ts` and wired message timestamps, diary dates, settings, and swipe social proof to use them for locale-aware output.
+  - [✔️] Centralize date formatting via `Intl.DateTimeFormat`, respecting language/locale settings.
+    DONE – 2025-12-03 16:42 – Introduced reusable date/time formatters in `src/utils/format.ts` and replaced ad-hoc `toLocale*` calls in message/diary/settings UI.
+  - [✔️] Centralize ratings and other numeric formatting via `Intl.NumberFormat`.
+    DONE – 2025-12-03 16:42 – Added a shared number formatter and applied it to swipe social proof counts for consistent locale-aware numbers.
+  - [✔️] Use these helpers consistently across messages, diary, stats, and home feed.
+    DONE – 2025-12-03 16:42 – Updated chat messages, conversation timestamps, diary stats/timeline, and settings account info to rely on the shared format helpers.
 
 - [ ] Toasts & inline error feedback
   - [ ] Implement a minimal toast system for global notifications.

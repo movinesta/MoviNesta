@@ -1,6 +1,7 @@
 import React from "react";
 import { BarChart3, Film, PieChart, Sparkles } from "lucide-react";
 import { useDiaryStats } from "./useDiaryStats";
+import { formatDate } from "@/utils/format";
 
 const formatMonthLabel = (monthKey: string): string => {
   const [yearStr, monthStr] = monthKey.split("-");
@@ -8,7 +9,7 @@ const formatMonthLabel = (monthKey: string): string => {
   const month = Number(monthStr);
   if (!year || !month) return monthKey;
   const date = new Date(year, month - 1, 1);
-  return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return formatDate(date, { month: "short", year: "numeric" });
 };
 
 const DiaryStatsTab: React.FC = () => {
