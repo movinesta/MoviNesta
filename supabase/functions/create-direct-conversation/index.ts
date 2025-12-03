@@ -6,13 +6,9 @@
 //  - service-role client (without Authorization) to bypass RLS for DB
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { log } from "../_shared/logger.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -60,32 +56,6 @@ function jsonResponse(body: unknown, status: number): Response {
 
 function jsonError(message: string, status: number, code?: string): Response {
   return jsonResponse({ ok: false, error: message, errorCode: code }, status);
-}
-
-function validateConfig(): Response | null {
-  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY) {
-    console.error(
-      "[create-direct-conversation] Missing SUPABASE_URL, ANON_KEY, or SERVICE_ROLE_KEY",
-    );
-    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
-  }
-  return null;
-}
-
-function getAuthClient(req: Request) {
-  // Uses anon key + Authorization header so auth.getUser() works
-  return createClient(SUPABASE_URL, ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-      },
-    },
-  });
-}
-
-function getAdminClient() {
-  // Uses service role key, NO Authorization header -> bypasses RLS
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,13 +164,17 @@ serve(async (req) => {
     url: req.url,
   });
 
-  const cfgError = validateConfig();
-  if (cfgError) return cfgError;
+  let supabaseAuth;
+  let supabaseAdmin;
+  try {
+    supabaseAuth = getUserClient(req);
+    supabaseAdmin = getAdminClient();
+  } catch (error) {
+    console.error("[create-direct-conversation] Supabase configuration error", error);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
+  }
 
   try {
-    const supabaseAuth = getAuthClient(req);
-    const supabaseAdmin = getAdminClient();
-
     // 1) Auth: who is calling?
     const {
       data: { user },

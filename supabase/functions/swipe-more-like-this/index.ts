@@ -5,13 +5,10 @@
 //   GET /functions/v1/swipe-more-like-this?title_id=<uuid>
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+import { getAdminClient } from "../_shared/supabase.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -50,21 +47,6 @@ type TitleRow = {
   omdb_genre_names: unknown;
   tmdb_genre_names: unknown;
 };
-
-function buildSupabaseClient(req: Request) {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error("[swipe-more-like-this] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    throw new Error("Server misconfigured");
-  }
-
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-      },
-    },
-  });
-}
 
 function normalizeGenres(meta: Partial<TitleRow>): string[] {
   const raw =
@@ -191,7 +173,13 @@ serve(async (req: Request) => {
     return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
   }
 
-  const supabase = buildSupabaseClient(req);
+  let supabase;
+  try {
+    supabase = getAdminClient(req);
+  } catch (error) {
+    console.error("[swipe-more-like-this] Supabase configuration error", error);
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
+  }
   const url = new URL(req.url);
   const titleId = url.searchParams.get("title_id");
 

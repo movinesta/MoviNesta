@@ -5,14 +5,14 @@
 // Also triggers `catalog-sync` for up to 3 cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
+import { getAdminClient } from "../_shared/supabase.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,19 +69,6 @@ function validateConfig(): EnvConfigError {
   return null;
 }
 
-function getSupabaseAdminClient(req: Request) {
-  const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-        apikey: SUPABASE_ANON_KEY,
-      },
-    },
-  });
-
-  return client;
-}
-
 // Handler
 // ---------------------------------------------------------------------------
 
@@ -94,7 +81,7 @@ serve(async (req) => {
     const configError = validateConfig();
     if (configError) return configError;
 
-    const supabase = getSupabaseAdminClient(req);
+    const supabase = getAdminClient(req);
 
     // Require authenticated user
     const {
@@ -197,7 +184,7 @@ async function triggerCatalogBackfill(reason: string) {
 
 // NEW V2 personalized loader using full UserProfile
 async function loadPersonalizedSwipeCardsV2(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabase: ReturnType<typeof getAdminClient>,
   profile: UserProfile | null,
 ): Promise<SwipeCard[]> {
   // If we have no preferences yet, just fall back to the generic query.
@@ -326,7 +313,7 @@ async function loadPersonalizedSwipeCardsV2(
 }
 
 async function loadSwipeCards(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabase: ReturnType<typeof getAdminClient>,
 ): Promise<SwipeCard[]> {
   const { data: rows, error } = await supabase
     .from("titles")

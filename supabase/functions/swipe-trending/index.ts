@@ -6,9 +6,9 @@
 // Also triggers `catalog-sync` for up to 3 cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { getAdminClient } from "../_shared/supabase.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -70,16 +70,7 @@ function validateConfig(): EnvConfigError {
 }
 
 function getSupabaseAdminClient(req: Request) {
-  const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-        apikey: SUPABASE_ANON_KEY,
-      },
-    },
-  });
-
-  return client;
+  return getAdminClient(req);
 }
 
 // Main handler
@@ -193,7 +184,7 @@ async function triggerCatalogBackfill(reason: string) {
  * aggregating counts per title, with a bit of weight from tmdb_popularity.
  */
 async function loadTrendingCards(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabase: ReturnType<typeof getAdminClient>,
 ): Promise<SwipeCard[]> {
   const since = new Date();
   since.setDate(since.getDate() - 7); // last 7 days
@@ -302,7 +293,7 @@ async function loadTrendingCards(
  * Generic popularity-based fallback deck.
  */
 async function loadSwipeCards(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabase: ReturnType<typeof getAdminClient>,
 ): Promise<SwipeCard[]> {
   const { data: rows, error } = await supabase
     .from("titles")

@@ -11,10 +11,7 @@
 // - Handles duplicate tmdb_id by updating the existing row instead of failing.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+import { getAdminClient } from "../_shared/supabase.ts";
 
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY") ?? "";
@@ -45,20 +42,6 @@ type TitleModePayload = {
   type?: "movie" | "tv";
 };
 
-// Always use service-role; no user-auth for this function.
-function getSupabaseAdminClient() {
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-    },
-    global: {
-      headers: {
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      },
-    },
-  });
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -68,11 +51,6 @@ serve(async (req) => {
     return jsonError("Method not allowed", 405);
   }
 
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error("[catalog-sync] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    return jsonError("Server misconfigured", 500);
-  }
-
   let body: TitleModePayload;
   try {
     body = (await req.json()) as TitleModePayload;
@@ -80,7 +58,13 @@ serve(async (req) => {
     return jsonError("Invalid JSON body", 400);
   }
 
-  const supabase = getSupabaseAdminClient();
+  let supabase;
+  try {
+    supabase = getAdminClient(req);
+  } catch (error) {
+    console.error("[catalog-sync] Supabase configuration error", error);
+    return jsonError("Server misconfigured", 500);
+  }
 
   try {
     return await handleTitleMode(supabase, body);
@@ -95,7 +79,7 @@ serve(async (req) => {
 // ============================================================================
 
 async function handleTitleMode(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabase: ReturnType<typeof getAdminClient>,
   payload: TitleModePayload,
 ): Promise<Response> {
   if (!TMDB_TOKEN) {
