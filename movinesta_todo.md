@@ -573,7 +573,8 @@ _For each task or subtask below:_
 
 ## 13. Testing & CI
 
-- [ ] Unit tests for pure logic
+- [✔️] Unit tests for pure logic
+  DONE – 2025-12-03 21:27 – Confirmed coverage for message text parsing, search merges, diary stats reducer, swipe deck helpers, and preferences builder across src/__tests__/messageText.test.ts, search.service.test.ts, diaryStatsReducer.test.ts, swipeDeckHelpers.test.ts, and preferences.test.ts.
   - [✔️] Message text helpers:
     DONE – 2025-12-03 20:08 – Added unit tests for parseMessageText/getMessagePreview/getMessageMeta to cover plain strings, JSON payloads, and metadata handling in src/modules/messages/messageText.ts and src/__tests__/messageText.test.ts.
     - [✔️] Parsing plain text vs JSON bodies.
@@ -603,7 +604,8 @@ _For each task or subtask below:_
     - [✔️] Correctly builds `UserProfile` from ratings, library, and activity.
       DONE – 2025-12-03 20:43 – Preferences tests confirm positive/negative signals and content-type weights from mocked Supabase data.
 
-- [ ] Auth & provider tests
+- [✔️] Auth & provider tests
+  DONE – 2025-12-03 21:27 – AuthProvider scenarios (no session, restore session, sign-out) covered via Vitest and Testing Library in src/__tests__/authProvider.test.tsx.
   - [✔️] Add tests for `AuthProvider`:
     DONE – 2025-12-03 18:30 – Added Vitest + Testing Library coverage for AuthProvider to verify initial no-session load, restoring existing sessions, and clearing user state on sign-out.
     - [✔️] Initial state with no session.
