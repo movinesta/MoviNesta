@@ -542,13 +542,18 @@ _For each task or subtask below:_
 
 ## 12. Media, attachments & hero pages
 
-- [ ] Chat attachments
-  - [ ] Verify attachment upload flow:
-    - [ ] Upload to Supabase Storage (e.g. `message_attachments/{conversation}/{id}`).
-    - [ ] Generate and use signed URLs where necessary.
+- [✔️] Chat attachments
+  DONE – 2025-12-03 20:14 – Hardened chat attachment UX with storage uploads, signed URL verification, and clearer failure handling in ConversationPage.
+  - [✔️] Verify attachment upload flow:
+    DONE – 2025-12-03 20:14 – Conversation attachments now upload to chat-media under message_attachments paths, validate signed URL creation, and surface errors to users.
+    - [✔️] Upload to Supabase Storage (e.g. `message_attachments/{conversation}/{id}`).
+      DONE – 2025-12-03 20:14 – Image uploads target `chat-media/message_attachments/{conversation}/{user}/{timestamp-random}.ext` for organized per-thread storage.
+    - [✔️] Generate and use signed URLs where necessary.
+      DONE – 2025-12-03 20:14 – Post-upload flow requires signed URL creation and ChatImage continues to render attachments via signed URLs.
   - [✔️] Confirm `ChatImage` (and related components) support `loading="lazy"`, proper alt text, and safe error states.
     DONE – 2025-12-03 19:08 – Added tests for ChatImage covering skeleton, lazy-loaded signed URLs, and error fallback while exporting the component for reuse.
-  - [ ] Add an attachment button to `MessageComposer` if not already wired end-to-end.
+  - [✔️] Add an attachment button to `MessageComposer` if not already wired end-to-end.
+    DONE – 2025-12-03 20:14 – Conversation composer retains a dedicated attachment control with upload validation and dismissible error messaging.
 
 - [ ] Hero title pages
   - [ ] Ensure `TitleDetailPage`:

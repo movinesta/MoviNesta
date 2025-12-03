@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  AlertCircle,
   Camera,
   Check,
   CheckCheck,
@@ -73,6 +74,14 @@ type FailedMessagePayload = {
 };
 
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
+
+const CHAT_MEDIA_BUCKET = "chat-media";
+
+const buildAttachmentPath = (conversationId: string, userId: string, fileName: string) => {
+  const ext = fileName.split(".").pop() ?? "jpg";
+  const randomId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now();
+  return `message_attachments/${conversationId}/${userId}/${Date.now()}-${randomId}.${ext}`;
+};
 
 export const getBubbleAppearance = ({
   isSelf,
@@ -607,7 +616,7 @@ export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
     let cancelled = false;
     const run = async () => {
       const { data, error: err } = await supabase.storage
-        .from("chat-media")
+        .from(CHAT_MEDIA_BUCKET)
         .createSignedUrl(path, 60 * 60);
 
       if (cancelled) return;
@@ -659,6 +668,7 @@ const ConversationPage: React.FC = () => {
 
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [lastFailedPayload, setLastFailedPayload] = useState<FailedMessagePayload | null>(null);
   const [failedMessages, setFailedMessages] = useState<Record<string, FailedMessagePayload>>({});
 
@@ -1390,27 +1400,39 @@ const ConversationPage: React.FC = () => {
     setSelectedImagePreview(null);
     setSelectedImageFile(null);
     setShowGalleryPicker(false);
+    setUploadError(null);
   };
 
   const handleSendSelectedImage = async () => {
     if (!selectedImageFile || !conversationId || !user?.id) return;
     if (isBlocked || blockedYou) return;
 
+    setUploadError(null);
     setIsUploadingImage(true);
 
     try {
-      const ext = selectedImageFile.name.split(".").pop() ?? "jpg";
-      const path = `${conversationId}/${user.id}/${Date.now()}.${ext}`;
+      const path = buildAttachmentPath(conversationId, user.id, selectedImageFile.name);
 
-      const { error: uploadError } = await supabase.storage
-        .from("chat-media")
+      const { error: uploadErrorResult } = await supabase.storage
+        .from(CHAT_MEDIA_BUCKET)
         .upload(path, selectedImageFile, {
           cacheControl: "3600",
           upsert: false,
         });
 
-      if (uploadError) {
-        console.error("[ConversationPage] image upload error", uploadError);
+      if (uploadErrorResult) {
+        console.error("[ConversationPage] image upload error", uploadErrorResult);
+        setUploadError("Upload failed. Please try another image.");
+        return;
+      }
+
+      const { error: signedUrlError } = await supabase.storage
+        .from(CHAT_MEDIA_BUCKET)
+        .createSignedUrl(path, 60 * 60);
+
+      if (signedUrlError) {
+        console.error("[ConversationPage] signed URL generation failed", signedUrlError);
+        setUploadError("Could not generate a secure download link.");
         return;
       }
 
@@ -1418,6 +1440,7 @@ const ConversationPage: React.FC = () => {
       handleCloseGallery();
     } catch (error) {
       console.error("[ConversationPage] handleSendSelectedImage failed", error);
+      setUploadError("Something went wrong while sending your image.");
     } finally {
       setIsUploadingImage(false);
     }
@@ -2080,6 +2103,25 @@ const ConversationPage: React.FC = () => {
                 </div>
               )}
 
+              {uploadError && (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-2 text-[11px] text-mn-error"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    <p className="font-semibold">{uploadError}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUploadError(null)}
+                    className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 text-[11px] font-semibold text-mn-text-secondary ring-1 ring-mn-border-subtle/70 transition hover:-translate-y-0.5 hover:text-mn-text-primary"
+                  >
+                    <span>Dismiss</span>
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -2365,7 +2407,7 @@ const ConversationPage: React.FC = () => {
                   type="button"
                   onClick={handleSendSelectedImage}
                   disabled={!selectedImageFile || isUploadingImage}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white الكرةshadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-mn-primary to-blue-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-mn-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploadingImage ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
