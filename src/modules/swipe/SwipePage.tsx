@@ -221,6 +221,25 @@ const SwipePage: React.FC = () => {
     setNextPosterFailed(false);
   }, [nextCard?.id]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const idle = (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback })
+      .requestIdleCallback;
+    const runner = idle ?? ((cb: () => void) => window.setTimeout(cb, 180));
+
+    runner(() => {
+      const upcoming = cards.slice(currentIndex + 1, currentIndex + 4);
+      for (const card of upcoming) {
+        if (!card?.posterUrl) continue;
+        const img = new Image();
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.src = card.posterUrl;
+      }
+    });
+  }, [cards, currentIndex]);
+
   useEffect(
     () => () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);

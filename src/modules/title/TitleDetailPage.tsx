@@ -14,6 +14,7 @@ import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
 import { supabase } from "../../lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
+import { tmdbImageUrl } from "@/lib/tmdb";
 import type { TitleType } from "../search/useSearchTitles";
 
 interface TitleRow {
@@ -475,14 +476,12 @@ const TitleDetailPage: React.FC = () => {
 
   const overview = data.plot ?? data.tmdb_overview ?? data.omdb_plot ?? null;
 
-  const posterImage =
-    data.poster_url ??
-    data.omdb_poster_url ??
-    (data.tmdb_poster_path ? `https://image.tmdb.org/t/p/w500${data.tmdb_poster_path}` : null);
+  const posterImage = data.poster_url ?? data.omdb_poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500");
 
   const backdropImage =
     data.backdrop_url ??
-    (data.tmdb_backdrop_path ? `https://image.tmdb.org/t/p/w780${data.tmdb_backdrop_path}` : null);
+    tmdbImageUrl(data.tmdb_backdrop_path, "w1280") ??
+    tmdbImageUrl(data.tmdb_backdrop_path, "w780");
 
   const metaPieces: string[] = [];
   if (derivedYear) metaPieces.push(String(derivedYear));
