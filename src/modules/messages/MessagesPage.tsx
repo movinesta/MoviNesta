@@ -4,7 +4,7 @@ import { MessageCircle, Plus, Sparkles, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 
-import { useConversations } from "./useConversations";
+import { useConversations, type ConversationListItem } from "./useConversations";
 import TopBar from "../../components/shared/TopBar";
 import SearchField from "../../components/shared/SearchField";
 import EmptyState from "../../components/shared/EmptyState";
@@ -82,6 +82,111 @@ const InboxLoadingCard: React.FC = () => {
 };
 
 type ConversationFilter = "all" | "unread" | "groups";
+
+export const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
+  conversation,
+}) => {
+  const primaryParticipant =
+    conversation.participants.find((p) => !p.isSelf) ?? conversation.participants[0] ?? null;
+  const avatarInitial =
+    primaryParticipant?.displayName?.[0]?.toUpperCase() ??
+    primaryParticipant?.username?.[0]?.toUpperCase() ??
+    "?";
+  const timeLabel = conversation.lastMessageAtLabel ?? "Now";
+  const isGroup = conversation.isGroup;
+  const participantCount = conversation.participants.length;
+
+  const rowBase =
+    "group flex items-center gap-3 rounded-2xl px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg";
+  const rowState = conversation.hasUnread
+    ? "bg-mn-bg-elevated/90 border border-mn-primary/25 shadow-mn-soft"
+    : "hover:bg-mn-bg-elevated/70 hover:-translate-y-0.5 hover:shadow-mn-soft";
+
+  return (
+    <li className="py-1 sm:py-1.5">
+      <Link to={`/messages/${conversation.id}`} className={`${rowBase} ${rowState}`}>
+        <div className="relative flex h-12 w-12 items-center justify-center">
+          {isGroup && participantCount > 1 ? (
+            <div className="flex -space-x-2">
+              {conversation.participants.slice(0, 2).map((participant, idx) => (
+                <span
+                  key={participant.id}
+                  className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated text-[11px] font-semibold text-mn-text-primary ring-2 ring-mn-bg"
+                  style={{ zIndex: 2 - idx }}
+                >
+                  {participant.avatarUrl ? (
+                    <img
+                      src={participant.avatarUrl ?? ""}
+                      alt={participant.displayName ?? undefined}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    (participant.displayName?.[0]?.toUpperCase() ??
+                    participant.username?.[0]?.toUpperCase() ??
+                    "?")
+                  )}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span
+              className={`inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-[12px] font-semibold text-mn-text-primary ${
+                conversation.hasUnread
+                  ? "bg-gradient-to-br from-mn-primary/80 to-amber-400 text-mn-bg"
+                  : "bg-mn-bg-elevated"
+              }`}
+            >
+              {primaryParticipant?.avatarUrl ? (
+                <img
+                  src={primaryParticipant.avatarUrl ?? ""}
+                  alt={primaryParticipant.displayName ?? undefined}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                avatarInitial
+              )}
+            </span>
+          )}
+          {conversation.hasUnread && (
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-mn-primary shadow-mn-soft" />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p
+                className={`truncate text-[13px] ${
+                  conversation.hasUnread
+                    ? "font-semibold text-mn-text-primary"
+                    : "font-medium text-mn-text-primary"
+                }`}
+              >
+                {conversation.title}
+              </p>
+              {isGroup && (
+                <div className="mt-0.5 flex items-center gap-1 text-[10px] text-mn-text-muted">
+                  <Users className="h-3 w-3" aria-hidden="true" />
+                  <span>{participantCount} participants</span>
+                </div>
+              )}
+            </div>
+            <span className="shrink-0 text-[11px] text-mn-text-muted">{timeLabel}</span>
+          </div>
+          <p
+            className={`truncate text-[12px] ${
+              conversation.hasUnread ? "text-mn-text-primary" : "text-mn-text-secondary"
+            }`}
+          >
+            {conversation.lastMessagePreview ?? "Start chatting"}
+          </p>
+        </div>
+      </Link>
+    </li>
+  );
+};
 
 const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -278,108 +383,9 @@ const MessagesPage: React.FC = () => {
       {!isLoading && !isError && conversations.length > 0 && (
         <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg/90 shadow-mn-card">
           <ul className="divide-y divide-mn-border-subtle/70 px-2 py-1 sm:px-3">
-            {conversations.map((conv) => {
-              const primaryParticipant =
-                conv.participants.find((p) => !p.isSelf) ?? conv.participants[0] ?? null;
-              const avatarInitial =
-                primaryParticipant?.displayName?.[0]?.toUpperCase() ??
-                primaryParticipant?.username?.[0]?.toUpperCase() ??
-                "?";
-              const timeLabel = conv.lastMessageAtLabel ?? "Now";
-              const isGroup = conv.isGroup;
-              const participantCount = conv.participants.length;
-
-              const rowBase =
-                "group flex items-center gap-3 rounded-2xl px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg";
-              const rowState = conv.hasUnread
-                ? "bg-mn-bg-elevated/90 border border-mn-primary/25 shadow-mn-soft"
-                : "hover:bg-mn-bg-elevated/70 hover:-translate-y-0.5 hover:shadow-mn-soft";
-
-              return (
-                <li key={conv.id} className="py-1 sm:py-1.5">
-                  <Link to={`/messages/${conv.id}`} className={`${rowBase} ${rowState}`}>
-                    <div className="relative flex h-12 w-12 items-center justify-center">
-                      {isGroup && participantCount > 1 ? (
-                        <div className="flex -space-x-2">
-                          {conv.participants.slice(0, 2).map((participant, idx) => (
-                            <span
-                              key={participant.id}
-                              className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated text-[11px] font-semibold text-mn-text-primary ring-2 ring-mn-bg"
-                              style={{ zIndex: 2 - idx }}
-                            >
-                              {participant.avatarUrl ? (
-                                <img
-                                  src={participant.avatarUrl ?? ""}
-                                  alt={participant.displayName ?? undefined}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                (participant.displayName?.[0]?.toUpperCase() ??
-                                participant.username?.[0]?.toUpperCase() ??
-                                "?")
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span
-                          className={`inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-[12px] font-semibold text-mn-text-primary ${
-                            conv.hasUnread
-                              ? "bg-gradient-to-br from-mn-primary/80 to-amber-400 text-mn-bg"
-                              : "bg-mn-bg-elevated"
-                          }`}
-                        >
-                          {primaryParticipant?.avatarUrl ? (
-                            <img
-                              src={primaryParticipant.avatarUrl ?? ""}
-                              alt={primaryParticipant.displayName ?? undefined}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            avatarInitial
-                          )}
-                        </span>
-                      )}
-                      {conv.hasUnread && (
-                        <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-mn-primary shadow-mn-soft" />
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p
-                            className={`truncate text-[13px] ${
-                              conv.hasUnread
-                                ? "font-semibold text-mn-text-primary"
-                                : "font-medium text-mn-text-primary"
-                            }`}
-                          >
-                            {conv.title}
-                          </p>
-                          {isGroup && (
-                            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-mn-text-muted">
-                              <Users className="h-3 w-3" aria-hidden="true" />
-                              <span>{participantCount} participants</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="shrink-0 text-[11px] text-mn-text-muted">{timeLabel}</span>
-                      </div>
-                      <p
-                        className={`truncate text-[12px] ${
-                          conv.hasUnread ? "text-mn-text-primary" : "text-mn-text-secondary"
-                        }`}
-                      >
-                        {conv.lastMessagePreview ?? "Start chatting"}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
+            {conversations.map((conv) => (
+              <ConversationListRow key={conv.id} conversation={conv} />
+            ))}
           </ul>
         </div>
       )}

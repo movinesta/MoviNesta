@@ -3,13 +3,48 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Film, Star, SlidersHorizontal } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { useSearchTitles, type TitleSearchFilters } from "./useSearchTitles";
+import { useSearchTitles, type TitleSearchFilters, type TitleSearchResult } from "./useSearchTitles";
 
 interface SearchTitlesTabProps {
   query: string;
   filters: TitleSearchFilters;
   onResetFilters?: () => void;
 }
+
+export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ item }) => {
+  const metaPieces: string[] = [];
+  if (item.year) metaPieces.push(String(item.year));
+  if (item.type === "movie") metaPieces.push("Movie");
+  if (item.type === "series") metaPieces.push("Series");
+  if (item.originalLanguage) metaPieces.push(`Language: ${item.originalLanguage}`);
+  if (item.ageRating) metaPieces.push(item.ageRating);
+  if (item.imdbRating) metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
+  if (item.rtTomatoMeter) metaPieces.push(`RT ${item.rtTomatoMeter}%`);
+
+  return (
+    <li>
+      <Link
+        to={`/title/${item.id}`}
+        className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2 hover:bg-mn-bg-elevated/80"
+      >
+        {item.posterUrl ? (
+          <img src={item.posterUrl} alt={item.title} className="h-20 w-14 rounded-mn-card object-cover" />
+        ) : (
+          <div className="flex h-20 w-14 items-center justify-center rounded-mn-card bg-mn-surface-muted">
+            <Film className="h-5 w-5 text-mn-text-muted" aria-hidden="true" />
+          </div>
+        )}
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <p className="truncate text-[12px] font-medium text-mn-text-primary">{item.title}</p>
+          {metaPieces.length > 0 && (
+            <p className="text-[11px] text-mn-text-secondary">{metaPieces.join(" • ")}</p>
+          )}
+        </div>
+      </Link>
+    </li>
+  );
+};
 
 const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onResetFilters }) => {
   const trimmedQuery = query.trim();
@@ -214,48 +249,9 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       </div>
 
       <ul className="space-y-2">
-        {data.map((item) => {
-          const metaPieces: string[] = [];
-          if (item.year) metaPieces.push(String(item.year));
-          if (item.type === "movie") metaPieces.push("Movie");
-          if (item.type === "series") metaPieces.push("Series");
-          if (item.originalLanguage) metaPieces.push(`Language: ${item.originalLanguage}`);
-          if (item.ageRating) metaPieces.push(item.ageRating);
-          if (item.imdbRating) metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
-          if (item.rtTomatoMeter) metaPieces.push(`RT ${item.rtTomatoMeter}%`);
-
-          return (
-            <li key={item.id}>
-              <Link
-                to={`/title/${item.id}`}
-                className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2 hover:bg-mn-bg-elevated/80"
-              >
-                {item.posterUrl ? (
-                  <img
-                    src={item.posterUrl}
-                    alt={item.title}
-                    className="h-20 w-14 rounded-mn-card object-cover"
-                  />
-                ) : (
-                  <div className="flex h-20 w-14 items-center justify-center rounded-mn-card bg-mn-surface-muted">
-                    <Film className="h-5 w-5 text-mn-text-muted" aria-hidden="true" />
-                  </div>
-                )}
-
-                <div className="flex min-w-0 flex-1 flex-col justify-center">
-                  <p className="truncate text-[12px] font-medium text-mn-text-primary">
-                    {item.title}
-                  </p>
-                  {metaPieces.length > 0 && (
-                    <p className="text-[11px] text-mn-text-secondary">
-                      {metaPieces.join(" • ")}
-                    </p>
-                  )}
-                </div>
-              </Link>
-            </li>
-          );
-        })}
+        {data.map((item) => (
+          <TitleSearchResultRow key={item.id} item={item} />
+        ))}
       </ul>
     </div>
   );
