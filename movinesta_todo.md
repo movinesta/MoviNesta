@@ -70,9 +70,12 @@ _For each task or subtask below:_
 
 - [ ] Type-safety for Supabase queries
   - [ ] Update `useConversations` to use `Database` row types instead of `any` for conversations, participants, messages, and read receipts.
-  - [ ] Update `useProfile` (and related profile hooks) to:
-    - [ ] Use typed `profiles` + `follows` rows.
-    - [ ] Replace casts like `(profileError as any)` with proper error typing or narrowing.
+  - [✔️] Update `useProfile` (and related profile hooks) to:
+    DONE – 2025-12-03 16:10 – useProfile now relies on Supabase row types, narrows Postgrest errors, and removes `any` casting.
+    - [✔️] Use typed `profiles` + `follows` rows.
+      DONE – 2025-12-03 16:10 – Profile queries now use generated Supabase row shapes for IDs, usernames, and stats without manual casting.
+    - [✔️] Replace casts like `(profileError as any)` with proper error typing or narrowing.
+      DONE – 2025-12-03 16:10 – Added `isNotFoundError` helper to check Postgrest error codes instead of relying on `any` casts.
   - [ ] Ensure other key hooks (`useDiaryTimeline`, `useDiaryLibrary`, `useDiaryStats`, `useHomeFeed`, `useSwipeDeck`, `useBlockStatus`) are using typed Supabase responses and avoid `any`.
 
 - [ ] RLS policies and indexes

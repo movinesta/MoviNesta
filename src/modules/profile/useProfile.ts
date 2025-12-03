@@ -1,5 +1,7 @@
 // src/modules/profile/useProfile.ts
 import { useQuery } from "@tanstack/react-query";
+import type { PostgrestError } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -14,6 +16,10 @@ export interface ProfileSummary {
   isFollowing: boolean;
   isCurrentUser: boolean;
 }
+
+type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
+
+const isNotFoundError = (error: PostgrestError | null) => error?.code === "PGRST116";
 
 const sanitizeUsername = (username: string | null | undefined): string | null => {
   if (!username) return null;
@@ -48,7 +54,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
 
       if (profileError) {
         // "No rows" -> nicer error.
-        if ((profileError as any).code === "PGRST116") {
+        if (isNotFoundError(profileError)) {
           throw new Error("Profile not found");
         }
         throw profileError;
@@ -58,7 +64,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
         throw new Error("Profile not found");
       }
 
-      const profileId = profileRow.id as string;
+      const profileId = profileRow.id;
 
       // 2) Grab aggregate stats for this user (followers / following).
       const [
@@ -94,7 +100,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
           .eq("followed_id", profileId)
           .maybeSingle();
 
-        if (followError && (followError as any).code !== "PGRST116") {
+        if (followError && !isNotFoundError(followError)) {
           throw followError;
         }
 
@@ -103,10 +109,10 @@ export const useProfileByUsername = (username: string | null | undefined) => {
 
       return {
         id: profileId,
-        username: profileRow.username as string | null,
-        displayName: profileRow.display_name as string | null,
-        avatarUrl: profileRow.avatar_url as string | null,
-        bio: profileRow.bio as string | null,
+        username: profileRow.username,
+        displayName: profileRow.display_name,
+        avatarUrl: profileRow.avatar_url,
+        bio: profileRow.bio,
         followersCount: followersCount ?? 0,
         followingCount: followingCount ?? 0,
         isFollowing,
@@ -137,7 +143,7 @@ export const useCurrentProfile = () => {
         .maybeSingle();
 
       if (profileError) {
-        if ((profileError as any).code === "PGRST116") {
+        if (isNotFoundError(profileError)) {
           throw new Error("Profile not found for current user");
         }
         throw profileError;
@@ -147,7 +153,7 @@ export const useCurrentProfile = () => {
         throw new Error("Profile not found for current user");
       }
 
-      const profileId = profileRow.id as string;
+      const profileId = profileRow.id;
 
       // 2) Pull stats for the current user.
       const { data: statsRow, error: statsError } = await supabase
@@ -160,15 +166,15 @@ export const useCurrentProfile = () => {
         throw statsError;
       }
 
-      const followersCount = (statsRow?.followers_count as number | null) ?? 0;
-      const followingCount = (statsRow?.following_count as number | null) ?? 0;
+      const followersCount = (statsRow as UserStatsRow | null)?.followers_count ?? 0;
+      const followingCount = (statsRow as UserStatsRow | null)?.following_count ?? 0;
 
       return {
         id: profileId,
-        username: profileRow.username as string | null,
-        displayName: profileRow.display_name as string | null,
-        avatarUrl: profileRow.avatar_url as string | null,
-        bio: profileRow.bio as string | null,
+        username: profileRow.username,
+        displayName: profileRow.display_name,
+        avatarUrl: profileRow.avatar_url,
+        bio: profileRow.bio,
         followersCount,
         followingCount,
         isFollowing: false,
