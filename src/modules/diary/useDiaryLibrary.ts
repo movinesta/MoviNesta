@@ -31,6 +31,11 @@ type TitleRow = Pick<
 >;
 type LibraryRowWithTitle = LibraryRow & { titles: TitleRow | null };
 type RatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "title_id" | "rating">;
+type TitleDiaryRow = Pick<
+  Database["public"]["Tables"]["library_entries"]["Row"],
+  "status"
+>;
+type TitleDiaryRatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "rating">;
 
 export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: string | null) => {
   const { user } = useAuth();
@@ -124,6 +129,56 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
     isError: query.isError,
     error: query.error instanceof Error ? query.error.message : null,
   };
+};
+
+export const useTitleDiaryEntry = (titleId: string | null | undefined) => {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  return useQuery({
+    queryKey: qk.titleDiary(userId, titleId),
+    enabled: Boolean(userId && titleId),
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    queryFn: async (): Promise<{ status: DiaryStatus | null; rating: number | null }> => {
+      if (!userId || !titleId) {
+        return { status: null, rating: null };
+      }
+
+      const [
+        { data: libraryRow, error: libraryError },
+        { data: ratingRow, error: ratingError },
+      ] = await Promise.all([
+        supabase
+          .from("library_entries")
+          .select("status")
+          .returns<TitleDiaryRow | null>()
+          .eq("user_id", userId)
+          .eq("title_id", titleId)
+          .maybeSingle(),
+        supabase
+          .from("ratings")
+          .select("rating")
+          .returns<TitleDiaryRatingRow | null>()
+          .eq("user_id", userId)
+          .eq("title_id", titleId)
+          .maybeSingle(),
+      ]);
+
+      if (libraryError && libraryError.code !== "PGRST116") {
+        throw libraryError;
+      }
+      if (ratingError && ratingError.code !== "PGRST116") {
+        throw ratingError;
+      }
+
+      return {
+        status: libraryRow?.status ?? null,
+        rating: ratingRow?.rating ?? null,
+      };
+    },
+  });
 };
 
 interface UpdateStatusArgs {

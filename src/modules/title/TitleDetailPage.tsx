@@ -4,11 +4,16 @@ import { RatingStars } from "../../components/RatingStars";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
-import { useDiaryLibraryMutations, type DiaryStatus } from "../diary/useDiaryLibrary";
+import {
+  useDiaryLibraryMutations,
+  useTitleDiaryEntry,
+  type DiaryStatus,
+} from "../diary/useDiaryLibrary";
 import { diaryStatusLabel, diaryStatusPillClasses } from "../diary/diaryStatus";
 import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
 import { supabase } from "../../lib/supabase";
+import type { TitleType } from "../search/useSearchTitles";
 
 interface TitleRow {
   id: string;
@@ -276,54 +281,11 @@ const TitleDetailPage: React.FC = () => {
 
   const { user } = useAuth();
   const { updateStatus, updateRating } = useDiaryLibraryMutations();
-
   const {
-    data: diaryEntry,
+    data: diaryEntryData,
     isLoading: diaryEntryLoading,
-  } = useQuery<{ status: DiaryStatus | null; rating: number | null }>({
-    queryKey: qk.titleDiary(user?.id, titleId),
-    enabled: Boolean(user?.id && titleId),
-    staleTime: 1000 * 20,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    queryFn: async () => {
-      if (!user?.id || !titleId) {
-        return { status: null, rating: null };
-      }
-
-      const userId = user.id;
-
-      const [
-        { data: libraryRow, error: libraryError },
-        { data: ratingRow, error: ratingError },
-      ] = await Promise.all([
-        supabase
-          .from("library_entries")
-          .select("status")
-          .eq("user_id", userId)
-          .eq("title_id", titleId)
-          .maybeSingle(),
-        supabase
-          .from("ratings")
-          .select("rating")
-          .eq("user_id", userId)
-          .eq("title_id", titleId)
-          .maybeSingle(),
-      ]);
-
-      if (libraryError && (libraryError as any).code !== "PGRST116") {
-        throw libraryError;
-      }
-      if (ratingError && (ratingError as any).code !== "PGRST116") {
-        throw ratingError;
-      }
-
-      return {
-        status: (libraryRow?.status as DiaryStatus | null) ?? null,
-        rating: (ratingRow?.rating as number | null) ?? null,
-      };
-    },
-  });
+  } = useTitleDiaryEntry(titleId);
+  const diaryEntry = diaryEntryData ?? { status: null, rating: null };
   const {
     data: friendsReactions,
     isLoading: friendsReactionsLoading,
@@ -549,38 +511,69 @@ const TitleDetailPage: React.FC = () => {
   const externalMetascore = data.metascore ?? data.omdb_metacritic_score;
   const externalTomato = data.omdb_rt_rating_pct ?? data.rt_tomato_pct;
 
+  const normalizedContentType: TitleType | null =
+    data.content_type === "movie" || data.content_type === "tv" ? data.content_type : null;
+
+  React.useEffect(() => {
+    const urls = [posterImage, backdropImage].filter((url): url is string => Boolean(url));
+    urls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [posterImage, backdropImage]);
+
+  const ensureSignedIn = () => {
+    if (!user) {
+      alert("Sign in to save this title to your diary or leave a rating.");
+      return false;
+    }
+    return true;
+  };
+
+  const setDiaryStatus = (status: DiaryStatus) => {
+    if (!ensureSignedIn() || updateStatus.isPending) return;
+
+    updateStatus.mutate({ titleId: data.id, status, type: normalizedContentType });
+  };
+
+  const setDiaryRating = (nextRating: number | null) => {
+    if (!ensureSignedIn() || updateRating.isPending) return;
+
+    updateRating.mutate({
+      titleId: data.id,
+      rating: nextRating,
+      type: normalizedContentType,
+    });
+  };
+
+  const metaLine = metaPieces.length > 0 ? metaPieces.join(" · ") : "Title details";
+
+  const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
+
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-5xl flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
-      {backdropImage && (
-        <div className="relative overflow-hidden rounded-3xl border border-mn-border-subtle bg-mn-bg-elevated/80 shadow-mn-soft">
-          <img
-            src={backdropImage}
-            alt={displayTitle}
-            className="h-48 w-full object-cover sm:h-56 md:h-64"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mn-bg/90 via-mn-bg/30 to-transparent" />
+      <div className="relative overflow-hidden rounded-3xl border border-mn-border-subtle bg-mn-bg-elevated/80 shadow-mn-soft">
+        <div className="absolute inset-0">
+          {backdropImage ? (
+            <img
+              src={backdropImage}
+              alt={displayTitle}
+              className="h-full w-full scale-105 object-cover blur-[1px]"
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-mn-bg via-mn-bg/70 to-mn-bg-elevated" />
+          )}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-mn-bg via-mn-bg/80 to-mn-bg/40" />
         </div>
-      )}
 
-      <TopBar
-        title={displayTitle}
-        subtitle={metaPieces.length > 0 ? metaPieces.join(" · ") : "Title details"}
-      />
-
-      <ExternalRatingsChips
-        imdb_rating={externalImdbRating}
-        omdb_rt_rating_pct={externalTomato}
-        metascore={externalMetascore}
-      />
-
-      <PageSection>
-        <div className="flex flex-col gap-4 md:flex-row">
+        <div className="relative z-10 flex flex-col gap-4 p-4 sm:p-6 md:flex-row md:items-end">
           <div className="w-28 flex-shrink-0 sm:w-32 md:w-40">
             {posterImage ? (
               <img
                 src={posterImage}
                 alt={displayTitle}
                 className="aspect-[2/3] w-full rounded-mn-card object-cover shadow-mn-card"
+                loading="lazy"
               />
             ) : (
               <div className="flex aspect-[2/3] items-center justify-center rounded-mn-card border border-dashed border-mn-border-subtle bg-mn-bg/70 text-xs text-mn-text-muted">
@@ -590,109 +583,161 @@ const TitleDetailPage: React.FC = () => {
           </div>
 
           <div className="flex flex-1 flex-col gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-mn-text-muted">{displayContentType ?? "Title"}</p>
+              <h1 className="text-2xl font-semibold text-mn-text-primary sm:text-3xl">{displayTitle}</h1>
+              <p className="text-[12.5px] text-mn-text-secondary">{metaLine}</p>
+            </div>
 
-<div className="rounded-2xl border border-mn-border-subtle bg-mn-bg/80 px-3 py-3 text-[12px] text-mn-text-secondary">
-  {data.tagline && (
-    <p className="text-[13px] font-medium text-mn-text-primary">{data.tagline}</p>
-  )}
-  {overview && (
-    <p className="mt-1 text-[12.5px] leading-relaxed text-mn-text-secondary">{overview}</p>
-  )}
-  {(!data.tagline && !overview) && (
-    <p className="text-[12px] text-mn-text-muted">We don&apos;t have a plot summary for this title yet.</p>
-  )}
-  {(genres && genres.length > 0) && (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {genres.slice(0, 6).map((g) => (
-        <span
-          key={g}
-          className="rounded-full border border-mn-border-subtle px-2 py-[2px] text-[11px] text-mn-text-muted"
-        >
-          {g}
-        </span>
-      ))}
-    </div>
-  )}
-  {(data.omdb_director || data.omdb_actors) && (
-    <div className="mt-2 space-y-1 text-[11.5px] text-mn-text-muted">
-      {data.omdb_director && (
-        <p>
-          <span className="font-semibold text-mn-text-primary">Director:</span>{" "}
-          {data.omdb_director}
-        </p>
-      )}
-      {data.omdb_actors && (
-        <p>
-          <span className="font-semibold text-mn-text-primary">Cast:</span>{" "}
-          {data.omdb_actors}
-        </p>
-      )}
-    </div>
-  )}
-</div>
+            {overview && (
+              <p className="max-w-3xl text-[13px] leading-relaxed text-mn-text-secondary sm:text-[14px]">
+                {overview}
+              </p>
+            )}
 
+            <ExternalRatingsChips
+              imdb_rating={externalImdbRating}
+              omdb_rt_rating_pct={externalTomato}
+              metascore={externalMetascore}
+            />
 
-            {/* Your diary & rating for this title */}
-            <div className="mt-3 rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-3 text-[12px] text-mn-text-secondary">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDiaryStatus("want_to_watch")}
+                disabled={updateStatus.isPending}
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+                  statusIs("want_to_watch")
+                    ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
+                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
+                }`}
+              >
+                Add to watchlist
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiaryStatus("watching")}
+                disabled={updateStatus.isPending}
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+                  statusIs("watching")
+                    ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
+                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
+                }`}
+              >
+                I’m watching
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiaryStatus("watched")}
+                disabled={updateStatus.isPending}
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+                  statusIs("watched")
+                    ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
+                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
+                }`}
+              >
+                Log as watched
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-[12px] text-mn-text-secondary">
+              <span className="font-semibold text-mn-text-primary">Your rating</span>
+              <RatingStars value={diaryEntry?.rating ?? null} disabled={updateRating.isPending} onChange={setDiaryRating} />
+              {diaryEntry?.rating != null && (
+                <span className="text-[11px] text-mn-text-muted">{diaryEntry.rating}/10</span>
+              )}
+            </div>
+
+            {!user && (
+              <p className="text-[11.5px] text-mn-text-muted">
+                <Link to="/auth" className="font-medium text-mn-primary underline">
+                  Sign in
+                </Link>{" "}
+                to log this title, rate it, or add it to your watchlist.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <PageSection>
+        <div className="flex flex-col gap-4 md:flex-row">
+          <div className="flex flex-1 flex-col gap-3">
+            <div className="rounded-2xl border border-mn-border-subtle bg-mn-bg/80 px-3 py-3 text-[12px] text-mn-text-secondary">
+              {data.tagline && (
+                <p className="text-[13px] font-medium text-mn-text-primary">{data.tagline}</p>
+              )}
+              {overview && (
+                <p className="mt-1 text-[12.5px] leading-relaxed text-mn-text-secondary">{overview}</p>
+              )}
+              {!data.tagline && !overview && (
+                <p className="text-[12px] text-mn-text-muted">We don&apos;t have a plot summary for this title yet.</p>
+              )}
+              {genres && genres.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {genres.slice(0, 6).map((g) => (
+                    <span
+                      key={g}
+                      className="rounded-full border border-mn-border-subtle px-2 py-[2px] text-[11px] text-mn-text-muted"
+                    >
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {(data.omdb_director || data.omdb_actors) && (
+                <div className="mt-2 space-y-1 text-[11.5px] text-mn-text-muted">
+                  {data.omdb_director && (
+                    <p>
+                      <span className="font-semibold text-mn-text-primary">Director:</span>{" "}
+                      {data.omdb_director}
+                    </p>
+                  )}
+                  {data.omdb_actors && (
+                    <p>
+                      <span className="font-semibold text-mn-text-primary">Cast:</span>{" "}
+                      {data.omdb_actors}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-3 text-[12px] text-mn-text-secondary">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-mn-text-primary">Your diary & rating</p>
+                  <p className="font-semibold text-mn-text-primary">Your diary</p>
                   <p className="mt-0.5 text-[11.5px] text-mn-text-muted">
-                    Track how you feel about this title and keep it in your MoviNesta diary.
+                    Keep this title synced with the same diary data used across MoviNesta.
                   </p>
                 </div>
 
                 {user && (
-                  <div className="flex flex-col items-end gap-2">
-                    {/* Status chip */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const order: DiaryStatus[] = ["want_to_watch", "watching", "watched", "dropped"];
-                        const current = diaryEntry?.status ?? null;
-                        const currentIndex = current ? order.indexOf(current) : -1;
-                        const nextStatus = order[(currentIndex + 1 + order.length) % order.length];
-                        updateStatus.mutate({ titleId: data.id, status: nextStatus, type: data.content_type as any });
-                      }}
-                      className="inline-flex items-center rounded-full border border-mn-border-subtle bg-mn-bg px-2.5 py-1 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary/90 disabled:opacity-60"
-                      disabled={updateStatus.isPending}
-                    >
-                      {(() => {
-                        if (diaryEntryLoading) return "Updating…";
-                        const status = diaryEntry?.status;
-                        return diaryStatusLabel(status);
-                      })()}
-                    </button>
-
-                    {/* Rating stars */}
-                    <RatingStars
-                      value={diaryEntry?.rating ?? null}
-                      disabled={updateRating.isPending}
-                      onChange={(nextRating) => {
-                        updateRating.mutate({
-                          titleId: data.id,
-                          rating: nextRating,
-                          type: data.content_type as any,
-                        });
-                      }}
-                    />
+                  <div className="flex flex-col items-end gap-2 text-[11px]">
+                    <span className={diaryStatusPillClasses(diaryEntry?.status)}>
+                      {diaryStatusLabel(diaryEntry?.status)}
+                    </span>
+                    <div className="flex items-center gap-2 text-mn-text-secondary">
+                      <span className="font-medium text-mn-text-primary">Rating</span>
+                      <RatingStars
+                        value={diaryEntry?.rating ?? null}
+                        disabled={updateRating.isPending}
+                        onChange={setDiaryRating}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
 
               {!user && (
                 <p className="mt-2 text-[11px] text-mn-text-muted">
-                  <Link to="/auth" className="font-medium text-mn-primary underline">
-                    Sign in
-                  </Link>{" "}
-                  to add this title to your diary and leave a rating.
+                  Sign in to see your diary status and ratings for this title.
                 </p>
               )}
             </div>
 
-            {/* Friends who liked this title */}
             {user && !friendsReactionsLoading && friendsReactions && friendsReactions.length > 0 && (
-              <div className="mt-2 rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-3 text-[12px] text-mn-text-secondary">
+              <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-3 text-[12px] text-mn-text-secondary">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="font-semibold text-mn-text-primary">Friends who liked this</p>
