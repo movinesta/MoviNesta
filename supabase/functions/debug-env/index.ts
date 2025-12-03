@@ -16,6 +16,13 @@ serve((req: Request) => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
+  const isEnabled =
+    (Deno.env.get("DEBUG_ENV_ENABLED") ?? "").toLowerCase() === "true";
+
+  if (!isEnabled) {
+    return jsonError("Not found", 404, "NOT_FOUND");
+  }
+
   if (req.method !== "GET") {
     return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
   }

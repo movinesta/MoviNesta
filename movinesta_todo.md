@@ -149,9 +149,10 @@ _For each task or subtask below:_
     - [ ] Returns typed payload or responds with HTTP 400 via `jsonError`.
   - [ ] Use this helper in functions like `swipe-event`, `swipe-for-you`, `catalog-sync`, and any other write-heavy endpoints.
 
-- [ ] `debug-env` hardening
-  - [ ] Ensure `debug-env` returns only non-sensitive meta (e.g. booleans, build ID, feature flags), never secrets or raw env values.
-  - [ ] Optionally gate or disable `debug-env` in production behind an environment flag.
+- [✔️] `debug-env` hardening
+  DONE – 2025-12-03 21:58 – Guarded debug-env behind `DEBUG_ENV_ENABLED` flag and restricted output to non-sensitive env presence booleans and runtime metadata in `supabase/functions/debug-env/index.ts`.
+  - [✔️] Ensure `debug-env` returns only non-sensitive meta (e.g. booleans, build ID, feature flags), never secrets or raw env values.
+  - [✔️] Optionally gate or disable `debug-env` in production behind an environment flag.
 
 ---
 
