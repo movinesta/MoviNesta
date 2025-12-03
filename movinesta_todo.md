@@ -37,7 +37,8 @@ _For each task or subtask below:_
   - [✔️] Verify any build helper scripts (e.g. `scripts/copy404.mjs`) still make sense for the `docs/` deployment target.
     DONE – 2025-12-03 15:06 – Confirmed `scripts/copy404.mjs` copies `docs/index.html` to `docs/404.html` for SPA fallback.
 
-- [ ] GitHub Actions workflows
+- [✔️] GitHub Actions workflows
+  DONE – 2025-12-03 19:30 – All CI/deploy workflows verified with lint/tests on CI and build-only deploy pipeline confirmed.
   - [✔️] Keep deploy workflow focused on build & deploy only (no tests in the deploy pipeline).
     DONE – 2025-12-03 15:37 – Confirmed deploy workflow only builds and publishes without bundling test steps.
   - [✔️] Ensure a dedicated CI workflow (e.g. `ci.yml` or `test.yml`) runs on `push` and `pull_request` to `main`:
