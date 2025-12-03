@@ -586,14 +586,22 @@ _For each task or subtask below:_
     DONE – 2025-12-03 20:38 – Test ensures tmdbId collisions skip external duplicates while retaining existing Supabase rows.
   - [✔️] Source precedence (`library` vs `external-synced` vs `external-only`).
     DONE – 2025-12-03 20:38 – Verified library items surface first, followed by synced external IDs, then unsynced TMDb results.
-  - [ ] Diary stats reducer:
-    - [ ] Correct averages and distributions.
-    - [ ] Accurate monthly/yearly watch counts.
-  - [ ] Swipe deck helpers:
-    - [ ] Next-card selection.
-    - [ ] Exhaustion state transitions.
-  - [ ] Preferences builder (`_shared/preferences.ts`):
-    - [ ] Correctly builds `UserProfile` from ratings, library, and activity.
+  - [✔️] Diary stats reducer:
+    DONE – 2025-12-03 20:43 – Added reusable diary stats reducer with typed helpers and coverage in `src/__tests__/diaryStatsReducer.test.ts` to validate averages, buckets, and watch timelines.
+    - [✔️] Correct averages and distributions.
+      DONE – 2025-12-03 20:43 – reduceDiaryStats now computes stable averages and 0.5-step distributions, exercised by new vitest cases.
+    - [✔️] Accurate monthly/yearly watch counts.
+      DONE – 2025-12-03 20:43 – Added watch-count aggregation tests to ensure chronological month buckets for diary stats.
+  - [✔️] Swipe deck helpers:
+    DONE – 2025-12-03 20:43 – Exported swipe deck helper utilities and covered interleaving, trimming, and weight persistence in `src/__tests__/swipeDeckHelpers.test.ts`.
+    - [✔️] Next-card selection.
+      DONE – 2025-12-03 20:43 – buildInterleavedDeck test asserts round-robin ordering caps combined decks at the requested limit.
+    - [✔️] Exhaustion state transitions.
+      DONE – 2025-12-03 20:43 – trimDeck helper verified to drop consumed cards and mark exhaustion when decks empty.
+  - [✔️] Preferences builder (`_shared/preferences.ts`):
+    DONE – 2025-12-03 20:43 – Added vitest coverage for computeUserProfile to combine ratings, library, and activity signals into genre/content weights.
+    - [✔️] Correctly builds `UserProfile` from ratings, library, and activity.
+      DONE – 2025-12-03 20:43 – Preferences tests confirm positive/negative signals and content-type weights from mocked Supabase data.
 
 - [ ] Auth & provider tests
   - [✔️] Add tests for `AuthProvider`:

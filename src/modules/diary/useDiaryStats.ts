@@ -1,56 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Database } from "@/types/supabase";
+import {
+  type DiaryStats,
+  EMPTY_STATS,
+  mapGenresById,
+  reduceDiaryStats,
+  type GenreLookupRow,
+  type LibraryRow,
+  type RatingsRow,
+  type TitleGenreRow,
+  computeTopGenres,
+} from "./diaryStatsReducer";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
-
-type RatingsRow = Pick<
-  Database["public"]["Tables"]["ratings"]["Row"],
-  "rating" | "created_at" | "title_id"
->;
-
-type LibraryRow = Pick<
-  Database["public"]["Tables"]["library_entries"]["Row"],
-  "title_id" | "status" | "updated_at"
->;
-
-type TitleGenreRow = Database["public"]["Tables"]["title_genres"]["Row"];
-
-type GenreRow = Database["public"]["Tables"]["genres"]["Row"];
-type GenreLookupRow = Pick<GenreRow, "id" | "name">;
-
-export interface RatingBucket {
-  rating: number; // 0.5 steps
-  count: number;
-}
-
-export interface GenreStat {
-  genre: string;
-  count: number;
-}
-
-export interface WatchCountPoint {
-  month: string; // YYYY-MM
-  count: number;
-}
-
-export interface DiaryStats {
-  totalRated: number;
-  totalWatched: number;
-  averageRating: number | null;
-  ratingDistribution: RatingBucket[];
-  topGenres: GenreStat[];
-  watchCountByMonth: WatchCountPoint[];
-}
-
-const EMPTY_STATS: DiaryStats = {
-  totalRated: 0,
-  totalWatched: 0,
-  averageRating: null,
-  ratingDistribution: [],
-  topGenres: [],
-  watchCountByMonth: [],
-};
 
 export const useDiaryStats = () => {
   const { user } = useAuth();
@@ -87,52 +49,16 @@ export const useDiaryStats = () => {
       const ratingsRows: RatingsRow[] = ratingsResult.data ?? [];
       const libraryRows: LibraryRow[] = libraryResult.data ?? [];
 
-      const watchedRows = libraryRows.filter((row) => row.status === "watched");
-
-      // Rating distribution & average
-      const bucketMap = new Map<number, number>();
-      let sumRatings = 0;
-      let ratingCount = 0;
-
-      ratingsRows.forEach((row) => {
-        const raw = row.rating;
-
-        if (typeof raw !== "number" || Number.isNaN(raw)) return;
-
-        const bucket = Math.round(raw * 2) / 2; // 0.5 steps
-        bucketMap.set(bucket, (bucketMap.get(bucket) ?? 0) + 1);
-
-        sumRatings += raw;
-        ratingCount += 1;
-      });
-
-      const ratingDistribution: RatingBucket[] = Array.from(bucketMap.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(([rating, count]) => ({ rating, count }));
-
-      const averageRating = ratingCount > 0 ? sumRatings / ratingCount : null;
-
-      // Watch count per month (by latest "watched" status update)
-      const watchByMonthMap = new Map<string, number>();
-
-      watchedRows.forEach((row) => {
-        const d = new Date(row.updated_at);
-        if (Number.isNaN(d.getTime())) return;
-
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        watchByMonthMap.set(key, (watchByMonthMap.get(key) ?? 0) + 1);
-      });
-
-      const watchCountByMonth: WatchCountPoint[] = Array.from(watchByMonthMap.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([month, count]) => ({ month, count }));
-
-      // Top genres
       const titleIds = Array.from(
-        new Set(watchedRows.map((row) => row.title_id).filter((id): id is string => Boolean(id))),
+        new Set(
+          libraryRows
+            .filter((row) => row.status === "watched")
+            .map((row) => row.title_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
       );
 
-      let topGenres: GenreStat[] = [];
+      let topGenres = [] as DiaryStats["topGenres"];
 
       if (titleIds.length) {
         const { data: titleGenres, error: tgError } = await supabase
@@ -160,37 +86,20 @@ export const useDiaryStats = () => {
 
             if (!genresError && genres) {
               const genreRows: GenreLookupRow[] = genres;
-              genresById = new Map(genreRows.map((g) => [g.id, g.name]));
+              genresById = mapGenresById(genreRows);
             } else if (genresError) {
               console.warn("[useDiaryStats] Failed to load genres", genresError.message);
             }
           }
 
-          const genreCountMap = new Map<string, number>();
-
-          tgRows.forEach((row) => {
-            const name = genresById.get(row.genre_id);
-            if (!name) return;
-            genreCountMap.set(name, (genreCountMap.get(name) ?? 0) + 1);
-          });
-
-          topGenres = Array.from(genreCountMap.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 8)
-            .map(([genre, count]) => ({ genre, count }));
+          const watchedRows = libraryRows.filter((row) => row.status === "watched");
+          topGenres = computeTopGenres(watchedRows, tgRows, genresById);
         } else if (tgError) {
           console.warn("[useDiaryStats] Failed to load title_genres", tgError.message);
         }
       }
 
-      return {
-        totalRated: ratingsRows.length,
-        totalWatched: watchedRows.length,
-        averageRating,
-        ratingDistribution,
-        topGenres,
-        watchCountByMonth,
-      };
+      return reduceDiaryStats(ratingsRows, libraryRows, topGenres);
     },
   });
 
