@@ -33,6 +33,25 @@ interface SwipeDeckResponse {
   cards: SwipeCardData[];
 }
 
+const hasSwipeCardFields = (value: unknown): value is SwipeCardData => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.id === "string" && typeof candidate.title === "string";
+};
+
+const extractSwipeCards = (value: unknown): SwipeCardData[] => {
+  if (Array.isArray(value)) {
+    return value.filter(hasSwipeCardFields);
+  }
+
+  const cards = (value as { cards?: unknown }).cards;
+  if (Array.isArray(cards)) {
+    return cards.filter(hasSwipeCardFields);
+  }
+
+  return [];
+};
+
 const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
 
 function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
@@ -192,13 +211,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
             console.warn("[useSwipeDeck] error from", fnName, error);
           }
 
-          const rawCards = Array.isArray((data as any)?.cards)
-            ? (data as any).cards
-            : Array.isArray(data)
-              ? (data as any)
-              : [];
-
-          const cards = rawCards.map((card: any) => ({ ...card, source }));
+          const cards = extractSwipeCards(data).map((card) => ({ ...card, source }));
           if (cards.length) {
             console.debug("[useSwipeDeck]", fnName, "returned", cards.length, "cards");
             return cards;
