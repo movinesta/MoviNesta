@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
+import { formatNumber } from "@/utils/format";
 
 type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -301,9 +302,7 @@ const SwipeTrendingTab: React.FC = () => {
   const socialProofLabel =
     watchers === 0
       ? "Not many people have logged this yet"
-      : watchers < 1000
-        ? `${watchers.toLocaleString()} people logged this`
-        : `${(watchers / 1000).toFixed(1)}k+ people logged this`;
+      : `${formatNumber(watchers, { notation: "compact" })} people logged this`;
 
   return (
     <div className="flex h-full flex-col">

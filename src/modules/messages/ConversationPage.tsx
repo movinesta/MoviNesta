@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { HeaderSurface } from "../../components/PageChrome";
 import { useAuth } from "../auth/AuthProvider";
+import { formatDate, formatTime } from "@/utils/format";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
 import { parseMessageText } from "./messageText";
@@ -94,7 +95,7 @@ const getMessageMeta = (body: string | null): ParsedBodyMeta => {
 const formatMessageTime = (iso: string): string => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString(undefined, {
+  return formatTime(date, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -2308,7 +2309,7 @@ const formatMessageDateLabel = (iso: string): string => {
     return "Yesterday";
   }
 
-  return date.toLocaleDateString(undefined, {
+  return formatDate(date, {
     day: "numeric",
     month: "short",
     year: "numeric",

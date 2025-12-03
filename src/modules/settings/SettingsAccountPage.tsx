@@ -4,6 +4,7 @@ import { Mail, KeyRound, LogOut, AlertCircle } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../../lib/supabase";
+import { formatDate } from "@/utils/format";
 
 const SettingsAccountPage: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -94,7 +95,7 @@ const SettingsAccountPage: React.FC = () => {
             {createdAt && (
               <p className="mt-1 text-[10px] text-mn-text-muted">
                 Joined on{" "}
-                {createdAt.toLocaleDateString(undefined, {
+                {formatDate(createdAt, {
                   year: "numeric",
                   month: "short",
                   day: "2-digit",
