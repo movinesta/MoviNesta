@@ -587,8 +587,10 @@ _For each task or subtask below:_
     - [✔️] Skeleton components (render without crashing).
     DONE – 2025-12-03 19:16 – Added snapshot-style component coverage for conversation list states, message bubble styling, swipe card metadata, title search rows, and skeletons in `src/__tests__/uiComponents.test.tsx`.
 
-- [ ] CI wiring
-  - [ ] Confirm CI workflow runs `npm run lint` and `npm test` on every push/PR.
+- [✔️] CI wiring
+  DONE – 2025-12-03 19:22 – Added CI workflow running npm ci, lint, and tests on push/PR to main via `.github/workflows/ci.yml`.
+  - [✔️] Confirm CI workflow runs `npm run lint` and `npm test` on every push/PR.
+    DONE – 2025-12-03 19:22 – CI job now installs dependencies then runs lint and tests across pushes and PRs.
   - [ ] Optionally add coverage reporting and fail CI below a chosen threshold.
 
 ---
