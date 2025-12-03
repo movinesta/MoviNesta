@@ -605,9 +605,10 @@ _For each task or subtask below:_
     DONE – 2025-12-03 18:09 – Added README with stack overview, local dev steps, Supabase setup, Edge Function deploy commands, env var matrix, and Supabase type regeneration instructions.
     - [✔️] Document how to regenerate Supabase types and where they live.
 
-- [ ] Developer comments & experimental flags
-  - [ ] Add short comments at top of complex or central files (`useSwipeDeck`, `useConversations`, `get_home_feed` SQL, key Edge functions) describing their purpose and assumptions.
-  - [ ] Clearly tag experimental/demo features (Realtime chat, Lists if not yet implemented) so future maintainers know what is production vs experimental.
+- [✔️] Developer comments & experimental flags
+  DONE – 2025-12-03 18:25 – Added file-level summaries to `useSwipeDeck` and `useConversations` explaining their roles and current polling/Edge Function assumptions; documented messaging as a simple polled experience until realtime wiring ships.
+  - [✔️] Add short comments at top of complex or central files (`useSwipeDeck`, `useConversations`, `get_home_feed` SQL, key Edge functions) describing their purpose and assumptions.
+  - [✔️] Clearly tag experimental/demo features (Realtime chat, Lists if not yet implemented) so future maintainers know what is production vs experimental.
 
 ---
 

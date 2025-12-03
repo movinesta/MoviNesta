@@ -1,3 +1,11 @@
+/**
+ * Central hook that orchestrates the swipe experience across Edge Functions
+ * (for-you, from-friends, trending). Handles card extraction/validation,
+ * interleaving, and local weight adjustments so callers only worry about
+ * rendering cards and firing swipes. Assumes the Edge Functions return the
+ * minimal card fields defined in `SwipeCardData` and that Supabase RLS limits
+ * access by user.
+ */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useRef, useState } from "react";

@@ -1,3 +1,9 @@
+/**
+ * Polls Supabase for the current user's conversation list and shapes the
+ * results for UI display (participants, last message preview, unread state).
+ * Uses short refetch intervals instead of realtime to keep the experience
+ * simple; a future realtime channel can replace the polling layer when ready.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import type { Database } from "@/types/supabase";
