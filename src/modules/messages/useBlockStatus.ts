@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import type { Database } from "@/types/supabase";
 
 export interface BlockStatus {
   youBlocked: boolean;
   blockedYou: boolean;
 }
+
+type BlockedUsersRow = Database["public"]["Tables"]["blocked_users"]["Row"];
 
 /**
  * React Query hook for checking and toggling block status between the
@@ -49,7 +52,7 @@ export const useBlockStatus = (otherUserId: string | null) => {
         throw new Error(error.message);
       }
 
-      const rows = (data ?? []) as { blocker_id: string; blocked_id: string }[];
+      const rows: Pick<BlockedUsersRow, "blocker_id" | "blocked_id">[] = data ?? [];
 
       const youBlocked = rows.some(
         (row) => row.blocker_id === userId && row.blocked_id === otherUserId,
