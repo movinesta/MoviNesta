@@ -2,20 +2,25 @@ import React from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, Flame, MessageCircle, Search, BookOpen } from "lucide-react";
 import { applyThemePreference, syncSystemThemePreference, useUIStore } from "../lib/ui-store";
-
-const bottomTabs = [
-  { key: "home" as const, to: "/", label: "Home", icon: Home },
-  { key: "swipe" as const, to: "/swipe", label: "Swipe", icon: Flame },
-  { key: "messages" as const, to: "/messages", label: "Messages", icon: MessageCircle },
-  { key: "search" as const, to: "/search", label: "Search", icon: Search },
-  { key: "diary" as const, to: "/diary", label: "Diary", icon: BookOpen },
-];
+import { useI18n } from "@/i18n/useI18n";
 
 const AppShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { setLastVisitedTab, startTab, theme } = useUIStore();
   const hasAppliedStartTab = React.useRef(false);
+  const { t } = useI18n();
+
+  const bottomTabs = React.useMemo(
+    () => [
+      { key: "home" as const, to: "/", label: t("nav.home"), icon: Home },
+      { key: "swipe" as const, to: "/swipe", label: t("nav.swipe"), icon: Flame },
+      { key: "messages" as const, to: "/messages", label: t("nav.messages"), icon: MessageCircle },
+      { key: "search" as const, to: "/search", label: t("nav.search"), icon: Search },
+      { key: "diary" as const, to: "/diary", label: t("nav.diary"), icon: BookOpen },
+    ],
+    [t],
+  );
 
   React.useEffect(() => {
     applyThemePreference(theme);

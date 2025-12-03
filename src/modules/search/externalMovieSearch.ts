@@ -37,12 +37,15 @@ export async function searchExternalTitles(
 
   throwIfAborted(signal);
 
-  const body = await fetchTmdbJson("/search/multi", {
-    query: trimmed,
-    include_adult: "false",
-    language: "en-US",
-    page: 1,
-  }, signal);
+  const body = await fetchTmdbJson(
+    "/search/multi",
+    {
+      query: trimmed,
+      include_adult: "false",
+      page: 1,
+    },
+    signal,
+  );
 
   throwIfAborted(signal);
 
