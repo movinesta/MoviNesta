@@ -11,6 +11,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  test: {
+    environment: "jsdom",
+  },
   build: {
     outDir: "docs",          // ⬅️ change this from "dist" to "docs"
     chunkSizeWarningLimit: 2000,

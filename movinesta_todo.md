@@ -571,10 +571,11 @@ _For each task or subtask below:_
     - [ ] Correctly builds `UserProfile` from ratings, library, and activity.
 
 - [ ] Auth & provider tests
-  - [ ] Add tests for `AuthProvider`:
-    - [ ] Initial state with no session.
-    - [ ] Session restoration from Supabase.
-    - [ ] Sign-out clearing session and related local state.
+  - [✔️] Add tests for `AuthProvider`:
+    DONE – 2025-12-03 18:30 – Added Vitest + Testing Library coverage for AuthProvider to verify initial no-session load, restoring existing sessions, and clearing user state on sign-out.
+    - [✔️] Initial state with no session.
+    - [✔️] Session restoration from Supabase.
+    - [✔️] Sign-out clearing session and related local state.
 
 - [ ] Component / snapshot tests
   - [ ] Add lightweight tests (Vitest + React Testing Library) for:
