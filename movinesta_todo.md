@@ -580,9 +580,12 @@ _For each task or subtask below:_
       DONE – 2025-12-03 20:08 – Covered plain strings, rich-text blocks, image placeholders, and fallbacks in parseMessageText with preview normalization.
     - [✔️] Handling deleted/edited message metadata if applicable.
       DONE – 2025-12-03 20:08 – Extracted metadata parsing into getMessageMeta and validated edited/deleted flags via unit tests.
-  - [ ] Search merge logic:
-    - [ ] Deduping titles across local vs external sources.
-    - [ ] Source precedence (`library` vs `external-synced` vs `external-only`).
+- [✔️] Search merge logic:
+  DONE – 2025-12-03 20:38 – Added Vitest coverage for searchTitles merge behavior to keep Supabase/library results ahead of TMDb fallbacks and avoid duplicate tmdbId entries (src/__tests__/search.service.test.ts).
+  - [✔️] Deduping titles across local vs external sources.
+    DONE – 2025-12-03 20:38 – Test ensures tmdbId collisions skip external duplicates while retaining existing Supabase rows.
+  - [✔️] Source precedence (`library` vs `external-synced` vs `external-only`).
+    DONE – 2025-12-03 20:38 – Verified library items surface first, followed by synced external IDs, then unsynced TMDb results.
   - [ ] Diary stats reducer:
     - [ ] Correct averages and distributions.
     - [ ] Accurate monthly/yearly watch counts.
