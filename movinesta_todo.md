@@ -22,7 +22,8 @@ _For each task or subtask below:_
     DONE – 2025-12-03 15:27 – Confirmed `npm run generate:supabase-types` (scripts/generate-supabase-types.js) outputs `src/types/supabase.ts`.
   - [✔️] Replace any ad-hoc `import type { Database } from "...";` with a single canonical import path (e.g. `@/types/supabase`).
     DONE – 2025-12-03 15:27 – Ensured Supabase client code imports `Database` solely from `@/types/supabase`.
-  - [ ] Update hooks like `useProfile`, `useConversations`, `useBlockStatus`, diary and swipe hooks to use typed row types instead of `any` (and remove casts like `(profileError as any)`).
+- [✔️] Update hooks like `useProfile`, `useConversations`, `useBlockStatus`, diary and swipe hooks to use typed row types instead of `any` (and remove casts like `(profileError as any)`).
+  DONE – 2025-12-03 17:54 – Standardized diary, swipe, messaging, and profile hooks to Supabase row typings and removed remaining `any` casts for safer queries across modules.
 
 - [ ] Clean up build outputs
   - [✔️] Confirm Vite builds to `docs/` (for GitHub Pages) via `vite.config.ts`.
@@ -70,7 +71,8 @@ _For each task or subtask below:_
   - [✔️] Remove or move `src/lib/client.ts` / `src/lib/server.ts` if they are unused in this Vite SPA, or relocate them into a clearly separated `server/` folder if kept for SSR/back-end use.
     DONE – 2025-12-03 15:27 – Deleted unused SSR/browser client stubs in `src/lib/client.ts` and `src/lib/server.ts` to avoid duplication.
 
-  - [ ] Type-safety for Supabase queries
+  - [✔️] Type-safety for Supabase queries
+    DONE – 2025-12-03 17:54 – Completed Supabase query typing across conversation, diary, swipe, profile, and feed hooks using generated Database row definitions.
     - [✔️] Update `useConversations` to use `Database` row types instead of `any` for conversations, participants, messages, and read receipts.
       DONE – 2025-12-03 15:55 – Added Supabase row typing across conversations, participants, messages, and read receipt joins in `src/modules/messages/useConversations.ts` to remove `any` casts.
   - [✔️] Update `useProfile` (and related profile hooks) to:
@@ -491,7 +493,8 @@ _For each task or subtask below:_
   - [✔️] Use these helpers consistently across messages, diary, stats, and home feed.
     DONE – 2025-12-03 16:42 – Updated chat messages, conversation timestamps, diary stats/timeline, and settings account info to rely on the shared format helpers.
 
-- [ ] Toasts & inline error feedback
+- [✔️] Toasts & inline error feedback
+  DONE – 2025-12-03 17:54 – Toast system wired to React Query global errors with inline retry flows for failed messages and swipe logging across the app.
   - [✔️] Implement a minimal toast system for global notifications.
     DONE – 2025-12-03 16:59 – Added reusable toast store, helpers, and provider overlay for global notifications in `src/components/toasts` rendered via `App`.
   - [✔️] Connect React Query global error handler to show a toast when requests fail.
