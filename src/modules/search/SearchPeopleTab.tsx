@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { User, Users, UserPlus, UserMinus, MessageCircle } from "lucide-react";
 import { useSearchPeople } from "./useSearchPeople";
 import { useToggleFollow } from "./useToggleFollow";
-import { supabase } from "../../lib/supabase";
+import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { useAuth } from "../auth/AuthProvider";
 
 interface SearchPeopleTabProps {
@@ -43,52 +43,31 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     setStartingConversationFor(targetUserId);
 
     try {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 25000);
+      const payload = await callSupabaseFunction<CreateDirectConversationResponse>(
+        "create-direct-conversation",
+        { targetUserId },
+        { timeoutMs: 25000 },
+      );
 
-      try {
-        const { data, error } =
-          await supabase.functions.invoke<CreateDirectConversationResponse>(
-            "create-direct-conversation",
-            {
-              body: { targetUserId },
-              signal: controller.signal,
-            },
-          );
+      if (!payload?.ok || !payload.conversationId) {
+        const code = payload?.errorCode;
+        let friendly = payload?.error ?? "Failed to get conversation id. Please try again.";
 
-        if (error) {
-          console.error(
-            "[SearchPeopleTab] create-direct-conversation error",
-            error,
-          );
-          throw new Error(error.message ?? "Failed to start conversation.");
+        if (code === "UNAUTHORIZED") {
+          friendly = "You need to be signed in to start a conversation.";
+        } else if (code === "BAD_REQUEST_SELF_TARGET") {
+          friendly = "You can't start a conversation with yourself.";
+        } else if (code === "SERVER_MISCONFIGURED") {
+          friendly =
+            "Messaging is temporarily unavailable due to a server issue. Please try again later.";
         }
 
-        const payload = data as CreateDirectConversationResponse | null;
-
-        if (!payload?.ok || !payload.conversationId) {
-          const code = payload?.errorCode;
-          let friendly =
-            payload?.error ?? "Failed to get conversation id. Please try again.";
-
-          if (code === "UNAUTHORIZED") {
-            friendly = "You need to be signed in to start a conversation.";
-          } else if (code === "BAD_REQUEST_SELF_TARGET") {
-            friendly = "You can't start a conversation with yourself.";
-          } else if (code === "SERVER_MISCONFIGURED") {
-            friendly =
-              "Messaging is temporarily unavailable due to a server issue. Please try again later.";
-          }
-
-          const err = new Error(friendly);
-          (err as any).code = code;
-          throw err;
-        }
-
-        navigate(`/messages/${payload.conversationId}`);
-      } finally {
-        window.clearTimeout(timeout);
+        const err = new Error(friendly);
+        (err as any).code = code;
+        throw err;
       }
+
+      navigate(`/messages/${payload.conversationId}`);
     } catch (err: unknown) {
       console.error("[SearchPeopleTab] Failed to start conversation", err);
       const message =
