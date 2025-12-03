@@ -82,6 +82,8 @@ _For each task or subtask below:_
       DONE – 2025-12-03 16:01 – Typed activity event/title lookups in `src/modules/diary/useDiaryTimeline.ts` and validated payloads without `any` casts.
     - [✔️] useDiaryLibrary now uses generated Supabase row types for library entries, titles, and ratings.
       DONE – 2025-12-03 16:01 – Applied typed queries and removed casts in `src/modules/diary/useDiaryLibrary.ts` for safer diary library data.
+    - [✔️] useDiaryStats now queries Supabase with generated row types and typed errors.
+      DONE – 2025-12-03 16:15 – Swapped custom interfaces for Supabase rows in `src/modules/diary/useDiaryStats.ts` and removed casts.
 
 - [ ] RLS policies and indexes
   - [ ] Audit and add Row Level Security (RLS) policies for all user-data tables, including:

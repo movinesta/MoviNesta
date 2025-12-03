@@ -1,29 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
+import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 
-interface RatingRow {
-  rating: number | null;
-  created_at: string;
-  title_id: string;
-}
+type RatingsRow = Pick<
+  Database["public"]["Tables"]["ratings"]["Row"],
+  "rating" | "created_at" | "title_id"
+>;
 
-interface LibraryRow {
-  title_id: string;
-  status: string;
-  updated_at: string;
-}
+type LibraryRow = Pick<
+  Database["public"]["Tables"]["library_entries"]["Row"],
+  "title_id" | "status" | "updated_at"
+>;
 
-interface TitleGenreRow {
-  title_id: string;
-  genre_id: number;
-}
+type TitleGenreRow = Database["public"]["Tables"]["title_genres"]["Row"];
 
-interface GenreRow {
-  id: number;
-  name: string;
-}
+type GenreRow = Database["public"]["Tables"]["genres"]["Row"];
+type GenreLookupRow = Pick<GenreRow, "id" | "name">;
 
 export interface RatingBucket {
   rating: number; // 0.5 steps
@@ -62,7 +56,7 @@ export const useDiaryStats = () => {
   const { user } = useAuth();
   const userId = user?.id ?? null;
 
-  const query = useQuery({
+  const query = useQuery<DiaryStats, Error>({
     queryKey: qk.diaryStats(userId),
     enabled: Boolean(userId),
     queryFn: async (): Promise<DiaryStats> => {
@@ -90,8 +84,8 @@ export const useDiaryStats = () => {
         throw new Error(libraryResult.error.message);
       }
 
-      const ratingsRows = (ratingsResult.data ?? []) as RatingRow[];
-      const libraryRows = (libraryResult.data ?? []) as LibraryRow[];
+      const ratingsRows: RatingsRow[] = ratingsResult.data ?? [];
+      const libraryRows: LibraryRow[] = libraryResult.data ?? [];
 
       const watchedRows = libraryRows.filter((row) => row.status === "watched");
 
@@ -101,14 +95,9 @@ export const useDiaryStats = () => {
       let ratingCount = 0;
 
       ratingsRows.forEach((row) => {
-        const raw =
-          typeof row.rating === "number"
-            ? row.rating
-            : row.rating == null
-              ? null
-              : Number(row.rating);
+        const raw = row.rating;
 
-        if (raw == null || Number.isNaN(raw)) return;
+        if (typeof raw !== "number" || Number.isNaN(raw)) return;
 
         const bucket = Math.round(raw * 2) / 2; // 0.5 steps
         bucketMap.set(bucket, (bucketMap.get(bucket) ?? 0) + 1);
@@ -152,7 +141,7 @@ export const useDiaryStats = () => {
           .in("title_id", titleIds);
 
         if (!tgError && titleGenres) {
-          const tgRows = titleGenres as TitleGenreRow[];
+          const tgRows: TitleGenreRow[] = titleGenres;
           const genreIds = Array.from(
             new Set(
               tgRows
@@ -170,7 +159,8 @@ export const useDiaryStats = () => {
               .in("id", genreIds);
 
             if (!genresError && genres) {
-              genresById = new Map((genres as GenreRow[]).map((g) => [g.id, g.name]));
+              const genreRows: GenreLookupRow[] = genres;
+              genresById = new Map(genreRows.map((g) => [g.id, g.name]));
             } else if (genresError) {
               console.warn("[useDiaryStats] Failed to load genres", genresError.message);
             }
@@ -208,6 +198,6 @@ export const useDiaryStats = () => {
     stats: query.data ?? EMPTY_STATS,
     isLoading: query.isLoading,
     isError: query.isError,
-    error: (query.error as Error | null)?.message ?? null,
+    error: query.error?.message ?? null,
   };
 };
