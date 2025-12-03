@@ -446,6 +446,9 @@ const useRecommendations = (): UseRecommendationsResult => {
   >({
     queryKey: ["home-for-you", user?.id],
     enabled: Boolean(user?.id),
+    staleTime: 1000 * 20,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async () => {
       if (!user?.id) {
         return { tonightPick: null, sections: [], hasPartialData: false };

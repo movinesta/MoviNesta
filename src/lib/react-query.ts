@@ -11,11 +11,15 @@ const getErrorMessage = (error: unknown) => {
   return "Something went wrong. Please try again.";
 };
 
+const dynamicDataStaleTimeMs = 1000 * 15;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60,
-      refetchOnWindowFocus: false,
+      staleTime: dynamicDataStaleTimeMs,
+      gcTime: 1000 * 60 * 10,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
       retry: 1,
       onError: (error) => {
         toast.error(getErrorMessage(error));
