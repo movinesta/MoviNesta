@@ -455,11 +455,16 @@ _For each task or subtask below:_
   - [ ] Swipe cards:
     - [ ] Provide accessible labels describing the current card (title, year, rating).
 
-- [ ] Prevent theme flash (FOUC)
-  - [ ] Add an inline script in `index.html` before the JS bundle:
-    - [ ] Read the stored theme from `localStorage` (same key as `ui-store`).
-    - [ ] Apply or remove the `dark` class on `document.documentElement` before React mounts.
-  - [ ] Ensure logic matches the theme computation in `ui-store.ts`.
+- [✔️] Prevent theme flash (FOUC)
+  DONE – 2025-12-03 21:30 – Added inline theme preload in `index.html` to set the correct dark/light class before React mounts, matching `ui-store` behavior.
+  - [✔️] Add an inline script in `index.html` before the JS bundle:
+    DONE – 2025-12-03 21:30 – Inline script reads `moviNesta.ui` from `localStorage` and applies the resolved theme before the bundle loads.
+    - [✔️] Read the stored theme from `localStorage` (same key as `ui-store`).
+      DONE – 2025-12-03 21:30 – Theme preference is pulled from the persisted `moviNesta.ui` store key.
+    - [✔️] Apply or remove the `dark` class on `document.documentElement` before React mounts.
+      DONE – 2025-12-03 21:30 – Script toggles the `dark` class immediately using system preference when set to `system`.
+  - [✔️] Ensure logic matches the theme computation in `ui-store.ts`.
+    DONE – 2025-12-03 21:30 – Theme resolution mirrors `resolvePreferredTheme` including system-based `prefers-color-scheme` handling.
 
 - [ ] List virtualization
   - [ ] Introduce virtualization (e.g. `react-window` or similar) for:
