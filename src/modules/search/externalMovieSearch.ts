@@ -22,6 +22,12 @@ export type ExternalTitleResult = {
   posterUrl: string | null;
 };
 
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  }
+};
+
 export async function searchExternalTitles(
   query: string,
   signal?: AbortSignal,
@@ -29,12 +35,16 @@ export async function searchExternalTitles(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
+  throwIfAborted(signal);
+
   const body = await fetchTmdbJson("/search/multi", {
     query: trimmed,
     include_adult: "false",
     language: "en-US",
     page: 1,
   }, signal);
+
+  throwIfAborted(signal);
 
   const results = Array.isArray(body?.results) ? (body.results as TmdbMultiResult[]) : [];
   if (!results.length) return [];

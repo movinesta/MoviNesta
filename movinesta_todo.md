@@ -266,10 +266,11 @@ _For each task or subtask below:_
 
 ## 6. Search subsystem
 
-- [ ] `useSearchTitles` cancellation & structure
-  - [ ] Update React Query `queryFn` to take `({ signal })` and pass the `signal` to all underlying fetches.
-  - [ ] Early-return from loops or transformations if `signal.aborted` is true.
-  - [ ] Ensure all Supabase, TMDB proxy, and catalog sync calls respect the `AbortSignal`.
+- [✔️] `useSearchTitles` cancellation & structure
+  DONE – 2025-12-03 22:14 – Propagated AbortSignals through search services, short-circuiting Supabase, TMDB, and catalog sync flows in `src/modules/search/search.service.ts` and `src/modules/search/externalMovieSearch.ts` so cancelled queries exit early.
+  - [✔️] Update React Query `queryFn` to take `({ signal })` and pass the `signal` to all underlying fetches.
+  - [✔️] Early-return from loops or transformations if `signal.aborted` is true.
+  - [✔️] Ensure all Supabase, TMDB proxy, and catalog sync calls respect the `AbortSignal`.
 
 - [ ] Batch catalog sync
   - [ ] Implement `catalog-sync-batch` Edge Function that:
@@ -286,12 +287,13 @@ _For each task or subtask below:_
   - [ ] Populate `source` correctly for each item when merging local + TMDB data.
   - [ ] Update UI to show a small badge or styling hint for the result source.
 
-- [ ] Encode search state in URL
-  - [ ] In `SearchPage`, derive `query`, `tab`, and filters (type, year range, language, genres) from `useSearchParams`.
-  - [ ] Update `searchParams` via `setSearchParams` when user changes filters or tabs (use `replace: true` where appropriate).
-  - [ ] Verify that:
-    - [ ] Reloading keeps the same search state.
-    - [ ] Back/forward navigation restores previous queries and filters.
+- [✔️] Encode search state in URL
+  DONE – 2025-12-03 22:14 – Synced search queries, tabs, and filters with URL params in `src/modules/search/SearchPage.tsx`, keeping reloads and history navigation aligned with the current search state.
+  - [✔️] In `SearchPage`, derive `query`, `tab`, and filters (type, year range, language, genres) from `useSearchParams`.
+  - [✔️] Update `searchParams` via `setSearchParams` when user changes filters or tabs (use `replace: true` where appropriate).
+  - [✔️] Verify that:
+    - [✔️] Reloading keeps the same search state.
+    - [✔️] Back/forward navigation restores previous queries and filters.
 
 - [ ] Infinite scroll for search results
   - [ ] Switch title search to `useInfiniteQuery` with a clear `getNextPageParam`.

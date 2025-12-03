@@ -44,6 +44,12 @@ type TitleRow = Pick<
   | "omdb_rt_rating_pct"
 >;
 
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  }
+};
+
 const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
   const posterUrl = row.poster_url ?? row.backdrop_url ?? null;
 
@@ -67,6 +73,8 @@ const searchSupabaseTitles = async (
   filters: TitleSearchFilters | undefined,
   signal: AbortSignal | undefined,
 ): Promise<TitleSearchResult[]> => {
+  throwIfAborted(signal);
+
   const columns = `
     id:title_id,
     primary_title,
@@ -130,6 +138,8 @@ const searchSupabaseTitles = async (
     throw new Error(error.message);
   }
 
+  throwIfAborted(signal);
+
   const rows = data ?? [];
   return rows.map(mapTitleRowToResult);
 };
@@ -140,9 +150,7 @@ export const searchTitles = async (
   const { query, filters, signal } = params;
   const trimmedQuery = query.trim();
 
-  if (signal?.aborted) {
-    throw new DOMException("Aborted", "AbortError");
-  }
+  throwIfAborted(signal);
 
   let supabaseResults: TitleSearchResult[] = [];
 
@@ -153,6 +161,8 @@ export const searchTitles = async (
   }
 
   const externalResults = await searchExternalTitles(trimmedQuery, signal);
+
+  throwIfAborted(signal);
   if (!externalResults.length && supabaseResults.length > 0) {
     return supabaseResults;
   }
@@ -166,6 +176,8 @@ export const searchTitles = async (
 
   const hydratedExternal = await Promise.all(
     externalResults.map(async (item) => {
+      throwIfAborted(signal);
+
       if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return null;
 
       let titleId = `tmdb-${item.tmdbId}`;
@@ -199,6 +211,8 @@ export const searchTitles = async (
       } catch (err) {
         console.warn("[search.service] Failed to catalog-sync TMDb title", item.tmdbId, err);
       }
+
+      throwIfAborted(signal);
 
       const type: TitleType = item.type === "tv" ? "series" : "movie";
 
