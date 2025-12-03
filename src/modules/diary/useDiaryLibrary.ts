@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -23,25 +24,13 @@ export interface DiaryLibraryEntry {
   rating: number | null;
 }
 
-interface LibraryRow {
-  id: string;
-  title_id: string;
-  status: string;
-  updated_at: string;
-  titles: {
-    id: string;
-    title: string | null;
-    year: number | null;
-    type: TitleType | null;
-    poster_url: string | null;
-    backdrop_url: string | null;
-  } | null;
-}
-
-interface RatingRow {
-  title_id: string;
-  rating: number | null;
-}
+type LibraryRow = Database["public"]["Tables"]["library_entries"]["Row"];
+type TitleRow = Pick<
+  Database["public"]["Tables"]["titles"]["Row"],
+  "title_id" | "primary_title" | "release_year" | "content_type" | "poster_url" | "backdrop_url"
+>;
+type LibraryRowWithTitle = LibraryRow & { titles: TitleRow | null };
+type RatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "title_id" | "rating">;
 
 export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: string | null) => {
   const { user } = useAuth();
@@ -56,8 +45,14 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
       const { data, error } = await supabase
         .from("library_entries")
         .select(
-          "id, title_id, status, updated_at, titles!inner ( id:title_id, title:primary_title, year:release_year, type:content_type, poster_url, backdrop_url )",
+          `
+            id, title_id, status, updated_at, content_type,
+            titles!inner (
+              title_id, primary_title, release_year, content_type, poster_url, backdrop_url
+            )
+          `,
         )
+        .returns<LibraryRowWithTitle[]>()
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(500);
@@ -66,7 +61,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         throw new Error(error.message);
       }
 
-      const rows = (data ?? []) as LibraryRow[];
+      const rows = data ?? [];
 
       if (!rows.length) return [];
 
@@ -80,13 +75,12 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         const { data: ratings, error: ratingsError } = await supabase
           .from("ratings")
           .select("title_id, rating")
+          .returns<RatingRow[]>()
           .eq("user_id", userId)
           .in("title_id", titleIds);
 
         if (!ratingsError && ratings) {
-          ratingsByTitleId = new Map(
-            (ratings as RatingRow[]).map((row) => [row.title_id, row.rating]),
-          );
+          ratingsByTitleId = new Map(ratings.map((row) => [row.title_id, row.rating]));
         } else if (ratingsError) {
           console.warn(
             "[useDiaryLibrary] Failed to load ratings for library entries",
@@ -102,11 +96,11 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         return {
           id: row.id,
           titleId: row.title_id,
-          status: row.status as DiaryStatus,
+          status: row.status,
           updatedAt: row.updated_at,
-          title: (title?.title ?? "Untitled") as string,
-          year: title?.year ?? null,
-          type: (title?.type ?? null) as TitleType | null,
+          title: title?.primary_title ?? "Untitled",
+          year: title?.release_year ?? null,
+          type: title?.content_type ?? null,
           posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
           rating,
         };
@@ -128,7 +122,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
     entries,
     isLoading: query.isLoading,
     isError: query.isError,
-    error: (query.error as Error | null)?.message ?? null,
+    error: query.error instanceof Error ? query.error.message : null,
   };
 };
 
@@ -166,7 +160,7 @@ export const useDiaryLibraryMutations = () => {
           throw new Error(titleError.message);
         }
 
-        contentType = (titleRow as { content_type: TitleType | null } | null)?.content_type ?? null;
+        contentType = titleRow?.content_type ?? null;
       }
 
       if (!contentType) {
@@ -231,7 +225,7 @@ export const useDiaryLibraryMutations = () => {
           throw new Error(titleError.message);
         }
 
-        contentType = (titleRow as { content_type: TitleType | null } | null)?.content_type ?? null;
+        contentType = titleRow?.content_type ?? null;
       }
 
       if (!contentType) {

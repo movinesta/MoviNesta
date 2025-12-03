@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+
+type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
+type TitleRow = Pick<
+  Database["public"]["Tables"]["titles"]["Row"],
+  "title_id" | "primary_title" | "release_year" | "poster_url" | "backdrop_url"
+>;
 
 interface ActivityPayload {
   rating?: number;
@@ -8,22 +15,6 @@ interface ActivityPayload {
   headline?: string;
   extra?: string;
   emoji?: string;
-}
-
-interface ActivityEventRow {
-  id: string;
-  created_at: string;
-  event_type: string;
-  title_id: string | null;
-  payload: ActivityPayload | null;
-}
-
-interface TitleRow {
-  id: string;
-  title: string | null;
-  year: number | null;
-  poster_url?: string | null;
-  backdrop_url?: string | null;
 }
 
 export type DiaryEventKind = "rating" | "review" | "watchlist" | "follow" | "other";
@@ -43,7 +34,7 @@ export interface DiaryTimelineItem {
   emoji?: string | null;
 }
 
-const mapEventTypeToDiaryKind = (eventType: string): DiaryEventKind => {
+const mapEventTypeToDiaryKind = (eventType: ActivityEventRow["event_type"]): DiaryEventKind => {
   switch (eventType) {
     case "rating_created":
       return "rating";
@@ -58,6 +49,25 @@ const mapEventTypeToDiaryKind = (eventType: string): DiaryEventKind => {
   }
 };
 
+const parseActivityPayload = (payload: ActivityEventRow["payload"]): ActivityPayload => {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const payloadObject = payload as Record<string, unknown>;
+
+  return {
+    rating: typeof payloadObject.rating === "number" ? payloadObject.rating : undefined,
+    review_snippet:
+      typeof payloadObject.review_snippet === "string"
+        ? payloadObject.review_snippet
+        : undefined,
+    headline: typeof payloadObject.headline === "string" ? payloadObject.headline : undefined,
+    extra: typeof payloadObject.extra === "string" ? payloadObject.extra : undefined,
+    emoji: typeof payloadObject.emoji === "string" ? payloadObject.emoji : undefined,
+  };
+};
+
 export const useDiaryTimeline = (userIdOverride?: string | null) => {
   const { user } = useAuth();
   const userId = userIdOverride ?? user?.id ?? null;
@@ -68,7 +78,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
     queryFn: async (): Promise<DiaryTimelineItem[]> => {
       if (!userId) return [];
 
-      const { data, error } = await supabase
+      const { data: rows, error } = await supabase
         .from("activity_events")
         .select("id, created_at, event_type, title_id, payload")
         .eq("user_id", userId)
@@ -79,9 +89,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
         throw new Error(error.message);
       }
 
-      const rows = (data ?? []) as ActivityEventRow[];
-
-      if (!rows.length) return [];
+      if (!rows?.length) return [];
 
       const titleIds = Array.from(
         new Set(rows.map((row) => row.title_id).filter((id): id is string => Boolean(id))),
@@ -92,11 +100,11 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       if (titleIds.length) {
         const { data: titles, error: titlesError } = await supabase
           .from("titles")
-          .select("id:title_id, title:primary_title, year:release_year, poster_url, backdrop_url")
+          .select("title_id, primary_title, release_year, poster_url, backdrop_url")
           .in("title_id", titleIds);
 
         if (!titlesError && titles) {
-          titlesById = new Map((titles as TitleRow[]).map((t) => [t.id, t]));
+          titlesById = new Map(titles.map((title) => [title.title_id, title]));
         } else if (titlesError) {
           console.warn("[useDiaryTimeline] Failed to load titles", titlesError.message);
         }
@@ -105,15 +113,15 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       return rows.map((row) => {
         const title = row.title_id ? (titlesById.get(row.title_id) ?? null) : null;
         const kind = mapEventTypeToDiaryKind(row.event_type);
-        const payload = row.payload ?? {};
+        const payload = parseActivityPayload(row.payload);
 
         return {
           id: row.id,
           createdAt: row.created_at,
           kind,
           titleId: row.title_id,
-          title: title?.title ?? null,
-          year: title?.year ?? null,
+          title: title?.primary_title ?? null,
+          year: title?.release_year ?? null,
           posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
           rating: payload.rating ?? null,
           reviewSnippet: payload.review_snippet ?? null,
@@ -129,6 +137,6 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
     items: query.data ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
-    error: (query.error as Error | null)?.message ?? null,
+    error: query.error instanceof Error ? query.error.message : null,
   };
 };
