@@ -601,7 +601,7 @@ const useDeleteMessage = (conversationId: string | null) => {
 /**
  * Renders an attachment image from chat-media bucket using a signed URL.
  */
-const ChatImage: React.FC<{ path: string }> = ({ path }) => {
+export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
