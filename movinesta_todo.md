@@ -499,7 +499,8 @@ _For each task or subtask below:_
   - [ ] Show inline failure states for:
     - [✔️] Message send failures (with retry).
       DONE – 2025-12-03 17:06 – Added inline failed-message state with retry controls in `src/modules/messages/ConversationPage.tsx` so unsent chats can be resent without losing context.
-    - [ ] Swipe logging failures (optional retry).
+    - [✔️] Swipe logging failures (optional retry).
+      DONE – 2025-05-17 00:35 – Added swipe sync banners with retry hooks so failed swipe logs can be retried inline across swipe tabs and the combined swipe page.
 
 ---
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
 import { formatNumber } from "@/utils/format";
+import SwipeSyncBanner from "./SwipeSyncBanner";
 
 type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -49,7 +50,16 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeTrendingTab: React.FC = () => {
-  const { cards, swipe, swipeAsync, fetchMore, trimConsumed } = useSwipeDeck("trending", {
+  const {
+    cards,
+    swipe,
+    swipeAsync,
+    fetchMore,
+    trimConsumed,
+    swipeSyncError,
+    retryFailedSwipe,
+    isRetryingSwipe,
+  } = useSwipeDeck("trending", {
     limit: 40,
   });
 
@@ -118,6 +128,7 @@ const SwipeTrendingTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
+        title: card.title,
       });
 
       setLastSwipe({
@@ -217,11 +228,14 @@ const SwipeTrendingTab: React.FC = () => {
         [cardId]: next,
       };
 
+      const cardTitle = cards.find((card) => card.id === cardId)?.title;
+
       swipeAsync({
         cardId,
         direction: next === 0 ? "skip" : "like",
         rating: next === 0 ? null : next,
         inWatchlist: watchlist[cardId] ?? undefined,
+        title: cardTitle,
       }).catch(() => {
         setRatings((currentState) => ({
           ...currentState,
@@ -242,11 +256,14 @@ const SwipeTrendingTab: React.FC = () => {
         [cardId]: nextValue,
       };
 
+      const cardTitle = cards.find((card) => card.id === cardId)?.title;
+
       swipeAsync({
         cardId,
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,
@@ -320,6 +337,12 @@ const SwipeTrendingTab: React.FC = () => {
           <span>Swipe the hottest titles</span>
         </div>
       </header>
+
+      <SwipeSyncBanner
+        message={swipeSyncError}
+        onRetry={retryFailedSwipe}
+        isRetrying={isRetryingSwipe}
+      />
 
       <div className="relative mt-2 flex flex-1 flex-col">
         <div className="relative flex flex-1 items-center justify-center">

@@ -12,6 +12,7 @@ import {
 import TopBar from "../../components/shared/TopBar";
 import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
 import { useSwipeDeck } from "./useSwipeDeck";
+import SwipeSyncBanner from "./SwipeSyncBanner";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -171,7 +172,17 @@ const LoadingSwipeCard: React.FC = () => {
 };
 
 const SwipePage: React.FC = () => {
-  const { cards, isLoading, isError, swipe, fetchMore, trimConsumed } = useSwipeDeck("combined", {
+  const {
+    cards,
+    isLoading,
+    isError,
+    swipe,
+    fetchMore,
+    trimConsumed,
+    swipeSyncError,
+    retryFailedSwipe,
+    isRetryingSwipe,
+  } = useSwipeDeck("combined", {
     limit: 72,
   });
 
@@ -293,6 +304,7 @@ const SwipePage: React.FC = () => {
       rating: activeCard.initialRating ?? null,
       inWatchlist: activeCard.initiallyInWatchlist ?? undefined,
       sourceOverride: activeCard.source,
+      title: activeCard.title,
     });
 
     // SKIP → drop + fade
@@ -412,6 +424,12 @@ const SwipePage: React.FC = () => {
   return (
     <div className="relative flex min-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
+
+      <SwipeSyncBanner
+        message={swipeSyncError}
+        onRetry={retryFailedSwipe}
+        isRetrying={isRetryingSwipe}
+      />
 
       <div className="relative mt-2 flex flex-1 flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
         <div

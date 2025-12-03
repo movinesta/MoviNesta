@@ -95,6 +95,7 @@ interface SwipeEventPayload {
   rating?: number | null;
   inWatchlist?: boolean | null;
   sourceOverride?: SwipeDeckKind;
+  title?: string;
 }
 
 function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCardData[] {
@@ -123,6 +124,10 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const [cards, setCards] = useState<SwipeCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [swipeError, setSwipeError] = useState<{
+    payload: SwipeEventPayload;
+    message: string;
+  } | null>(null);
   const sourceWeightsRef = useRef<Record<SwipeDeckKind, number>>(
     loadInitialSourceWeights(),
   );
@@ -357,6 +362,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       rating,
       inWatchlist,
       sourceOverride,
+      title,
     }: SwipeEventPayload) => {
       const { error } = await supabase.functions.invoke("swipe-event", {
         body: {
@@ -370,7 +376,21 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
 
       if (error) {
         console.warn("[useSwipeDeck] swipe-event error", error);
+        throw new Error(error.message ?? "Failed to log swipe");
       }
+    },
+    onError: (error, variables) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "We couldn't save that swipe. Please retry.";
+
+      setSwipeError({
+        payload: variables,
+        message,
+      });
     },
     onSuccess: () => {
       // Swiping updates ratings, library entries, and activity feed via the edge function.
@@ -378,6 +398,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(null) });
       queryClient.invalidateQueries({ queryKey: qk.homeForYou(null) });
       queryClient.invalidateQueries({ queryKey: qk.homeFeed(null) });
+      setSwipeError(null);
     },
   });
 
@@ -395,5 +416,12 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       updateSourceWeights(payload.sourceOverride, payload.direction);
       return swipeMutation.mutateAsync(payload);
     },
+    swipeSyncError: swipeError?.message ?? null,
+    retryFailedSwipe: () => {
+      if (swipeError) {
+        swipeMutation.mutate(swipeError.payload);
+      }
+    },
+    isRetryingSwipe: swipeMutation.isPending && Boolean(swipeError),
   };
 }
