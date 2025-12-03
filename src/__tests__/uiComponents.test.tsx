@@ -15,6 +15,11 @@ import type { SwipeCardData } from "../modules/swipe/useSwipeDeck";
 
 expect.extend(matchers);
 
+const routerFuture = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+};
+
 const baseConversation: ConversationListItem = {
   id: "conv-1",
   title: "Movie Night",
@@ -70,7 +75,7 @@ describe("ConversationListRow", () => {
     };
 
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={routerFuture}>
         <ul>
           <ConversationListRow conversation={baseConversation} />
           <ConversationListRow conversation={unread} />
@@ -111,7 +116,7 @@ describe("Message bubble appearance", () => {
 describe("TitleSearchResultRow", () => {
   it("shows poster fallback and metadata summary", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={routerFuture}>
         <ul>
           <TitleSearchResultRow item={sampleTitle} />
         </ul>
@@ -165,7 +170,7 @@ describe("Skeleton components", () => {
 describe("LoadingSwipeCard", () => {
   it("displays loading badges", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={routerFuture}>
         <LoadingSwipeCard />
       </MemoryRouter>,
     );

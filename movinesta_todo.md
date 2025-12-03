@@ -667,6 +667,9 @@ _For each task or subtask below:_
   - [✔️] Add short comments at top of complex or central files (`useSwipeDeck`, `useConversations`, `get_home_feed` SQL, key Edge functions) describing their purpose and assumptions.
   - [✔️] Clearly tag experimental/demo features (Realtime chat, Lists if not yet implemented) so future maintainers know what is production vs experimental.
 
+- [✔️] React Router v7 readiness
+  DONE – 2025-12-03 22:19 – Opted into React Router v7 startTransition and relative splat path flags in app and test routers to silence future warnings and align navigation behavior.
+
 ---
 
 _This checklist is designed so an AI coding agent (or a human) can work through it item by item, marking `[✔️]` or `[✖️]` and adding a dated `DONE – ...` summary line under each completed task._
