@@ -25,6 +25,7 @@ function buildHeaders() {
 export async function fetchTmdbJson(
   path: string,
   params?: Record<string, string | number | undefined>,
+  signal?: AbortSignal,
 ) {
   if (!TMDB_READ_TOKEN) {
     console.warn("[tmdb] Missing TMDB credentials. Set VITE_TMDB_API_READ_ACCESS_TOKEN.");
@@ -42,6 +43,7 @@ export async function fetchTmdbJson(
   try {
     const res = await fetch(url.toString(), {
       headers: buildHeaders(),
+      signal,
     });
 
     if (!res.ok) {
@@ -73,12 +75,12 @@ export type TmdbTitle = {
   voteAverage: number | null;
 };
 
-export async function fetchTrendingTitles(limit = 20): Promise<TmdbTitle[]> {
+export async function fetchTrendingTitles(limit = 20, signal?: AbortSignal): Promise<TmdbTitle[]> {
   const body = await fetchTmdbJson("/trending/all/week", {
     include_adult: "false",
     language: "en-US",
     page: 1,
-  });
+  }, signal);
 
   const results = Array.isArray(body?.results) ? (body.results as TmdbTitleResult[]) : [];
 
