@@ -540,7 +540,8 @@ _For each task or subtask below:_
   - [ ] Verify attachment upload flow:
     - [ ] Upload to Supabase Storage (e.g. `message_attachments/{conversation}/{id}`).
     - [ ] Generate and use signed URLs where necessary.
-  - [ ] Confirm `ChatImage` (and related components) support `loading="lazy"`, proper alt text, and safe error states.
+  - [✔️] Confirm `ChatImage` (and related components) support `loading="lazy"`, proper alt text, and safe error states.
+    DONE – 2025-12-03 19:08 – Added tests for ChatImage covering skeleton, lazy-loaded signed URLs, and error fallback while exporting the component for reuse.
   - [ ] Add an attachment button to `MessageComposer` if not already wired end-to-end.
 
 - [ ] Hero title pages
