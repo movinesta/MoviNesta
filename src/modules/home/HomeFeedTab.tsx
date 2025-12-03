@@ -961,7 +961,7 @@ const ReactionBar: React.FC<ReactionBarProps> = ({ titleId }) => {
   );
 };
 
-const FeedSkeleton: React.FC = () => {
+export const FeedSkeleton: React.FC = () => {
   return (
     <div className="space-y-3">
       {[0, 1, 2].map((idx) => (

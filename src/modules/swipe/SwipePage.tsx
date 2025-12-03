@@ -105,7 +105,7 @@ const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
  * and does a subtle “swipe wiggle” left/right.
  * Updated so there is only ONE visible card (no blurred background layer).
  */
-const LoadingSwipeCard: React.FC = () => {
+export const LoadingSwipeCard: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const directionRef = useRef<1 | -1>(1);
 

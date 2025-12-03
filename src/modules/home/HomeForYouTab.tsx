@@ -776,7 +776,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
   );
 };
 
-const TonightPickSkeleton: React.FC = () => {
+export const TonightPickSkeleton: React.FC = () => {
   return (
     <section className="animate-pulse rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/90 p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -799,7 +799,7 @@ const TonightPickSkeleton: React.FC = () => {
   );
 };
 
-const CarouselsSkeleton: React.FC = () => {
+export const CarouselsSkeleton: React.FC = () => {
   return (
     <div className="space-y-3">
       {[0, 1].map((rowIndex) => (
