@@ -116,7 +116,7 @@ const ProfilePage: React.FC = () => {
     if (!profile) return;
 
     if (profile.isCurrentUser) {
-      navigate("/settings/profile");
+      navigate("/settings");
       return;
     }
 

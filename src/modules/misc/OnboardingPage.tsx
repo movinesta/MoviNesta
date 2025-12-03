@@ -77,7 +77,7 @@ const OnboardingPage: React.FC = () => {
                 {
                   icon: HeartHandshake,
                   title: "Watch with friends",
-                  copy: "Follow your crew, trade lists, and plan your next movie night together.",
+                  copy: "Follow your crew, swap recommendations, and plan your next movie night together.",
                 },
               ].map(({ icon: Icon, title, copy }) => (
                 <div key={title} className="flex items-start gap-3 rounded-2xl bg-mn-bg/60 p-4">
