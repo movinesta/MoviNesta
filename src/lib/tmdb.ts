@@ -1,3 +1,5 @@
+import { getPreferredLanguageForTmdb } from "@/i18n/useI18n";
+
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 const TMDB_READ_TOKEN = import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN;
@@ -33,11 +35,14 @@ export async function fetchTmdbJson(
   }
 
   const url = new URL(`${TMDB_BASE_URL}${path}`);
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value != null) {
-        url.searchParams.set(key, String(value));
-      }
+  const searchParams: Record<string, string | number | undefined> = {
+    language: getPreferredLanguageForTmdb(),
+    ...params,
+  };
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value != null) {
+      url.searchParams.set(key, String(value));
     }
   }
   try {
@@ -78,11 +83,14 @@ export type TmdbTitle = {
 };
 
 export async function fetchTrendingTitles(limit = 20, signal?: AbortSignal): Promise<TmdbTitle[]> {
-  const body = await fetchTmdbJson("/trending/all/week", {
-    include_adult: "false",
-    language: "en-US",
-    page: 1,
-  }, signal);
+  const body = await fetchTmdbJson(
+    "/trending/all/week",
+    {
+      include_adult: "false",
+      page: 1,
+    },
+    signal,
+  );
 
   const results = Array.isArray(body?.results) ? (body.results as TmdbTitleResult[]) : [];
 

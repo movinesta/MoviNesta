@@ -1,0 +1,38 @@
+{
+  "nav.home": "Home",
+  "nav.swipe": "Swipe",
+  "nav.messages": "Messages",
+  "nav.search": "Search",
+  "nav.diary": "Diary",
+
+  "settings.app.title": "App",
+  "settings.app.subtitle": "Customize how MoviNesta behaves on this device.",
+
+  "settings.start.title": "Start screen",
+  "settings.start.description": "Choose which tab you land on when you open MoviNesta.",
+  "settings.start.note": "This is stored locally. You can later hook it into navigation logic if needed.",
+
+  "settings.theme.title": "Theme",
+  "settings.theme.description": "Choose how MoviNesta should follow your device theme.",
+  "settings.theme.matchSystem": "Match system",
+  "settings.theme.alwaysDark": "Always dark",
+  "settings.theme.light": "Light",
+  "settings.theme.note": "Your choice is saved on this device and updates immediately.",
+
+  "settings.language.title": "Language",
+  "settings.language.description": "Language selector is coming soon. We start with English and Spanish while we wire full translations.",
+  "settings.language.matchSystem": "Match system",
+  "settings.language.english": "English",
+  "settings.language.spanish": "Español",
+  "settings.language.note": "We will remember this preference as we expand localization.",
+  "settings.language.comingSoon": "Coming soon: the language selector is local-only for now while we add full translations.",
+
+  "settings.motion.title": "Motion",
+  "settings.motion.description": "Reduce some of the more cinematic animations.",
+  "settings.motion.reduceMotion": "Reduce motion",
+  "settings.motion.detail": "Fewer transitions and subtle effects. Great if you prefer a calmer UI.",
+
+  "settings.save.success": "App settings saved to this device.",
+  "settings.save.error": "Couldn't save settings. Try again.",
+  "settings.save.cta": "Save settings"
+}

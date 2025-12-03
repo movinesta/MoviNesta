@@ -393,13 +393,14 @@ _For each task or subtask below:_
 
 ## 9. Settings, notifications, language & onboarding
 
-- [ ] Language setting wiring
-  - [ ] In `SettingsAppPage`, clearly mark the language selector as “coming soon” until full i18n is ready.
-  - [ ] Implement minimal i18n scaffolding:
-    - [ ] `src/i18n/en.json` (and possibly another locale).
-    - [ ] A small `useI18n()` hook returning `t(key)` and current language.
-  - [ ] Replace key strings (nav labels, major headings, key buttons) with `t("...")` calls.
-  - [ ] Use the selected language for TMDB requests when appropriate.
+- [✔️] Language setting wiring
+  DONE – 2025-12-03 22:22 – Added en/es i18n scaffolding, translated nav/settings copy with useI18n, highlighted the coming-soon language selector, and routed TMDB requests through the stored locale.
+  - [✔️] In `SettingsAppPage`, clearly mark the language selector as “coming soon” until full i18n is ready.
+  - [✔️] Implement minimal i18n scaffolding:
+    - [✔️] `src/i18n/en.json` (and possibly another locale).
+    - [✔️] A small `useI18n()` hook returning `t(key)` and current language.
+  - [✔️] Replace key strings (nav labels, major headings, key buttons) with `t("...")` calls.
+  - [✔️] Use the selected language for TMDB requests when appropriate.
 
 - [ ] Notification settings → backend
   - [ ] Short term:
