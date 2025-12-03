@@ -28,7 +28,12 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
         className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2 hover:bg-mn-bg-elevated/80"
       >
         {item.posterUrl ? (
-          <img src={item.posterUrl} alt={item.title} className="h-20 w-14 rounded-mn-card object-cover" />
+          <img
+            src={item.posterUrl}
+            alt={item.title}
+            className="h-20 w-14 rounded-mn-card object-cover"
+            loading="lazy"
+          />
         ) : (
           <div className="flex h-20 w-14 items-center justify-center rounded-mn-card bg-mn-surface-muted">
             <Film className="h-5 w-5 text-mn-text-muted" aria-hidden="true" />

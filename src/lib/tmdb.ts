@@ -58,7 +58,9 @@ export async function fetchTmdbJson(
   }
 }
 
-export function tmdbImageUrl(path: string | null | undefined, size: "w500" | "w780" = "w500") {
+export type TmdbImageSize = "w185" | "w342" | "w500" | "w780" | "w1280" | "original";
+
+export function tmdbImageUrl(path: string | null | undefined, size: TmdbImageSize = "w500") {
   if (!path) return null;
   return `https://image.tmdb.org/t/p/${size}${path}`;
 }

@@ -174,12 +174,18 @@ _For each task or subtask below:_
   - [ ] Update frontend TMDB calls to go through `callSupabaseFunction("tmdb-proxy", ...)` instead of calling TMDB directly.
   - [ ] Remove any direct TMDB read token usage from frontend code.
 
-- [ ] TMDB image helper & performance
-  - [ ] Add a central helper (e.g. `tmdbImageUrl(path, size)`).
-  - [ ] Replace inline `https://image.tmdb.org/t/p/...` usages (e.g. in title detail, swipe cards, search results) with this helper.
-  - [ ] Use appropriate sizes depending on context (`w342` / `w500` / etc.).
-  - [ ] Add `loading="lazy"` for non-critical images (lists, avatars).
-  - [ ] Prefetch images for the next few swipe cards to improve perceived performance.
+- [✔️] TMDB image helper & performance
+  DONE – 2025-12-03 22:01 – Unified TMDB image handling with size-aware helper usage, lazy loading, and swipe poster prefetching.
+  - [✔️] Add a central helper (e.g. `tmdbImageUrl(path, size)`).
+    DONE – 2025-12-03 22:01 – Expanded `tmdbImageUrl` to a typed size enum for consistent TMDB asset URLs.
+  - [✔️] Replace inline `https://image.tmdb.org/t/p/...` usages (e.g. in title detail, swipe cards, search results) with this helper.
+    DONE – 2025-12-03 22:01 – Swapped TitleDetail hero assets to the helper for posters and backdrops.
+  - [✔️] Use appropriate sizes depending on context (`w342` / `w500` / etc.).
+    DONE – 2025-12-03 22:01 – Poster/backdrop requests now request w500 and w1280 sizes based on context.
+  - [✔️] Add `loading="lazy"` for non-critical images (lists, avatars).
+    DONE – 2025-12-03 22:01 – Added lazy loading to search title thumbnails and people avatars to defer offscreen work.
+  - [✔️] Prefetch images for the next few swipe cards to improve perceived performance.
+    DONE – 2025-12-03 22:01 – Prefetches upcoming swipe posters during idle time to smooth transitions.
 
 ---
 

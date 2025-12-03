@@ -171,6 +171,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                       src={person.avatarUrl}
                       alt={displayName}
                       className="h-8 w-8 rounded-full object-cover"
+                      loading="lazy"
                     />
                   ) : displayName ? (
                     displayName[0]?.toUpperCase()
