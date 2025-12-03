@@ -431,18 +431,29 @@ _For each task or subtask below:_
     - [ ] If not used:
       - [ ] Move `AvatarPicker` to a `future/` or `experimental/` folder or remove it to avoid dead code.
 
-- [ ] Settings overview
-  - [ ] Decide whether `SettingsOverviewPage` is a central hub or not:
-    - [ ] If yes, wire `/settings` to show overview and link to subsections.
-    - [ ] If no, remove or de-emphasize this page to avoid confusion.
-  - [ ] Ensure routing and top bar labels are consistent for settings subsections.
+- [✔️] Settings overview
+  DONE – 2025-12-03 22:28 – Wired /settings to the overview hub in router and routed profile gear to it; kept settings section labels consistent.
+  - [✔️] Decide whether `SettingsOverviewPage` is a central hub or not:
+    DONE – 2025-12-03 22:28 – Chose to keep the page as the central hub.
+    - [✔️] If yes, wire `/settings` to show overview and link to subsections.
+      DONE – 2025-12-03 22:28 – Added /settings route to SettingsOverviewPage with links to profile/account/notifications/app.
+    - [✖️] If no, remove or de-emphasize this page to avoid confusion.
+      DONE – 2025-12-03 22:28 – Not applicable after choosing the hub approach.
+  - [✔️] Ensure routing and top bar labels are consistent for settings subsections.
+    DONE – 2025-12-03 22:28 – Verified existing settings pages retain their labeled sections while routing flows through the overview.
 
-- [ ] Onboarding copy & lists
-  - [ ] Review `OnboardingPage` copy, especially:
-    - [ ] “Follow your crew, trade lists, and plan your next movie night together.”
-  - [ ] Either:
-    - [ ] Soften copy to remove “trade lists” until the lists feature exists, or
-    - [ ] Prioritize building a v1 Lists feature (create, edit, and share lists) to match the promise.
+- [✔️] Onboarding copy & lists
+  DONE – 2025-12-03 22:28 – Softened onboarding callout to promise recommendations instead of list trading in OnboardingPage.
+  - [✔️] Review `OnboardingPage` copy, especially:
+    DONE – 2025-12-03 22:28 – Reviewed hero bullet text for overpromising lists.
+    - [✔️] “Follow your crew, trade lists, and plan your next movie night together.”
+      DONE – 2025-12-03 22:28 – Reworded to focus on recommendations and watch planning.
+  - [✔️] Either:
+    DONE – 2025-12-03 22:28 – Chose copy softening path over building lists.
+    - [✔️] Soften copy to remove “trade lists” until the lists feature exists, or
+      DONE – 2025-12-03 22:28 – Updated onboarding bullet to avoid promising list trading.
+    - [✖️] Prioritize building a v1 Lists feature (create, edit, and share lists) to match the promise.
+      DONE – 2025-12-03 22:28 – Deferred; copy adjusted so list feature is no longer implied.
 
 ---
 

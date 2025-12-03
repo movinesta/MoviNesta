@@ -15,6 +15,7 @@ const SwipePage = React.lazy(() => import("./modules/swipe/SwipePage"));
 const SearchPage = React.lazy(() => import("./modules/search/SearchPage"));
 const DiaryPage = React.lazy(() => import("./modules/diary/DiaryPage"));
 const ProfilePage = React.lazy(() => import("./modules/profile/ProfilePage"));
+const SettingsOverviewPage = React.lazy(() => import("./modules/settings/SettingsOverviewPage"));
 const SettingsProfilePage = React.lazy(() => import("./modules/settings/SettingsProfilePage"));
 const SettingsAccountPage = React.lazy(() => import("./modules/settings/SettingsAccountPage"));
 const SettingsNotificationsPage = React.lazy(() => import("./modules/settings/SettingsNotificationsPage"));
@@ -72,6 +73,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/diary" element={<DiaryPage />} />
             <Route path="/title/:titleId" element={<TitleDetailPage />} />
             <Route path="/u/:username" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsOverviewPage />} />
             <Route path="/settings/profile" element={<SettingsProfilePage />} />
             <Route path="/settings/account" element={<SettingsAccountPage />} />
             <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />
