@@ -84,6 +84,8 @@ _For each task or subtask below:_
       DONE – 2025-12-03 16:01 – Applied typed queries and removed casts in `src/modules/diary/useDiaryLibrary.ts` for safer diary library data.
     - [✔️] useDiaryStats now queries Supabase with generated row types and typed errors.
       DONE – 2025-12-03 16:15 – Swapped custom interfaces for Supabase rows in `src/modules/diary/useDiaryStats.ts` and removed casts.
+    - [✔️] useSwipeDeck guards Supabase Edge Function responses with runtime validation instead of `any` casts.
+      DONE – 2025-12-03 16:21 – Added card type guards in `src/modules/swipe/useSwipeDeck.ts` to parse Edge Function payloads without `any` while preserving source tagging.
 
 - [ ] RLS policies and indexes
   - [ ] Audit and add Row Level Security (RLS) policies for all user-data tables, including:
