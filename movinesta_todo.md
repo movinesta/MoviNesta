@@ -68,8 +68,9 @@ _For each task or subtask below:_
   - [✔️] Remove or move `src/lib/client.ts` / `src/lib/server.ts` if they are unused in this Vite SPA, or relocate them into a clearly separated `server/` folder if kept for SSR/back-end use.
     DONE – 2025-12-03 15:27 – Deleted unused SSR/browser client stubs in `src/lib/client.ts` and `src/lib/server.ts` to avoid duplication.
 
-- [ ] Type-safety for Supabase queries
-  - [ ] Update `useConversations` to use `Database` row types instead of `any` for conversations, participants, messages, and read receipts.
+  - [ ] Type-safety for Supabase queries
+    - [✔️] Update `useConversations` to use `Database` row types instead of `any` for conversations, participants, messages, and read receipts.
+      DONE – 2025-12-03 15:55 – Added Supabase row typing across conversations, participants, messages, and read receipt joins in `src/modules/messages/useConversations.ts` to remove `any` casts.
   - [✔️] Update `useProfile` (and related profile hooks) to:
     DONE – 2025-12-03 16:10 – useProfile now relies on Supabase row types, narrows Postgrest errors, and removes `any` casting.
     - [✔️] Use typed `profiles` + `follows` rows.
