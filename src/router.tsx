@@ -4,23 +4,23 @@ import AppShell from "./layouts/AppShell";
 import RequireAuth from "./modules/auth/RequireAuth";
 
 // Auth
-import SignInPage from "./modules/auth/SignInPage";
-import SignUpPage from "./modules/auth/SignUpPage";
-import ForgotPasswordPage from "./modules/auth/ForgotPasswordPage";
-import ResetPasswordPage from "./modules/auth/ResetPasswordPage";
+const SignInPage = React.lazy(() => import("./modules/auth/SignInPage"));
+const SignUpPage = React.lazy(() => import("./modules/auth/SignUpPage"));
+const ForgotPasswordPage = React.lazy(() => import("./modules/auth/ForgotPasswordPage"));
+const ResetPasswordPage = React.lazy(() => import("./modules/auth/ResetPasswordPage"));
 
 // Shell routes (inside AppShell)
-import HomePage from "./modules/home/HomePage";
-import SwipePage from "./modules/swipe/SwipePage";
-import SearchPage from "./modules/search/SearchPage";
-import DiaryPage from "./modules/diary/DiaryPage";
-import ProfilePage from "./modules/profile/ProfilePage";
-import SettingsProfilePage from "./modules/settings/SettingsProfilePage";
-import SettingsAccountPage from "./modules/settings/SettingsAccountPage";
-import SettingsNotificationsPage from "./modules/settings/SettingsNotificationsPage";
-import SettingsAppPage from "./modules/settings/SettingsAppPage";
-import NotFoundPage from "./modules/misc/NotFoundPage";
-import OnboardingPage from "./modules/misc/OnboardingPage";
+const HomePage = React.lazy(() => import("./modules/home/HomePage"));
+const SwipePage = React.lazy(() => import("./modules/swipe/SwipePage"));
+const SearchPage = React.lazy(() => import("./modules/search/SearchPage"));
+const DiaryPage = React.lazy(() => import("./modules/diary/DiaryPage"));
+const ProfilePage = React.lazy(() => import("./modules/profile/ProfilePage"));
+const SettingsProfilePage = React.lazy(() => import("./modules/settings/SettingsProfilePage"));
+const SettingsAccountPage = React.lazy(() => import("./modules/settings/SettingsAccountPage"));
+const SettingsNotificationsPage = React.lazy(() => import("./modules/settings/SettingsNotificationsPage"));
+const SettingsAppPage = React.lazy(() => import("./modules/settings/SettingsAppPage"));
+const NotFoundPage = React.lazy(() => import("./modules/misc/NotFoundPage"));
+const OnboardingPage = React.lazy(() => import("./modules/misc/OnboardingPage"));
 
 const MessagesPage = React.lazy(() => import("./modules/messages/MessagesPage"));
 const ConversationPage = React.lazy(() => import("./modules/messages/ConversationPage"));
