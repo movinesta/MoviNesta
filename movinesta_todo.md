@@ -15,7 +15,8 @@ _For each task or subtask below:_
 
 ## 1. Repo & infra hygiene
 
-- [ ] Ensure Supabase `Database` types file exists and is wired
+- [✔️] Ensure Supabase `Database` types file exists and is wired
+  DONE – 2025-12-03 19:29 – Supabase Database typings confirmed generated via script, canonical import path enforced, and file tracked in source control.
   - [✔️] Confirm `src/types/supabase.ts` is generated and checked into the repo.
     DONE – 2025-12-03 15:27 – Verified the generated Supabase types live at `src/types/supabase.ts` and remain tracked in Git.
   - [✔️] Add or verify a script (e.g. `npm run generate:supabase-types`) that runs `supabase gen types typescript --schema public` and writes to `src/types/supabase.ts`.
@@ -25,7 +26,8 @@ _For each task or subtask below:_
 - [✔️] Update hooks like `useProfile`, `useConversations`, `useBlockStatus`, diary and swipe hooks to use typed row types instead of `any` (and remove casts like `(profileError as any)`).
   DONE – 2025-12-03 17:54 – Standardized diary, swipe, messaging, and profile hooks to Supabase row typings and removed remaining `any` casts for safer queries across modules.
 
-- [ ] Clean up build outputs
+- [✔️] Clean up build outputs
+  DONE – 2025-12-03 19:29 – Verified docs-only build target, removed dist artifacts, and ensured helpers/gitignore align with GitHub Pages deployment.
   - [✔️] Confirm Vite builds to `docs/` (for GitHub Pages) via `vite.config.ts`.
     DONE – 2025-12-03 15:06 – Verified `vite.config.ts` already targets `docs/` for builds, aligning with GitHub Pages output.
   - [✔️] Remove any committed `dist/` directory from version control if present.
@@ -46,7 +48,10 @@ _For each task or subtask below:_
     - [✔️] `npm test`
       DONE – 2025-12-03 15:06 – CI executes `npm test` with Vitest as part of the workflow.
   - [✔️] Fail the workflow when lint or tests fail so broken changes can’t be merged.
-    DONE – 2025-12-03 15:06 – CI workflow stops on lint/test failures, preventing merges of broken builds.
+  DONE – 2025-12-03 15:06 – CI workflow stops on lint/test failures, preventing merges of broken builds.
+
+- [✔️] GitHub Actions workflows
+  DONE – 2025-12-03 19:29 – CI and deploy workflows separated: CI runs install/lint/tests on push/PR while deploy focuses solely on build/publish steps.
 
 ---
 
@@ -59,9 +64,10 @@ _For each task or subtask below:_
     - [✔️] `getAdminClient()` that uses `SUPABASE_SERVICE_ROLE_KEY` for cross-user or aggregation workflows that truly need it.
   - [✔️] Refactor existing Edge Functions (`swipe-*`, `catalog-*`, `create-direct-conversation`, etc.) to use these helpers instead of re-creating clients inline.
   - [✔️] Make sure `getAdminClient()` is only used when strictly necessary.
-    DONE – 2025-05-16 00:50 – Switched catalog search Edge Function to use the anon user client instead of the service-role admin client for read-only queries.
+  DONE – 2025-05-16 00:50 – Switched catalog search Edge Function to use the anon user client instead of the service-role admin client for read-only queries.
 
-- [ ] Frontend Supabase client hygiene
+- [✔️] Frontend Supabase client hygiene
+  DONE – 2025-12-03 19:29 – Consolidated to a single guarded browser Supabase client, validated env vars, and removed unused client/server stubs.
   - [✔️] Consolidate to a single browser Supabase client in `src/lib/supabase.ts`.
     DONE – 2025-12-03 15:27 – Removed unused `src/lib/client.ts` and `src/lib/server.ts`, keeping `src/lib/supabase.ts` as the sole browser client.
   - [✔️] Validate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at startup and throw a clear error if they’re missing.
