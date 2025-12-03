@@ -12,17 +12,17 @@ import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
+import {
+  corsHeaders,
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 type SwipeCard = {
   id: string;
@@ -40,23 +40,7 @@ type SwipeCard = {
 type EnvConfigError = Response | null;
 
 function jsonOk(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-function jsonError(message: string, status = 500, code?: string): Response {
-  return new Response(JSON.stringify({ error: message, code }), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
+  return jsonResponse(body, status);
 }
 
 /**
@@ -77,9 +61,8 @@ function validateConfig(): EnvConfigError {
 // ---------------------------------------------------------------------------
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   try {
     const configError = validateConfig();

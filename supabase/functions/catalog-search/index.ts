@@ -12,18 +12,18 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
+import {
+  corsHeaders,
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { getUserClient } from "../_shared/supabase.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 type SearchPayload = {
   query: string;
@@ -36,9 +36,8 @@ function getSupabaseClient(req: Request) {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   console.log("[catalog-search] incoming request");
 
@@ -193,7 +192,7 @@ async function handleSearch(
     console.warn("[catalog-search] background catalog-sync error:", err);
   }
 
-  return jsonOk(
+  return jsonResponse(
     {
       ok: true,
       query,
@@ -245,22 +244,4 @@ async function tmdbSearch(
     return null;
   }
   return await res.json();
-}
-
-// ============================================================================
-// Small helpers
-// ============================================================================
-
-function jsonOk(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-function jsonError(message: string, status: number, code?: string): Response {
-  return jsonOk({ ok: false, error: message, errorCode: code }, status);
 }

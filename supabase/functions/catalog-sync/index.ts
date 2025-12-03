@@ -11,6 +11,12 @@
 // - Handles duplicate tmdb_id by updating the existing row instead of failing.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import {
+  corsHeaders,
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
@@ -18,12 +24,6 @@ const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY") ?? "";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const OMDB_BASE = "https://www.omdbapi.com/";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 type TitleModePayload = {
   external?: {
@@ -43,9 +43,8 @@ type TitleModePayload = {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   if (req.method !== "POST") {
     return jsonError("Method not allowed", 405);
@@ -798,15 +797,5 @@ function buildSortTitle(title: string): string {
 }
 
 function jsonOk(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-function jsonError(message: string, status: number): Response {
-  return jsonOk({ ok: false, error: message }, status);
+  return jsonResponse(body, status);
 }

@@ -8,13 +8,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { log } from "../_shared/logger.ts";
+import {
+  corsHeaders,
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 type ConversationParticipantRow = {
   conversation_id: string;
@@ -44,19 +44,6 @@ const CreateDirectConversationPayloadSchema = z.object({
 type CreateDirectConversationPayload = z.infer<
   typeof CreateDirectConversationPayloadSchema
 >;
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-function jsonError(message: string, status: number, code?: string): Response {
-  return jsonResponse({ ok: false, error: message, errorCode: code }, status);
-}
 
 // ---------------------------------------------------------------------------
 // Helper: find existing one-on-one conversation between two users
@@ -155,9 +142,8 @@ async function findExistingDirectConversation(
 // ---------------------------------------------------------------------------
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   console.log("[create-direct-conversation] incoming request", {
     method: req.method,

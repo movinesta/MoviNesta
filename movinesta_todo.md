@@ -134,12 +134,13 @@ _For each task or subtask below:_
 
 ## 3. Shared Edge utilities & HTTP layer
 
-- [ ] Add shared Edge HTTP helpers
-  - [ ] Create `supabase/functions/_shared/http.ts` with:
-    - [ ] `jsonResponse(data, status = 200)` – consistent JSON + CORS response.
-    - [ ] `jsonError(message, status, code)` – standardized error shape `{ ok: false, error, code }`.
-    - [ ] Shared `corsHeaders` and OPTIONS handler for CORS preflight.
-  - [ ] Refactor Edge Functions (`catalog-*`, `swipe-*`, `debug-env`, etc.) to use these helpers instead of duplicating `jsonOk/jsonError/corsHeaders`.
+- [✔️] Add shared Edge HTTP helpers
+  DONE – 2025-12-03 21:43 – Added `_shared/http.ts` with unified CORS/JSON helpers and refactored catalog, swipe, debug, and conversation edge functions to reuse them.
+  - [✔️] Create `supabase/functions/_shared/http.ts` with:
+    - [✔️] `jsonResponse(data, status = 200)` – consistent JSON + CORS response.
+    - [✔️] `jsonError(message, status, code)` – standardized error shape `{ ok: false, error, code }`.
+    - [✔️] Shared `corsHeaders` and OPTIONS handler for CORS preflight.
+  - [✔️] Refactor Edge Functions (`catalog-*`, `swipe-*`, `debug-env`, etc.) to use these helpers instead of duplicating `jsonOk/jsonError/corsHeaders`.
 
 - [ ] Request validation helpers
   - [ ] Introduce a `validateRequest<T>()` helper that:

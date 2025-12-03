@@ -1,14 +1,13 @@
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { log } from "../_shared/logger.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
+import {
+  corsHeaders,
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { getUserClient } from "../_shared/supabase.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -35,9 +34,8 @@ const SwipeEventSchema = z.object({
 });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", {
@@ -416,13 +414,3 @@ async function updateUserStats(
   }
 }
 
-function jsonError(message: string, status: number, code?: string) {
-  return jsonResponse({ ok: false, error: message, errorCode: code }, status);
-}
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
