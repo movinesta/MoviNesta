@@ -60,9 +60,9 @@ const extractSwipeCards = (value: unknown): SwipeCardData[] => {
   return [];
 };
 
-const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
+export const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
 
-function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
+export function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
   if (typeof window === "undefined") {
     return {
       "for-you": 1,
@@ -106,7 +106,10 @@ interface SwipeEventPayload {
   title?: string;
 }
 
-function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCardData[] {
+export function buildInterleavedDeck(
+  lists: SwipeCardData[][],
+  limit: number,
+): SwipeCardData[] {
   const maxLength = Math.max(...lists.map((list) => list.length));
   const interleaved: SwipeCardData[] = [];
 
@@ -122,6 +125,18 @@ function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCar
 
   return interleaved.slice(0, limit);
 }
+
+export const trimDeck = (
+  cards: SwipeCardData[],
+  consumed: number,
+): { remaining: SwipeCardData[]; exhausted: boolean } => {
+  if (consumed <= 0 || cards.length === 0) {
+    return { remaining: cards, exhausted: cards.length === 0 };
+  }
+
+  const remaining = cards.slice(Math.min(consumed, cards.length));
+  return { remaining, exhausted: remaining.length === 0 };
+};
 
 export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number }) {
   const limit = options?.limit ?? 40;
@@ -356,8 +371,9 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const trimConsumed = useCallback((count: number) => {
     if (count <= 0) return;
     setCards((prev) => {
-      if (!prev.length) return prev;
-      const next = prev.slice(Math.min(count, prev.length));
+      const { remaining } = trimDeck(prev, count);
+      if (remaining.length === prev.length) return prev;
+      const next = remaining;
       cardsRef.current = next;
       return next;
     });
