@@ -12,9 +12,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-import { getAdminClient } from "../_shared/supabase.ts";
+import { getUserClient } from "../_shared/supabase.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
@@ -31,8 +31,8 @@ type SearchPayload = {
   type?: "movie" | "tv" | "multi";
 };
 
-function getSupabaseAdminClient(req: Request) {
-  return getAdminClient(req);
+function getSupabaseClient(req: Request) {
+  return getUserClient(req);
 }
 
 serve(async (req) => {
@@ -43,8 +43,8 @@ serve(async (req) => {
   console.log("[catalog-search] incoming request");
 
   try {
-    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-      console.error("[catalog-search] Missing SUPABASE_URL or SERVICE_ROLE_KEY");
+    if (!SUPABASE_URL || !ANON_KEY) {
+      console.error("[catalog-search] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
       return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
     }
     if (!TMDB_TOKEN) {
@@ -52,7 +52,7 @@ serve(async (req) => {
       return jsonError("TMDb not configured", 500, "TMDB_NOT_CONFIGURED");
     }
 
-    const supabase = getSupabaseAdminClient(req);
+    const supabase = getSupabaseClient(req);
 
     const body = (await req.json().catch(() => ({}))) as SearchPayload;
     const query = body.query?.trim();
@@ -75,7 +75,7 @@ serve(async (req) => {
 // ============================================================================
 
 async function handleSearch(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  supabase: ReturnType<typeof getSupabaseClient>,
   args: { query: string; page: number; type: "movie" | "tv" | "multi" },
 ): Promise<Response> {
   const { query, page, type } = args;
