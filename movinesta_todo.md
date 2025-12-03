@@ -16,9 +16,12 @@ _For each task or subtask below:_
 ## 1. Repo & infra hygiene
 
 - [ ] Ensure Supabase `Database` types file exists and is wired
-  - [ ] Confirm `src/types/supabase.ts` is generated and checked into the repo.
-  - [ ] Add or verify a script (e.g. `npm run generate:supabase-types`) that runs `supabase gen types typescript --schema public` and writes to `src/types/supabase.ts`.
-  - [ ] Replace any ad-hoc `import type { Database } from "...";` with a single canonical import path (e.g. `@/types/supabase`).
+  - [✔️] Confirm `src/types/supabase.ts` is generated and checked into the repo.
+    DONE – 2025-12-03 15:27 – Verified the generated Supabase types live at `src/types/supabase.ts` and remain tracked in Git.
+  - [✔️] Add or verify a script (e.g. `npm run generate:supabase-types`) that runs `supabase gen types typescript --schema public` and writes to `src/types/supabase.ts`.
+    DONE – 2025-12-03 15:27 – Confirmed `npm run generate:supabase-types` (scripts/generate-supabase-types.js) outputs `src/types/supabase.ts`.
+  - [✔️] Replace any ad-hoc `import type { Database } from "...";` with a single canonical import path (e.g. `@/types/supabase`).
+    DONE – 2025-12-03 15:27 – Ensured Supabase client code imports `Database` solely from `@/types/supabase`.
   - [ ] Update hooks like `useProfile`, `useConversations`, `useBlockStatus`, diary and swipe hooks to use typed row types instead of `any` (and remove casts like `(profileError as any)`).
 
 - [ ] Clean up build outputs
@@ -56,10 +59,14 @@ _For each task or subtask below:_
   - [ ] Make sure `getAdminClient()` is only used when strictly necessary.
 
 - [ ] Frontend Supabase client hygiene
-  - [ ] Consolidate to a single browser Supabase client in `src/lib/supabase.ts`.
-  - [ ] Validate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at startup and throw a clear error if they’re missing.
-  - [ ] Only attach `window.supabase = supabase` in **development** (`import.meta.env.DEV === true`).
-  - [ ] Remove or move `src/lib/client.ts` / `src/lib/server.ts` if they are unused in this Vite SPA, or relocate them into a clearly separated `server/` folder if kept for SSR/back-end use.
+  - [✔️] Consolidate to a single browser Supabase client in `src/lib/supabase.ts`.
+    DONE – 2025-12-03 15:27 – Removed unused `src/lib/client.ts` and `src/lib/server.ts`, keeping `src/lib/supabase.ts` as the sole browser client.
+  - [✔️] Validate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at startup and throw a clear error if they’re missing.
+    DONE – 2025-12-03 15:27 – Confirmed `src/lib/supabase.ts` guards startup with explicit errors when Supabase env vars are absent.
+  - [✔️] Only attach `window.supabase = supabase` in **development** (`import.meta.env.DEV === true`).
+    DONE – 2025-12-03 15:27 – Added a development-only guard before exposing the Supabase client on `window` in `src/lib/supabase.ts`.
+  - [✔️] Remove or move `src/lib/client.ts` / `src/lib/server.ts` if they are unused in this Vite SPA, or relocate them into a clearly separated `server/` folder if kept for SSR/back-end use.
+    DONE – 2025-12-03 15:27 – Deleted unused SSR/browser client stubs in `src/lib/client.ts` and `src/lib/server.ts` to avoid duplication.
 
 - [ ] Type-safety for Supabase queries
   - [ ] Update `useConversations` to use `Database` row types instead of `any` for conversations, participants, messages, and read receipts.
