@@ -22,18 +22,27 @@ _For each task or subtask below:_
   - [ ] Update hooks like `useProfile`, `useConversations`, `useBlockStatus`, diary and swipe hooks to use typed row types instead of `any` (and remove casts like `(profileError as any)`).
 
 - [ ] Clean up build outputs
-  - [ ] Confirm Vite builds to `docs/` (for GitHub Pages) via `vite.config.ts`.
-  - [ ] Remove any committed `dist/` directory from version control if present.
-  - [ ] Ensure `.gitignore` includes `dist/` so only `docs/` is used as the static output.
-  - [ ] Verify any build helper scripts (e.g. `scripts/copy404.mjs`) still make sense for the `docs/` deployment target.
+  - [✔️] Confirm Vite builds to `docs/` (for GitHub Pages) via `vite.config.ts`.
+    DONE – 2025-12-03 15:06 – Verified `vite.config.ts` already targets `docs/` for builds, aligning with GitHub Pages output.
+  - [✔️] Remove any committed `dist/` directory from version control if present.
+    DONE – 2025-12-03 15:06 – Removed tracked `dist/` artifacts now that builds publish to `docs/` only.
+  - [✔️] Ensure `.gitignore` includes `dist/` so only `docs/` is used as the static output.
+    DONE – 2025-12-03 15:06 – Confirmed `.gitignore` excludes `dist/` to prevent reintroducing build outputs.
+  - [✔️] Verify any build helper scripts (e.g. `scripts/copy404.mjs`) still make sense for the `docs/` deployment target.
+    DONE – 2025-12-03 15:06 – Confirmed `scripts/copy404.mjs` copies `docs/index.html` to `docs/404.html` for SPA fallback.
 
 - [ ] GitHub Actions workflows
   - [ ] Keep deploy workflow focused on build & deploy only (no tests in the deploy pipeline).
-  - [ ] Ensure a dedicated CI workflow (e.g. `ci.yml` or `test.yml`) runs on `push` and `pull_request` to `main`:
-    - [ ] `npm ci`
-    - [ ] `npm run lint`
-    - [ ] `npm test`
-  - [ ] Fail the workflow when lint or tests fail so broken changes can’t be merged.
+    DONE – 2025-12-03 15:06 – Verified deploy workflow only builds and publishes without bundling tests into the pipeline.
+  - [✔️] Ensure a dedicated CI workflow (e.g. `ci.yml` or `test.yml`) runs on `push` and `pull_request` to `main`:
+    - [✔️] `npm ci`
+      DONE – 2025-12-03 15:06 – Added CI job step to install dependencies via `npm ci` on pushes/PRs to `main`.
+    - [✔️] `npm run lint`
+      DONE – 2025-12-03 15:06 – CI now runs `npm run lint` to enforce linting during automated checks.
+    - [✔️] `npm test`
+      DONE – 2025-12-03 15:06 – CI executes `npm test` with Vitest as part of the workflow.
+  - [✔️] Fail the workflow when lint or tests fail so broken changes can’t be merged.
+    DONE – 2025-12-03 15:06 – CI workflow stops on lint/test failures, preventing merges of broken builds.
 
 ---
 
