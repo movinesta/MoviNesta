@@ -473,10 +473,11 @@ _For each task or subtask below:_
     - [ ] Diary stats summary.
   - [ ] Use React Query prefetch APIs and/or idle callbacks to avoid blocking initial paint.
 
-- [ ] Routing & code splitting
-  - [ ] Use `React.lazy` + `Suspense` for page-level components (Home, Swipe, Search, Diary, Settings, Messages).
-  - [ ] Keep `AppShell` and core layout non-lazy.
-  - [ ] Provide meaningful fallbacks (skeletons, loading text) during lazy loading.
+- [✔️] Routing & code splitting
+  DONE – 2025-12-03 16:30 – Lazy loaded all page-level routes in `src/router.tsx` while keeping `AppShell` eager and retaining the existing Suspense fallback.
+  - [✔️] Use `React.lazy` + `Suspense` for page-level components (Home, Swipe, Search, Diary, Settings, Messages).
+  - [✔️] Keep `AppShell` and core layout non-lazy.
+  - [✔️] Provide meaningful fallbacks (skeletons, loading text) during lazy loading.
 
 - [ ] Date & number formatting
   - [ ] Centralize date formatting via `Intl.DateTimeFormat`, respecting language/locale settings.
