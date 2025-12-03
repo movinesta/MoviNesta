@@ -78,6 +78,10 @@ _For each task or subtask below:_
     - [✔️] Replace casts like `(profileError as any)` with proper error typing or narrowing.
       DONE – 2025-12-03 16:10 – Added `isNotFoundError` helper to check Postgrest error codes instead of relying on `any` casts.
   - [ ] Ensure other key hooks (`useDiaryTimeline`, `useDiaryLibrary`, `useDiaryStats`, `useHomeFeed`, `useSwipeDeck`, `useBlockStatus`) are using typed Supabase responses and avoid `any`.
+    - [✔️] useDiaryTimeline now relies on Supabase row typing and runtime payload narrowing.
+      DONE – 2025-12-03 16:01 – Typed activity event/title lookups in `src/modules/diary/useDiaryTimeline.ts` and validated payloads without `any` casts.
+    - [✔️] useDiaryLibrary now uses generated Supabase row types for library entries, titles, and ratings.
+      DONE – 2025-12-03 16:01 – Applied typed queries and removed casts in `src/modules/diary/useDiaryLibrary.ts` for safer diary library data.
 
 - [ ] RLS policies and indexes
   - [ ] Audit and add Row Level Security (RLS) policies for all user-data tables, including:
