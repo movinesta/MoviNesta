@@ -97,6 +97,27 @@ const getMessageMeta = (body: string | null): ParsedBodyMeta => {
   return {};
 };
 
+export const getBubbleAppearance = ({
+  isSelf,
+  isDeleted,
+}: {
+  isSelf: boolean;
+  isDeleted: boolean;
+}) => {
+  const baseBubbleColors = isSelf
+    ? "bg-mn-primary/90 text-white shadow-md shadow-mn-primary/20"
+    : "bg-mn-bg-elevated text-mn-text-primary border border-mn-border-subtle/80 shadow-mn-soft";
+
+  return {
+    bubbleColors: isDeleted
+      ? "bg-mn-bg-elevated/80 text-mn-text-muted border border-dashed border-mn-border-subtle/80"
+      : baseBubbleColors,
+    bubbleShape: isSelf
+      ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
+      : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl",
+  };
+};
+
 const formatMessageTime = (iso: string): string => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -1674,22 +1695,15 @@ const ConversationPage: React.FC = () => {
                 const stackSpacing =
                   index === 0 || showDateDivider ? "mt-0" : startsGroup ? "mt-3" : "mt-1.5";
 
-                const baseBubbleColors = isSelf
-                  ? "bg-mn-primary/90 text-white shadow-md shadow-mn-primary/20"
-                  : "bg-mn-bg-elevated text-mn-text-primary border border-mn-border-subtle/80 shadow-mn-soft";
-
                 const meta = getMessageMeta(message.body);
                 const isDeletedMessage = meta.deleted === true;
                 const editedAt = meta.editedAt;
                 const deletedAt = meta.deletedAt;
 
-                const bubbleColors = isDeletedMessage
-                  ? "bg-mn-bg-elevated/80 text-mn-text-muted border border-dashed border-mn-border-subtle/80"
-                  : baseBubbleColors;
-
-                const bubbleShape = isSelf
-                  ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
-                  : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl";
+                const { bubbleColors, bubbleShape } = getBubbleAppearance({
+                  isSelf,
+                  isDeleted: isDeletedMessage,
+                });
                 const name = participant?.displayName ?? (isSelf ? "You" : "Someone");
 
                 const text = isDeletedMessage

@@ -48,7 +48,7 @@ interface CardMetadataProps {
   card: SwipeCardData;
 }
 
-const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
+export const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   const runtimeLabel = formatRuntime(card.runtimeMinutes);
   const hasImdbRating =
     typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating) && card.imdbRating > 0;
@@ -84,7 +84,7 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   );
 };
 
-const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
+export const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
   <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg text-center">
     <div className="flex flex-col items-center gap-2 text-mn-text-secondary">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mn-surface-elevated/70 shadow-mn-soft">

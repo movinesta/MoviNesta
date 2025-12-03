@@ -578,13 +578,14 @@ _For each task or subtask below:_
     - [✔️] Session restoration from Supabase.
     - [✔️] Sign-out clearing session and related local state.
 
-- [ ] Component / snapshot tests
-  - [ ] Add lightweight tests (Vitest + React Testing Library) for:
-    - [ ] Conversation list item (with and without unread).
-    - [ ] Message bubble (self vs other).
-    - [ ] Swipe card component.
-    - [ ] Title search result row.
-    - [ ] Skeleton components (render without crashing).
+- [✔️] Component / snapshot tests
+  - [✔️] Add lightweight tests (Vitest + React Testing Library) for:
+    - [✔️] Conversation list item (with and without unread).
+    - [✔️] Message bubble (self vs other).
+    - [✔️] Swipe card component.
+    - [✔️] Title search result row.
+    - [✔️] Skeleton components (render without crashing).
+    DONE – 2025-12-03 19:16 – Added snapshot-style component coverage for conversation list states, message bubble styling, swipe card metadata, title search rows, and skeletons in `src/__tests__/uiComponents.test.tsx`.
 
 - [ ] CI wiring
   - [ ] Confirm CI workflow runs `npm run lint` and `npm test` on every push/PR.

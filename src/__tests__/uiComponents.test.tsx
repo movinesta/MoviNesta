@@ -4,12 +4,14 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ConversationListRow } from "../modules/messages/MessagesPage";
+import { getBubbleAppearance } from "../modules/messages/ConversationPage";
 import { TitleSearchResultRow } from "../modules/search/SearchTitlesTab";
 import { FeedSkeleton } from "../modules/home/HomeFeedTab";
 import { CarouselsSkeleton, TonightPickSkeleton } from "../modules/home/HomeForYouTab";
-import { LoadingSwipeCard } from "../modules/swipe/SwipePage";
+import { CardMetadata, LoadingSwipeCard, PosterFallback } from "../modules/swipe/SwipePage";
 import type { ConversationListItem } from "../modules/messages/useConversations";
 import type { TitleSearchResult } from "../modules/search/useSearchTitles";
+import type { SwipeCardData } from "../modules/swipe/useSwipeDeck";
 
 expect.extend(matchers);
 
@@ -46,6 +48,18 @@ const sampleTitle: TitleSearchResult = {
   rtTomatoMeter: 87,
 };
 
+const swipeCard: SwipeCardData = {
+  id: "swipe-1",
+  title: "Arrival",
+  tagline: "Why are they here?",
+  year: 2016,
+  runtimeMinutes: 116,
+  type: "movie",
+  imdbRating: 8.1,
+  rtTomatoMeter: 94,
+  source: "for-you",
+};
+
 describe("ConversationListRow", () => {
   it("renders unread and read conversations distinctly", () => {
     const unread: ConversationListItem = {
@@ -72,6 +86,28 @@ describe("ConversationListRow", () => {
   });
 });
 
+describe("Message bubble appearance", () => {
+  it("uses primary styling for self messages", () => {
+    const { bubbleColors, bubbleShape } = getBubbleAppearance({
+      isSelf: true,
+      isDeleted: false,
+    });
+
+    expect(bubbleColors).toContain("bg-mn-primary/90");
+    expect(bubbleShape).toContain("rounded-bl-3xl");
+  });
+
+  it("switches to muted dashed styling when deleted", () => {
+    const { bubbleColors } = getBubbleAppearance({
+      isSelf: false,
+      isDeleted: true,
+    });
+
+    expect(bubbleColors).toContain("border-dashed");
+    expect(bubbleColors).toContain("text-mn-text-muted");
+  });
+});
+
 describe("TitleSearchResultRow", () => {
   it("shows poster fallback and metadata summary", () => {
     render(
@@ -85,6 +121,24 @@ describe("TitleSearchResultRow", () => {
     expect(screen.getByText("Inception")).toBeInTheDocument();
     expect(screen.getByText(/2010/)).toBeInTheDocument();
     expect(screen.getByText(/IMDb 8.8/)).toBeInTheDocument();
+  });
+});
+
+describe("Swipe card presentation", () => {
+  it("renders key metadata for a swipe card", () => {
+    render(<CardMetadata card={swipeCard} />);
+
+    expect(screen.getByText("Arrival")).toBeInTheDocument();
+    expect(screen.getByText(/2016/)).toBeInTheDocument();
+    expect(screen.getByText(/IMDb 8.1/)).toBeInTheDocument();
+    expect(screen.getByText(/94% RT/)).toBeInTheDocument();
+  });
+
+  it("shows a friendly poster fallback message when artwork is missing", () => {
+    render(<PosterFallback title="Arrival" />);
+
+    expect(screen.getByText(/Artwork unavailable/)).toBeInTheDocument();
+    expect(screen.getByText(/for Arrival/)).toBeInTheDocument();
   });
 });
 
