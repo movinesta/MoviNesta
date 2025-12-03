@@ -1,8 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import type { Database } from "@/types/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { getMessagePreview } from "./messageText";
 import { formatTimeAgo } from "./formatTimeAgo";
+
+type ConversationRow = Database["public"]["Tables"]["conversations"]["Row"];
+type ParticipantRow = Database["public"]["Tables"]["conversation_participants"]["Row"];
+type MessageRow = Pick<
+  Database["public"]["Tables"]["messages"]["Row"],
+  "id" | "conversation_id" | "user_id" | "body" | "created_at"
+>;
 
 export interface ConversationParticipant {
   id: string;
@@ -57,11 +65,7 @@ export const useConversations = () => {
       }
 
       const conversationIds = Array.from(
-        new Set(
-          participantRows
-            .map((row: any) => row.conversation_id as string | null)
-            .filter((id): id is string => Boolean(id)),
-        ),
+        new Set(participantRows.map((row) => row.conversation_id)),
       );
 
       if (conversationIds.length === 0) {
@@ -80,7 +84,7 @@ export const useConversations = () => {
         throw new Error(conversationsError.message);
       }
 
-      const conversations = (conversationsData ?? []) as any[];
+      const conversations: ConversationRow[] = conversationsData ?? [];
 
       // 3) Fetch participants for these conversations
       const { data: allParticipantsData, error: allParticipantsError } = await supabase
@@ -96,12 +100,10 @@ export const useConversations = () => {
         throw new Error(allParticipantsError.message);
       }
 
-      const allParticipants = (allParticipantsData ?? []) as any[];
+      const allParticipants: ParticipantRow[] = allParticipantsData ?? [];
 
       // 4) Collect all user ids we need profiles for
-      const userIds = Array.from(
-        new Set(allParticipants.map((row) => row.user_id as string).filter((id) => Boolean(id))),
-      );
+      const userIds = Array.from(new Set(allParticipants.map((row) => row.user_id)));
 
       // 5) Fetch profiles for participants
       let profilesById = new Map<
@@ -125,13 +127,13 @@ export const useConversations = () => {
         }
 
         profilesById = new Map(
-          (profilesData ?? []).map((row: any) => [
-            row.id as string,
+          (profilesData ?? []).map((row) => [
+            row.id,
             {
-              id: row.id as string,
-              username: (row.username as string | null) ?? null,
-              displayName: (row.display_name as string | null) ?? null,
-              avatarUrl: (row.avatar_url as string | null) ?? null,
+              id: row.id,
+              username: row.username,
+              displayName: row.display_name,
+              avatarUrl: row.avatar_url,
             },
           ]),
         );
@@ -149,12 +151,12 @@ export const useConversations = () => {
         throw new Error(messagesError.message);
       }
 
-      const messages = (messagesData ?? []) as any[];
+      const messages: MessageRow[] = messagesData ?? [];
 
       // Group messages by conversation id, newest first (thanks to the ordering above)
-      const messagesByConversation = new Map<string, any[]>();
+      const messagesByConversation = new Map<string, MessageRow[]>();
       for (const msg of messages) {
-        const convId = msg.conversation_id as string;
+        const convId = msg.conversation_id;
         if (!messagesByConversation.has(convId)) {
           messagesByConversation.set(convId, []);
         }
@@ -182,10 +184,10 @@ export const useConversations = () => {
       >();
 
       for (const row of receiptsData ?? []) {
-        const convId = row.conversation_id as string;
-        const userIdForRow = row.user_id as string;
-        const lastReadAt = (row.last_read_at as string | null) ?? null;
-        const lastReadMessageId = (row.last_read_message_id as string | null) ?? null;
+        const convId = row.conversation_id;
+        const userIdForRow = row.user_id;
+        const lastReadAt = row.last_read_at ?? null;
+        const lastReadMessageId = row.last_read_message_id ?? null;
 
         let entry = receiptsByConversation.get(convId);
         if (!entry) {
@@ -203,16 +205,16 @@ export const useConversations = () => {
 
       // 8) Compose final list items
       const result: ConversationListItem[] = conversations.map((conv) => {
-        const convId = conv.id as string;
+        const convId = conv.id;
         const isGroup = Boolean(conv.is_group);
         const participantsForConv = allParticipants.filter((row) => row.conversation_id === convId);
 
         const participantModels: ConversationParticipant[] = participantsForConv.map((row) => {
-          const profile = profilesById.get(row.user_id as string);
+          const profile = profilesById.get(row.user_id);
           const displayName = profile?.displayName ?? profile?.username ?? "Unknown user";
 
           return {
-            id: profile?.id ?? (row.user_id as string),
+            id: profile?.id ?? row.user_id,
             displayName,
             username: profile?.username ?? null,
             avatarUrl: profile?.avatarUrl ?? null,
@@ -228,7 +230,7 @@ export const useConversations = () => {
 
         if (isGroup) {
           title =
-            (conv.title as string | null) ??
+            conv.title ??
             (others.length > 0
               ? others
                   .slice(0, 3)
@@ -251,9 +253,7 @@ export const useConversations = () => {
         const convMessages = messagesByConversation.get(convId) ?? [];
         const lastMessage = convMessages[0];
         const lastMessagePreview = lastMessage ? getMessagePreview(lastMessage.body) : null;
-        const lastMessageAt = lastMessage
-          ? (lastMessage.created_at as string)
-          : ((conv.updated_at as string | null) ?? (conv.created_at as string | null));
+        const lastMessageAt = lastMessage?.created_at ?? conv.updated_at ?? conv.created_at ?? null;
         const lastMessageAtLabel = formatTimeAgo(lastMessageAt);
 
         const receipt = receiptsByConversation.get(convId);
@@ -268,7 +268,7 @@ export const useConversations = () => {
               (!selfLastReadAt ||
                 new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime())));
 
-        const lastMessageIsFromSelf = !!lastMessage && (lastMessage.user_id as string) === userId;
+        const lastMessageIsFromSelf = !!lastMessage && lastMessage.user_id === userId;
 
         let lastMessageSeenByOthers = false;
 
