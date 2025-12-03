@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { BookmarkPlus, Clock, Film, Star, ThumbsDown, ThumbsUp, Users } from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
+import SwipeSyncBanner from "./SwipeSyncBanner";
 
 type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -39,7 +40,16 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeFromFriendsTab: React.FC = () => {
-  const { cards, swipe, swipeAsync, fetchMore, trimConsumed } = useSwipeDeck("from-friends", {
+  const {
+    cards,
+    swipe,
+    swipeAsync,
+    fetchMore,
+    trimConsumed,
+    swipeSyncError,
+    retryFailedSwipe,
+    isRetryingSwipe,
+  } = useSwipeDeck("from-friends", {
     limit: 40,
   });
 
@@ -108,6 +118,7 @@ const SwipeFromFriendsTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
+        title: card.title,
       });
 
       setLastSwipe({
@@ -207,11 +218,14 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: next,
       };
 
+      const cardTitle = cards.find((card) => card.id === cardId)?.title;
+
       swipeAsync({
         cardId,
         direction: next === 0 ? "skip" : "like",
         rating: next === 0 ? null : next,
         inWatchlist: watchlist[cardId] ?? undefined,
+        title: cardTitle,
       }).catch(() => {
         setRatings((currentState) => ({
           ...currentState,
@@ -232,11 +246,14 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: nextValue,
       };
 
+      const cardTitle = cards.find((card) => card.id === cardId)?.title;
+
       swipeAsync({
         cardId,
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,
@@ -312,6 +329,12 @@ const SwipeFromFriendsTab: React.FC = () => {
           <span>Swipe through friends&apos; picks</span>
         </div>
       </header>
+
+      <SwipeSyncBanner
+        message={swipeSyncError}
+        onRetry={retryFailedSwipe}
+        isRetrying={isRetryingSwipe}
+      />
 
       <div className="relative mt-2 flex flex-1 flex-col">
         <div className="relative flex flex-1 items-center justify-center">

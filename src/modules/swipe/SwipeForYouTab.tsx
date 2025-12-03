@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
+import SwipeSyncBanner from "./SwipeSyncBanner";
 
 type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -48,7 +49,16 @@ const directionColorClass = (direction: SwipeDirection): string => {
 };
 
 const SwipeForYouTab: React.FC = () => {
-  const { cards, swipe, swipeAsync, fetchMore, trimConsumed } = useSwipeDeck("for-you", {
+  const {
+    cards,
+    swipe,
+    swipeAsync,
+    fetchMore,
+    trimConsumed,
+    swipeSyncError,
+    retryFailedSwipe,
+    isRetryingSwipe,
+  } = useSwipeDeck("for-you", {
     limit: 40,
   });
 
@@ -118,6 +128,7 @@ const SwipeForYouTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
+        title: card.title,
       });
 
       setLastSwipe({
@@ -247,6 +258,7 @@ const SwipeForYouTab: React.FC = () => {
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,
@@ -337,6 +349,12 @@ const SwipeForYouTab: React.FC = () => {
           <span className="text-[9px]">Prefer tapping? Use the controls below.</span>
         </div>
       </header>
+
+      <SwipeSyncBanner
+        message={swipeSyncError}
+        onRetry={retryFailedSwipe}
+        isRetrying={isRetryingSwipe}
+      />
 
       <div className="relative mt-2 flex flex-1 flex-col">
         <div className="relative flex flex-1 items-center justify-center">
