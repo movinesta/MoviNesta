@@ -78,7 +78,8 @@ _For each task or subtask below:_
       DONE – 2025-12-03 16:10 – Profile queries now use generated Supabase row shapes for IDs, usernames, and stats without manual casting.
     - [✔️] Replace casts like `(profileError as any)` with proper error typing or narrowing.
       DONE – 2025-12-03 16:10 – Added `isNotFoundError` helper to check Postgrest error codes instead of relying on `any` casts.
-  - [ ] Ensure other key hooks (`useDiaryTimeline`, `useDiaryLibrary`, `useDiaryStats`, `useHomeFeed`, `useSwipeDeck`, `useBlockStatus`) are using typed Supabase responses and avoid `any`.
+    - [✔️] Ensure other key hooks (`useDiaryTimeline`, `useDiaryLibrary`, `useDiaryStats`, `useHomeFeed`, `useSwipeDeck`, `useBlockStatus`) are using typed Supabase responses and avoid `any`.
+      DONE – 2025-12-03 16:47 – Home feed now uses Supabase row types and payload guards in `src/modules/home/HomeFeedTab.tsx`, aligning feed data with generated typings alongside the previously typed diary/swipe/block hooks.
     - [✔️] useDiaryTimeline now relies on Supabase row typing and runtime payload narrowing.
       DONE – 2025-12-03 16:01 – Typed activity event/title lookups in `src/modules/diary/useDiaryTimeline.ts` and validated payloads without `any` casts.
     - [✔️] useDiaryLibrary now uses generated Supabase row types for library entries, titles, and ratings.

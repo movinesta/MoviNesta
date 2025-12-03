@@ -14,9 +14,15 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import type { Database } from "@/types/supabase";
 
 type FeedEventType = "review" | "rating" | "watchlist" | "follow" | "recommendation";
 type AvatarColorKey = "teal" | "violet" | "orange";
+
+type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
+type TitleRow = Database["public"]["Tables"]["titles"]["Row"];
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type FollowRow = Database["public"]["Tables"]["follows"]["Row"];
 
 interface FeedTitle {
   id: string;
@@ -190,7 +196,9 @@ const buildGroupedItems = (events: FeedEvent[]): FeedItem[] => {
 
 const FEED_PAGE_SIZE = 80;
 
-interface ActivityPayload {
+type ActivityPayload = ActivityEventRow["payload"];
+
+interface NormalizedActivityPayload {
   rating?: number;
   review_snippet?: string;
   headline?: string;
@@ -198,30 +206,22 @@ interface ActivityPayload {
   emoji?: string;
 }
 
-interface ActivityEventRow {
-  id: string;
-  created_at: string;
-  user_id: string;
-  event_type: string;
-  title_id: string | null;
-  related_user_id: string | null;
-  payload: ActivityPayload | null;
-}
+const normalizeActivityPayload = (payload: ActivityPayload): NormalizedActivityPayload => {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>;
 
-interface TitleRow {
-  id: string;
-  title: string | null;
-  year: number | null;
-  poster_url?: string | null;
-  backdrop_url?: string | null;
-}
+    return {
+      rating: typeof record.rating === "number" ? record.rating : undefined,
+      review_snippet:
+        typeof record.review_snippet === "string" ? record.review_snippet : undefined,
+      headline: typeof record.headline === "string" ? record.headline : undefined,
+      extra: typeof record.extra === "string" ? record.extra : undefined,
+      emoji: typeof record.emoji === "string" ? record.emoji : undefined,
+    };
+  }
 
-interface ProfileRow {
-  id: string;
-  display_name: string | null;
-  username: string | null;
-  avatar_url: string | null;
-}
+  return {};
+};
 
 const mapActivityTypeToFeedType = (eventType: string): FeedEventType | null => {
   switch (eventType) {
@@ -298,7 +298,7 @@ const fetchHomeFeed = async (
   }
 
   const friendIds = (followsData ?? [])
-    .map((row) => row.followed_id)
+    .map((row: FollowRow) => row.followed_id)
     .filter((id): id is string => Boolean(id));
 
   const scopedUserIds = Array.from(new Set<string>([userId, ...friendIds]));
@@ -324,7 +324,7 @@ const fetchHomeFeed = async (
     throw new Error(eventsError.message);
   }
 
-  const rows = (eventsData ?? []) as ActivityEventRow[];
+  const rows = eventsData ?? [];
 
   if (!rows.length) {
     return { items: [], nextCursor: null, hasMore: false };
@@ -349,7 +349,7 @@ const fetchHomeFeed = async (
     titleIds.length
       ? supabase
           .from("titles")
-          .select("id:title_id, title:primary_title, year:release_year, poster_url, backdrop_url")
+          .select("title_id, primary_title, release_year, poster_url, backdrop_url")
           .in("title_id", titleIds)
       : Promise.resolve({ data: [] as TitleRow[], error: null }),
     actorUserIds.length
@@ -369,13 +369,13 @@ const fetchHomeFeed = async (
   }
 
   const titlesById = new Map<string, TitleRow>();
-  const titleRows = (titlesResult.data ?? []) as TitleRow[];
+  const titleRows = titlesResult.data ?? [];
   titleRows.forEach((row) => {
-    titlesById.set(row.id, row);
+    titlesById.set(row.title_id, row);
   });
 
   const profilesById = new Map<string, ProfileRow>();
-  const profileRows = (profilesResult.data ?? []) as ProfileRow[];
+  const profileRows = profilesResult.data ?? [];
   profileRows.forEach((row) => {
     profilesById.set(row.id, row);
   });
@@ -405,14 +405,14 @@ const fetchHomeFeed = async (
     const titleRow = row.title_id ? (titlesById.get(row.title_id) ?? null) : null;
     const title: FeedTitle | undefined = titleRow
       ? {
-          id: row.title_id as string,
-          name: titleRow.title ?? "Untitled",
-          year: titleRow.year ?? new Date().getFullYear(),
+          id: row.title_id,
+          name: titleRow.primary_title ?? "Untitled",
+          year: titleRow.release_year ?? new Date().getFullYear(),
           posterUrl: titleRow.poster_url ?? titleRow.backdrop_url ?? undefined,
         }
       : undefined;
 
-    const payload = (row.payload ?? {}) as ActivityPayload;
+    const payload = normalizeActivityPayload(row.payload);
 
     let rating: number | undefined;
     let reviewSnippet: string | undefined;
