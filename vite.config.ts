@@ -13,6 +13,16 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      thresholds: {
+        statements: 10,
+        branches: 4,
+        functions: 4,
+        lines: 10,
+      },
+    },
   },
   build: {
     outDir: "docs",          // ⬅️ change this from "dist" to "docs"

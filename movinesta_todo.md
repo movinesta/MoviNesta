@@ -597,7 +597,8 @@ _For each task or subtask below:_
   DONE – 2025-12-03 19:22 – Added CI workflow running npm ci, lint, and tests on push/PR to main via `.github/workflows/ci.yml`.
   - [✔️] Confirm CI workflow runs `npm run lint` and `npm test` on every push/PR.
     DONE – 2025-12-03 19:22 – CI job now installs dependencies then runs lint and tests across pushes and PRs.
-  - [ ] Optionally add coverage reporting and fail CI below a chosen threshold.
+  - [✔️] Optionally add coverage reporting and fail CI below a chosen threshold.
+    DONE – 2025-12-03 20:15 – Enabled Vitest v8 coverage reporting with branch/line thresholds, enforced via `npm test` and CI.
 
 ---
 
