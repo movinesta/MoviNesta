@@ -208,6 +208,9 @@ const TitleDetailPage: React.FC = () => {
   const { data, isLoading, isError } = useQuery<TitleRow | null, Error>({
     queryKey: qk.titleDetail(titleId),
     enabled: Boolean(titleId),
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!titleId) return null;
 
@@ -280,6 +283,9 @@ const TitleDetailPage: React.FC = () => {
   } = useQuery<{ status: DiaryStatus | null; rating: number | null }>({
     queryKey: qk.titleDiary(user?.id, titleId),
     enabled: Boolean(user?.id && titleId),
+    staleTime: 1000 * 20,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async () => {
       if (!user?.id || !titleId) {
         return { status: null, rating: null };
@@ -333,6 +339,9 @@ const TitleDetailPage: React.FC = () => {
   >({
     queryKey: qk.friendsTitleReactions(user?.id ?? null, titleId),
     enabled: Boolean(user?.id && titleId),
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async () => {
       if (!user?.id || !titleId) return [];
 

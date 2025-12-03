@@ -516,10 +516,14 @@ _For each task or subtask below:_
   - [ ] Refactor hooks (`useConversations`, `useConversationMessages`, `useSearchTitles`, `useDiaryTimeline`, `useDiaryStats`, `useSwipeDeck`, `useHomeFeed`) to:
     - [ ] Become thin React Query wrappers around these services.
 
-- [ ] Tune React Query settings
-  - [ ] For relatively static data (title metadata, TMDB info), use longer `staleTime` and avoid aggressive `refetchOnWindowFocus`.
-  - [ ] For dynamic data (messages, swipe decks, home feed), use shorter `staleTime` and consider enabling `refetchOnWindowFocus`.
-  - [ ] Use `keepPreviousData` / `placeholderData` for paginated lists to avoid flicker.
+- [✔️] Tune React Query settings
+  DONE – 2025-12-03 17:59 – Tuned React Query defaults and per-screen options for static vs. real-time data in `src/lib/react-query.ts`, search, title details, and home feeds.
+  - [✔️] For relatively static data (title metadata, TMDB info), use longer `staleTime` and avoid aggressive `refetchOnWindowFocus`.
+    DONE – 2025-12-03 17:59 – Added longer cache windows and disabled focus refetch for title search/detail queries.
+  - [✔️] For dynamic data (messages, swipe decks, home feed), use shorter `staleTime` and consider enabling `refetchOnWindowFocus`.
+    DONE – 2025-12-03 17:59 – Shortened cache windows and turned on focus/reconnect refetching for feed and diary-related queries.
+  - [✔️] Use `keepPreviousData` / `placeholderData` for paginated lists to avoid flicker.
+    DONE – 2025-12-03 17:59 – Enabled previous data retention for the home feed infinite query and added placeholders to search results.
 
 - [ ] Cancellable work
   - [ ] Ensure all multi-step workflows (combined search, complex feed building) accept `AbortSignal` and check `signal.aborted`.

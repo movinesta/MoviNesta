@@ -463,6 +463,10 @@ const useFeed = (): UseFeedResult => {
       queryKey: qk.homeFeed(user?.id ?? null),
       enabled: Boolean(user?.id),
       initialPageParam: null as string | null,
+      staleTime: 1000 * 15,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      keepPreviousData: true,
       queryFn: async ({ pageParam }) => {
         if (!user?.id) {
           return { items: [], nextCursor: null, hasMore: false };
