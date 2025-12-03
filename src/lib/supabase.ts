@@ -40,9 +40,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// 👇 ADD THIS (no DEV guard)
-if (typeof window !== "undefined") {
+// Expose the client for quick dev-time inspection without leaking it in production builds.
+if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as typeof window & { supabase?: typeof supabase }).supabase = supabase;
-  // Optional: tiny debug log so you can see it fired
-  // console.log("window.supabase attached", window.supabase);
 }
