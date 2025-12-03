@@ -47,6 +47,29 @@ export const parseMessageText = (body: string | null): string => {
   }
 };
 
+export type ParsedMessageMeta = {
+  editedAt?: string;
+  deletedAt?: string;
+  deleted?: boolean;
+};
+
+export const getMessageMeta = (body: string | null): ParsedMessageMeta => {
+  if (!body) return {};
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed === "object") {
+      return {
+        editedAt: typeof (parsed as any).editedAt === "string" ? (parsed as any).editedAt : undefined,
+        deletedAt: typeof (parsed as any).deletedAt === "string" ? (parsed as any).deletedAt : undefined,
+        deleted: (parsed as any).deleted === true,
+      };
+    }
+  } catch {
+    // ignore parse errors and return empty meta
+  }
+  return {};
+};
+
 const normalizeForPreview = (value: string): string => {
   // Collapse whitespace and line breaks
   const singleLine = value

@@ -25,7 +25,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { formatDate, formatTime } from "@/utils/format";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
-import { parseMessageText } from "./messageText";
+import { getMessageMeta, parseMessageText } from "./messageText";
 import { useBlockStatus } from "./useBlockStatus";
 
 interface ConversationMessage {
@@ -67,35 +67,12 @@ interface MessageDeliveryStatus {
   seenAt?: string | null;
 }
 
-type ParsedBodyMeta = {
-  editedAt?: string;
-  deletedAt?: string;
-  deleted?: boolean;
-};
-
 type FailedMessagePayload = {
   text: string;
   attachmentPath: string | null;
 };
 
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
-
-const getMessageMeta = (body: string | null): ParsedBodyMeta => {
-  if (!body) return {};
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === "object") {
-      return {
-        editedAt: typeof parsed.editedAt === "string" ? parsed.editedAt : undefined,
-        deletedAt: typeof parsed.deletedAt === "string" ? parsed.deletedAt : undefined,
-        deleted: parsed.deleted === true,
-      };
-    }
-  } catch {
-    // ignore parse errors
-  }
-  return {};
-};
 
 export const getBubbleAppearance = ({
   isSelf,
