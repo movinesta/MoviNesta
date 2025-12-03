@@ -562,9 +562,12 @@ _For each task or subtask below:_
 ## 13. Testing & CI
 
 - [ ] Unit tests for pure logic
-  - [ ] Message text helpers:
-    - [ ] Parsing plain text vs JSON bodies.
-    - [ ] Handling deleted/edited message metadata if applicable.
+  - [✔️] Message text helpers:
+    DONE – 2025-12-03 20:08 – Added unit tests for parseMessageText/getMessagePreview/getMessageMeta to cover plain strings, JSON payloads, and metadata handling in src/modules/messages/messageText.ts and src/__tests__/messageText.test.ts.
+    - [✔️] Parsing plain text vs JSON bodies.
+      DONE – 2025-12-03 20:08 – Covered plain strings, rich-text blocks, image placeholders, and fallbacks in parseMessageText with preview normalization.
+    - [✔️] Handling deleted/edited message metadata if applicable.
+      DONE – 2025-12-03 20:08 – Extracted metadata parsing into getMessageMeta and validated edited/deleted flags via unit tests.
   - [ ] Search merge logic:
     - [ ] Deduping titles across local vs external sources.
     - [ ] Source precedence (`library` vs `external-synced` vs `external-only`).
