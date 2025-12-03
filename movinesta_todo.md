@@ -57,7 +57,8 @@ _For each task or subtask below:_
     - [✔️] `getUserClient()` that uses `SUPABASE_URL` + `SUPABASE_ANON_KEY` and respects RLS.
     - [✔️] `getAdminClient()` that uses `SUPABASE_SERVICE_ROLE_KEY` for cross-user or aggregation workflows that truly need it.
   - [✔️] Refactor existing Edge Functions (`swipe-*`, `catalog-*`, `create-direct-conversation`, etc.) to use these helpers instead of re-creating clients inline.
-  - [ ] Make sure `getAdminClient()` is only used when strictly necessary.
+  - [✔️] Make sure `getAdminClient()` is only used when strictly necessary.
+    DONE – 2025-05-16 00:50 – Switched catalog search Edge Function to use the anon user client instead of the service-role admin client for read-only queries.
 
 - [ ] Frontend Supabase client hygiene
   - [✔️] Consolidate to a single browser Supabase client in `src/lib/supabase.ts`.
