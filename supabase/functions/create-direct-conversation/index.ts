@@ -13,6 +13,7 @@ import {
   handleOptions,
   jsonError,
   jsonResponse,
+  validateRequest,
 } from "../_shared/http.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 
@@ -183,21 +184,15 @@ serve(async (req) => {
     const myUserId = user.id;
 
     // 2) Parse body
-    const rawBody = await req.json().catch((e) => {
-      console.error("[create-direct-conversation] invalid JSON body:", e);
-      return null;
-    });
+    const validation = await validateRequest<CreateDirectConversationPayload>(
+      req,
+      (raw) => CreateDirectConversationPayloadSchema.parse(raw),
+      { logPrefix: "[create-direct-conversation]" },
+    );
 
-    const parsed = CreateDirectConversationPayloadSchema.safeParse(rawBody);
-    if (!parsed.success) {
-      console.error(
-        "[create-direct-conversation] invalid payload",
-        parsed.error.flatten(),
-      );
-      return jsonError("Invalid request body", 400, "BAD_REQUEST_INVALID_BODY");
-    }
+    if (validation.errorResponse) return validation.errorResponse;
 
-    const { targetUserId, context } = parsed.data;
+    const { targetUserId, context } = validation.data;
 
     if (targetUserId === myUserId) {
       return jsonError("targetUserId cannot be yourself", 400, "BAD_REQUEST_SELF_TARGET");

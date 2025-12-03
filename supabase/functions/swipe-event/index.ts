@@ -6,6 +6,7 @@ import {
   handleOptions,
   jsonError,
   jsonResponse,
+  validateRequest,
 } from "../_shared/http.ts";
 import { getUserClient } from "../_shared/supabase.ts";
 
@@ -56,15 +57,15 @@ Deno.serve(async (req) => {
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    let body: SwipeEventPayload;
-    try {
-      const raw = await req.json();
-      const parsed = SwipeEventSchema.parse(raw);
-      body = parsed as SwipeEventPayload;
-    } catch (err) {
-      console.error("[swipe-event] invalid payload:", err);
-      return jsonError("Invalid request body", 400, "BAD_REQUEST_INVALID_BODY");
-    }
+    const validation = await validateRequest<SwipeEventPayload>(
+      req,
+      (raw) => SwipeEventSchema.parse(raw) as SwipeEventPayload,
+      { logPrefix: "[swipe-event]" },
+    );
+
+    if (validation.errorResponse) return validation.errorResponse;
+
+    const body = validation.data;
 
     const { titleId, direction, source, rating, inWatchlist } = body;
 
