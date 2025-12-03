@@ -142,12 +142,13 @@ _For each task or subtask below:_
     - [✔️] Shared `corsHeaders` and OPTIONS handler for CORS preflight.
   - [✔️] Refactor Edge Functions (`catalog-*`, `swipe-*`, `debug-env`, etc.) to use these helpers instead of duplicating `jsonOk/jsonError/corsHeaders`.
 
-- [ ] Request validation helpers
-  - [ ] Introduce a `validateRequest<T>()` helper that:
-    - [ ] Parses `req.json()` safely.
-    - [ ] Validates required fields and basic types (manually or via a small schema).
-    - [ ] Returns typed payload or responds with HTTP 400 via `jsonError`.
-  - [ ] Use this helper in functions like `swipe-event`, `swipe-for-you`, `catalog-sync`, and any other write-heavy endpoints.
+- [✔️] Request validation helpers
+  DONE – 2025-12-03 22:06 – Added shared `validateRequest` helper in `_shared/http.ts` to safely parse/validate JSON bodies and applied it across catalog sync/backfill, swipe-event, and create-direct-conversation edge functions for consistent 400 handling.
+  - [✔️] Introduce a `validateRequest<T>()` helper that:
+    - [✔️] Parses `req.json()` safely.
+    - [✔️] Validates required fields and basic types (manually or via a small schema).
+    - [✔️] Returns typed payload or responds with HTTP 400 via `jsonError`.
+  - [✔️] Use this helper in functions like `swipe-event`, `swipe-for-you`, `catalog-sync`, and any other write-heavy endpoints.
 
 - [✔️] `debug-env` hardening
   DONE – 2025-12-03 21:58 – Guarded debug-env behind `DEBUG_ENV_ENABLED` flag and restricted output to non-sensitive env presence booleans and runtime metadata in `supabase/functions/debug-env/index.ts`.

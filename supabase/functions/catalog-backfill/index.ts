@@ -1,6 +1,7 @@
 // supabase/functions/catalog-backfill/index.ts
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { validateRequest } from "../_shared/http.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -152,11 +153,15 @@ serve(async (req) => {
   let body: BackfillRequestBody | null = null;
 
   if (req.method === "POST") {
-    try {
-      body = (await req.json()) as BackfillRequestBody;
-    } catch {
-      body = null;
-    }
+    const validation = await validateRequest<BackfillRequestBody>(
+      req,
+      (raw) => raw as BackfillRequestBody,
+      { logPrefix: "[catalog-backfill]" },
+    );
+
+    if (validation.errorResponse) return validation.errorResponse;
+
+    body = validation.data;
   }
 
   const cfg = getDefaultConfig(body);

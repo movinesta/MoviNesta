@@ -16,6 +16,7 @@ import {
   handleOptions,
   jsonError,
   jsonResponse,
+  validateRequest,
 } from "../_shared/http.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 
@@ -50,12 +51,13 @@ serve(async (req) => {
     return jsonError("Method not allowed", 405);
   }
 
-  let body: TitleModePayload;
-  try {
-    body = (await req.json()) as TitleModePayload;
-  } catch {
-    return jsonError("Invalid JSON body", 400);
-  }
+  const validation = await validateRequest<TitleModePayload>(req, (raw) =>
+    raw as TitleModePayload,
+  );
+
+  if (validation.errorResponse) return validation.errorResponse;
+
+  const body = validation.data;
 
   let supabase;
   try {
