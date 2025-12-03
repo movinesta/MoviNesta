@@ -592,17 +592,18 @@ _For each task or subtask below:_
 
 ## 14. DX & documentation
 
-- [ ] README & environment docs
-  - [ ] Expand `README.md` to cover:
-    - [ ] Tech stack (Vite, React, TypeScript, Supabase, Edge functions, TMDB/OMDb).
-    - [ ] Local dev setup (`npm install`, `npm run dev`).
-    - [ ] Supabase setup (migrations via `supabase/schema.sql`, environment vars).
-    - [ ] Edge Function deployment commands (`supabase functions deploy ...`).
-    - [ ] All relevant env vars:
-      - [ ] `VITE_SUPABASE_URL`
-      - [ ] `VITE_SUPABASE_ANON_KEY` (and any other public keys)
-      - [ ] Service role, TMDB/OMDb keys, etc. (documented but not committed).
-  - [ ] Document how to regenerate Supabase types and where they live.
+- [✔️] README & environment docs
+  - [✔️] Expand `README.md` to cover:
+    - [✔️] Tech stack (Vite, React, TypeScript, Supabase, Edge functions, TMDB/OMDb).
+    - [✔️] Local dev setup (`npm install`, `npm run dev`).
+    - [✔️] Supabase setup (migrations via `supabase/schema.sql`, environment vars).
+    - [✔️] Edge Function deployment commands (`supabase functions deploy ...`).
+    - [✔️] All relevant env vars:
+      - [✔️] `VITE_SUPABASE_URL`
+      - [✔️] `VITE_SUPABASE_ANON_KEY` (and any other public keys)
+      - [✔️] Service role, TMDB/OMDb keys, etc. (documented but not committed).
+    DONE – 2025-12-03 18:09 – Added README with stack overview, local dev steps, Supabase setup, Edge Function deploy commands, env var matrix, and Supabase type regeneration instructions.
+    - [✔️] Document how to regenerate Supabase types and where they live.
 
 - [ ] Developer comments & experimental flags
   - [ ] Add short comments at top of complex or central files (`useSwipeDeck`, `useConversations`, `get_home_feed` SQL, key Edge functions) describing their purpose and assumptions.
