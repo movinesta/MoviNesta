@@ -556,12 +556,18 @@ _For each task or subtask below:_
   - [✔️] Add an attachment button to `MessageComposer` if not already wired end-to-end.
     DONE – 2025-12-03 20:14 – Conversation composer retains a dedicated attachment control with upload validation and dismissible error messaging.
 
-- [ ] Hero title pages
-  - [ ] Ensure `TitleDetailPage`:
-    - [ ] Uses backdrop + overlay for legible text.
-    - [ ] Exposes clear CTAs (log, rate, add to watchlist) wired to diary/library mutations.
-    - [ ] Prefetches primary poster/backdrop for a snappy hero experience.
-  - [ ] Make sure stats and diary info on title pages rely on the same library/diary hooks used elsewhere.
+- [✔️] Hero title pages
+  DONE – 2025-12-03 20:30 – Refreshed TitleDetailPage hero with backdrop overlay, CTA buttons for diary/watchlist/rating, image prefetching, and shared diary hook usage.
+  - [✔️] Ensure `TitleDetailPage`:
+    DONE – 2025-12-03 20:30 – Added gradient-backed hero with preloaded artwork, legible text, and CTA controls wired to diary mutations.
+    - [✔️] Uses backdrop + overlay for legible text.
+      DONE – 2025-12-03 20:30 – Hero now layers a gradient over the backdrop to keep title metadata readable.
+    - [✔️] Exposes clear CTAs (log, rate, add to watchlist) wired to diary/library mutations.
+      DONE – 2025-12-03 20:30 – Added watchlist/watching/watched buttons and inline rating controls powered by diary mutations.
+    - [✔️] Prefetches primary poster/backdrop for a snappy hero experience.
+      DONE – 2025-12-03 20:30 – Poster and backdrop URLs are preloaded via Image() to warm the cache before render.
+  - [✔️] Make sure stats and diary info on title pages rely on the same library/diary hooks used elsewhere.
+    DONE – 2025-12-03 20:30 – TitleDetailPage now reads diary status/ratings through the shared useTitleDiaryEntry hook.
 
 ---
 
