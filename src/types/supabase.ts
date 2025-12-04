@@ -1677,6 +1677,19 @@ export interface Database {
           participant_receipts: Json;
         }[];
       };
+      get_diary_stats: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: {
+          total_rated: number | null;
+          total_watched: number | null;
+          average_rating: number | null;
+          rating_distribution: Json | null;
+          top_genres: Json | null;
+          watch_count_by_month: Json | null;
+        }[];
+      };
     };
     Enums: {
       activity_event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';

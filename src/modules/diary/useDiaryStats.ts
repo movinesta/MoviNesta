@@ -1,18 +1,72 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  type DiaryStats,
-  EMPTY_STATS,
-  mapGenresById,
-  reduceDiaryStats,
-  type GenreLookupRow,
-  type LibraryRow,
-  type RatingsRow,
-  type TitleGenreRow,
-  computeTopGenres,
-} from "./diaryStatsReducer";
+import { type DiaryStats, EMPTY_STATS } from "./diaryStatsReducer";
+import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
+
+type DiaryStatsRow =
+  Database["public"]["Functions"]["get_diary_stats"]["Returns"][number];
+
+const toDiaryStats = (row?: DiaryStatsRow | null): DiaryStats => {
+  if (!row) return EMPTY_STATS;
+
+  const ratingDistribution: DiaryStats["ratingDistribution"] = Array.isArray(
+    row.rating_distribution,
+  )
+    ? row.rating_distribution
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const rating = Number((item as Record<string, unknown>).rating);
+          const count = Number((item as Record<string, unknown>).count);
+          if (Number.isNaN(rating) || Number.isNaN(count)) return null;
+          return { rating, count };
+        })
+        .filter(Boolean) as DiaryStats["ratingDistribution"]
+    : [];
+
+  const topGenres: DiaryStats["topGenres"] = Array.isArray(row.top_genres)
+    ? row.top_genres
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const genre = (item as Record<string, unknown>).genre;
+          const count = Number((item as Record<string, unknown>).count);
+          if (typeof genre !== "string" || Number.isNaN(count)) return null;
+          return { genre, count };
+        })
+        .filter(Boolean) as DiaryStats["topGenres"]
+    : [];
+
+  const watchCountByMonth: DiaryStats["watchCountByMonth"] = Array.isArray(
+    row.watch_count_by_month,
+  )
+    ? row.watch_count_by_month
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const month = (item as Record<string, unknown>).month;
+          const count = Number((item as Record<string, unknown>).count);
+          if (typeof month !== "string" || Number.isNaN(count)) return null;
+          return { month, count };
+        })
+        .filter(Boolean) as DiaryStats["watchCountByMonth"]
+    : [];
+
+  const averageRaw = row.average_rating;
+  const averageRating =
+    averageRaw === null || typeof averageRaw === "undefined"
+      ? null
+      : Number(averageRaw);
+
+  return {
+    totalRated: Number(row.total_rated ?? 0),
+    totalWatched: Number(row.total_watched ?? 0),
+    averageRating:
+      averageRating !== null && Number.isNaN(averageRating) ? null : averageRating,
+    ratingDistribution,
+    topGenres,
+    watchCountByMonth,
+  };
+};
 
 export const useDiaryStats = () => {
   const { user } = useAuth();
@@ -24,82 +78,15 @@ export const useDiaryStats = () => {
     queryFn: async (): Promise<DiaryStats> => {
       if (!userId) return EMPTY_STATS;
 
-      const [ratingsResult, libraryResult] = await Promise.all([
-        supabase
-          .from("ratings")
-          .select("rating, created_at, title_id")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(500),
-        supabase
-          .from("library_entries")
-          .select("title_id, status, updated_at")
-          .eq("user_id", userId)
-          .order("updated_at", { ascending: false })
-          .limit(500),
-      ]);
+      const { data, error } = await supabase.rpc("get_diary_stats", {
+        p_user_id: userId,
+      });
 
-      if (ratingsResult.error) {
-        throw new Error(ratingsResult.error.message);
-      }
-      if (libraryResult.error) {
-        throw new Error(libraryResult.error.message);
+      if (error) {
+        throw new Error(error.message);
       }
 
-      const ratingsRows: RatingsRow[] = ratingsResult.data ?? [];
-      const libraryRows: LibraryRow[] = libraryResult.data ?? [];
-
-      const titleIds = Array.from(
-        new Set(
-          libraryRows
-            .filter((row) => row.status === "watched")
-            .map((row) => row.title_id)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      );
-
-      let topGenres = [] as DiaryStats["topGenres"];
-
-      if (titleIds.length) {
-        const { data: titleGenres, error: tgError } = await supabase
-          .from("title_genres")
-          .select("title_id, genre_id")
-          .in("title_id", titleIds);
-
-        if (!tgError && titleGenres) {
-          const tgRows: TitleGenreRow[] = titleGenres;
-          const genreIds = Array.from(
-            new Set(
-              tgRows
-                .map((row) => row.genre_id)
-                .filter((id): id is number => typeof id === "number"),
-            ),
-          );
-
-          let genresById = new Map<number, string>();
-
-          if (genreIds.length) {
-            const { data: genres, error: genresError } = await supabase
-              .from("genres")
-              .select("id, name")
-              .in("id", genreIds);
-
-            if (!genresError && genres) {
-              const genreRows: GenreLookupRow[] = genres;
-              genresById = mapGenresById(genreRows);
-            } else if (genresError) {
-              console.warn("[useDiaryStats] Failed to load genres", genresError.message);
-            }
-          }
-
-          const watchedRows = libraryRows.filter((row) => row.status === "watched");
-          topGenres = computeTopGenres(watchedRows, tgRows, genresById);
-        } else if (tgError) {
-          console.warn("[useDiaryStats] Failed to load title_genres", tgError.message);
-        }
-      }
-
-      return reduceDiaryStats(ratingsRows, libraryRows, topGenres);
+      return toDiaryStats(data?.[0]);
     },
   });
 

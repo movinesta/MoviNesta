@@ -812,3 +812,106 @@ CREATE INDEX IF NOT EXISTS message_read_receipts_conversation_message_idx
 
 CREATE INDEX IF NOT EXISTS message_delivery_receipts_conversation_created_idx
   ON public.message_delivery_receipts USING btree (conversation_id, created_at);
+
+-- ----------------------
+-- Diary stats aggregation
+-- ----------------------
+
+CREATE OR REPLACE FUNCTION public.get_diary_stats(p_user_id uuid)
+RETURNS TABLE (
+  total_rated integer,
+  total_watched integer,
+  average_rating numeric,
+  rating_distribution jsonb,
+  top_genres jsonb,
+  watch_count_by_month jsonb
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN QUERY
+  WITH rating_buckets AS (
+    SELECT
+      round(r.rating * 2) / 2 AS bucket,
+      count(*) AS bucket_count
+    FROM public.ratings r
+    WHERE r.user_id = p_user_id
+    GROUP BY bucket
+  ),
+  watched_entries AS (
+    SELECT le.title_id, le.updated_at
+    FROM public.library_entries le
+    WHERE le.user_id = p_user_id AND le.status = 'watched'
+  ),
+  genre_counts AS (
+    SELECT g.name AS genre, count(*) AS genre_count
+    FROM watched_entries w
+    JOIN public.title_genres tg ON tg.title_id = w.title_id
+    JOIN public.genres g ON g.id = tg.genre_id
+    GROUP BY g.name
+    ORDER BY genre_count DESC, g.name
+    LIMIT 8
+  ),
+  watch_months AS (
+    SELECT
+      to_char(date_trunc('month', w.updated_at), 'YYYY-MM') AS month,
+      count(*) AS month_count
+    FROM watched_entries w
+    GROUP BY month
+    ORDER BY month
+  )
+  SELECT
+    (SELECT count(*) FROM public.ratings r WHERE r.user_id = p_user_id) AS total_rated,
+    (SELECT count(*) FROM watched_entries) AS total_watched,
+    (SELECT avg(r.rating) FROM public.ratings r WHERE r.user_id = p_user_id) AS average_rating,
+    COALESCE(
+      (
+        SELECT jsonb_agg(jsonb_build_object('rating', bucket, 'count', bucket_count) ORDER BY bucket)
+        FROM rating_buckets
+      ),
+      '[]'::jsonb
+    ) AS rating_distribution,
+    COALESCE(
+      (
+        SELECT jsonb_agg(jsonb_build_object('genre', genre, 'count', genre_count) ORDER BY genre_count DESC, genre)
+        FROM genre_counts
+      ),
+      '[]'::jsonb
+    ) AS top_genres,
+    COALESCE(
+      (
+        SELECT jsonb_agg(jsonb_build_object('month', month, 'count', month_count) ORDER BY month)
+        FROM watch_months
+      ),
+      '[]'::jsonb
+    ) AS watch_count_by_month;
+END;
+$$;
+
+COMMENT ON FUNCTION public.get_diary_stats IS
+  'Aggregates diary statistics for the authenticated user with rating buckets, top genres, and watch counts.';
+
+CREATE POLICY get_diary_stats_owner_only ON public.ratings
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY get_diary_stats_library_owner_only ON public.library_entries
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- ---------------------------------------------
+-- Diary stats performance indexes
+-- ---------------------------------------------
+
+CREATE INDEX IF NOT EXISTS ratings_user_id_created_at_idx
+  ON public.ratings USING btree (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS library_entries_user_status_updated_idx
+  ON public.library_entries USING btree (user_id, status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS title_genres_title_id_idx
+  ON public.title_genres USING btree (title_id);
