@@ -9,13 +9,54 @@ type TitleRow = Pick<
   "title_id" | "primary_title" | "release_year" | "poster_url" | "backdrop_url"
 >;
 
-interface ActivityPayload {
-  rating?: number;
-  review_snippet?: string;
+type RatingCreatedPayload = {
+  event_type: "rating_created";
+  rating: number;
   headline?: string;
-  extra?: string;
   emoji?: string;
-}
+};
+
+type ReviewCreatedPayload = {
+  event_type: "review_created";
+  review_snippet?: string;
+  rating?: number;
+  headline?: string;
+  emoji?: string;
+};
+
+type WatchlistPayload = {
+  event_type: "watchlist_added" | "watchlist_removed";
+  extra?: string;
+};
+
+type FollowCreatedPayload = {
+  event_type: "follow_created";
+  extra?: string;
+};
+
+type CommentOrReplyPayload = {
+  event_type: "comment_created" | "reply_created";
+  extra?: string;
+};
+
+type ListActivityPayload = {
+  event_type: "list_created" | "list_item_added";
+  extra?: string;
+};
+
+type MessageSentPayload = {
+  event_type: "message_sent";
+  extra?: string;
+};
+
+type ActivityEventPayload =
+  | RatingCreatedPayload
+  | ReviewCreatedPayload
+  | WatchlistPayload
+  | FollowCreatedPayload
+  | CommentOrReplyPayload
+  | ListActivityPayload
+  | MessageSentPayload;
 
 export type DiaryEventKind = "rating" | "review" | "watchlist" | "follow" | "other";
 
@@ -49,23 +90,78 @@ const mapEventTypeToDiaryKind = (eventType: ActivityEventRow["event_type"]): Dia
   }
 };
 
-const parseActivityPayload = (payload: ActivityEventRow["payload"]): ActivityPayload => {
-  if (!payload || typeof payload !== "object") {
-    return {};
-  }
+const parseString = (value: unknown): string | undefined => {
+  return typeof value === "string" ? value : undefined;
+};
+
+const parseNumber = (value: unknown): number | undefined => {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+};
+
+const validateActivityPayload = (
+  eventType: ActivityEventRow["event_type"],
+  payload: ActivityEventRow["payload"],
+): ActivityEventPayload | null => {
+  if (!payload || typeof payload !== "object") return null;
 
   const payloadObject = payload as Record<string, unknown>;
 
-  return {
-    rating: typeof payloadObject.rating === "number" ? payloadObject.rating : undefined,
-    review_snippet:
-      typeof payloadObject.review_snippet === "string"
-        ? payloadObject.review_snippet
-        : undefined,
-    headline: typeof payloadObject.headline === "string" ? payloadObject.headline : undefined,
-    extra: typeof payloadObject.extra === "string" ? payloadObject.extra : undefined,
-    emoji: typeof payloadObject.emoji === "string" ? payloadObject.emoji : undefined,
-  };
+  switch (eventType) {
+    case "rating_created": {
+      const rating = parseNumber(payloadObject.rating);
+      if (rating === undefined) return null;
+      return {
+        event_type: eventType,
+        rating,
+        headline: parseString(payloadObject.headline),
+        emoji: parseString(payloadObject.emoji),
+      } satisfies RatingCreatedPayload;
+    }
+    case "review_created": {
+      return {
+        event_type: eventType,
+        rating: parseNumber(payloadObject.rating),
+        review_snippet: parseString(payloadObject.review_snippet),
+        headline: parseString(payloadObject.headline),
+        emoji: parseString(payloadObject.emoji),
+      } satisfies ReviewCreatedPayload;
+    }
+    case "watchlist_added":
+    case "watchlist_removed": {
+      return {
+        event_type: eventType,
+        extra: parseString(payloadObject.extra),
+      } satisfies WatchlistPayload;
+    }
+    case "follow_created": {
+      return {
+        event_type: eventType,
+        extra: parseString(payloadObject.extra),
+      } satisfies FollowCreatedPayload;
+    }
+    case "comment_created":
+    case "reply_created": {
+      return {
+        event_type: eventType,
+        extra: parseString(payloadObject.extra),
+      } satisfies CommentOrReplyPayload;
+    }
+    case "list_created":
+    case "list_item_added": {
+      return {
+        event_type: eventType,
+        extra: parseString(payloadObject.extra),
+      } satisfies ListActivityPayload;
+    }
+    case "message_sent": {
+      return {
+        event_type: eventType,
+        extra: parseString(payloadObject.extra),
+      } satisfies MessageSentPayload;
+    }
+    default:
+      return null;
+  }
 };
 
 export const useDiaryTimeline = (userIdOverride?: string | null) => {
@@ -113,7 +209,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       return rows.map((row) => {
         const title = row.title_id ? (titlesById.get(row.title_id) ?? null) : null;
         const kind = mapEventTypeToDiaryKind(row.event_type);
-        const payload = parseActivityPayload(row.payload);
+        const payload = validateActivityPayload(row.event_type, row.payload);
 
         return {
           id: row.id,
@@ -123,11 +219,21 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
           title: title?.primary_title ?? null,
           year: title?.release_year ?? null,
           posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
-          rating: payload.rating ?? null,
-          reviewSnippet: payload.review_snippet ?? null,
-          headline: payload.headline ?? null,
-          extra: payload.extra ?? null,
-          emoji: payload.emoji ?? null,
+          rating: payload?.event_type === "rating_created"
+            ? payload.rating
+            : payload?.event_type === "review_created"
+              ? payload.rating ?? null
+              : null,
+          reviewSnippet: payload?.event_type === "review_created" ? payload.review_snippet ?? null : null,
+          headline:
+            payload?.event_type === "rating_created" || payload?.event_type === "review_created"
+              ? payload.headline ?? null
+              : null,
+          extra: payload?.extra ?? null,
+          emoji:
+            payload?.event_type === "rating_created" || payload?.event_type === "review_created"
+              ? payload.emoji ?? null
+              : null,
         };
       });
     },
