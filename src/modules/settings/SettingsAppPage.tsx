@@ -47,7 +47,9 @@ const SettingsAppPage: React.FC = () => {
               <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
                 {t("settings.start.title")}
               </h2>
-              <p className="text-[11px] text-mn-text-secondary">{t("settings.start.description")}</p>
+              <p className="text-[11px] text-mn-text-secondary">
+                {t("settings.start.description")}
+              </p>
             </div>
           </div>
 
@@ -84,8 +86,12 @@ const SettingsAppPage: React.FC = () => {
               <Monitor className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">{t("settings.theme.title")}</h2>
-              <p className="text-[11px] text-mn-text-secondary">{t("settings.theme.description")}</p>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                {t("settings.theme.title")}
+              </h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                {t("settings.theme.description")}
+              </p>
             </div>
           </div>
 
@@ -137,8 +143,12 @@ const SettingsAppPage: React.FC = () => {
               <Monitor className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">{t("settings.language.title")}</h2>
-              <p className="text-[11px] text-mn-text-secondary">{t("settings.language.description")}</p>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                {t("settings.language.title")}
+              </h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                {t("settings.language.description")}
+              </p>
             </div>
           </div>
 
@@ -180,15 +190,23 @@ const SettingsAppPage: React.FC = () => {
               <Moon className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
             </span>
             <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">{t("settings.motion.title")}</h2>
-              <p className="text-[11px] text-mn-text-secondary">{t("settings.motion.description")}</p>
+              <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+                {t("settings.motion.title")}
+              </h2>
+              <p className="text-[11px] text-mn-text-secondary">
+                {t("settings.motion.description")}
+              </p>
             </div>
           </div>
 
           <label className="mt-2 flex items-center justify-between gap-3 text-[12px]">
             <div>
-              <span className="block text-mn-text-primary">{t("settings.motion.reduceMotion")}</span>
-              <span className="block text-[11px] text-mn-text-secondary">{t("settings.motion.detail")}</span>
+              <span className="block text-mn-text-primary">
+                {t("settings.motion.reduceMotion")}
+              </span>
+              <span className="block text-[11px] text-mn-text-secondary">
+                {t("settings.motion.detail")}
+              </span>
             </div>
             <input
               type="checkbox"

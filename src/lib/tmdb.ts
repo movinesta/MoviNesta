@@ -29,11 +29,7 @@ export async function fetchTmdbJson(
   };
 
   try {
-    const result = await callSupabaseFunction<TmdbProxyResponse>(
-      "tmdb-proxy",
-      payload,
-      { signal },
-    );
+    const result = await callSupabaseFunction<TmdbProxyResponse>("tmdb-proxy", payload, { signal });
     return result.data;
   } catch (err) {
     console.warn(`[tmdb] Request error for ${path}:`, err);

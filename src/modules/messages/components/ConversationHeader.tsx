@@ -70,10 +70,10 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
               {conversation
                 ? conversation.lastMessageAtLabel
                   ? `Active ${conversation.lastMessageAtLabel}`
-                  : conversation.subtitle ??
+                  : (conversation.subtitle ??
                     (isGroupConversation
                       ? `${conversation.participants.length} participants`
-                      : "Active now")
+                      : "Active now"))
                 : isLoading
                   ? "Loading…"
                   : "Details unavailable"}

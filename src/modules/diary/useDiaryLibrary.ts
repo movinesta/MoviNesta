@@ -31,10 +31,7 @@ type TitleRow = Pick<
 >;
 type LibraryRowWithTitle = LibraryRow & { titles: TitleRow | null };
 type RatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "title_id" | "rating">;
-type TitleDiaryRow = Pick<
-  Database["public"]["Tables"]["library_entries"]["Row"],
-  "status"
->;
+type TitleDiaryRow = Pick<Database["public"]["Tables"]["library_entries"]["Row"], "status">;
 type TitleDiaryRatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "rating">;
 
 export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: string | null) => {
@@ -146,25 +143,23 @@ export const useTitleDiaryEntry = (titleId: string | null | undefined) => {
         return { status: null, rating: null };
       }
 
-      const [
-        { data: libraryRow, error: libraryError },
-        { data: ratingRow, error: ratingError },
-      ] = await Promise.all([
-        supabase
-          .from("library_entries")
-          .select("status")
-          .returns<TitleDiaryRow | null>()
-          .eq("user_id", userId)
-          .eq("title_id", titleId)
-          .maybeSingle(),
-        supabase
-          .from("ratings")
-          .select("rating")
-          .returns<TitleDiaryRatingRow | null>()
-          .eq("user_id", userId)
-          .eq("title_id", titleId)
-          .maybeSingle(),
-      ]);
+      const [{ data: libraryRow, error: libraryError }, { data: ratingRow, error: ratingError }] =
+        await Promise.all([
+          supabase
+            .from("library_entries")
+            .select("status")
+            .returns<TitleDiaryRow | null>()
+            .eq("user_id", userId)
+            .eq("title_id", titleId)
+            .maybeSingle(),
+          supabase
+            .from("ratings")
+            .select("rating")
+            .returns<TitleDiaryRatingRow | null>()
+            .eq("user_id", userId)
+            .eq("title_id", titleId)
+            .maybeSingle(),
+        ]);
 
       if (libraryError && libraryError.code !== "PGRST116") {
         throw libraryError;

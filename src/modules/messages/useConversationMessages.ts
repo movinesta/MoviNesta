@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { PostgrestSingleResponse, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import type {
+  PostgrestSingleResponse,
+  RealtimePostgresChangesPayload,
+} from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/supabase";
 import { mapMessageRowToConversationMessage, type ConversationMessage } from "./messageModel";
@@ -89,12 +92,22 @@ export const useConversationMessages = (conversationId: string | null) => {
     channel
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
         upsertFromPayload,
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
         upsertFromPayload,
       )
       .subscribe();

@@ -96,8 +96,7 @@ export function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
     const parsed = JSON.parse(raw) as Partial<Record<SwipeDeckKind, number>>;
     return {
       "for-you": typeof parsed["for-you"] === "number" ? parsed["for-you"] : 1,
-      "from-friends":
-        typeof parsed["from-friends"] === "number" ? parsed["from-friends"] : 1,
+      "from-friends": typeof parsed["from-friends"] === "number" ? parsed["from-friends"] : 1,
       trending: typeof parsed.trending === "number" ? parsed.trending : 1,
     };
   } catch {
@@ -115,13 +114,9 @@ interface SwipeEventPayload {
   rating?: number | null;
   inWatchlist?: boolean | null;
   sourceOverride?: SwipeDeckKind;
-  title?: string;
 }
 
-export function buildInterleavedDeck(
-  lists: SwipeCardData[][],
-  limit: number,
-): SwipeCardData[] {
+export function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCardData[] {
   const maxLength = Math.max(...lists.map((list) => list.length));
   const interleaved: SwipeCardData[] = [];
 
@@ -168,14 +163,15 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     payload: SwipeEventPayload;
     message: string;
   } | null>(null);
-  const sourceWeightsRef = useRef<Record<SwipeDeckKind, number>>(
-    loadInitialSourceWeights(),
-  );
+  const sourceWeightsRef = useRef<Record<SwipeDeckKind, number>>(loadInitialSourceWeights());
 
   const setDeckStateWithCache = useCallback(
     (updater: SwipeDeckState | ((prev: SwipeDeckState) => SwipeDeckState)) => {
       setDeckState((prev) => {
-        const next = typeof updater === "function" ? (updater as (p: SwipeDeckState) => SwipeDeckState)(prev) : updater;
+        const next =
+          typeof updater === "function"
+            ? (updater as (p: SwipeDeckState) => SwipeDeckState)(prev)
+            : updater;
         queryClient.setQueryData(deckCacheKey, next);
         return next;
       });
@@ -380,9 +376,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       } finally {
         fetchingRef.current = false;
         setDeckStateWithCache((prev) =>
-          prev.status === "loading" && prev.cards.length
-            ? { ...prev, status: "ready" }
-            : prev,
+          prev.status === "loading" && prev.cards.length ? { ...prev, status: "ready" } : prev,
         );
       }
     },
@@ -434,15 +428,18 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     [],
   );
 
-  const trimConsumed = useCallback((count: number) => {
-    if (count <= 0) return;
-    setDeckStateWithCache((prev) => {
-      const { remaining } = trimDeck(prev.cards, count);
-      if (remaining.length === prev.cards.length) return prev;
-      cardsRef.current = remaining;
-      return { ...prev, cards: remaining };
-    });
-  }, [setDeckStateWithCache]);
+  const trimConsumed = useCallback(
+    (count: number) => {
+      if (count <= 0) return;
+      setDeckStateWithCache((prev) => {
+        const { remaining } = trimDeck(prev.cards, count);
+        if (remaining.length === prev.cards.length) return prev;
+        cardsRef.current = remaining;
+        return { ...prev, cards: remaining };
+      });
+    },
+    [setDeckStateWithCache],
+  );
 
   const refreshDeck = useCallback(() => {
     seenIdsRef.current = new Set();
@@ -460,7 +457,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       rating,
       inWatchlist,
       sourceOverride,
-      title,
     }: SwipeEventPayload) => {
       await callSupabaseFunction("swipe-event", {
         titleId: cardId,

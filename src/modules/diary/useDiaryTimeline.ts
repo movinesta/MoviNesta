@@ -219,20 +219,22 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
           title: title?.primary_title ?? null,
           year: title?.release_year ?? null,
           posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
-          rating: payload?.event_type === "rating_created"
-            ? payload.rating
-            : payload?.event_type === "review_created"
-              ? payload.rating ?? null
-              : null,
-          reviewSnippet: payload?.event_type === "review_created" ? payload.review_snippet ?? null : null,
+          rating:
+            payload?.event_type === "rating_created"
+              ? payload.rating
+              : payload?.event_type === "review_created"
+                ? (payload.rating ?? null)
+                : null,
+          reviewSnippet:
+            payload?.event_type === "review_created" ? (payload.review_snippet ?? null) : null,
           headline:
             payload?.event_type === "rating_created" || payload?.event_type === "review_created"
-              ? payload.headline ?? null
+              ? (payload.headline ?? null)
               : null,
           extra: payload?.extra ?? null,
           emoji:
             payload?.event_type === "rating_created" || payload?.event_type === "review_created"
-              ? payload.emoji ?? null
+              ? (payload.emoji ?? null)
               : null,
         };
       });

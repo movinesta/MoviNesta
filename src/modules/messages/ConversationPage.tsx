@@ -32,7 +32,6 @@ import {
   isSameCalendarDate,
   formatMessageDateLabel,
   formatMessageTime,
-  getBubbleAppearance,
   isWithinGroupingWindow,
 } from "./messageModel";
 import { useConversationMessages } from "./useConversationMessages";
@@ -58,7 +57,8 @@ const CHAT_MEDIA_BUCKET = "chat-media";
 
 const buildAttachmentPath = (conversationId: string, userId: string, fileName: string) => {
   const ext = fileName.split(".").pop() ?? "jpg";
-  const randomId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now();
+  const randomId =
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now();
   return `message_attachments/${conversationId}/${userId}/${Date.now()}-${randomId}.${ext}`;
 };
 
@@ -149,16 +149,10 @@ export const useSendMessage = (
       if (!userId) throw new Error("You must be signed in to send messages.");
 
       if (options?.otherUserId) {
-        const status = await fetchBlockStatus(
-          supabase,
-          userId,
-          options.otherUserId,
-        );
+        const status = await fetchBlockStatus(supabase, userId, options.otherUserId);
 
         if (status.youBlocked) {
-          throw new Error(
-            "You have blocked this user. Unblock them to send messages.",
-          );
+          throw new Error("You have blocked this user. Unblock them to send messages.");
         }
 
         if (status.blockedYou) {
@@ -255,12 +249,14 @@ export const useSendMessage = (
       console.error("[ConversationPage] sendMessage error", error);
       if (conversationId) {
         const { previousMessages, optimistic, payload, tempId } = context ?? {};
-        const base = previousMessages ??
+        const base =
+          previousMessages ??
           queryClient.getQueryData<ConversationMessage[]>([
             "conversation",
             conversationId,
             "messages",
-          ]) ?? [];
+          ]) ??
+          [];
 
         const next = optimistic ? [...base, optimistic] : [...base];
         next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -503,7 +499,7 @@ const ConversationPage: React.FC = () => {
   const sendMessage = useSendMessage(conversationId, {
     onFailed: handleSendFailed,
     onRecovered: handleSendRecovered,
-    otherUserId: !isGroupConversation ? otherParticipant?.id ?? null : null,
+    otherUserId: !isGroupConversation ? (otherParticipant?.id ?? null) : null,
   });
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -621,7 +617,6 @@ const ConversationPage: React.FC = () => {
 
   const { data: readReceipts } = useConversationReadReceipts(conversationId);
   const {
-    reactions,
     reactionsByMessageId,
     toggleReaction,
     queryKey: reactionsQueryKey,
@@ -706,7 +701,8 @@ const ConversationPage: React.FC = () => {
     return messages.map((message) => {
       const meta = getMessageMeta(message.body);
       const sender = participantsById.get(message.senderId) ?? null;
-      const isSelf = sender?.isSelf ?? (currentUserId != null && message.senderId === currentUserId);
+      const isSelf =
+        sender?.isSelf ?? (currentUserId != null && message.senderId === currentUserId);
       const deliveryStatus = getMessageDeliveryStatus(
         message,
         conversation ?? null,
@@ -1201,19 +1197,22 @@ const ConversationPage: React.FC = () => {
   };
 
   const attemptSend = (payload: FailedMessagePayload) => {
-    sendMessage.mutate({ text: payload.text, attachmentPath: payload.attachmentPath }, {
-      onError: (error) => {
-        console.error("[ConversationPage] sendMessage mutate error", error);
-        setSendError("Couldn't send. Please try again.");
-        setDraft(payload.text);
-        resizeTextarea();
-        setLastFailedPayload(payload);
+    sendMessage.mutate(
+      { text: payload.text, attachmentPath: payload.attachmentPath },
+      {
+        onError: (error) => {
+          console.error("[ConversationPage] sendMessage mutate error", error);
+          setSendError("Couldn't send. Please try again.");
+          setDraft(payload.text);
+          resizeTextarea();
+          setLastFailedPayload(payload);
+        },
+        onSuccess: () => {
+          setSendError(null);
+          setLastFailedPayload(null);
+        },
       },
-      onSuccess: () => {
-        setSendError(null);
-        setLastFailedPayload(null);
-      },
-    });
+    );
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -1462,15 +1461,23 @@ const ConversationPage: React.FC = () => {
               )}
 
               {uiMessages.map((uiMessage, index) => {
-                const { message, meta, sender, isSelf, deliveryStatus, reactions, showDeliveryStatus } =
-                  uiMessage;
+                const {
+                  message,
+                  meta,
+                  sender,
+                  isSelf,
+                  deliveryStatus,
+                  reactions,
+                  showDeliveryStatus,
+                } = uiMessage;
 
                 if (hiddenMessageIds[message.id]) {
                   return null;
                 }
 
-                const previous = index > 0 ? uiMessages[index - 1]?.message ?? null : null;
-                const next = index < uiMessages.length - 1 ? uiMessages[index + 1]?.message ?? null : null;
+                const previous = index > 0 ? (uiMessages[index - 1]?.message ?? null) : null;
+                const next =
+                  index < uiMessages.length - 1 ? (uiMessages[index + 1]?.message ?? null) : null;
 
                 const previousSameSender =
                   previous != null && previous.senderId === message.senderId;
@@ -1497,10 +1504,6 @@ const ConversationPage: React.FC = () => {
                 const editedAt = meta.editedAt;
                 const deletedAt = meta.deletedAt;
 
-                const { bubbleColors, bubbleShape } = getBubbleAppearance({
-                  isSelf,
-                  isDeleted: isDeletedMessage,
-                });
                 const name = sender?.displayName ?? (isSelf ? "You" : "Someone");
                 const text = isDeletedMessage
                   ? "This message was deleted"
@@ -1609,10 +1612,14 @@ const ConversationPage: React.FC = () => {
                           aria-label={messageAriaLabel}
                         >
                           {text && (
-                            <p className="whitespace-pre-wrap break-all text-[13px] leading-snug">{text}</p>
+                            <p className="whitespace-pre-wrap break-all text-[13px] leading-snug">
+                              {text}
+                            </p>
                           )}
 
-                          {!isDeletedMessage && message.attachmentUrl && <ChatImage path={message.attachmentUrl} />}
+                          {!isDeletedMessage && message.attachmentUrl && (
+                            <ChatImage path={message.attachmentUrl} />
+                          )}
                         </MessageBubble>
                       </div>
 
@@ -2000,7 +2007,10 @@ const ConversationPage: React.FC = () => {
             className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-5 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2 id="edit-message-title" className="text-[15px] font-semibold text-mn-text-primary">
+              <h2
+                id="edit-message-title"
+                className="text-[15px] font-semibold text-mn-text-primary"
+              >
                 Edit message
               </h2>
               <button

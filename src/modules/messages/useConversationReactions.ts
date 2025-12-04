@@ -20,9 +20,7 @@ const mapReactionRow = (row: MessageReactionRow): MessageReaction => ({
   createdAt: row.created_at,
 });
 
-const fetchConversationReactions = async (
-  conversationId: string,
-): Promise<MessageReaction[]> => {
+const fetchConversationReactions = async (conversationId: string): Promise<MessageReaction[]> => {
   const { data, error } = await supabase
     .from("message_reactions")
     .select("id, conversation_id, message_id, user_id, emoji, created_at")

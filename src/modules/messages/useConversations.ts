@@ -109,7 +109,7 @@ export const useConversations = () => {
             primaryOther?.displayName ??
             primaryOther?.username ??
             summary.title ??
-              "Direct message";
+            "Direct message";
           subtitle =
             primaryOther?.username != null
               ? `@${primaryOther.username}`
@@ -149,7 +149,11 @@ export const useConversations = () => {
           } else if (otherReceipt?.lastReadAt) {
             const msgTime = new Date(lastMessageAt).getTime();
             const otherReadTime = new Date(otherReceipt.lastReadAt).getTime();
-            if (!Number.isNaN(msgTime) && !Number.isNaN(otherReadTime) && otherReadTime >= msgTime) {
+            if (
+              !Number.isNaN(msgTime) &&
+              !Number.isNaN(otherReadTime) &&
+              otherReadTime >= msgTime
+            ) {
               lastMessageSeenByOthers = true;
             }
           }

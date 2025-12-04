@@ -59,8 +59,10 @@ export const getMessageMeta = (body: string | null): ParsedMessageMeta => {
     const parsed = JSON.parse(body);
     if (parsed && typeof parsed === "object") {
       return {
-        editedAt: typeof (parsed as any).editedAt === "string" ? (parsed as any).editedAt : undefined,
-        deletedAt: typeof (parsed as any).deletedAt === "string" ? (parsed as any).deletedAt : undefined,
+        editedAt:
+          typeof (parsed as any).editedAt === "string" ? (parsed as any).editedAt : undefined,
+        deletedAt:
+          typeof (parsed as any).deletedAt === "string" ? (parsed as any).deletedAt : undefined,
         deleted: (parsed as any).deleted === true,
       };
     }

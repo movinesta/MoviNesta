@@ -18,7 +18,9 @@ const ProfilePage = React.lazy(() => import("./modules/profile/ProfilePage"));
 const SettingsOverviewPage = React.lazy(() => import("./modules/settings/SettingsOverviewPage"));
 const SettingsProfilePage = React.lazy(() => import("./modules/settings/SettingsProfilePage"));
 const SettingsAccountPage = React.lazy(() => import("./modules/settings/SettingsAccountPage"));
-const SettingsNotificationsPage = React.lazy(() => import("./modules/settings/SettingsNotificationsPage"));
+const SettingsNotificationsPage = React.lazy(
+  () => import("./modules/settings/SettingsNotificationsPage"),
+);
 const SettingsAppPage = React.lazy(() => import("./modules/settings/SettingsAppPage"));
 const NotFoundPage = React.lazy(() => import("./modules/misc/NotFoundPage"));
 const OnboardingPage = React.lazy(() => import("./modules/misc/OnboardingPage"));
