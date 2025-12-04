@@ -242,16 +242,17 @@ _For each task or subtask below:_
     - [✔️] Generate a message preview from `body` or JSON payload.
     - [✔️] Use read receipts to derive `hasUnread`.
 
-- [ ] Split `ConversationPage.tsx` into focused components
+- [✔️] Split `ConversationPage.tsx` into focused components
+  DONE – 2025-12-04 07:29 – Extracted message mapping into `messageModel.ts`, moved message querying to `useConversationMessages`, and split the conversation header, message list/bubble, and composer into dedicated components for reuse.
   - [ ] Create:
-    - [ ] `ConversationPage` – route container + data orchestration.
-    - [ ] `ConversationHeader` – title, participants, back button, overflow menu.
-    - [ ] `MessageList` – grouped messages, date separators, scroll handling.
-    - [ ] `MessageBubble` – bubble layout, alignment, reactions, timestamps.
-    - [ ] `MessageComposer` – input, emoji picker, attachments, send button.
-    - [ ] `messageModel.ts` – DB rows → `UiMessage` mapping logic.
-    - [ ] `useConversationMessages` – fetch + realtime subscription.
-  - [ ] Move non-UI logic (data transforms, mapping from DB rows) into `messageModel.ts` and/or service layer.
+    - [✔️] `ConversationPage` – route container + data orchestration.
+    - [✔️] `ConversationHeader` – title, participants, back button, overflow menu.
+    - [✔️] `MessageList` – grouped messages, date separators, scroll handling.
+    - [✔️] `MessageBubble` – bubble layout, alignment, reactions, timestamps.
+    - [✔️] `MessageComposer` – input, emoji picker, attachments, send button.
+    - [✔️] `messageModel.ts` – DB rows → `UiMessage` mapping logic.
+    - [✔️] `useConversationMessages` – fetch + realtime subscription.
+  - [✔️] Move non-UI logic (data transforms, mapping from DB rows) into `messageModel.ts` and/or service layer.
 
 - [ ] Realtime messages with optimistic updates
   - [ ] Implement `useConversationMessages` to:

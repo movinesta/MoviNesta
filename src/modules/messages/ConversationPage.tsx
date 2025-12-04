@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   AlertCircle,
   Camera,
   Check,
@@ -10,68 +9,37 @@ import {
   Image as ImageIcon,
   Info,
   Loader2,
-  Phone,
   Send,
   Smile,
   Trash2,
-  Users,
-  Video,
   X,
 } from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { HeaderSurface } from "../../components/PageChrome";
 import { useAuth } from "../auth/AuthProvider";
-import { formatDate, formatTime } from "@/utils/format";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
 import { getMessageMeta, parseMessageText } from "./messageText";
 import { useBlockStatus } from "./useBlockStatus";
-
-interface ConversationMessage {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  createdAt: string;
-  body: string | null;
-  attachmentUrl: string | null;
-}
-
-interface ConversationReadReceipt {
-  userId: string;
-  lastReadAt: string | null;
-  lastReadMessageId: string | null;
-}
-
-interface MessageReaction {
-  id: string;
-  conversationId: string;
-  messageId: string;
-  userId: string;
-  emoji: string;
-  createdAt: string;
-}
-
-interface MessageDeliveryReceipt {
-  id: string;
-  conversationId: string;
-  messageId: string;
-  userId: string;
-  deliveredAt: string;
-}
-
-type MessageDeliveryStatusValue = "sending" | "sent" | "delivered" | "seen" | "failed";
-
-interface MessageDeliveryStatus {
-  status: MessageDeliveryStatusValue;
-  seenAt?: string | null;
-}
-
-type FailedMessagePayload = {
-  text: string;
-  attachmentPath: string | null;
-};
+import {
+  ConversationMessage,
+  ConversationReadReceipt,
+  FailedMessagePayload,
+  MessageDeliveryReceipt,
+  MessageDeliveryStatus,
+  MessageReaction,
+  isSameCalendarDate,
+  formatMessageDateLabel,
+  formatMessageTime,
+  getBubbleAppearance,
+  isWithinGroupingWindow,
+} from "./messageModel";
+import { useConversationMessages } from "./useConversationMessages";
+import { ConversationHeader } from "./components/ConversationHeader";
+import { MessageList } from "./components/MessageList";
+import { MessageBubble } from "./components/MessageBubble";
+import { MessageComposer } from "./components/MessageComposer";
 
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
 
@@ -81,71 +49,6 @@ const buildAttachmentPath = (conversationId: string, userId: string, fileName: s
   const ext = fileName.split(".").pop() ?? "jpg";
   const randomId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now();
   return `message_attachments/${conversationId}/${userId}/${Date.now()}-${randomId}.${ext}`;
-};
-
-export const getBubbleAppearance = ({
-  isSelf,
-  isDeleted,
-}: {
-  isSelf: boolean;
-  isDeleted: boolean;
-}) => {
-  const baseBubbleColors = isSelf
-    ? "bg-mn-primary/90 text-white shadow-md shadow-mn-primary/20"
-    : "bg-mn-bg-elevated text-mn-text-primary border border-mn-border-subtle/80 shadow-mn-soft";
-
-  return {
-    bubbleColors: isDeleted
-      ? "bg-mn-bg-elevated/80 text-mn-text-muted border border-dashed border-mn-border-subtle/80"
-      : baseBubbleColors,
-    bubbleShape: isSelf
-      ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
-      : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl",
-  };
-};
-
-const formatMessageTime = (iso: string): string => {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return formatTime(date, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
-
-const useConversationMessages = (conversationId: string | null) => {
-  return useQuery<ConversationMessage[]>({
-    queryKey: ["conversation", conversationId, "messages"],
-    enabled: Boolean(conversationId),
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: conversationId ? 6000 : false,
-    refetchIntervalInBackground: true,
-    queryFn: async (): Promise<ConversationMessage[]> => {
-      if (!conversationId) return [];
-
-      const { data, error } = await supabase
-        .from("messages")
-        .select("id, conversation_id, user_id, body, attachment_url, created_at")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        console.error("[ConversationPage] Failed to load messages", error);
-        throw new Error(error.message);
-      }
-
-      return (data ?? []).map((row: any) => ({
-        id: row.id as string,
-        conversationId: row.conversation_id as string,
-        senderId: row.user_id as string,
-        body: (row.body as string | null) ?? null,
-        attachmentUrl: (row.attachment_url as string | null) ?? null,
-        createdAt: row.created_at as string,
-      }));
-    },
-  });
 };
 
 const useConversationReadReceipts = (conversationId: string | null) => {
@@ -1565,113 +1468,26 @@ const ConversationPage: React.FC = () => {
       />
 
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-none border border-mn-border-subtle/70 bg-mn-bg shadow-xl shadow-mn-primary/5 backdrop-blur sm:rounded-3xl">
-        {/* Header */}
-        <HeaderSurface className="min-h-[3.5rem] flex-shrink-0 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/messages")}
-              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg-elevated/80 text-mn-text-primary shadow-mn-soft transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              <span className="sr-only">Back to messages</span>
-            </button>
-
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated ring-2 ring-mn-border-subtle">
-                <div
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/25 via-mn-primary/20 to-blue-500/25"
-                  aria-hidden="true"
-                />
-                <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg ring-1 ring-white/30">
-                  {!isGroupConversation && otherParticipant ? (
-                    otherParticipant.avatarUrl ? (
-                      <img
-                        src={otherParticipant.avatarUrl}
-                        alt={otherParticipant.displayName ?? undefined}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="text-[13px] font-semibold text-mn-text-primary">
-                        {(otherParticipant.displayName ?? "U").slice(0, 2).toUpperCase()}
-                      </span>
-                    )
-                  ) : (
-                    <Users className="h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
-                  )}
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <h1 className="truncate text-[15px] font-heading font-semibold text-mn-text-primary">
-                  {conversation?.title ?? otherParticipant?.displayName ?? "Conversation"}
-                </h1>
-                <p className="truncate text-[11px] text-mn-text-secondary">
-                  {conversation
-                    ? conversation.lastMessageAtLabel
-                      ? `Active ${conversation.lastMessageAtLabel}`
-                      : (conversation.subtitle ??
-                        (isGroupConversation
-                          ? `${conversation.participants.length} participants`
-                          : "Active now"))
-                    : isConversationsLoading
-                      ? "Loading…"
-                      : "Details unavailable"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-mn-text-secondary">
-            {conversation && conversation.participants.length > 1 && (
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/70 shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg"
-                aria-label="Audio call"
-              >
-                <Phone className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
-            {conversation && conversation.participants.length > 1 && (
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/70 shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg"
-                aria-label="Video call"
-              >
-                <Video className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
-            {conversation && (
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/70 shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg"
-                aria-label="Conversation info"
-              >
-                <Info className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
-            {!isGroupConversation && otherParticipant && (
-              <button
-                type="button"
-                disabled={block.isPending || unblock.isPending}
-                onClick={() => {
+        <ConversationHeader
+          conversation={conversation}
+          isLoading={isConversationsLoading}
+          isGroupConversation={isGroupConversation}
+          otherParticipant={otherParticipant ?? undefined}
+          onBack={() => navigate("/messages")}
+          onToggleBlock={
+            !isGroupConversation && otherParticipant
+              ? () => {
                   if (youBlocked) {
                     unblock.mutate();
                   } else {
                     block.mutate();
                   }
-                }}
-                className="ml-1 hidden items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 px-3 py-1.5 text-[11px] font-semibold text-mn-text-primary ring-1 ring-mn-border-subtle/70 transition hover:-translate-y-0.5 hover:text-mn-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:opacity-60 sm:inline-flex"
-              >
-                {(block.isPending || unblock.isPending) && (
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                )}
-                <span>{youBlocked ? "Unblock" : "Block"}</span>
-              </button>
-            )}
-          </div>
-        </HeaderSurface>
+                }
+              : undefined
+          }
+          blockPending={block.isPending || unblock.isPending}
+          youBlocked={youBlocked}
+        />
 
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col">
@@ -1680,7 +1496,7 @@ const ConversationPage: React.FC = () => {
               className="pointer-events-none absolute inset-x-8 top-4 h-20 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl"
               aria-hidden="true"
             />
-            <div className="relative flex flex-1 flex-col overflow-y-auto px-4 py-4 text-sm">
+            <MessageList>
               {isLoading && !hasMessages && (
                 <div className="flex h-full items-center justify-center">
                   <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-3 py-1.5 text-[12px] text-mn-text-secondary">
@@ -1866,9 +1682,9 @@ const ConversationPage: React.FC = () => {
                           </>
                         )}
 
-                        <button
-                          type="button"
-                          className={`inline-flex max-w-[80%] px-4 py-2.5 text-[13px] ${bubbleShape} ${bubbleColors} select-none transition-transform duration-150 ease-out`}
+                        <MessageBubble
+                          isSelf={isSelf}
+                          isDeleted={isDeletedMessage}
                           onClick={handleBubbleToggle}
                           onContextMenu={(event) => {
                             event.preventDefault();
@@ -1885,18 +1701,12 @@ const ConversationPage: React.FC = () => {
                           onTouchCancel={handleBubbleTouchEndOrCancel}
                           aria-label={messageAriaLabel}
                         >
-                          <div className="flex flex-col">
-                            {text && (
-                              <p className="whitespace-pre-wrap break-all text-[13px] leading-snug">
-                                {text}
-                              </p>
-                            )}
+                          {text && (
+                            <p className="whitespace-pre-wrap break-all text-[13px] leading-snug">{text}</p>
+                          )}
 
-                            {!isDeletedMessage && message.attachmentUrl && (
-                              <ChatImage path={message.attachmentUrl} />
-                            )}
-                          </div>
-                        </button>
+                          {!isDeletedMessage && message.attachmentUrl && <ChatImage path={message.attachmentUrl} />}
+                        </MessageBubble>
                       </div>
 
                       {messageReactions.length > 0 && (
@@ -2079,7 +1889,7 @@ const ConversationPage: React.FC = () => {
               )}
 
               <div ref={messagesEndRef} />
-            </div>
+            </MessageList>
 
             {/* Emoji picker popover */}
             {showEmojiPicker && (
@@ -2153,9 +1963,9 @@ const ConversationPage: React.FC = () => {
 
           {/* Input */}
           {!isBlocked && !blockedYou && (
-            <form
+            <MessageComposer
               onSubmit={handleSubmit}
-              className="sticky bottom-0 z-20 flex-shrink-0 space-y-2 border-t border-mn-border-subtle/70 bg-mn-bg/95 px-4 py-3 backdrop-blur"
+              className="sticky bottom-0 z-20 flex-shrink-0 space-y-2"
             >
               {sendError && (
                 <div
@@ -2255,7 +2065,7 @@ const ConversationPage: React.FC = () => {
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
-            </form>
+            </MessageComposer>
           )}
 
           {blockedYou && (
@@ -2501,49 +2311,6 @@ const ConversationPage: React.FC = () => {
       )}
     </div>
   );
-};
-
-const isSameCalendarDate = (a: Date, b: Date): boolean => {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-};
-
-const formatMessageDateLabel = (iso: string): string => {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  if (isSameCalendarDate(date, today)) {
-    return "Today";
-  }
-
-  if (isSameCalendarDate(date, yesterday)) {
-    return "Yesterday";
-  }
-
-  return formatDate(date, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-const isWithinGroupingWindow = (
-  olderIso: string,
-  newerIso: string,
-  maxGapMs = 3 * 60 * 1000,
-): boolean => {
-  const older = new Date(olderIso);
-  const newer = new Date(newerIso);
-  if (Number.isNaN(older.getTime()) || Number.isNaN(newer.getTime())) {
-    return false;
-  }
-  return newer.getTime() - older.getTime() <= maxGapMs;
 };
 
 const getMessageDeliveryStatus = (
