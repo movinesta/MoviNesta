@@ -21,6 +21,18 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
   if (item.imdbRating) metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
   if (item.rtTomatoMeter) metaPieces.push(`RT ${item.rtTomatoMeter}%`);
 
+  const sourceLabel: Record<TitleSearchResult["source"], string> = {
+    library: "Library",
+    "external-synced": "Synced",
+    "external-only": "External",
+  };
+
+  const sourceStyles: Record<TitleSearchResult["source"], string> = {
+    library: "bg-mn-primary/10 text-mn-primary border-mn-primary/40",
+    "external-synced": "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    "external-only": "bg-mn-bg-elevated text-mn-text-muted border-mn-border-subtle",
+  };
+
   return (
     <li>
       <Link
@@ -41,7 +53,14 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
         )}
 
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <p className="truncate text-[12px] font-medium text-mn-text-primary">{item.title}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-[12px] font-medium text-mn-text-primary">{item.title}</p>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${sourceStyles[item.source]}`}
+            >
+              {sourceLabel[item.source]}
+            </span>
+          </div>
           {metaPieces.length > 0 && (
             <p className="text-[11px] text-mn-text-secondary">{metaPieces.join(" • ")}</p>
           )}

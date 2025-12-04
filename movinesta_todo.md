@@ -294,10 +294,14 @@ _For each task or subtask below:_
     - [ ] Only sync top N results per query.
     - [ ] Use `catalog-sync-batch` instead of multiple single-title sync calls.
 
-- [ ] Search result typing & UI
-  - [ ] Extend `TitleSearchResult` with `source: "library" | "external-synced" | "external-only"`.
-  - [ ] Populate `source` correctly for each item when merging local + TMDB data.
-  - [ ] Update UI to show a small badge or styling hint for the result source.
+- [✔️] Search result typing & UI
+  DONE – 2025-12-04 04:26 – Added TitleSearchResult source typing, merged source propagation in search.service, and surfaced badges in SearchTitlesTab.
+  - [✔️] Extend `TitleSearchResult` with `source: "library" | "external-synced" | "external-only"`.
+    DONE – 2025-12-04 04:26 – TitleSearchResult now includes a source union to classify catalog vs synced vs external-only results.
+  - [✔️] Populate `source` correctly for each item when merging local + TMDB data.
+    DONE – 2025-12-04 04:26 – Supabase rows map to library source and external results flag synced vs external-only based on catalog-sync outcomes.
+  - [✔️] Update UI to show a small badge or styling hint for the result source.
+    DONE – 2025-12-04 04:26 – Search title rows render a pill badge indicating library, synced, or external origins.
 
 - [✔️] Encode search state in URL
   DONE – 2025-12-03 22:14 – Synced search queries, tabs, and filters with URL params in `src/modules/search/SearchPage.tsx`, keeping reloads and history navigation aligned with the current search state.

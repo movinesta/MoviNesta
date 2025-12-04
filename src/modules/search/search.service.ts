@@ -18,6 +18,7 @@ export interface TitleSearchResult {
   title: string;
   year: number | null;
   type: TitleType | null;
+  source: "library" | "external-synced" | "external-only";
   posterUrl: string | null;
   originalLanguage: string | null;
   ageRating: string | null;
@@ -58,6 +59,7 @@ const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
     title: row.primary_title ?? row.original_title ?? "Untitled",
     year: row.release_year,
     type: row.content_type,
+    source: "library",
     posterUrl,
     originalLanguage: row.language,
     ageRating: row.omdb_rated,
@@ -215,12 +217,14 @@ export const searchTitles = async (
       throwIfAborted(signal);
 
       const type: TitleType = item.type === "tv" ? "series" : "movie";
+      const isSynced = titleId && titleId.startsWith("tmdb-") === false;
 
       return {
         id: titleId,
         title: item.title,
         year: item.year ?? null,
         type,
+        source: isSynced ? "external-synced" : "external-only",
         posterUrl: item.posterUrl,
         originalLanguage: null,
         ageRating: null,
