@@ -388,18 +388,28 @@ _For each task or subtask below:_
     - [✔️] Return a typed timeline entry or a safe fallback when invalid.
       DONE – 2025-12-04 04:37 – Timeline items now gracefully fall back to nulls when payload validation fails.
 
-- [ ] `get_diary_stats` RPC
-  - [ ] Implement Postgres function `get_diary_stats(p_user_id uuid)` that returns:
-    - [ ] Average rating.
-    - [ ] Rating distribution.
-    - [ ] Watches per month/year.
-    - [ ] Top genres (and optionally directors/cast if schema supports it).
-  - [ ] Ensure it uses `auth.uid()` or otherwise enforces that users only see their own stats.
-  - [ ] Add indexes to support any heavy aggregations if needed.
+- [✔️] `get_diary_stats` RPC
+  DONE – 2025-12-04 10:17 – Added `get_diary_stats` plpgsql RPC that aggregates diary metrics with auth checks and JSON payloads in `supabase/schema.sql` plus helper policies.
+  - [✔️] Implement Postgres function `get_diary_stats(p_user_id uuid)` that returns:
+    - [✔️] Average rating.
+      DONE – 2025-12-04 10:17 – Function computes avg rating for the user and returns it via RPC.
+    - [✔️] Rating distribution.
+      DONE – 2025-12-04 10:17 – Buckets ratings into 0.5 steps and emits JSON distribution.
+    - [✔️] Watches per month/year.
+      DONE – 2025-12-04 10:17 – Aggregates watched library entries per month into JSON results.
+    - [✔️] Top genres (and optionally directors/cast if schema supports it).
+      DONE – 2025-12-04 10:17 – Joins watched entries to `title_genres/genres` to surface top 8 genres.
+  - [✔️] Ensure it uses `auth.uid()` or otherwise enforces that users only see their own stats.
+    DONE – 2025-12-04 10:17 – RPC guards `auth.uid()` equality and adds select policies for ratings/library entries.
+  - [✔️] Add indexes to support any heavy aggregations if needed.
+    DONE – 2025-12-04 10:17 – Added composite indexes on ratings, library entries, and title genres to accelerate stats queries.
 
-- [ ] Move diary stats computation to server
-  - [ ] Update `useDiaryStats` to call `.rpc("get_diary_stats", { p_user_id: user.id })`.
-  - [ ] Keep client-side work to light formatting and chart preparation only.
+- [✔️] Move diary stats computation to server
+  DONE – 2025-12-04 10:17 – useDiaryStats now calls the RPC and only formats JSON payloads for charts in `src/modules/diary/useDiaryStats.ts`.
+  - [✔️] Update `useDiaryStats` to call `.rpc("get_diary_stats", { p_user_id: user.id })`.
+    DONE – 2025-12-04 10:17 – Hook invokes Supabase RPC with user ID and handles errors via React Query.
+  - [✔️] Keep client-side work to light formatting and chart preparation only.
+    DONE – 2025-12-04 10:17 – Client parsing normalizes RPC JSON into typed stats without duplicating aggregations.
 
 - [ ] Unified diary mutation (optional but recommended)
   - [ ] Design an Edge Function (e.g. `log-diary-event`) to:
