@@ -332,6 +332,16 @@ CREATE TABLE public.notifications (
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.notification_preferences (
+  user_id uuid NOT NULL,
+  email_activity boolean NOT NULL DEFAULT true,
+  email_recommendations boolean NOT NULL DEFAULT true,
+  in_app_social boolean NOT NULL DEFAULT true,
+  in_app_system boolean NOT NULL DEFAULT true,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notification_preferences_pkey PRIMARY KEY (user_id),
+  CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.people (
   id bigint NOT NULL DEFAULT nextval('people_id_seq'::regclass),
   name text NOT NULL,
@@ -754,6 +764,10 @@ CREATE POLICY message_reactions_delete ON public.message_reactions
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY notifications_owner_only ON public.notifications
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY notification_preferences_owner_only ON public.notification_preferences
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
