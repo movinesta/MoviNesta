@@ -18,14 +18,18 @@ export interface ConversationReadReceipt {
   lastReadMessageId: string | null;
 }
 
+type MessageReactionRow = Database["public"]["Tables"]["message_reactions"]["Row"];
+
 export interface MessageReaction {
-  id: string;
-  conversationId: string;
-  messageId: string;
-  userId: string;
-  emoji: string;
-  createdAt: string;
+  id: MessageReactionRow["id"];
+  conversationId: MessageReactionRow["conversation_id"];
+  messageId: MessageReactionRow["message_id"];
+  userId: MessageReactionRow["user_id"];
+  emoji: MessageReactionRow["emoji"];
+  createdAt: MessageReactionRow["created_at"];
 }
+
+export type ReactionSummary = { emoji: string; count: number; reactedBySelf: boolean };
 
 export interface MessageDeliveryReceipt {
   id: string;

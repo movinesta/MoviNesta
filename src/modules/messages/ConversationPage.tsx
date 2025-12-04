@@ -28,7 +28,7 @@ import {
   FailedMessagePayload,
   MessageDeliveryReceipt,
   MessageDeliveryStatus,
-  MessageReaction,
+  ReactionSummary,
   isSameCalendarDate,
   formatMessageDateLabel,
   formatMessageTime,
@@ -36,12 +36,11 @@ import {
   isWithinGroupingWindow,
 } from "./messageModel";
 import { useConversationMessages } from "./useConversationMessages";
+import { useConversationReactions } from "./useConversationReactions";
 import { ConversationHeader } from "./components/ConversationHeader";
 import { MessageList } from "./components/MessageList";
 import { MessageBubble } from "./components/MessageBubble";
 import { MessageComposer } from "./components/MessageComposer";
-
-type ReactionSummary = { emoji: string; count: number; reactedBySelf: boolean };
 
 interface UiMessage {
   message: ConversationMessage;
@@ -89,40 +88,6 @@ const useConversationReadReceipts = (conversationId: string | null) => {
         userId: row.user_id,
         lastReadAt: row.last_read_at ?? null,
         lastReadMessageId: row.last_read_message_id ?? null,
-      }));
-    },
-  });
-};
-
-const useConversationReactions = (conversationId: string | null) => {
-  return useQuery<MessageReaction[]>({
-    queryKey: ["conversation", conversationId, "reactions"],
-    enabled: Boolean(conversationId),
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: conversationId ? 15000 : false,
-    refetchIntervalInBackground: true,
-    queryFn: async (): Promise<MessageReaction[]> => {
-      if (!conversationId) return [];
-
-      const { data, error } = await supabase
-        .from("message_reactions")
-        .select("id, conversation_id, message_id, user_id, emoji, created_at")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        console.error("[ConversationPage] Failed to load reactions", error);
-        throw new Error(error.message);
-      }
-
-      return (data ?? []).map((row: any) => ({
-        id: row.id as string,
-        conversationId: row.conversation_id as string,
-        messageId: row.message_id as string,
-        userId: row.user_id as string,
-        emoji: row.emoji as string,
-        createdAt: row.created_at as string,
       }));
     },
   });
@@ -315,96 +280,6 @@ const useSendMessage = (
       if (options?.onRecovered) {
         options.onRecovered(context?.tempId ?? null);
       }
-    },
-  });
-};
-
-const useToggleReaction = (conversationId: string | null) => {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      if (!conversationId) throw new Error("Missing conversation id.");
-      if (!userId) throw new Error("You must be signed in to react to messages.");
-
-      const { error } = await supabase.from("message_reactions").insert({
-        conversation_id: conversationId,
-        message_id: messageId,
-        user_id: userId,
-        emoji,
-      });
-
-      if (error) {
-        if ((error as any).code === "23505") {
-          const { error: deleteError } = await supabase
-            .from("message_reactions")
-            .delete()
-            .eq("conversation_id", conversationId)
-            .eq("message_id", messageId)
-            .eq("user_id", userId)
-            .eq("emoji", emoji);
-
-          if (deleteError) {
-            console.error("[ConversationPage] Failed to remove reaction", deleteError);
-            throw deleteError;
-          }
-          return;
-        }
-
-        console.error("[ConversationPage] Failed to toggle reaction", error);
-        throw error;
-      }
-    },
-    onMutate: async ({ messageId, emoji }) => {
-      if (!conversationId || !userId) {
-        return { previousReactions: undefined as MessageReaction[] | undefined };
-      }
-
-      const queryKey = ["conversation", conversationId, "reactions"];
-      await queryClient.cancelQueries({ queryKey });
-      const previousReactions = queryClient.getQueryData<MessageReaction[]>(queryKey);
-
-      queryClient.setQueryData<MessageReaction[]>(queryKey, (existing) => {
-        const current = existing ?? [];
-        const existingIdx = current.findIndex(
-          (r) => r.messageId === messageId && r.userId === userId && r.emoji === emoji,
-        );
-
-        if (existingIdx >= 0) {
-          const next = [...current];
-          next.splice(existingIdx, 1);
-          return next;
-        }
-
-        const optimistic: MessageReaction = {
-          id: `temp-${Date.now()}`,
-          conversationId,
-          messageId,
-          userId,
-          emoji,
-          createdAt: new Date().toISOString(),
-        };
-        return [...current, optimistic];
-      });
-
-      return { previousReactions };
-    },
-    onError: (_error, _variables, context) => {
-      if (!conversationId) return;
-      const queryKey = ["conversation", conversationId, "reactions"];
-      if (context?.previousReactions) {
-        queryClient.setQueryData(queryKey, context.previousReactions);
-      } else {
-        queryClient.invalidateQueries({ queryKey });
-      }
-    },
-    onSuccess: () => {
-      if (!conversationId) return;
-      queryClient.invalidateQueries({
-        queryKey: ["conversation", conversationId, "reactions"],
-      });
     },
   });
 };
@@ -725,10 +600,13 @@ const ConversationPage: React.FC = () => {
   });
 
   const { data: readReceipts } = useConversationReadReceipts(conversationId);
-  const { data: reactions } = useConversationReactions(conversationId);
+  const {
+    reactions,
+    reactionsByMessageId,
+    toggleReaction,
+    queryKey: reactionsQueryKey,
+  } = useConversationReactions(conversationId);
   const { data: deliveryReceipts } = useConversationDeliveryReceipts(conversationId);
-
-  const toggleReaction = useToggleReaction(conversationId);
   const editMessageMutation = useEditMessage(conversationId);
   const deleteMessageMutation = useDeleteMessage(conversationId);
 
@@ -801,32 +679,6 @@ const ConversationPage: React.FC = () => {
 
     return () => dialogEl?.removeEventListener("keydown", handleKeyDown);
   }, [editingMessage, closeEditDialog]);
-
-  const reactionsByMessageId = useMemo(() => {
-    const map = new Map<string, { emoji: string; count: number; reactedBySelf: boolean }[]>();
-
-    if (!reactions) return map;
-
-    for (const reaction of reactions) {
-      const existing = map.get(reaction.messageId) ?? [];
-      let entry = existing.find((e) => e.emoji === reaction.emoji);
-      if (!entry) {
-        entry = {
-          emoji: reaction.emoji,
-          count: 0,
-          reactedBySelf: false,
-        };
-        existing.push(entry);
-        map.set(reaction.messageId, existing);
-      }
-      entry.count += 1;
-      if (user?.id && reaction.userId === user.id) {
-        entry.reactedBySelf = true;
-      }
-    }
-
-    return map;
-  }, [reactions, user?.id]);
 
   const uiMessages = useMemo<UiMessage[]>(() => {
     if (!messages) return [];
@@ -1178,9 +1030,9 @@ const ConversationPage: React.FC = () => {
           filter: `conversation_id=eq.${conversationId}`,
         },
         () => {
-          queryClient.invalidateQueries({
-            queryKey: ["conversation", conversationId, "reactions"],
-          });
+          if (reactionsQueryKey) {
+            queryClient.invalidateQueries({ queryKey: reactionsQueryKey });
+          }
         },
       )
       .subscribe((status) => {
@@ -1193,7 +1045,7 @@ const ConversationPage: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, reactionsQueryKey]);
 
   // Realtime delivery receipts
   useEffect(() => {

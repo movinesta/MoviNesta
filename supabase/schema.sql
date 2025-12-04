@@ -716,13 +716,36 @@ CREATE POLICY message_delivery_receipts_member ON public.message_delivery_receip
   );
 
 ALTER TABLE public.message_reactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY message_reactions_member ON public.message_reactions
-  FOR ALL USING (
+DROP POLICY IF EXISTS message_reactions_member ON public.message_reactions;
+CREATE POLICY message_reactions_select ON public.message_reactions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+CREATE POLICY message_reactions_write ON public.message_reactions
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+CREATE POLICY message_reactions_owner_only ON public.message_reactions
+  FOR UPDATE USING (
     user_id = auth.uid() AND EXISTS (
       SELECT 1 FROM public.conversation_participants cp
       WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
     )
   ) WITH CHECK (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+CREATE POLICY message_reactions_delete ON public.message_reactions
+  FOR DELETE USING (
     user_id = auth.uid() AND EXISTS (
       SELECT 1 FROM public.conversation_participants cp
       WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
@@ -755,6 +778,11 @@ CREATE POLICY user_title_tags_owner_only ON public.user_title_tags
 
 CREATE INDEX IF NOT EXISTS ratings_user_id_idx
   ON public.ratings USING btree (user_id);
+
+CREATE INDEX IF NOT EXISTS message_reactions_conversation_message_idx
+  ON public.message_reactions USING btree (conversation_id, message_id);
+CREATE UNIQUE INDEX IF NOT EXISTS message_reactions_user_unique_idx
+  ON public.message_reactions USING btree (conversation_id, message_id, user_id, emoji);
 
 CREATE INDEX IF NOT EXISTS library_entries_user_id_idx
   ON public.library_entries USING btree (user_id);
