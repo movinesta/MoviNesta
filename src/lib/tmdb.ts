@@ -1,8 +1,7 @@
+import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { getPreferredLanguageForTmdb } from "@/i18n/useI18n";
 
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
-const TMDB_READ_TOKEN = import.meta.env.VITE_TMDB_API_READ_ACCESS_TOKEN;
+type TmdbProxyResponse<T = unknown> = { ok: true; data: T };
 
 type TmdbTitleResult = {
   id?: number;
@@ -16,47 +15,26 @@ type TmdbTitleResult = {
   vote_average?: number;
 };
 
-function buildHeaders() {
-  const headers: Record<string, string> = { accept: "application/json" };
-  if (TMDB_READ_TOKEN) {
-    headers.Authorization = `Bearer ${TMDB_READ_TOKEN}`;
-  }
-  return headers;
-}
-
 export async function fetchTmdbJson(
   path: string,
-  params?: Record<string, string | number | undefined>,
+  params?: Record<string, string | number | boolean | undefined>,
   signal?: AbortSignal,
 ) {
-  if (!TMDB_READ_TOKEN) {
-    console.warn("[tmdb] Missing TMDB credentials. Set VITE_TMDB_API_READ_ACCESS_TOKEN.");
-    return null;
-  }
-
-  const url = new URL(`${TMDB_BASE_URL}${path}`);
-  const searchParams: Record<string, string | number | undefined> = {
-    language: getPreferredLanguageForTmdb(),
-    ...params,
+  const payload = {
+    path,
+    params: {
+      language: getPreferredLanguageForTmdb(),
+      ...params,
+    },
   };
 
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (value != null) {
-      url.searchParams.set(key, String(value));
-    }
-  }
   try {
-    const res = await fetch(url.toString(), {
-      headers: buildHeaders(),
-      signal,
-    });
-
-    if (!res.ok) {
-      console.warn(`[tmdb] Request failed for ${path}:`, res.status, res.statusText);
-      return null;
-    }
-
-    return res.json();
+    const result = await callSupabaseFunction<TmdbProxyResponse>(
+      "tmdb-proxy",
+      payload,
+      { signal },
+    );
+    return result.data;
   } catch (err) {
     console.warn(`[tmdb] Request error for ${path}:`, err);
     return null;
