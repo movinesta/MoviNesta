@@ -192,10 +192,14 @@ _For each task or subtask below:_
 
 ## 5. Messaging & conversations
 
-- [ ] Type-safe `useConversations` hook
-  - [ ] Import typed rows from `Database` for conversations, participants, messages, and read receipts.
-  - [ ] Replace any `any` or manual casting with proper typing.
-  - [ ] Confirm mapping logic filters out null IDs safely and correctly derives conversation IDs.
+- [✔️] Type-safe `useConversations` hook
+  DONE – 2025-12-04 04:01 – Tightened `useConversations` typing for conversations, participants, messages, and read receipts while guarding null conversation IDs.
+  - [✔️] Import typed rows from `Database` for conversations, participants, messages, and read receipts.
+    DONE – 2025-12-04 04:01 – Added explicit Supabase row picks including read receipts to keep queries fully typed.
+  - [✔️] Replace any `any` or manual casting with proper typing.
+    DONE – 2025-12-04 04:01 – Removed implicit `any` usage by casting Supabase responses to typed rows for receipts and participant-derived IDs.
+  - [✔️] Confirm mapping logic filters out null IDs safely and correctly derives conversation IDs.
+    DONE – 2025-12-04 04:01 – Filters participant conversation IDs before querying to avoid null lookups and ensure stable mapping.
 
 - [ ] `get_conversation_summaries` RPC
   - [ ] Create Postgres function `get_conversation_summaries(p_user_id uuid)` that returns:
