@@ -267,10 +267,14 @@ _For each task or subtask below:_
     - [✔️] Reconcile the server message (from realtime) with the temp one and mark as `sent`.
     - [✔️] On failure, change `status` to `"error"` and display a retry affordance.
 
-- [ ] Delivery & read receipts UI
-  - [ ] Ensure queries for `message_read_receipts` and `message_delivery_receipts` use appropriate indexes.
-  - [ ] Decide how to represent “delivered” vs “seen” in the UI (subtle tick marks, text, etc.).
-  - [ ] Integrate read/delivery state with `UiMessage` so the UI can render consistent indicators.
+- [✔️] Delivery & read receipts UI
+  DONE – 2025-12-04 07:53 – Added conversation receipt indexes plus typed, ordered queries and unified UI delivery/seen badges via `UiMessage` mapping in `ConversationPage.tsx` and `supabase/schema.sql`.
+  - [✔️] Ensure queries for `message_read_receipts` and `message_delivery_receipts` use appropriate indexes.
+    DONE – 2025-12-04 07:53 – Added composite indexes on conversation/last-read and conversation/message_ids in `supabase/schema.sql` to speed lookups.
+  - [✔️] Decide how to represent “delivered” vs “seen” in the UI (subtle tick marks, text, etc.).
+    DONE – 2025-12-04 07:53 – Clarified delivery vs seen states with consistent checkmark badges and timestamps on the latest outgoing bubble.
+  - [✔️] Integrate read/delivery state with `UiMessage` so the UI can render consistent indicators.
+    DONE – 2025-12-04 07:53 – Precomputes `UiMessage` metadata in `ConversationPage.tsx` so delivery/read indicators render predictably alongside reactions.
 
 - [ ] Reactions
   - [ ] Confirm `message_reactions` is fully wired:

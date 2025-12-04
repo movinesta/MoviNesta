@@ -777,6 +777,10 @@ CREATE INDEX IF NOT EXISTS conversation_participants_conversation_id_idx
 
 CREATE INDEX IF NOT EXISTS message_read_receipts_user_conversation_idx
   ON public.message_read_receipts USING btree (user_id, conversation_id);
+CREATE INDEX IF NOT EXISTS message_read_receipts_conversation_last_read_idx
+  ON public.message_read_receipts USING btree (conversation_id, last_read_at DESC);
+CREATE INDEX IF NOT EXISTS message_read_receipts_conversation_message_idx
+  ON public.message_read_receipts USING btree (conversation_id, last_read_message_id);
 
 CREATE INDEX IF NOT EXISTS message_delivery_receipts_conversation_created_idx
   ON public.message_delivery_receipts USING btree (conversation_id, created_at);
