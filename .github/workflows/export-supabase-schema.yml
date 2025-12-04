@@ -1,6 +1,5 @@
 name: Export Supabase Schema
 
-# Triggers: manual run or push to main
 on:
   workflow_dispatch:
   push:
@@ -12,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repository
+      # 1️⃣ Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -22,24 +21,21 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Dump the schema from Supabase
+      # 3️⃣ Dump the schema
       - name: Dump Supabase Schema
         run: |
-          echo "Creating supabase folder..."
           mkdir -p supabase
-
-          echo "Dumping public schema from Supabase..."
+          echo "Dumping public schema from Supabase Session Pooler..."
           supabase db dump \
             --db-url "$SUPABASE_DB_URL" \
             --schema public \
             --file supabase/schema.sql
-
-          echo "Listing files in supabase folder for debug:"
+          echo "Listing files in supabase folder:"
           ls -l supabase/
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      # 4️⃣ Commit schema back to repository
+      # 4️⃣ Commit schema back to repo
       - name: Commit Schema Changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
