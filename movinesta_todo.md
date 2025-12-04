@@ -382,12 +382,13 @@ _For each task or subtask below:_
     - [ ] Return rows with `kind`, `created_at`, `score`, and a JSON `payload`.
   - [ ] Update home feed Edge/React logic to call this RPC via Supabase.
 
-- [ ] Swipe deck state machine
-  - [ ] In `useSwipeDeck.ts`, replace scattered booleans with a structured state:
-    - [ ] `status: "idle" | "loading" | "ready" | "exhausted" | "error"`.
-    - [ ] `cards`, `index`, optional `errorMessage`.
-  - [ ] Ensure state transitions are explicit and tested (e.g. `idle → loading → ready → exhausted`).
-  - [ ] Keep swipe logging (`swipe-event`) non-blocking for UI responsiveness.
+- [✔️] Swipe deck state machine
+  DONE – 2025-12-04 05:00 – Refactored `useSwipeDeck` to use an explicit status state with error messaging and exhaustion handling while keeping swipe logging non-blocking.
+  - [✔️] In `useSwipeDeck.ts`, replace scattered booleans with a structured state:
+    - [✔️] `status: "idle" | "loading" | "ready" | "exhausted" | "error"`.
+    - [✔️] `cards`, `index`, optional `errorMessage`.
+  - [✔️] Ensure state transitions are explicit and tested (e.g. `idle → loading → ready → exhausted`).
+  - [✔️] Keep swipe logging (`swipe-event`) non-blocking for UI responsiveness.
 
 - [ ] `select_for_you_swipe_deck` RPC
   - [ ] Implement Postgres function `select_for_you_swipe_deck(p_user_id uuid, p_limit int)` that:

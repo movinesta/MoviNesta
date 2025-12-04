@@ -37,6 +37,15 @@ export type SwipeCardData = {
 export type SwipeDeckKind = "for-you" | "from-friends" | "trending";
 export type SwipeDeckKindOrCombined = SwipeDeckKind | "combined";
 
+type SwipeDeckStatus = "idle" | "loading" | "ready" | "exhausted" | "error";
+
+interface SwipeDeckState {
+  status: SwipeDeckStatus;
+  cards: SwipeCardData[];
+  index: number | null;
+  errorMessage?: string | null;
+}
+
 interface SwipeDeckResponse {
   cards: SwipeCardData[];
 }
@@ -144,9 +153,12 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<SwipeCardData[]>([]);
   const fetchingRef = useRef(false);
-  const [cards, setCards] = useState<SwipeCardData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const [deckState, setDeckState] = useState<SwipeDeckState>({
+    status: "idle",
+    cards: [],
+    index: null,
+    errorMessage: null,
+  });
   const [swipeError, setSwipeError] = useState<{
     payload: SwipeEventPayload;
     message: string;
@@ -205,11 +217,17 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       const deduped = getNewCards(incoming);
       if (!deduped.length) return;
 
-      setCards((prev) => {
-        const next = [...prev, ...deduped];
-        cardsRef.current = next;
+      setDeckState((prev) => {
+        const nextCards = [...prev.cards, ...deduped];
+        cardsRef.current = nextCards;
         scheduleAssetPrefetch(deduped);
-        return next;
+
+        return {
+          status: "ready",
+          cards: nextCards,
+          index: prev.index,
+          errorMessage: null,
+        };
       });
     },
     [getNewCards, scheduleAssetPrefetch],
@@ -292,8 +310,12 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     async (batchSize = limit) => {
       if (fetchingRef.current) return;
       fetchingRef.current = true;
-      setIsError(false);
-      setIsLoading(true);
+      setDeckState((prev) => ({
+        ...prev,
+        status: "loading",
+        index: prev.index,
+        errorMessage: null,
+      }));
 
       try {
         const raw =
@@ -305,13 +327,31 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
           // No new cards available right now – this is a valid state (end of deck),
           // not necessarily an error. Leave isError=false so the UI can show
           // the "All caught up" message instead of an error state.
+          setDeckState((prev) => ({
+            ...prev,
+            status: cardsRef.current.length ? "ready" : "exhausted",
+            index: prev.index,
+            errorMessage: null,
+          }));
           return;
         }
 
         appendCards(raw);
       } catch (error) {
         console.warn("[useSwipeDeck] fetch error", error);
-        setIsError(true);
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "We couldn't load swipe cards. Please retry.";
+
+        setDeckState((prev) => ({
+          ...prev,
+          status: "error",
+          index: prev.index,
+          errorMessage: message,
+        }));
 
         window.setTimeout(() => {
           fetchingRef.current = false;
@@ -319,18 +359,21 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         }, 3200);
         return;
       } finally {
-        setIsLoading(false);
         fetchingRef.current = false;
+        setDeckState((prev) =>
+          prev.status === "loading" && prev.cards.length
+            ? { ...prev, status: "ready" }
+            : prev,
+        );
       }
     },
     [appendCards, fetchCombinedBatch, fetchFromSource, kind, limit],
   );
 
   useEffect(() => {
-    setCards([]);
     cardsRef.current = [];
     seenIdsRef.current = new Set();
-    setIsLoading(true);
+    setDeckState({ status: "loading", cards: [], index: null, errorMessage: null });
     fetchBatch(limit);
   }, [fetchBatch, limit]);
 
@@ -360,12 +403,11 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
 
   const trimConsumed = useCallback((count: number) => {
     if (count <= 0) return;
-    setCards((prev) => {
-      const { remaining } = trimDeck(prev, count);
-      if (remaining.length === prev.length) return prev;
-      const next = remaining;
-      cardsRef.current = next;
-      return next;
+    setDeckState((prev) => {
+      const { remaining } = trimDeck(prev.cards, count);
+      if (remaining.length === prev.cards.length) return prev;
+      cardsRef.current = remaining;
+      return { ...prev, cards: remaining };
     });
   }, []);
 
@@ -410,9 +452,12 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   });
 
   return {
-    cards,
-    isLoading,
-    isError,
+    cards: deckState.cards,
+    status: deckState.status,
+    isLoading: deckState.status === "loading",
+    isError: deckState.status === "error",
+    isExhausted: deckState.status === "exhausted",
+    deckError: deckState.errorMessage ?? null,
     fetchMore: fetchBatch,
     trimConsumed,
     swipe: (payload: SwipeEventPayload) => {
