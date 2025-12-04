@@ -1,15 +1,17 @@
 import React from "react";
-import { PageSection } from "../../components/PageChrome";
-import { useAuth } from "../auth/AuthProvider";
-import { useCurrentProfile } from "../profile/useProfile";
-import TopBar from "../../components/shared/TopBar";
 import { RealtimeChat } from "@/components/realtime-chat";
+import { PageSection } from "@/components/PageChrome";
+import TopBar from "@/components/shared/TopBar";
+import { useAuth } from "@/modules/auth/AuthProvider";
+import { useCurrentProfile } from "@/modules/profile/useProfile";
 
 /**
- * Global realtime chat room powered by Supabase Realtime.
+ * Experimental global realtime chat room powered by Supabase Realtime.
  *
- * This page expects the `RealtimeChat` component from
- * `@supabase/realtime-chat-react-router` to be installed via:
+ * The route was intentionally removed from the main app shell to avoid
+ * implying production support. Keep this file in `src/experimental` as a
+ * reference demo; re-add the route only after deciding on long-term support
+ * and installing `@supabase/realtime-chat-react-router` via:
  *
  *   npx shadcn@latest add @supabase/realtime-chat-react-router
  */
