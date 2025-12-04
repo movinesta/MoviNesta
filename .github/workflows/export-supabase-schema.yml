@@ -1,5 +1,6 @@
 name: Export Supabase Schema
 
+# Triggers: manual run or push to main
 on:
   workflow_dispatch:
   push:
@@ -21,25 +22,26 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Debug: show database URL (masked)
-      - name: Show Database URL for Debug
-        run: echo "Using Supabase DB URL: $SUPABASE_DB_URL"
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-
-      # 4️⃣ Dump the schema
+      # 3️⃣ Dump the schema from Supabase
       - name: Dump Supabase Schema
         run: |
+          echo "Creating supabase folder..."
           mkdir -p supabase
+
+          echo "Dumping public schema from Supabase..."
           supabase db dump \
             --db-url "$SUPABASE_DB_URL" \
             --schema public \
             --file supabase/schema.sql
+
+          echo "Listing files in supabase folder for debug:"
+          ls -l supabase/
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      # 5️⃣ Commit schema back to repo
+      # 4️⃣ Commit schema back to repository
       - name: Commit Schema Changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "chore: update Supabase schema dump"
+          branch: main
