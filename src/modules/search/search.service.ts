@@ -33,6 +33,12 @@ export interface TitleSearchResult {
   tmdbId: number | null;
 }
 
+type CatalogSyncBatchResult = {
+  tmdbId?: number | null;
+  imdbId?: string | null;
+  titleId?: string | null;
+};
+
 type TitleRow = Pick<
   Database["public"]["Tables"]["titles"]["Row"],
   | "id"
@@ -76,6 +82,7 @@ const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
 };
 
 const PAGE_SIZE = 20;
+const BATCH_SYNC_LIMIT = 5;
 
 const searchSupabaseTitles = async (
   query: string,
@@ -192,48 +199,56 @@ export const searchTitles = async (
     }
   }
 
+  const batchCandidates = externalResults
+    .filter((item) => item.tmdbId && !seenTmdbIds.has(item.tmdbId))
+    .slice(0, BATCH_SYNC_LIMIT);
+
+  const syncedTitleIdsByTmdb = new Map<number, string>();
+
+  if (batchCandidates.length) {
+    try {
+      const batchResponse = await callSupabaseFunction<{
+        ok?: boolean;
+        results?: CatalogSyncBatchResult[];
+      }>(
+        "catalog-sync-batch",
+        {
+          items: batchCandidates.map((item) => ({
+            tmdbId: item.tmdbId,
+            imdbId: item.imdbId ?? undefined,
+            mediaType: item.type === "tv" ? "tv" : "movie",
+          })),
+          options: {
+            syncOmdb: true,
+            syncYoutube: true,
+            forceRefresh: false,
+          },
+        },
+        { signal },
+      );
+
+      const results = batchResponse?.results ?? [];
+      for (const result of results) {
+        if (result.tmdbId && result.titleId) {
+          syncedTitleIdsByTmdb.set(result.tmdbId, result.titleId);
+        }
+      }
+    } catch (err) {
+      console.warn("[search.service] catalog-sync-batch failed", err);
+    }
+  }
+
   const hydratedExternal = await Promise.all(
     externalResults.map(async (item) => {
       throwIfAborted(signal);
 
       if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return null;
 
-      let titleId = `tmdb-${item.tmdbId}`;
-
-      try {
-        const syncResult = await callSupabaseFunction<{
-          titleId?: string;
-          tmdbId?: number;
-          imdbId?: string;
-        }>(
-          "catalog-sync",
-          {
-            mode: "title",
-            external: {
-              tmdbId: item.tmdbId,
-              imdbId: item.imdbId ?? undefined,
-              type: item.type === "tv" ? "tv" : "movie",
-            },
-            options: {
-              syncOmdb: true,
-              syncYoutube: true,
-              forceRefresh: false,
-            },
-          },
-          { signal },
-        );
-
-        if (syncResult?.titleId) {
-          titleId = syncResult.titleId;
-        }
-      } catch (err) {
-        console.warn("[search.service] Failed to catalog-sync TMDb title", item.tmdbId, err);
-      }
-
-      throwIfAborted(signal);
-
       const type: TitleType = item.type === "tv" ? "series" : "movie";
-      const isSynced = titleId && titleId.startsWith("tmdb-") === false;
+      const titleId = item.tmdbId && syncedTitleIdsByTmdb.get(item.tmdbId)
+        ? syncedTitleIdsByTmdb.get(item.tmdbId)!
+        : `tmdb-${item.tmdbId}`;
+      const isSynced = titleId.startsWith("tmdb-") === false;
 
       return {
         id: titleId,

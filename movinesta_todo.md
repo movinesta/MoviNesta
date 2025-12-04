@@ -322,15 +322,24 @@ _For each task or subtask below:_
   - [✔️] Early-return from loops or transformations if `signal.aborted` is true.
   - [✔️] Ensure all Supabase, TMDB proxy, and catalog sync calls respect the `AbortSignal`.
 
-- [ ] Batch catalog sync
-  - [ ] Implement `catalog-sync-batch` Edge Function that:
-    - [ ] Accepts an array of items `{ tmdbId, imdbId, mediaType }[]`.
-    - [ ] Upserts titles into `public.titles` (and related tables) once per request.
-    - [ ] Returns mapping from external IDs to internal title IDs.
-  - [ ] Refactor search flow to:
-    - [ ] Identify which TMDB results are not in the local library.
-    - [ ] Only sync top N results per query.
-    - [ ] Use `catalog-sync-batch` instead of multiple single-title sync calls.
+- [✔️] Batch catalog sync
+  DONE – 2025-12-04 10:11 – Added catalog-sync-batch Edge Function to fan out catalog-sync calls and return title ID mappings per TMDb/IMDb input.
+  - [✔️] Implement `catalog-sync-batch` Edge Function that:
+    DONE – 2025-12-04 10:11 – New supabase/functions/catalog-sync-batch/index.ts validates batch payloads, forwards auth, and calls catalog-sync per item with shared options.
+    - [✔️] Accepts an array of items `{ tmdbId, imdbId, mediaType }[]`.
+      DONE – 2025-12-04 10:11 – Batch handler parses a list of external IDs and media types before processing.
+    - [✔️] Upserts titles into `public.titles` (and related tables) once per request.
+      DONE – 2025-12-04 10:11 – Batch request iterates items in a single invocation, delegating each to the existing catalog-sync upsert pathway.
+    - [✔️] Returns mapping from external IDs to internal title IDs.
+      DONE – 2025-12-04 10:11 – Response aggregates per-item TMDb/IMDb identifiers alongside any resolved titleId (or error).
+  - [✔️] Refactor search flow to:
+    DONE – 2025-12-04 10:11 – Search service now batches top external TMDb results for syncing, using the returned map to label external results as synced.
+    - [✔️] Identify which TMDB results are not in the local library.
+      DONE – 2025-12-04 10:11 – Search pipeline builds a seen set from local titles to isolate external-only TMDb IDs.
+    - [✔️] Only sync top N results per query.
+      DONE – 2025-12-04 10:11 – Limits batch sync to the first five unsynced external TMDb hits per search.
+    - [✔️] Use `catalog-sync-batch` instead of multiple single-title sync calls.
+      DONE – 2025-12-04 10:11 – Replaced per-item catalog-sync invokes with a single catalog-sync-batch request per search page.
 
 - [✔️] Search result typing & UI
   DONE – 2025-12-04 04:26 – Added TitleSearchResult source typing, merged source propagation in search.service, and surfaced badges in SearchTitlesTab.
