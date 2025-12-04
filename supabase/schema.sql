@@ -60,6 +60,8 @@ CREATE TABLE public.conversation_participants (
   CONSTRAINT conversation_participants_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.conversations(id),
   CONSTRAINT conversation_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE INDEX IF NOT EXISTS conversation_participants_user_id_idx
+  ON public.conversation_participants USING btree (user_id);
 CREATE TABLE public.conversations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -204,6 +206,110 @@ CREATE TABLE public.messages (
   CONSTRAINT messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.conversations(id),
   CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE INDEX IF NOT EXISTS messages_conversation_id_created_at_idx
+  ON public.messages USING btree (conversation_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION public.get_conversation_summaries(p_user_id uuid)
+RETURNS TABLE (
+  conversation_id uuid,
+  is_group boolean,
+  title text,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone,
+  last_message_id uuid,
+  last_message_body text,
+  last_message_created_at timestamp with time zone,
+  last_message_user_id uuid,
+  last_message_display_name text,
+  last_message_username text,
+  participants jsonb,
+  self_last_read_message_id uuid,
+  self_last_read_at timestamp with time zone,
+  participant_receipts jsonb
+)
+LANGUAGE sql
+STABLE
+AS $$
+WITH user_conversations AS (
+  SELECT c.*
+  FROM public.conversations c
+  INNER JOIN public.conversation_participants cp ON cp.conversation_id = c.id
+  WHERE cp.user_id = p_user_id
+),
+last_messages AS (
+  SELECT DISTINCT ON (m.conversation_id)
+    m.id,
+    m.conversation_id,
+    m.user_id,
+    m.body,
+    m.created_at
+  FROM public.messages m
+  INNER JOIN user_conversations uc ON uc.id = m.conversation_id
+  ORDER BY m.conversation_id, m.created_at DESC
+),
+participants AS (
+  SELECT
+    cp.conversation_id,
+    jsonb_agg(
+      jsonb_build_object(
+        'id', cp.user_id,
+        'displayName', COALESCE(pr.display_name, pr.username, 'Unknown user'),
+        'username', pr.username,
+        'avatarUrl', pr.avatar_url,
+        'isSelf', cp.user_id = p_user_id
+      )
+      ORDER BY cp.created_at
+    ) AS participants
+  FROM public.conversation_participants cp
+  LEFT JOIN public.profiles pr ON pr.id = cp.user_id
+  WHERE cp.conversation_id IN (SELECT id FROM user_conversations)
+  GROUP BY cp.conversation_id
+),
+receipt_summaries AS (
+  SELECT
+    r.conversation_id,
+    MAX(CASE WHEN r.user_id = p_user_id THEN r.last_read_message_id END) AS self_last_read_message_id,
+    MAX(CASE WHEN r.user_id = p_user_id THEN r.last_read_at END) AS self_last_read_at,
+    jsonb_agg(
+      jsonb_build_object(
+        'userId', r.user_id,
+        'lastReadMessageId', r.last_read_message_id,
+        'lastReadAt', r.last_read_at
+      )
+      ORDER BY r.last_read_at DESC
+    ) AS participant_receipts
+  FROM public.message_read_receipts r
+  WHERE r.conversation_id IN (SELECT id FROM user_conversations)
+  GROUP BY r.conversation_id
+),
+last_message_profiles AS (
+  SELECT lm.id, lm.conversation_id, pr.display_name, pr.username
+  FROM last_messages lm
+  LEFT JOIN public.profiles pr ON pr.id = lm.user_id
+)
+SELECT
+  uc.id AS conversation_id,
+  uc.is_group,
+  uc.title,
+  uc.created_at,
+  uc.updated_at,
+  lm.id AS last_message_id,
+  lm.body AS last_message_body,
+  lm.created_at AS last_message_created_at,
+  lm.user_id AS last_message_user_id,
+  lmp.display_name AS last_message_display_name,
+  lmp.username AS last_message_username,
+  COALESCE(p.participants, '[]'::jsonb) AS participants,
+  rs.self_last_read_message_id,
+  rs.self_last_read_at,
+  COALESCE(rs.participant_receipts, '[]'::jsonb) AS participant_receipts
+FROM user_conversations uc
+LEFT JOIN last_messages lm ON lm.conversation_id = uc.id
+LEFT JOIN last_message_profiles lmp ON lmp.id = lm.id
+LEFT JOIN participants p ON p.conversation_id = uc.id
+LEFT JOIN receipt_summaries rs ON rs.conversation_id = uc.id
+ORDER BY COALESCE(lm.created_at, uc.updated_at, uc.created_at) DESC;
+$$;
 CREATE TABLE public.movies (
   title_id uuid NOT NULL,
   box_office numeric,

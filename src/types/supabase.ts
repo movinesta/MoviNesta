@@ -1655,7 +1655,28 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      get_conversation_summaries: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: {
+          conversation_id: string;
+          is_group: boolean;
+          title: string | null;
+          created_at: string;
+          updated_at: string;
+          last_message_id: string | null;
+          last_message_body: string | null;
+          last_message_created_at: string | null;
+          last_message_user_id: string | null;
+          last_message_display_name: string | null;
+          last_message_username: string | null;
+          participants: Json;
+          self_last_read_message_id: string | null;
+          self_last_read_at: string | null;
+          participant_receipts: Json;
+        }[];
+      };
     };
     Enums: {
       activity_event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';

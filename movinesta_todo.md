@@ -209,21 +209,23 @@ _For each task or subtask below:_
   - [✔️] Confirm mapping logic filters out null IDs safely and correctly derives conversation IDs.
     DONE – 2025-12-04 04:01 – Filters participant conversation IDs before querying to avoid null lookups and ensure stable mapping.
 
-- [ ] `get_conversation_summaries` RPC
-  - [ ] Create Postgres function `get_conversation_summaries(p_user_id uuid)` that returns:
-    - [ ] `conversation_id`, `is_group`, `title`, `created_at`, `updated_at`.
-    - [ ] `last_message_id`, `last_message_body`, `last_message_created_at`, plus sender summary.
-    - [ ] Participants as JSON array (id, displayName, username, avatarUrl, isSelf).
-    - [ ] Read receipt summary per conversation (e.g. last read message/timestamp for the current user).
-  - [ ] Use efficient SQL patterns (`DISTINCT ON`, window functions, indexes) to avoid N+1 queries.
-  - [ ] Add or verify supporting indexes as needed.
-
-- [ ] Refactor `useConversations` to use the RPC
-  - [ ] Replace the multi-query waterfall with a single call to `.rpc("get_conversation_summaries", { p_user_id: user.id })`.
-  - [ ] Map RPC rows to the existing `ConversationListItem` UI model:
-    - [ ] Compute `lastMessageAt` from last message or conversation timestamps.
-    - [ ] Generate a message preview from `body` or JSON payload.
-    - [ ] Use read receipts to derive `hasUnread`.
+- [✔️] `get_conversation_summaries` RPC
+  DONE – 2025-12-04 04:44 – Added SQL RPC with participants, last message, and read receipt summaries plus supporting messaging indexes.
+  - [✔️] Create Postgres function `get_conversation_summaries(p_user_id uuid)` that returns:
+    - [✔️] `conversation_id`, `is_group`, `title`, `created_at`, `updated_at`.
+    - [✔️] `last_message_id`, `last_message_body`, `last_message_created_at`, plus sender summary.
+    - [✔️] Participants as JSON array (id, displayName, username, avatarUrl, isSelf).
+    - [✔️] Read receipt summary per conversation (e.g. last read message/timestamp for the current user).
+  - [✔️] Use efficient SQL patterns (`DISTINCT ON`, window functions, indexes) to avoid N+1 queries.
+  - [✔️] Add or verify supporting indexes as needed.
+  
+- [✔️] Refactor `useConversations` to use the RPC
+  DONE – 2025-12-04 04:44 – `useConversations` now consumes the `get_conversation_summaries` RPC and maps participants, read receipts, and previews without multi-query waterfalls.
+  - [✔️] Replace the multi-query waterfall with a single call to `.rpc("get_conversation_summaries", { p_user_id: user.id })`.
+  - [✔️] Map RPC rows to the existing `ConversationListItem` UI model:
+    - [✔️] Compute `lastMessageAt` from last message or conversation timestamps.
+    - [✔️] Generate a message preview from `body` or JSON payload.
+    - [✔️] Use read receipts to derive `hasUnread`.
 
 - [ ] Split `ConversationPage.tsx` into focused components
   - [ ] Create:
