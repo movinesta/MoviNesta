@@ -4,7 +4,7 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ConversationListRow } from "../modules/messages/MessagesPage";
-import { getBubbleAppearance } from "../modules/messages/ConversationPage";
+import { getBubbleAppearance } from "../modules/messages/messageModel";
 import { TitleSearchResultRow } from "../modules/search/SearchTitlesTab";
 import { FeedSkeleton } from "../modules/home/HomeFeedTab";
 import { CarouselsSkeleton, TonightPickSkeleton } from "../modules/home/HomeForYouTab";
