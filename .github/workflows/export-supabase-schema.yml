@@ -1,0 +1,40 @@
+name: Export Supabase Schema
+
+# Run manually or on push to main
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  export-schema:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout your repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Install Supabase CLI
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # 3️⃣ Dump the schema to supabase/schema.sql
+      - name: Dump Supabase Schema
+        run: |
+          mkdir -p supabase
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            --schema public \
+            --file supabase/schema.sql
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # 4️⃣ Commit the updated schema back to GitHub
+      - name: Commit Schema Changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore: update Supabase schema dump"
