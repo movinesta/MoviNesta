@@ -551,7 +551,8 @@ _For each task or subtask below:_
   - [✔️] Use shared `Tabs` for tabbed interfaces (home, swipe variants, search, diary).
   - [✔️] Use shared `Input` for search fields and forms, reducing repeated markup.
 
-- [ ] Accessibility improvements
+- [✔️] Accessibility improvements
+  DONE – 2025-12-04 11:13 – Wrapped tabs, bottom nav, modals, messages, and swipe cards with aria semantics and focus management improvements for consistent accessibility across the app shell.
   - [✔️] Tabs:
     DONE – 2025-12-04 04:10 – Tabs component now wires IDs between triggers and panels for better a11y semantics.
     - [✔️] Ensure tab triggers have `role="tab"`, `aria-selected`, `aria-controls` and associated IDs.
