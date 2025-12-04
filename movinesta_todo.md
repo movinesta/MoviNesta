@@ -99,30 +99,45 @@ _For each task or subtask below:_
     - [✔️] useSwipeDeck guards Supabase Edge Function responses with runtime validation instead of `any` casts.
       DONE – 2025-12-03 16:21 – Added card type guards in `src/modules/swipe/useSwipeDeck.ts` to parse Edge Function payloads without `any` while preserving source tagging.
 
-- [ ] RLS policies and indexes
-  - [ ] Audit and add Row Level Security (RLS) policies for all user-data tables, including:
-    - [ ] `profiles`
-    - [ ] `ratings`, `reviews`, `review_reactions`
-    - [ ] `library_entries`, `episode_progress`
-    - [ ] `activity_events`
-    - [ ] `follows`, `blocked_users`
-    - [ ] `conversations`, `conversation_participants`
-    - [ ] `messages`, `message_read_receipts`, `message_delivery_receipts`, `message_reactions`
-    - [ ] `swipes`
-    - [ ] `notifications` and (future) `notification_preferences`
-    - [ ] `reports` (for moderation)
-  - [ ] Ensure policies restrict access to `auth.uid()` and/or conversation membership, as appropriate.
-  - [ ] Add or verify indexes for frequent access patterns:
-    - [ ] `ratings(user_id)`
-    - [ ] `library_entries(user_id)`
-    - [ ] `activity_events(user_id, created_at)`
-    - [ ] `follows(follower_id)`, `follows(followed_id)`
-    - [ ] `blocked_users(blocker_id)`, `blocked_users(blocked_id)`
-    - [ ] `conversation_participants(user_id)`, `conversation_participants(conversation_id)`
-    - [ ] `messages(conversation_id, created_at desc)`
-    - [ ] `message_read_receipts(user_id, conversation_id)`
-    - [ ] `swipes(user_id, created_at)`
-    - [ ] Any other indices referenced in RPCs or heavy queries.
+- [✔️] RLS policies and indexes
+  DONE – 2025-12-04 05:21 – Added auth.uid()-scoped RLS policies and chat membership checks plus user-focused indexes in `supabase/schema.sql`; swipes/notification_preferences not present in schema and remain pending when introduced.
+  - [✔️] Audit and add Row Level Security (RLS) policies for all user-data tables, including:
+    DONE – 2025-12-04 05:21 – Enabled RLS for user-owned and messaging tables with ownership/membership policies in `supabase/schema.sql`.
+    - [✔️] `profiles`
+      DONE – 2025-12-04 05:21 – Restricted profile reads/writes to the authenticated user.
+    - [✔️] `ratings`, `reviews`, `review_reactions`
+      DONE – 2025-12-04 05:21 – Locked ratings/reviews/reactions to their owning user via RLS.
+    - [✔️] `library_entries`, `episode_progress`
+      DONE – 2025-12-04 05:21 – Guarded library entries and episode progress rows to auth.uid().
+    - [✔️] `activity_events`
+      DONE – 2025-12-04 05:21 – Limited activity_events visibility and mutation to the event owner.
+    - [✔️] `follows`, `blocked_users`
+      DONE – 2025-12-04 05:21 – Added participant-scoped visibility and blocker-managed writes for social graph tables.
+    - [✔️] `conversations`, `conversation_participants`
+      DONE – 2025-12-04 05:21 – Enforced conversation membership checks for conversation metadata and participant rows.
+    - [✔️] `messages`, `message_read_receipts`, `message_delivery_receipts`, `message_reactions`
+      DONE – 2025-12-04 05:21 – Added member-only read/write policies across message content and receipt/reaction tables.
+    - [✖️] `swipes`
+      DONE – 2025-12-04 05:21 – No swipes table present in schema; RLS will be added alongside table introduction.
+    - [✔️] `notifications` and (future) `notification_preferences`
+      DONE – 2025-12-04 05:21 – Applied owner-only policies to notifications; notification_preferences to follow once created.
+    - [✔️] `reports` (for moderation)
+      DONE – 2025-12-04 05:21 – Constrained report access to the reporting user.
+  - [✔️] Ensure policies restrict access to `auth.uid()` and/or conversation membership, as appropriate.
+    DONE – 2025-12-04 05:21 – Ownership checks rely on auth.uid() while messaging tables verify conversation participation before permitting reads/writes.
+  - [✔️] Add or verify indexes for frequent access patterns:
+    DONE – 2025-12-04 05:21 – Added user-centric and conversation indexes in `supabase/schema.sql` to align with common queries.
+    - [✔️] `ratings(user_id)`
+    - [✔️] `library_entries(user_id)`
+    - [✔️] `activity_events(user_id, created_at)`
+    - [✔️] `follows(follower_id)`, `follows(followed_id)`
+    - [✔️] `blocked_users(blocker_id)`, `blocked_users(blocked_id)`
+    - [✔️] `conversation_participants(user_id)`, `conversation_participants(conversation_id)`
+    - [✔️] `messages(conversation_id, created_at desc)`
+    - [✔️] `message_read_receipts(user_id, conversation_id)`
+    - [✖️] `swipes(user_id, created_at)`
+      DONE – 2025-12-04 05:21 – Index pending table creation; no swipes relation currently defined in schema.
+    - [✔️] Any other indices referenced in RPCs or heavy queries.
 
 - [✔️] Direct conversation uniqueness
   DONE – 2025-12-04 04:06 – Added a normalized participant pair column + unique index in `supabase/schema.sql` and updated `create-direct-conversation` Edge Function to reuse existing DMs via the constraint.

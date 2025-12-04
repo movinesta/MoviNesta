@@ -592,3 +592,191 @@ CREATE TABLE public.user_title_tags (
   CONSTRAINT user_title_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.user_tags(id),
   CONSTRAINT user_title_tags_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
+
+-- ---------------------------------------------
+-- Row Level Security
+-- ---------------------------------------------
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY profiles_select_self ON public.profiles
+  FOR SELECT USING (id = auth.uid());
+CREATE POLICY profiles_insert_self ON public.profiles
+  FOR INSERT WITH CHECK (id = auth.uid());
+CREATE POLICY profiles_update_self ON public.profiles
+  FOR UPDATE USING (id = auth.uid());
+
+ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ratings_owner_only ON public.ratings
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY reviews_owner_only ON public.reviews
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.review_reactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY review_reactions_participant_only ON public.review_reactions
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.library_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY library_entries_owner_only ON public.library_entries
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.episode_progress ENABLE ROW LEVEL SECURITY;
+CREATE POLICY episode_progress_owner_only ON public.episode_progress
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.activity_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY activity_events_owner_only ON public.activity_events
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+CREATE POLICY follows_self_visibility ON public.follows
+  FOR SELECT USING (auth.uid() IN (follower_id, followed_id));
+CREATE POLICY follows_manage_own ON public.follows
+  FOR ALL USING (follower_id = auth.uid()) WITH CHECK (follower_id = auth.uid());
+
+ALTER TABLE public.blocked_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY blocked_users_view_related ON public.blocked_users
+  FOR SELECT USING (auth.uid() IN (blocker_id, blocked_id));
+CREATE POLICY blocked_users_manage_self ON public.blocked_users
+  FOR ALL USING (blocker_id = auth.uid()) WITH CHECK (blocker_id = auth.uid());
+
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY conversations_member_access ON public.conversations
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = id AND cp.user_id = auth.uid()
+    )
+  );
+CREATE POLICY conversations_member_manage ON public.conversations
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = id AND cp.user_id = auth.uid()
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = id AND cp.user_id = auth.uid()
+    )
+  );
+
+ALTER TABLE public.conversation_participants ENABLE ROW LEVEL SECURITY;
+CREATE POLICY conversation_participants_self ON public.conversation_participants
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY messages_member_read ON public.messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+CREATE POLICY messages_member_write ON public.messages
+  FOR ALL USING (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  ) WITH CHECK (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+
+ALTER TABLE public.message_read_receipts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY message_read_receipts_member ON public.message_read_receipts
+  FOR ALL USING (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  ) WITH CHECK (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+
+ALTER TABLE public.message_delivery_receipts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY message_delivery_receipts_member ON public.message_delivery_receipts
+  FOR ALL USING (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  ) WITH CHECK (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+
+ALTER TABLE public.message_reactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY message_reactions_member ON public.message_reactions
+  FOR ALL USING (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  ) WITH CHECK (
+    user_id = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.conversation_participants cp
+      WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
+    )
+  );
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY notifications_owner_only ON public.notifications
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+CREATE POLICY reports_owner_only ON public.reports
+  FOR ALL USING (reporter_id = auth.uid()) WITH CHECK (reporter_id = auth.uid());
+
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY user_settings_owner_only ON public.user_settings
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.user_tags ENABLE ROW LEVEL SECURITY;
+CREATE POLICY user_tags_owner_only ON public.user_tags
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.user_title_tags ENABLE ROW LEVEL SECURITY;
+CREATE POLICY user_title_tags_owner_only ON public.user_title_tags
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- ---------------------------------------------
+-- Performance indexes for frequent access paths
+-- ---------------------------------------------
+
+CREATE INDEX IF NOT EXISTS ratings_user_id_idx
+  ON public.ratings USING btree (user_id);
+
+CREATE INDEX IF NOT EXISTS library_entries_user_id_idx
+  ON public.library_entries USING btree (user_id);
+
+CREATE INDEX IF NOT EXISTS activity_events_user_id_created_at_idx
+  ON public.activity_events USING btree (user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS follows_follower_id_idx
+  ON public.follows USING btree (follower_id);
+CREATE INDEX IF NOT EXISTS follows_followed_id_idx
+  ON public.follows USING btree (followed_id);
+
+CREATE INDEX IF NOT EXISTS blocked_users_blocker_id_idx
+  ON public.blocked_users USING btree (blocker_id);
+CREATE INDEX IF NOT EXISTS blocked_users_blocked_id_idx
+  ON public.blocked_users USING btree (blocked_id);
+
+CREATE INDEX IF NOT EXISTS conversation_participants_conversation_id_idx
+  ON public.conversation_participants USING btree (conversation_id);
+
+CREATE INDEX IF NOT EXISTS message_read_receipts_user_conversation_idx
+  ON public.message_read_receipts USING btree (user_id, conversation_id);
+
+CREATE INDEX IF NOT EXISTS message_delivery_receipts_conversation_created_idx
+  ON public.message_delivery_receipts USING btree (conversation_id, created_at);
