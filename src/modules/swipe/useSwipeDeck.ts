@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
+import { tmdbImageUrl } from "@/lib/tmdb";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -23,6 +24,8 @@ export type SwipeCardData = {
   vibeTag?: string | null;
   type?: string | null;
   posterUrl?: string | null;
+  tmdbPosterPath?: string | null;
+  tmdbBackdropPath?: string | null;
   friendLikesCount?: number | null;
   topFriendName?: string | null;
   topFriendInitials?: string | null;
@@ -195,7 +198,10 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     });
   }, []);
 
-  const normalizeRatings = useCallback((card: SwipeCardData): SwipeCardData => {
+  const normalizeCard = useCallback((card: SwipeCardData): SwipeCardData => {
+    const tmdbPoster = tmdbImageUrl(card.tmdbPosterPath ?? card.tmdbBackdropPath, "w780");
+    const posterUrl = card.posterUrl ?? tmdbPoster ?? null;
+
     const imdbRating =
       card.imdbRating == null || Number.isNaN(Number(card.imdbRating))
         ? null
@@ -205,7 +211,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         ? null
         : Number(card.rtTomatoMeter);
 
-    return { ...card, imdbRating, rtTomatoMeter };
+    return { ...card, imdbRating, rtTomatoMeter, posterUrl };
   }, []);
 
   const getNewCards = useCallback(
@@ -217,12 +223,12 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       for (const card of incoming) {
         if (seen.has(card.id)) continue;
         seen.add(card.id);
-        fresh.push(normalizeRatings(card));
+        fresh.push(normalizeCard(card));
       }
 
       return fresh;
     },
-    [normalizeRatings],
+    [normalizeCard],
   );
 
   const appendCards = useCallback(

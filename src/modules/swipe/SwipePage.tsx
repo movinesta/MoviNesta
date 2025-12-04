@@ -44,6 +44,24 @@ const getSourceLabel = (source?: string) => {
   }
 };
 
+const buildSwipeCardLabel = (card?: SwipeCardData) => {
+  if (!card) return undefined;
+
+  const pieces: string[] = [];
+  if (card.year) pieces.push(String(card.year));
+
+  const ratingBits: string[] = [];
+  if (typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating)) {
+    ratingBits.push(`IMDb ${card.imdbRating.toFixed(1)}`);
+  }
+  if (typeof card.rtTomatoMeter === "number" && !Number.isNaN(card.rtTomatoMeter)) {
+    ratingBits.push(`${card.rtTomatoMeter}% Rotten Tomatoes`);
+  }
+
+  const descriptor = [...pieces, ...ratingBits].filter(Boolean).join(" · ");
+  return descriptor ? `${card.title} (${descriptor})` : card.title;
+};
+
 interface CardMetadataProps {
   card: SwipeCardData;
 }
@@ -491,7 +509,7 @@ const SwipePage: React.FC = () => {
                       <>
                         <img
                           src={nextCard.posterUrl}
-                          alt={nextCard.title}
+                          alt={buildSwipeCardLabel(nextCard) ?? nextCard.title}
                           className="h-full w-full object-cover blur-[7px] brightness-[0.8]"
                           loading="lazy"
                           draggable={false}
@@ -516,14 +534,14 @@ const SwipePage: React.FC = () => {
                 onPointerMove={(e) => handlePointerMove(e.clientX)}
                 onPointerUp={finishDrag}
                 onPointerCancel={finishDrag}
-                aria-label={activeCard.title}
+                aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
               >
                 <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
                   {showActivePoster ? (
                     <img
                       src={activeCard.posterUrl}
-                      alt={`${activeCard.title} poster`}
+                      alt={buildSwipeCardLabel(activeCard) ?? `${activeCard.title} poster`}
                       className="h-full w-full object-cover"
                       draggable={false}
                       loading="lazy"

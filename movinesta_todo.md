@@ -429,10 +429,11 @@ _For each task or subtask below:_
   - [ ] Make all swipe-related Edge Functions (`swipe-for-you`, `swipe-from-friends`, `swipe-trending`, `swipe-more-like-this`, `swipe-event`) use the new shared HTTP + Supabase helpers.
   - [ ] Keep `swipe-event` responses minimal (e.g. `{ ok: true }`) and allow UI to remain snappy.
 
-- [ ] Swipe imagery & UX
-  - [ ] Use TMDB image helper for swipe cards (poster and/or backdrop).
-  - [ ] Prefetch images for the next 1–2 cards off-screen.
-  - [ ] Ensure cards have accessible labels (`aria-label` with title, year, and rating if any).
+- [✔️] Swipe imagery & UX
+  DONE – 2025-12-04 05:32 – Normalized swipe cards to use TMDB image URLs with poster/backdrop fallbacks, prefetch upcoming artwork, and added richer aria-labels for card metadata in SwipePage.
+  - [✔️] Use TMDB image helper for swipe cards (poster and/or backdrop).
+  - [✔️] Prefetch images for the next 1–2 cards off-screen.
+  - [✔️] Ensure cards have accessible labels (`aria-label` with title, year, and rating if any).
 
 ---
 
@@ -531,8 +532,9 @@ _For each task or subtask below:_
   - [✔️] Messages:
     DONE – 2025-12-04 04:41 – Added aria-labels to message bubbles in `ConversationPage` to announce sender context for screen readers.
     - [✔️] Distinguish own vs others’ messages for screen readers (e.g. `aria-label` with “You” or sender name).
-  - [ ] Swipe cards:
-    - [ ] Provide accessible labels describing the current card (title, year, rating).
+  - [✔️] Swipe cards:
+    DONE – 2025-12-04 05:32 – Added descriptive aria-labels for swipe cards including title, year, and ratings on SwipePage.
+    - [✔️] Provide accessible labels describing the current card (title, year, rating).
 
 - [✔️] Prevent theme flash (FOUC)
   DONE – 2025-12-03 21:30 – Added inline theme preload in `index.html` to set the correct dark/light class before React mounts, matching `ui-store` behavior.
