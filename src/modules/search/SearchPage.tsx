@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Filter, Languages, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
@@ -224,34 +227,38 @@ const SearchPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg px-3 py-2 text-[13px] shadow-mn-soft focus-within:border-mn-primary/70">
             <SearchIcon className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
-            <input
+            <Input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search for movies, shows, or people..."
-              className="flex-1 bg-transparent text-[13px] text-mn-text-primary placeholder:text-mn-text-muted focus:outline-none"
+              className="h-8 flex-1 border-none bg-transparent p-0 text-[13px] text-mn-text-primary shadow-none outline-none ring-0 placeholder:text-mn-text-muted focus-visible:ring-0"
               autoCorrect="off"
               autoCapitalize="none"
             />
             {query ? (
-              <button
+              <Button
                 type="button"
                 onClick={handleClearQuery}
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] text-mn-text-muted hover:bg-mn-border-subtle/60 hover:text-mn-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full text-[10px] text-mn-text-muted hover:bg-mn-border-subtle/60 hover:text-mn-text-primary"
                 aria-label="Clear search"
               >
                 <X className="h-3 w-3" aria-hidden="true" />
-              </button>
+              </Button>
             ) : null}
           </div>
 
-          <button
+          <Button
             type="button"
             onClick={() => {
               if (!canOpenFilters) return;
               setIsFiltersOpen((prev) => !prev);
             }}
-            className={`inline-flex items-center justify-center gap-1 rounded-full border px-3 py-2 text-[11px] font-medium shadow-mn-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg ${
+            variant="outline"
+            size="sm"
+            className={`inline-flex items-center justify-center gap-1 rounded-full px-3 py-2 text-[11px] font-medium shadow-mn-soft ${
               canOpenFilters
                 ? "border-mn-border-subtle bg-mn-bg text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-text-primary"
                 : "cursor-not-allowed border-mn-border-subtle/60 bg-mn-bg/70 text-mn-text-muted"
@@ -270,7 +277,7 @@ const SearchPage: React.FC = () => {
                 {activeFilterCount}
               </span>
             ) : null}
-          </button>
+          </Button>
 
           {!canOpenFilters ? (
             <span className="text-[10px] text-mn-text-muted sm:ml-1 sm:inline" aria-live="polite">
@@ -291,23 +298,27 @@ const SearchPage: React.FC = () => {
                   Active filters
                 </span>
                 {activeFilterChips.map((chip) => (
-                  <button
+                  <Button
                     key={chip.label}
                     type="button"
                     onClick={chip.onRemove}
-                    className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] text-mn-text-primary shadow-sm transition hover:border-mn-primary/70 hover:text-mn-text-primary"
+                    variant="outline"
+                    size="sm"
+                    className="h-auto rounded-full border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] text-mn-text-primary shadow-sm hover:border-mn-primary/70 hover:text-mn-text-primary"
                   >
                     <span>{chip.label}</span>
                     <X className="h-3 w-3 text-mn-text-muted" aria-hidden />
-                  </button>
+                  </Button>
                 ))}
-                <button
+                <Button
                   type="button"
                   onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-mn-primary transition hover:bg-mn-primary/15"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto rounded-full bg-mn-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-mn-primary hover:bg-mn-primary/15"
                 >
                   Reset all
-                </button>
+                </Button>
               </>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/50 px-2.5 py-1 text-[10px] font-medium text-mn-text-muted">
@@ -344,19 +355,21 @@ const SearchPage: React.FC = () => {
                   ).map((option) => {
                     const isActive = titleFilters.type === option.key;
                     return (
-                      <button
+                      <Button
                         key={option.key}
                         type="button"
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
+                        variant={isActive ? "default" : "outline"}
+                        size="sm"
+                        className={`h-auto rounded-full px-2.5 py-1 text-[10px] font-medium ${
                           isActive
                             ? "bg-mn-primary text-mn-bg shadow-mn-soft"
-                            : "border border-mn-border-subtle bg-mn-bg/80 text-mn-text-secondary hover:border-mn-primary/60 hover:text-mn-text-primary"
+                            : "border-mn-border-subtle bg-mn-bg/80 text-mn-text-secondary hover:border-mn-primary/60 hover:text-mn-text-primary"
                         }`}
                         onClick={() => updateFilters({ type: option.key })}
                         aria-pressed={isActive}
                       >
                         {option.label}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -367,7 +380,7 @@ const SearchPage: React.FC = () => {
                   Years
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <input
+                  <Input
                     type="number"
                     min={1900}
                     max={new Date().getFullYear()}
@@ -378,10 +391,10 @@ const SearchPage: React.FC = () => {
                       })
                     }
                     placeholder="Min"
-                    className="w-full rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1.5 text-[11px] text-mn-text-primary shadow-sm outline-none focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/30"
+                    className="h-9 w-full border-mn-border-subtle bg-mn-bg px-2 py-1.5 text-[11px] text-mn-text-primary shadow-sm"
                     aria-label="Minimum year"
                   />
-                  <input
+                  <Input
                     type="number"
                     min={1900}
                     max={new Date().getFullYear()}
@@ -392,7 +405,7 @@ const SearchPage: React.FC = () => {
                       })
                     }
                     placeholder="Max"
-                    className="w-full rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1.5 text-[11px] text-mn-text-primary shadow-sm outline-none focus:border-mn-border-strong focus:ring-2 focus:ring-mn-border-strong/30"
+                    className="h-9 w-full border-mn-border-subtle bg-mn-bg px-2 py-1.5 text-[11px] text-mn-text-primary shadow-sm"
                     aria-label="Maximum year"
                   />
                 </div>
@@ -405,7 +418,7 @@ const SearchPage: React.FC = () => {
                 </p>
                 <div className="flex items-center gap-1.5 rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1.5 shadow-sm">
                   <Languages className="h-3.5 w-3.5 text-mn-text-muted" aria-hidden="true" />
-                  <input
+                  <Input
                     type="text"
                     value={titleFilters.originalLanguage ?? ""}
                     onChange={(event) =>
@@ -414,7 +427,7 @@ const SearchPage: React.FC = () => {
                       })
                     }
                     placeholder="e.g. en, ja"
-                    className="w-full bg-transparent text-[11px] text-mn-text-primary placeholder:text-mn-text-muted focus:outline-none"
+                    className="h-8 w-full border-none bg-transparent p-0 text-[11px] text-mn-text-primary shadow-none placeholder:text-mn-text-muted focus-visible:ring-0"
                   />
                 </div>
                 <p className="text-[10px] text-mn-text-muted">
@@ -428,13 +441,15 @@ const SearchPage: React.FC = () => {
                 <span className="inline-flex h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
                 Filters shape the recommendations shown below.
               </p>
-              <button
+              <Button
                 type="button"
-                className="text-[10px] font-semibold text-mn-text-primary hover:text-mn-primary"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-[10px] font-semibold text-mn-text-primary hover:text-mn-primary"
                 onClick={handleResetFilters}
               >
                 Reset filters
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -442,49 +457,28 @@ const SearchPage: React.FC = () => {
 
       {/* Tabs + results */}
       <section className="flex flex-1 flex-col gap-3">
-        {/* Tabs */}
-        <div className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg-elevated/80 p-1 text-[11px] shadow-mn-soft">
-          {(
-            [
-              { key: "titles" as const, label: "Titles" },
-              { key: "people" as const, label: "People" },
-            ] satisfies { key: SearchTabKey; label: string }[]
-          ).map((tab) => {
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={[
-                  "inline-flex min-w-[70px] items-center justify-center rounded-full px-3 py-1.5 transition",
-                  isActive
-                    ? "bg-mn-primary text-mn-bg text-[11px] font-semibold"
-                    : "text-[11px] font-medium text-mn-text-secondary hover:bg-mn-border-subtle/40 hover:text-mn-text-primary",
-                ].join(" ")}
-                aria-pressed={isActive}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SearchTabKey)}>
+          <TabsList className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle bg-mn-bg-elevated/80 p-1 text-[11px] shadow-mn-soft">
+            <TabsTrigger value="titles">Titles</TabsTrigger>
+            <TabsTrigger value="people">People</TabsTrigger>
+          </TabsList>
 
-        {/* Results placeholder – wired to existing tab components for now */}
-        <div
-          aria-live="polite"
-          className="flex-1 rounded-mn-card border border-dashed border-mn-border-subtle/80 bg-mn-bg-elevated/60 px-3 py-3 text-[12px] text-mn-text-secondary"
-        >
-          {activeTab === "titles" ? (
-            <SearchTitlesTab
-              query={debouncedQuery}
-              filters={titleFilters}
-              onResetFilters={handleResetFilters}
-            />
-          ) : (
-            <SearchPeopleTab query={debouncedQuery} />
-          )}
-        </div>
+          <div
+            aria-live="polite"
+            className="flex-1 rounded-mn-card border border-dashed border-mn-border-subtle/80 bg-mn-bg-elevated/60 px-3 py-3 text-[12px] text-mn-text-secondary"
+          >
+            <TabsContent value="titles">
+              <SearchTitlesTab
+                query={debouncedQuery}
+                filters={titleFilters}
+                onResetFilters={handleResetFilters}
+              />
+            </TabsContent>
+            <TabsContent value="people">
+              <SearchPeopleTab query={debouncedQuery} />
+            </TabsContent>
+          </div>
+        </Tabs>
       </section>
     </div>
   );

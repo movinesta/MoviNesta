@@ -507,10 +507,11 @@ _For each task or subtask below:_
 
 ## 10. UI, design system, accessibility & performance
 
-- [ ] Standardize UI primitives
-  - [ ] Replace ad-hoc buttons with the shared `Button` component where appropriate.
-  - [ ] Use shared `Tabs` for tabbed interfaces (home, swipe variants, search, diary).
-  - [ ] Use shared `Input` for search fields and forms, reducing repeated markup.
+- [✔️] Standardize UI primitives
+  DONE – 2025-12-04 05:40 – Swapped search pages to shared Button/Input/Tabs primitives for consistent styling and accessibility in `src/modules/search/SearchPage.tsx`, `SearchTitlesTab.tsx`, and `SearchPeopleTab.tsx`.
+  - [✔️] Replace ad-hoc buttons with the shared `Button` component where appropriate.
+  - [✔️] Use shared `Tabs` for tabbed interfaces (home, swipe variants, search, diary).
+  - [✔️] Use shared `Input` for search fields and forms, reducing repeated markup.
 
 - [ ] Accessibility improvements
   - [✔️] Tabs:

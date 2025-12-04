@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Film, Star, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { supabase } from "../../lib/supabase";
 import { useSearchTitles, type TitleSearchFilters, type TitleSearchResult } from "./useSearchTitles";
 
@@ -264,14 +265,16 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
           result{totalResults === 1 ? "" : "s"} across your catalog and external sources for{" "}
           <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>.
         </p>
-        <button
+        <Button
           type="button"
-          className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle px-2 py-1 text-[10px] text-mn-text-muted hover:border-mn-border-strong hover:text-mn-text-primary"
+          variant="outline"
+          size="sm"
+          className="h-auto rounded-full border-mn-border-subtle px-2 py-1 text-[10px] text-mn-text-muted hover:border-mn-border-strong hover:text-mn-text-primary"
           onClick={onResetFilters}
         >
           <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
           <span>Reset filters</span>
-        </button>
+        </Button>
       </div>
 
       <div className="rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-3">
@@ -291,14 +294,14 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
 
       {hasNextPage && (
         <div className="flex justify-center">
-          <button
+          <Button
             type="button"
             className="inline-flex items-center justify-center gap-2 rounded-full bg-mn-primary px-4 py-2 text-[11px] font-medium text-white shadow-mn-soft transition hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
           >
             {isFetchingNextPage ? "Loading more…" : "Load more results"}
-          </button>
+          </Button>
         </div>
       )}
     </div>

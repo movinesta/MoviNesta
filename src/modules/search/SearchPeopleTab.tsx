@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Users, UserPlus, UserMinus, MessageCircle } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { useSearchPeople } from "./useSearchPeople";
 import { useToggleFollow } from "./useToggleFollow";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
@@ -215,7 +216,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
               </Link>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={() =>
                     toggleFollow.mutate({
@@ -224,9 +225,11 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                     })
                   }
                   disabled={toggleFollow.isPending}
-                  className={`inline-flex items-center justify-center rounded-full px-2.5 py-1.5 text-[10px] font-medium transition ${
+                  variant={person.isFollowing ? "outline" : "default"}
+                  size="sm"
+                  className={`h-auto rounded-full px-2.5 py-1.5 text-[10px] font-medium ${
                     person.isFollowing
-                      ? "border border-mn-border-subtle/80 bg-mn-bg-elevated/80 text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-text-primary disabled:opacity-60"
+                      ? "border-mn-border-subtle/80 bg-mn-bg-elevated/80 text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-text-primary disabled:opacity-60"
                       : "border border-transparent bg-mn-primary text-mn-bg hover:bg-mn-primary/90 disabled:opacity-60"
                   }`}
                 >
@@ -241,14 +244,16 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                       <span>Follow</span>
                     </>
                   )}
-                </button>
+                </Button>
 
                 {user?.id !== person.id && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => handleStartConversation(person.id)}
                     disabled={startingConversationFor === person.id}
-                    className="inline-flex items-center justify-center rounded-full border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-2.5 py-1.5 text-[10px] font-medium text-mn-text-primary shadow-mn-soft hover:border-mn-primary/70 hover:text-mn-text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                    variant="outline"
+                    size="sm"
+                    className="h-auto rounded-full border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-2.5 py-1.5 text-[10px] font-medium text-mn-text-primary shadow-mn-soft hover:border-mn-primary/70 hover:text-mn-text-primary disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {startingConversationFor === person.id ? (
                       <span>Starting…</span>
@@ -261,7 +266,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                         <span>Message</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 )}
               </div>
             </li>
