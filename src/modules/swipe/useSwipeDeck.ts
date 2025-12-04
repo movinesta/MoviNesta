@@ -8,7 +8,7 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
@@ -149,6 +149,8 @@ export const trimDeck = (
 
 export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number }) {
   const limit = options?.limit ?? 40;
+  const queryClient = useQueryClient();
+  const deckCacheKey = useMemo(() => ["swipeDeck", { variant: kind }], [kind]);
 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<SwipeCardData[]>([]);
@@ -165,6 +167,17 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   } | null>(null);
   const sourceWeightsRef = useRef<Record<SwipeDeckKind, number>>(
     loadInitialSourceWeights(),
+  );
+
+  const setDeckStateWithCache = useCallback(
+    (updater: SwipeDeckState | ((prev: SwipeDeckState) => SwipeDeckState)) => {
+      setDeckState((prev) => {
+        const next = typeof updater === "function" ? (updater as (p: SwipeDeckState) => SwipeDeckState)(prev) : updater;
+        queryClient.setQueryData(deckCacheKey, next);
+        return next;
+      });
+    },
+    [deckCacheKey, queryClient],
   );
 
   const scheduleAssetPrefetch = useCallback((incoming: SwipeCardData[]) => {
@@ -217,7 +230,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       const deduped = getNewCards(incoming);
       if (!deduped.length) return;
 
-      setDeckState((prev) => {
+      setDeckStateWithCache((prev) => {
         const nextCards = [...prev.cards, ...deduped];
         cardsRef.current = nextCards;
         scheduleAssetPrefetch(deduped);
@@ -230,7 +243,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         };
       });
     },
-    [getNewCards, scheduleAssetPrefetch],
+    [getNewCards, scheduleAssetPrefetch, setDeckStateWithCache],
   );
 
   const fetchFromSource = useCallback(
@@ -310,7 +323,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     async (batchSize = limit) => {
       if (fetchingRef.current) return;
       fetchingRef.current = true;
-      setDeckState((prev) => ({
+      setDeckStateWithCache((prev) => ({
         ...prev,
         status: "loading",
         index: prev.index,
@@ -327,7 +340,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
           // No new cards available right now – this is a valid state (end of deck),
           // not necessarily an error. Leave isError=false so the UI can show
           // the "All caught up" message instead of an error state.
-          setDeckState((prev) => ({
+          setDeckStateWithCache((prev) => ({
             ...prev,
             status: cardsRef.current.length ? "ready" : "exhausted",
             index: prev.index,
@@ -346,7 +359,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
               ? error
               : "We couldn't load swipe cards. Please retry.";
 
-        setDeckState((prev) => ({
+        setDeckStateWithCache((prev) => ({
           ...prev,
           status: "error",
           index: prev.index,
@@ -360,22 +373,36 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         return;
       } finally {
         fetchingRef.current = false;
-        setDeckState((prev) =>
+        setDeckStateWithCache((prev) =>
           prev.status === "loading" && prev.cards.length
             ? { ...prev, status: "ready" }
             : prev,
         );
       }
     },
-    [appendCards, fetchCombinedBatch, fetchFromSource, kind, limit],
+    [appendCards, fetchCombinedBatch, fetchFromSource, kind, limit, setDeckStateWithCache],
   );
 
   useEffect(() => {
     cardsRef.current = [];
     seenIdsRef.current = new Set();
-    setDeckState({ status: "loading", cards: [], index: null, errorMessage: null });
-    fetchBatch(limit);
-  }, [fetchBatch, limit]);
+    const cached = queryClient.getQueryData<SwipeDeckState>(deckCacheKey);
+
+    const initialState = cached
+      ? cached.status === "loading" && cached.cards.length
+        ? { ...cached, status: "ready" }
+        : cached
+      : { status: "loading", cards: [], index: null, errorMessage: null };
+
+    cardsRef.current = initialState.cards;
+    seenIdsRef.current = new Set(initialState.cards.map((card) => card.id));
+
+    setDeckStateWithCache(initialState);
+
+    if (!initialState.cards.length) {
+      fetchBatch(limit);
+    }
+  }, [deckCacheKey, fetchBatch, limit, queryClient, setDeckStateWithCache]);
 
   const updateSourceWeights = useCallback(
     (source: SwipeDeckKind | undefined, direction: SwipeDirection) => {
@@ -403,13 +430,22 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
 
   const trimConsumed = useCallback((count: number) => {
     if (count <= 0) return;
-    setDeckState((prev) => {
+    setDeckStateWithCache((prev) => {
       const { remaining } = trimDeck(prev.cards, count);
       if (remaining.length === prev.cards.length) return prev;
       cardsRef.current = remaining;
       return { ...prev, cards: remaining };
     });
-  }, []);
+  }, [setDeckStateWithCache]);
+
+  const refreshDeck = useCallback(() => {
+    seenIdsRef.current = new Set();
+    cardsRef.current = [];
+    fetchingRef.current = false;
+    queryClient.removeQueries({ queryKey: deckCacheKey });
+    setDeckStateWithCache({ status: "loading", cards: [], index: null, errorMessage: null });
+    fetchBatch(limit);
+  }, [deckCacheKey, fetchBatch, limit, queryClient, setDeckStateWithCache]);
 
   const swipeMutation = useMutation({
     mutationFn: async ({
@@ -459,6 +495,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     isExhausted: deckState.status === "exhausted",
     deckError: deckState.errorMessage ?? null,
     fetchMore: fetchBatch,
+    refresh: refreshDeck,
     trimConsumed,
     swipe: (payload: SwipeEventPayload) => {
       updateSourceWeights(payload.sourceOverride, payload.direction);
