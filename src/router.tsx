@@ -25,7 +25,6 @@ const OnboardingPage = React.lazy(() => import("./modules/misc/OnboardingPage"))
 
 const MessagesPage = React.lazy(() => import("./modules/messages/MessagesPage"));
 const ConversationPage = React.lazy(() => import("./modules/messages/ConversationPage"));
-const RealtimeChatPage = React.lazy(() => import("./modules/messages/RealtimeChatPage"));
 const TitleDetailPage = React.lazy(() => import("./modules/title/TitleDetailPage"));
 
 const SuspenseFallback: React.FC = () => (
@@ -67,7 +66,6 @@ const AppRoutes: React.FC = () => {
             <Route index element={<HomePage />} />
             <Route path="/swipe" element={<SwipePage />} />
             <Route path="/messages" element={<MessagesPage />} />
-            <Route path="/messages/realtime" element={<RealtimeChatPage />} />
             <Route path="/messages/:conversationId" element={<ConversationPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/diary" element={<DiaryPage />} />

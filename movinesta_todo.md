@@ -268,13 +268,17 @@ _For each task or subtask below:_
       DONE – 2025-12-03 16:10 – Typed the blocked user lookup in `src/modules/messages/useBlockStatus.ts` against Supabase rows so the hook avoids `any` casts while continuing to use the shared client.
     - [ ] Add tests for the “blocked” behavior at least at the hook/service level.
 
-- [ ] Global realtime chat (experimental)
-  - [ ] Decide if `RealtimeChatPage` + `realtime-chat.tsx` is a supported feature or experimental demo.
-    - [ ] If **supported**:
-      - [ ] Ensure `@supabase/realtime-chat-react-router` is installed and documented.
-      - [ ] Add an “Experimental” or subtle entry point in navigation.
-    - [ ] If **not**:
-      - [ ] Move files into an experimental folder or remove the route and components to avoid confusion.
+- [✔️] Global realtime chat (experimental)
+  DONE – 2025-12-04 05:08 – Archived the realtime chat demo into `src/experimental/realtime-chat` and removed the `/messages/realtime` route so it’s clearly unsupported in production builds.
+  - [✔️] Decide if `RealtimeChatPage` + `realtime-chat.tsx` is a supported feature or experimental demo.
+    DONE – 2025-12-04 05:08 – Marked realtime chat as an experimental demo only and kept it out of the routed app shell until officially supported.
+    - [✖️] If **supported**:
+      DONE – 2025-12-04 05:08 – Skipped installing/chat routing for now; revisit if promoting the feature to supported status.
+      - [✖️] Ensure `@supabase/realtime-chat-react-router` is installed and documented.
+      - [✖️] Add an “Experimental” or subtle entry point in navigation.
+    - [✔️] If **not**:
+      DONE – 2025-12-04 05:08 – Moved the demo page into `src/experimental/realtime-chat` and removed the route to avoid implying support.
+      - [✔️] Move files into an experimental folder or remove the route and components to avoid confusion.
 
 ---
 
