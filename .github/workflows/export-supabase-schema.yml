@@ -1,13 +1,12 @@
 name: Export Full Supabase Schema
 
-# Trigger workflow manually or on main branch push, and also schedule daily backups
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # optional: runs daily at midnight UTC
   push:
     branches:
       - main
-  schedule:
-    - cron: '0 2 * * *' # Runs daily at 02:00 UTC
 
 jobs:
   export-schema:
@@ -24,27 +23,36 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Dump the full Supabase schema
-      - name: Dump Full Supabase Schema
+      # 3️⃣ Create backup folder
+      - name: Create folder for schema dump
+        run: mkdir -p supabase
+
+      # 4️⃣ Generate timestamp
+      - name: Generate timestamp
+        id: timestamp
+        run: echo "TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_ENV
+
+      # 5️⃣ Dump full Supabase schema including RLS
+      - name: Dump Supabase Schema
         run: |
-          mkdir -p supabase
-          echo "Dumping full Supabase schema including RLS policies..."
+          echo "Dumping full schema to supabase/schema-$TIMESTAMP.sql"
           supabase db dump \
             --db-url "$SUPABASE_DB_URL" \
-            --file supabase/schema.sql
-          
-          echo "Listing files in supabase folder:"
-          ls -l supabase/
+            --file "supabase/schema-$TIMESTAMP.sql"
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      # 4️⃣ Commit and push schema changes automatically using PAT token
-      - name: Commit Schema Changes
+      # 6️⃣ Optional: keep a fixed filename for easy reference
+      - name: Copy to supabase/schema.sql
+        run: cp supabase/schema-$TIMESTAMP.sql supabase/schema.sql
+
+      # 7️⃣ Commit and push using Personal Access Token
+      - name: Commit and Push Schema
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "chore: update full Supabase schema dump"
-          branch: main
           file_pattern: "supabase/schema.sql"
-          commit_user_name: "github-actions[bot]"
-          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          branch: main
+          commit_user_name: github-actions[bot]
+          commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
           token: ${{ secrets.PAT_TOKEN }}
