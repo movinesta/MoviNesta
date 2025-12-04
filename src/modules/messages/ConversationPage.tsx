@@ -1705,10 +1705,27 @@ const ConversationPage: React.FC = () => {
                   isDeleted: isDeletedMessage,
                 });
                 const name = participant?.displayName ?? (isSelf ? "You" : "Someone");
-
                 const text = isDeletedMessage
                   ? "This message was deleted"
                   : parseMessageText(message.body);
+
+                const messageAriaLabel = (() => {
+                  const senderLabel = isSelf ? "You" : name;
+
+                  if (isDeletedMessage) {
+                    return `${senderLabel} deleted a message`;
+                  }
+
+                  if (text) {
+                    return `${senderLabel} said: ${text}`;
+                  }
+
+                  if (message.attachmentUrl) {
+                    return `${senderLabel} sent an attachment`;
+                  }
+
+                  return `${senderLabel} sent a message`;
+                })();
 
                 const showAvatarAndName = !isSelf && endsGroup;
 
@@ -1810,6 +1827,7 @@ const ConversationPage: React.FC = () => {
                           onTouchStart={() => handleBubbleTouchStart(message)}
                           onTouchEnd={handleBubbleTouchEndOrCancel}
                           onTouchCancel={handleBubbleTouchEndOrCancel}
+                          aria-label={messageAriaLabel}
                         >
                           <div className="flex flex-col">
                             {text && (

@@ -503,8 +503,9 @@ _For each task or subtask below:_
   - [ ] Modals & drawers:
     - [ ] Add focus trap and restore focus to the opener on close.
     - [ ] Use `aria-modal="true"` and appropriate labeling.
-  - [ ] Messages:
-    - [ ] Distinguish own vs others’ messages for screen readers (e.g. `aria-label` with “You” or sender name).
+  - [✔️] Messages:
+    DONE – 2025-12-04 04:41 – Added aria-labels to message bubbles in `ConversationPage` to announce sender context for screen readers.
+    - [✔️] Distinguish own vs others’ messages for screen readers (e.g. `aria-label` with “You” or sender name).
   - [ ] Swipe cards:
     - [ ] Provide accessible labels describing the current card (title, year, rating).
 
