@@ -46,11 +46,11 @@ Set these in your `.env` (Vite requires the `VITE_` prefix for frontend variable
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Frontend Supabase client | Project URL from Supabase dashboard. |
 | `VITE_SUPABASE_ANON_KEY` | Frontend Supabase client | Public anon key for browser access. |
-| `VITE_TMDB_API_READ_ACCESS_TOKEN` | TMDB fetch helpers | Required for TMDB API requests. |
 | `VITE_OMDB_API_KEY` (optional) | Search fallback helpers | Used when fetching OMDb metadata in search flows. |
 | `SUPABASE_URL` | Edge Functions | Supabase project URL for server-side calls. |
 | `SUPABASE_ANON_KEY` | Edge Functions | Anon key for user-scoped Edge Function calls. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Service role key for admin-only workflows that bypass RLS when needed. |
+| `TMDB_API_READ_ACCESS_TOKEN` | Edge Functions (`tmdb-proxy`, `catalog-search`) | Server-side TMDB read token injected by the proxy; not exposed to the browser. |
 | `SUPABASE_DB_URL` or `DATABASE_URL` | Supabase type generation | Postgres connection string for `npm run generate:supabase-types`. |
 
 ## Edge Function notes

@@ -168,13 +168,20 @@ _For each task or subtask below:_
     - [✔️] Clear error throwing when `error` exists or `data` is missing.
   - [✔️] Refactor all `supabase.functions.invoke` usages (search, catalog sync, swipe, etc.) to use this helper.
 
-- [ ] TMDB proxy Edge Function
-  - [ ] Implement a `tmdb-proxy` Edge Function that:
-    - [ ] Accepts a constrained set of TMDB paths and query parameters.
-    - [ ] Injects the TMDB read token on the server side.
-    - [ ] Validates input so the proxy can’t be abused as a generic TMDB explorer.
-  - [ ] Update frontend TMDB calls to go through `callSupabaseFunction("tmdb-proxy", ...)` instead of calling TMDB directly.
-  - [ ] Remove any direct TMDB read token usage from frontend code.
+- [✔️] TMDB proxy Edge Function
+  DONE – 2025-12-04 04:25 – Added `tmdb-proxy` Edge Function that proxies approved TMDB endpoints with server-side token injection and guarded params.
+  - [✔️] Implement a `tmdb-proxy` Edge Function that:
+    DONE – 2025-12-04 04:25 – Created server-side TMDB proxy with limited paths and enforced auth token usage.
+    - [✔️] Accepts a constrained set of TMDB paths and query parameters.
+      DONE – 2025-12-04 04:25 – Normalized proxy payload to `/search/multi` and `/trending/all/week` with whitelisted params and defaults.
+    - [✔️] Injects the TMDB read token on the server side.
+      DONE – 2025-12-04 04:25 – Edge Function attaches the read token in request headers so the browser no longer needs it.
+    - [✔️] Validates input so the proxy can’t be abused as a generic TMDB explorer.
+      DONE – 2025-12-04 04:25 – Added path checks, query/page validation, and strict param filtering before forwarding to TMDB.
+  - [✔️] Update frontend TMDB calls to go through `callSupabaseFunction("tmdb-proxy", ...)` instead of calling TMDB directly.
+    DONE – 2025-12-04 04:25 – Refactored TMDB helper to invoke the proxy Edge Function with language defaults.
+  - [✔️] Remove any direct TMDB read token usage from frontend code.
+    DONE – 2025-12-04 04:25 – Dropped client-side TMDB token access and documented server-only TMDB credential usage.
 
 - [✔️] TMDB image helper & performance
   DONE – 2025-12-03 22:01 – Unified TMDB image handling with size-aware helper usage, lazy loading, and swipe poster prefetching.
