@@ -1022,6 +1022,40 @@ export interface Database {
           },
         ];
       };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          email_activity: boolean;
+          email_recommendations: boolean;
+          in_app_social: boolean;
+          in_app_system: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          email_activity?: boolean;
+          email_recommendations?: boolean;
+          in_app_social?: boolean;
+          in_app_system?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          email_activity?: boolean;
+          email_recommendations?: boolean;
+          in_app_social?: boolean;
+          in_app_system?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       conversations: {
         Row: {
           id: string;

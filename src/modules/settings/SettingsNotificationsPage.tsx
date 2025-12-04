@@ -1,15 +1,36 @@
 import React, { useEffect, useState } from "react";
-import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2, Info } from "lucide-react";
+import {
+  Bell,
+  Inbox,
+  ThumbsUp,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Loader2,
+} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TopBar from "../../components/shared/TopBar";
+import { useAuth } from "../auth/AuthProvider";
+import { supabase } from "@/lib/supabase";
+import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
+import type { Database } from "@/types/supabase";
 
-const STORAGE_KEY = "moviNesta.notifications";
+type NotificationPreferencesRow =
+  Database["public"]["Tables"]["notification_preferences"]["Row"];
 
-interface NotificationPrefs {
+type NotificationPrefs = {
   emailActivity: boolean;
   emailRecommendations: boolean;
   inAppSocial: boolean;
   inAppSystem: boolean;
-}
+};
+
+type UpdateNotificationPrefsResponse = {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  preferences: NotificationPrefs & { updatedAt: string };
+};
 
 const defaultPrefs: NotificationPrefs = {
   emailActivity: true,
@@ -18,21 +39,96 @@ const defaultPrefs: NotificationPrefs = {
   inAppSystem: true,
 };
 
+const notificationPreferencesQueryKey = ["notification-preferences"] as const;
+
 const SettingsNotificationsPage: React.FC = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as NotificationPrefs;
-        setPrefs({ ...defaultPrefs, ...parsed });
+  const {
+    data: storedPrefs,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: notificationPreferencesQueryKey,
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const { data, error: fetchError } = await supabase
+        .from("notification_preferences")
+        .select(
+          "user_id, email_activity, email_recommendations, in_app_social, in_app_system, updated_at",
+        )
+        .eq("user_id", user!.id)
+        .maybeSingle<NotificationPreferencesRow>();
+
+      if (fetchError) {
+        throw fetchError;
       }
-    } catch {
-      // ignore parse errors and fall back to defaults
-    }
-  }, []);
+
+      if (data) return data;
+
+      return {
+        user_id: user!.id,
+        email_activity: defaultPrefs.emailActivity,
+        email_recommendations: defaultPrefs.emailRecommendations,
+        in_app_social: defaultPrefs.inAppSocial,
+        in_app_system: defaultPrefs.inAppSystem,
+        updated_at: new Date().toISOString(),
+      } satisfies NotificationPreferencesRow;
+    },
+  });
+
+  useEffect(() => {
+    if (!storedPrefs) return;
+
+    setPrefs({
+      emailActivity: storedPrefs.email_activity,
+      emailRecommendations: storedPrefs.email_recommendations,
+      inAppSocial: storedPrefs.in_app_social,
+      inAppSystem: storedPrefs.in_app_system,
+    });
+  }, [storedPrefs]);
+
+  const savePrefs = useMutation({
+    mutationFn: async (next: NotificationPrefs) => {
+      const response = await callSupabaseFunction<UpdateNotificationPrefsResponse>(
+        "update-notification-prefs",
+        {
+          emailActivity: next.emailActivity,
+          emailRecommendations: next.emailRecommendations,
+          inAppSocial: next.inAppSocial,
+          inAppSystem: next.inAppSystem,
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(response.error ?? "Unable to save preferences");
+      }
+
+      return response.preferences;
+    },
+    onSuccess: (updated) => {
+      setStatus("saved");
+      queryClient.setQueryData<NotificationPreferencesRow>(
+        notificationPreferencesQueryKey,
+        {
+          user_id: user?.id ?? "",
+          email_activity: updated.emailActivity,
+          email_recommendations: updated.emailRecommendations,
+          in_app_social: updated.inAppSocial,
+          in_app_system: updated.inAppSystem,
+          updated_at: updated.updatedAt,
+        },
+      );
+    },
+    onError: (err) => {
+      console.error("Failed to save notification preferences", err);
+      setStatus("error");
+    },
+  });
 
   const updateField =
     (field: keyof NotificationPrefs) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,14 +136,53 @@ const SettingsNotificationsPage: React.FC = () => {
       setStatus("idle");
     };
 
-  const handleSave = () => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-      setStatus("saved");
-    } catch {
-      setStatus("error");
-    }
+  const handleSave = async () => {
+    if (!user || savePrefs.isPending) return;
+
+    await savePrefs.mutateAsync(prefs);
   };
+
+  if (!user) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
+        <div className="max-w-md rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-4 py-6 text-center text-sm text-mn-text-primary shadow-mn-card">
+          <h1 className="text-base font-heading font-semibold">You&apos;re signed out</h1>
+          <p className="mt-2 text-xs text-mn-text-secondary">
+            Sign in to manage how MoviNesta contacts you.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="flex items-center gap-2 rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-4 py-3 text-sm text-mn-text-secondary shadow-mn-card">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <span>Loading your notification preferences…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !storedPrefs) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="max-w-md rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-4 py-6 text-center text-sm text-mn-text-primary shadow-mn-card">
+          <h1 className="text-base font-heading font-semibold">Notifications unavailable</h1>
+          <p className="mt-2 text-xs text-mn-text-secondary">
+            We couldn&apos;t load your preferences right now.
+          </p>
+          {error && (
+            <p className="mt-2 text-[11px] text-mn-text-muted">
+              <span className="font-semibold">Details:</span> {error.message}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
@@ -56,9 +191,8 @@ const SettingsNotificationsPage: React.FC = () => {
       <div className="mx-4 flex items-start gap-2 rounded-md border border-mn-border-subtle/70 bg-mn-bg-elevated/70 p-3 text-[12px] text-mn-text-secondary shadow-mn-card">
         <Info className="mt-0.5 h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
         <p className="leading-relaxed">
-          Notification preferences are currently stored on <strong>this device only</strong>.
-          Backend sync is coming soon, so changes here won&apos;t update your settings across other
-          devices yet.
+          Notification preferences are saved to your MoviNesta account and sync across devices.
+          These toggles control both in-app surfaces and any email digests you opt into.
         </p>
       </div>
 
@@ -169,7 +303,7 @@ const SettingsNotificationsPage: React.FC = () => {
             {status === "saved" && (
               <div className="flex items-center gap-1.5 text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Notification preferences saved to this device.</span>
+                <span>Notification preferences saved to your account.</span>
               </div>
             )}
             {status === "error" && (
@@ -182,10 +316,15 @@ const SettingsNotificationsPage: React.FC = () => {
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex items-center gap-1.5 rounded-full bg-mn-accent/90 px-3.5 py-1.5 text-xs font-medium text-black shadow-mn-card transition hover:bg-mn-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
+            disabled={savePrefs.isPending}
+            className="inline-flex items-center gap-1.5 rounded-full bg-mn-accent/90 px-3.5 py-1.5 text-xs font-medium text-black shadow-mn-card transition hover:bg-mn-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Save preferences</span>
+            {savePrefs.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            <span>{savePrefs.isPending ? "Saving…" : "Save preferences"}</span>
           </button>
         </div>
       </section>

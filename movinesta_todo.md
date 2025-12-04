@@ -486,17 +486,24 @@ _For each task or subtask below:_
   - [✔️] Replace key strings (nav labels, major headings, key buttons) with `t("...")` calls.
   - [✔️] Use the selected language for TMDB requests when appropriate.
 
-- [ ] Notification settings → backend
+- [✔️] Notification settings → backend
+  DONE – 2025-12-04 11:26 – Added synced notification preferences table + Edge Function and wired SettingsNotificationsPage to Supabase-backed toggles.
   - [✔️] Short term:
     - [✔️] In `SettingsNotificationsPage`, clarify that toggles are currently local to the device until wired to the backend.
       DONE – 2025-12-04 04:35 – Added device-only notice to SettingsNotificationsPage with Info icon callout to set expectations before backend sync.
-  - [ ] Medium term:
-    - [ ] Create `notification_preferences` table keyed by user ID, matching the options in the UI.
-    - [ ] Add RLS so users can only read/write their own preferences.
-    - [ ] Implement an Edge Function `update-notification-prefs` to read and update preferences.
-    - [ ] Update `SettingsNotificationsPage` to:
-      - [ ] Load preferences via React Query from Supabase.
-      - [ ] Persist changes via the Edge Function instead of `localStorage`.
+  - [✔️] Medium term:
+    DONE – 2025-12-04 11:26 – Synced notification preference storage through Supabase with secure policies and account-level saving from the settings UI.
+    - [✔️] Create `notification_preferences` table keyed by user ID, matching the options in the UI.
+      DONE – 2025-12-04 11:26 – Added notification_preferences table with defaults and updated_at audit column in supabasefullschema.sql.
+    - [✔️] Add RLS so users can only read/write their own preferences.
+      DONE – 2025-12-04 11:26 – Enforced owner-only RLS policy on notification_preferences for auth.uid() scoped access.
+    - [✔️] Implement an Edge Function `update-notification-prefs` to read and update preferences.
+      DONE – 2025-12-04 11:26 – Created update-notification-prefs Edge Function to GET/POST account preferences via getUserClient with validation.
+    - [✔️] Update `SettingsNotificationsPage` to:
+      - [✔️] Load preferences via React Query from Supabase.
+        DONE – 2025-12-04 11:26 – SettingsNotificationsPage now queries Supabase notification_preferences with typed defaults per user.
+      - [✔️] Persist changes via the Edge Function instead of `localStorage`.
+        DONE – 2025-12-04 11:26 – Save button now calls update-notification-prefs Edge Function for account-synced toggles.
 
 - [ ] Notification center (longer-term)
   - [ ] Build a basic `notifications` list page:
