@@ -532,13 +532,14 @@ _For each task or subtask below:_
     - [ ] Home feed lists.
   - [ ] Ensure scroll-to-bottom in chat still works correctly with virtualization.
 
-- [ ] Skeletons & perceived performance
-  - [ ] Add skeleton components for:
-    - [ ] Conversations list.
-    - [ ] Swipe deck.
-    - [ ] Search results.
-    - [ ] Diary timeline and stats.
-  - [ ] Use skeletons while queries are loading to avoid jarring blank states.
+- [✔️] Skeletons & perceived performance
+  DONE – 2025-12-04 05:05 – Added inbox list skeletons alongside existing swipe/search/diary loading placeholders so key flows stay visually stable while data loads.
+  - [✔️] Add skeleton components for:
+    - [✔️] Conversations list.
+    - [✔️] Swipe deck.
+    - [✔️] Search results.
+    - [✔️] Diary timeline and stats.
+  - [✔️] Use skeletons while queries are loading to avoid jarring blank states.
 
 - [ ] Background prefetch & app shell performance
   - [ ] After successful sign-in, prefetch:
