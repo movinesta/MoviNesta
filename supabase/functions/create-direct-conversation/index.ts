@@ -24,6 +24,7 @@ type ConversationParticipantRow = {
 type ConversationRow = {
   id: string;
   is_group: boolean;
+  direct_participant_ids: string[] | null;
   updated_at: string | null;
 };
 
@@ -55,8 +56,39 @@ async function findExistingDirectConversation(
   myUserId: string,
   targetUserId: string,
 ): Promise<string | null> {
+  const directPair = [myUserId, targetUserId].sort();
   console.log(
     "[create-direct-conversation] findExistingDirectConversation",
+    { myUserId, targetUserId, directPair },
+  );
+
+  const { data: directRows, error: directError } = await supabaseAdmin
+    .from("conversations")
+    .select("id, updated_at")
+    .eq("is_group", false)
+    .contains("direct_participant_ids", directPair)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .returns<ConversationRow[]>();
+
+  if (directError) {
+    console.error(
+      "[create-direct-conversation] error searching by direct pair:",
+      directError,
+    );
+    throw directError;
+  }
+
+  if (directRows && directRows.length > 0) {
+    console.log(
+      "[create-direct-conversation] found conversation by pair",
+      directRows[0].id,
+    );
+    return directRows[0].id;
+  }
+
+  console.log(
+    "[create-direct-conversation] no direct pair match; fallback to participant overlap",
     { myUserId, targetUserId },
   );
 
@@ -198,12 +230,10 @@ serve(async (req) => {
       return jsonError("targetUserId cannot be yourself", 400, "BAD_REQUEST_SELF_TARGET");
     }
 
+    const directPair = [myUserId, targetUserId].sort();
+
     // 3) Try to find existing DM
-    const existingId = await findExistingDirectConversation(
-      supabaseAdmin,
-      myUserId,
-      targetUserId,
-    );
+    const existingId = await findExistingDirectConversation(supabaseAdmin, myUserId, targetUserId);
 
     if (existingId) {
       return jsonResponse(
@@ -217,15 +247,35 @@ serve(async (req) => {
     // 4) Create conversation (admin client bypasses RLS)
     const { data: conv, error: convError } = await supabaseAdmin
       .from("conversations")
-      .insert({
-        is_group: false,
-        title: null,
-        created_by: myUserId,
-      })
+      .insert(
+        {
+          is_group: false,
+          title: null,
+          created_by: myUserId,
+          direct_participant_ids: directPair,
+        },
+        { onConflict: "direct_participant_ids" },
+      )
       .select("id")
       .single();
 
     if (convError || !conv) {
+      if (convError?.code === "23505") {
+        const reusedId = await findExistingDirectConversation(
+          supabaseAdmin,
+          myUserId,
+          targetUserId,
+        );
+
+        if (reusedId) {
+          console.log("[create-direct-conversation] reused existing due to conflict", reusedId);
+          return jsonResponse(
+            { ok: true, conversationId: reusedId } satisfies CreateDirectConversationResponse,
+            200,
+          );
+        }
+      }
+
       console.error(
         "[create-direct-conversation] error creating conversation:",
         convError,

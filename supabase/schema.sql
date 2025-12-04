@@ -66,10 +66,21 @@ CREATE TABLE public.conversations (
   is_group boolean NOT NULL DEFAULT false,
   title text,
   created_by uuid,
+  direct_participant_ids uuid[],
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT conversations_pkey PRIMARY KEY (id),
-  CONSTRAINT conversations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  CONSTRAINT conversations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
+  CONSTRAINT direct_conversations_require_pair CHECK (
+    is_group
+    OR (
+      direct_participant_ids IS NOT NULL
+      AND array_length(direct_participant_ids, 1) = 2
+    )
+  )
 );
+CREATE UNIQUE INDEX conversations_direct_pair_unique
+  ON public.conversations USING btree (direct_participant_ids)
+  WHERE (NOT is_group);
 CREATE TABLE public.episode_progress (
   user_id uuid NOT NULL,
   episode_id uuid NOT NULL,

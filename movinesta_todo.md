@@ -124,11 +124,12 @@ _For each task or subtask below:_
     - [ ] `swipes(user_id, created_at)`
     - [ ] Any other indices referenced in RPCs or heavy queries.
 
-- [ ] Direct conversation uniqueness
-  - [ ] Add a unique index to prevent duplicate 1-to-1 conversations when `is_group = false` (e.g. a normalized pair of user IDs).
-  - [ ] Update `create-direct-conversation` Edge Function to:
-    - [ ] Use this unique constraint and handle “conversation already exists” gracefully.
-    - [ ] Return the existing conversation instead of creating a duplicate.
+- [✔️] Direct conversation uniqueness
+  DONE – 2025-12-04 04:06 – Added a normalized participant pair column + unique index in `supabase/schema.sql` and updated `create-direct-conversation` Edge Function to reuse existing DMs via the constraint.
+  - [✔️] Add a unique index to prevent duplicate 1-to-1 conversations when `is_group = false` (e.g. a normalized pair of user IDs).
+  - [✔️] Update `create-direct-conversation` Edge Function to:
+    - [✔️] Use this unique constraint and handle “conversation already exists” gracefully.
+    - [✔️] Return the existing conversation instead of creating a duplicate.
 
 ---
 
