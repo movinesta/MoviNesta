@@ -81,6 +81,30 @@ const InboxLoadingCard: React.FC = () => {
   );
 };
 
+const ConversationListSkeleton: React.FC = () => (
+  <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg/90 shadow-mn-card">
+    <ul className="divide-y divide-mn-border-subtle/70 px-2 py-1 sm:px-3">
+      {Array.from({ length: 5 }).map((_, idx) => (
+        <li key={idx} className="py-2 sm:py-2.5">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-12 w-12 items-center justify-center">
+              <span className="inline-flex h-11 w-11 animate-pulse items-center justify-center rounded-full bg-mn-bg-elevated/80 text-[12px] font-semibold text-mn-text-primary" />
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-mn-border-subtle" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="block h-3 w-1/2 animate-pulse rounded-full bg-mn-bg-elevated/80" />
+                <span className="block h-3 w-10 animate-pulse rounded-full bg-mn-bg-elevated/60" />
+              </div>
+              <span className="block h-3 w-5/6 animate-pulse rounded-full bg-mn-bg-elevated/70" />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
 type ConversationFilter = "all" | "unread" | "groups";
 
 export const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
@@ -339,8 +363,11 @@ const MessagesPage: React.FC = () => {
 
       {/* Loading state – only the loading card, no extra card wrapper */}
       {isLoading && (
-        <div className="flex flex-1 items-center justify-center">
-          <InboxLoadingCard />
+        <div className="space-y-4">
+          <div className="flex items-center justify-center">
+            <InboxLoadingCard />
+          </div>
+          <ConversationListSkeleton />
         </div>
       )}
 
