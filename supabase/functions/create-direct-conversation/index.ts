@@ -34,6 +34,11 @@ type CreateDirectConversationResponse = {
   error?: string;
 };
 
+type BlockStatus = {
+  youBlocked: boolean;
+  blockedYou: boolean;
+};
+
 const CreateDirectConversationPayloadSchema = z.object({
   targetUserId: z.string().uuid(),
   context: z
@@ -46,6 +51,34 @@ const CreateDirectConversationPayloadSchema = z.object({
 type CreateDirectConversationPayload = z.infer<
   typeof CreateDirectConversationPayloadSchema
 >;
+
+async function getBlockStatus(
+  supabaseAuth: ReturnType<typeof getUserClient>,
+  myUserId: string,
+  targetUserId: string,
+): Promise<BlockStatus> {
+  const { data, error } = await supabaseAuth
+    .from("blocked_users")
+    .select("blocker_id, blocked_id")
+    .or(
+      `and(blocker_id.eq.${myUserId},blocked_id.eq.${targetUserId}),and(blocker_id.eq.${targetUserId},blocked_id.eq.${myUserId})`,
+    )
+    .returns<{ blocker_id: string; blocked_id: string }[]>();
+
+  if (error) {
+    console.error("[create-direct-conversation] block lookup failed", error);
+    throw error;
+  }
+
+  const youBlocked = (data ?? []).some(
+    (row) => row.blocker_id === myUserId && row.blocked_id === targetUserId,
+  );
+  const blockedYou = (data ?? []).some(
+    (row) => row.blocker_id === targetUserId && row.blocked_id === myUserId,
+  );
+
+  return { youBlocked, blockedYou } satisfies BlockStatus;
+}
 
 // ---------------------------------------------------------------------------
 // Helper: find existing one-on-one conversation between two users
@@ -231,6 +264,28 @@ serve(async (req) => {
     }
 
     const directPair = [myUserId, targetUserId].sort();
+
+    const blockStatus = await getBlockStatus(
+      supabaseAuth,
+      myUserId,
+      targetUserId,
+    );
+
+    if (blockStatus.youBlocked) {
+      return jsonError(
+        "You have blocked this user. Unblock them to start a conversation.",
+        403,
+        "BLOCKED_BY_SELF",
+      );
+    }
+
+    if (blockStatus.blockedYou) {
+      return jsonError(
+        "You cannot message this user because they have blocked you.",
+        403,
+        "BLOCKED_BY_OTHER",
+      );
+    }
 
     // 3) Try to find existing DM
     const existingId = await findExistingDirectConversation(supabaseAdmin, myUserId, targetUserId);

@@ -21,7 +21,7 @@ import { useAuth } from "../auth/AuthProvider";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
 import { getMessageMeta, parseMessageText } from "./messageText";
-import { useBlockStatus } from "./useBlockStatus";
+import { fetchBlockStatus, useBlockStatus } from "./useBlockStatus";
 import {
   ConversationMessage,
   ConversationReadReceipt,
@@ -131,11 +131,12 @@ interface SendMessageArgs {
   attachmentPath?: string | null;
 }
 
-const useSendMessage = (
+export const useSendMessage = (
   conversationId: string | null,
   options?: {
     onFailed?: (tempId: string, payload: FailedMessagePayload) => void;
     onRecovered?: (tempId: string | null) => void;
+    otherUserId?: string | null;
   },
 ) => {
   const { user } = useAuth();
@@ -146,6 +147,24 @@ const useSendMessage = (
     mutationFn: async ({ text, attachmentPath }: SendMessageArgs) => {
       if (!conversationId) throw new Error("Missing conversation id.");
       if (!userId) throw new Error("You must be signed in to send messages.");
+
+      if (options?.otherUserId) {
+        const status = await fetchBlockStatus(
+          supabase,
+          userId,
+          options.otherUserId,
+        );
+
+        if (status.youBlocked) {
+          throw new Error(
+            "You have blocked this user. Unblock them to send messages.",
+          );
+        }
+
+        if (status.blockedYou) {
+          throw new Error("You cannot send messages because this user blocked you.");
+        }
+      }
 
       const trimmed = text.trim();
       const bodyPayload =
@@ -484,6 +503,7 @@ const ConversationPage: React.FC = () => {
   const sendMessage = useSendMessage(conversationId, {
     onFailed: handleSendFailed,
     onRecovered: handleSendRecovered,
+    otherUserId: !isGroupConversation ? otherParticipant?.id ?? null : null,
   });
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);

@@ -289,12 +289,16 @@ _For each task or subtask below:_
   - [✔️] Extract reaction logic from `ConversationPage` into a smaller hook or utility to simplify the main component.
     DONE – 2025-12-04 10:05 – Introduced `useConversationReactions` to house querying, optimistic toggles, and summaries, slimming `ConversationPage` (`src/modules/messages/useConversationReactions.ts`, `src/modules/messages/ConversationPage.tsx`).
 
-  - [ ] Blocked users enforcement
-  - [ ] Confirm `blocked_users` is used consistently:
-    - [ ] Integrate checks into conversation creation and message send logic (no messaging when blocked).
+  - [✔️] Blocked users enforcement
+    DONE – 2025-12-04 10:06 – Added block-aware guards to direct conversation creation and message sending to prevent chatting between blocked users (Edge function + messaging hook).
+  - [✔️] Confirm `blocked_users` is used consistently:
+    DONE – 2025-12-04 10:06 – Centralized block lookups for messaging flows and reused the shared Supabase client for checks before conversations/messages are created.
+    - [✔️] Integrate checks into conversation creation and message send logic (no messaging when blocked).
+      DONE – 2025-12-04 10:06 – Prevented new DM creation and message mutations when users block each other by querying `blocked_users` in `create-direct-conversation` and `useSendMessage`.
     - [✔️] Ensure `useBlockStatus` remains type-safe and uses a single Supabase client.
       DONE – 2025-12-03 16:10 – Typed the blocked user lookup in `src/modules/messages/useBlockStatus.ts` against Supabase rows so the hook avoids `any` casts while continuing to use the shared client.
-    - [ ] Add tests for the “blocked” behavior at least at the hook/service level.
+    - [✔️] Add tests for the “blocked” behavior at least at the hook/service level.
+      DONE – 2025-12-04 10:06 – Covered block status fetches and messaging mutation guards with new Vitest suites for `fetchBlockStatus` and `useSendMessage`.
 
 - [✔️] Global realtime chat (experimental)
   DONE – 2025-12-04 05:08 – Archived the realtime chat demo into `src/experimental/realtime-chat` and removed the `/messages/realtime` route so it’s clearly unsupported in production builds.
