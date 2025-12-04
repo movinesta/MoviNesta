@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Film, Star, SlidersHorizontal } from "lucide-react";
+import { Virtuoso } from "react-virtuoso";
 import { Button } from "@/components/ui/Button";
 import { supabase } from "../../lib/supabase";
 import {
@@ -279,24 +280,35 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         </p>
       </div>
 
-      <ul className="space-y-2">
-        {results.map((item) => (
-          <TitleSearchResultRow key={item.id} item={item} />
-        ))}
-      </ul>
-
-      {hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-mn-primary px-4 py-2 text-[11px] font-medium text-white shadow-mn-soft transition hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? "Loading more…" : "Load more results"}
-          </Button>
-        </div>
-      )}
+      <Virtuoso
+        style={{ height: "70vh" }}
+        data={results}
+        endReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        computeItemKey={(_, item) => item.id}
+        components={{
+          List: React.forwardRef<HTMLUListElement, React.HTMLAttributes<HTMLUListElement>>((props, ref) => (
+            <ul ref={ref} className="space-y-2" {...props} />
+          )),
+          Footer: () =>
+            hasNextPage ? (
+              <div className="flex justify-center py-3">
+                <Button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-mn-primary px-4 py-2 text-[11px] font-medium text-white shadow-mn-soft transition hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                >
+                  {isFetchingNextPage ? "Loading more…" : "Load more results"}
+                </Button>
+              </div>
+            ) : null,
+        }}
+        itemContent={(index, item) => <TitleSearchResultRow item={item} />}
+      />
     </div>
   );
 };

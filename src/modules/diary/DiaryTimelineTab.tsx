@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Virtuoso } from "react-virtuoso";
 import { BookmarkPlus, Film, MessageCircle, Sparkles, Star, Users } from "lucide-react";
 import { useDiaryTimeline, type DiaryTimelineItem } from "./useDiaryTimeline";
 import { formatDateTime } from "@/utils/format";
@@ -110,13 +111,21 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
 
   return (
     <div className="px-2 pb-4">
-      <ol className="space-y-3">
-        {items.map((item) => {
+      <Virtuoso
+        style={{ height: "70vh" }}
+        data={items}
+        computeItemKey={(_, item) => item.id}
+        components={{
+          List: React.forwardRef<HTMLOListElement, React.HTMLAttributes<HTMLOListElement>>((props, ref) => (
+            <ol ref={ref} className="space-y-3" {...props} />
+          )),
+        }}
+        itemContent={(index, item) => {
           const Icon = eventIcon(item.kind);
           const titleUrl = item.titleId ? `/title/${item.titleId}` : null;
 
           return (
-            <li key={item.id}>
+            <li key={item.id} className="pb-1">
               <article className="flex gap-3 rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 p-3 shadow-mn-card">
                 <div className="relative h-16 w-11 overflow-hidden rounded bg-mn-bg/70">
                   {item.posterUrl ? (
@@ -167,9 +176,7 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
                   </div>
 
                   {item.reviewSnippet && (
-                    <p className="line-clamp-2 text-[11px] text-mn-text-secondary">
-                      “{item.reviewSnippet}”
-                    </p>
+                    <p className="line-clamp-2 text-[11px] text-mn-text-secondary">“{item.reviewSnippet}”</p>
                   )}
 
                   {item.extra && <p className="text-[10px] text-mn-text-muted">{item.extra}</p>}
@@ -177,8 +184,8 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
               </article>
             </li>
           );
-        })}
-      </ol>
+        }}
+      />
     </div>
   );
 };

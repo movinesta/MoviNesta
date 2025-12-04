@@ -586,13 +586,20 @@ _For each task or subtask below:_
   - [✔️] Ensure logic matches the theme computation in `ui-store.ts`.
     DONE – 2025-12-03 21:30 – Theme resolution mirrors `resolvePreferredTheme` including system-based `prefers-color-scheme` handling.
 
-- [ ] List virtualization
-  - [ ] Introduce virtualization (e.g. `react-window` or similar) for:
-    - [ ] Long conversation message lists.
-    - [ ] Diary timelines with many entries.
-    - [ ] Large search result sets.
-    - [ ] Home feed lists.
-  - [ ] Ensure scroll-to-bottom in chat still works correctly with virtualization.
+- [✔️] List virtualization
+  DONE – 2025-12-04 11:08 – Added react-virtuoso-powered virtualization for chat, diary, search, and feed lists to keep scrolling smooth on large datasets.
+  - [✔️] Introduce virtualization (e.g. `react-window` or similar) for:
+    DONE – 2025-12-04 11:08 – Wired react-virtuoso into conversation threads, diary timelines, search results, and home feed cards for efficient rendering.
+    - [✔️] Long conversation message lists.
+      DONE – 2025-12-04 11:08 – Virtualized conversation messages with auto-follow when at bottom to preserve chat scroll behavior.
+    - [✔️] Diary timelines with many entries.
+      DONE – 2025-12-04 11:08 – Diary timeline entries now stream through a virtualized list for faster navigation.
+    - [✔️] Large search result sets.
+      DONE – 2025-12-04 11:08 – Search title results render via a virtual scroller with auto-fetch on scroll.
+    - [✔️] Home feed lists.
+      DONE – 2025-12-04 11:08 – Home feed cards load virtually with buffered fetches and a gentle footer state.
+  - [✔️] Ensure scroll-to-bottom in chat still works correctly with virtualization.
+    DONE – 2025-12-04 11:08 – Chat list uses followOutput to keep users pinned to the latest messages only when they’re already at the bottom.
 
 - [✔️] Skeletons & perceived performance
   DONE – 2025-12-04 05:05 – Added inbox list skeletons alongside existing swipe/search/diary loading placeholders so key flows stay visually stable while data loads.
