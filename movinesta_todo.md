@@ -438,14 +438,15 @@ _For each task or subtask below:_
     - [ ] Someone reacts to your review or message.
     - [ ] Other events you want to surface (e.g. mentions).
 
-- [ ] AvatarPicker integration
+- [✔️] AvatarPicker integration
+  DONE – 2025-12-04 04:30 – Wired AvatarPicker into SettingsProfilePage with Supabase Storage uploads to avatars/{userId}/ and profile avatar_url updates.
   - [ ] Decide on the role of `AvatarPicker`:
-    - [ ] If used:
-      - [ ] Add it to `SettingsProfilePage` for avatar uploads.
-      - [ ] Upload images to Supabase Storage (e.g. `avatars/{userId}`).
-      - [ ] Save `avatar_url` in `profiles` and use it across the app.
-    - [ ] If not used:
-      - [ ] Move `AvatarPicker` to a `future/` or `experimental/` folder or remove it to avoid dead code.
+  - [✔️] If used:
+      - [✔️] Add it to `SettingsProfilePage` for avatar uploads.
+      - [✔️] Upload images to Supabase Storage (e.g. `avatars/{userId}`).
+      - [✔️] Save `avatar_url` in `profiles` and use it across the app.
+    - [✖️] If not used:
+      - [✖️] Move `AvatarPicker` to a `future/` or `experimental/` folder or remove it to avoid dead code.
 
 - [✔️] Settings overview
   DONE – 2025-12-03 22:28 – Wired /settings to the overview hub in router and routed profile gear to it; kept settings section labels consistent.
