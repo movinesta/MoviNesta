@@ -10,6 +10,35 @@ export interface BlockStatus {
 
 type BlockedUsersRow = Database["public"]["Tables"]["blocked_users"]["Row"];
 
+export type BlockCheckRow = Pick<BlockedUsersRow, "blocker_id" | "blocked_id">;
+
+export async function fetchBlockStatus(
+  client: typeof supabase,
+  userId: string,
+  otherUserId: string,
+): Promise<BlockStatus> {
+  const { data, error } = await client
+    .from("blocked_users")
+    .select("blocker_id, blocked_id")
+    .or(
+      `and(blocker_id.eq.${userId},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${userId})`,
+    );
+
+  if (error) {
+    throw error;
+  }
+
+  const rows: BlockCheckRow[] = data ?? [];
+  const youBlocked = rows.some(
+    (row) => row.blocker_id === userId && row.blocked_id === otherUserId,
+  );
+  const blockedYou = rows.some(
+    (row) => row.blocker_id === otherUserId && row.blocked_id === userId,
+  );
+
+  return { youBlocked, blockedYou } satisfies BlockStatus;
+}
+
 /**
  * React Query hook for checking and toggling block status between the
  * current user and another user.
@@ -31,39 +60,24 @@ export const useBlockStatus = (otherUserId: string | null) => {
 
   const queryKey = ["block-status", userId, otherUserId] as const;
 
-  const query = useQuery<BlockStatus>({
-    queryKey,
-    enabled: Boolean(userId && otherUserId && userId !== otherUserId),
-    staleTime: 30_000,
-    queryFn: async () => {
-      if (!userId || !otherUserId || userId === otherUserId) {
-        return { youBlocked: false, blockedYou: false };
-      }
+    const query = useQuery<BlockStatus>({
+      queryKey,
+      enabled: Boolean(userId && otherUserId && userId !== otherUserId),
+      staleTime: 30_000,
+      queryFn: async () => {
+        if (!userId || !otherUserId || userId === otherUserId) {
+          return { youBlocked: false, blockedYou: false };
+        }
 
-      const { data, error } = await supabase
-        .from("blocked_users")
-        .select("blocker_id, blocked_id")
-        .or(
-          `and(blocker_id.eq.${userId},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${userId})`,
-        );
-
-      if (error) {
-        console.error("[useBlockStatus] Failed to load block status", error);
-        throw new Error(error.message);
-      }
-
-      const rows: Pick<BlockedUsersRow, "blocker_id" | "blocked_id">[] = data ?? [];
-
-      const youBlocked = rows.some(
-        (row) => row.blocker_id === userId && row.blocked_id === otherUserId,
-      );
-      const blockedYou = rows.some(
-        (row) => row.blocker_id === otherUserId && row.blocked_id === userId,
-      );
-
-      return { youBlocked, blockedYou };
-    },
-  });
+        try {
+          return await fetchBlockStatus(supabase, userId, otherUserId);
+        } catch (error) {
+          console.error("[useBlockStatus] Failed to load block status", error);
+          const err = error as { message?: string };
+          throw new Error(err.message ?? "Failed to load block status");
+        }
+      },
+    });
 
   const block = useMutation({
     mutationFn: async () => {
