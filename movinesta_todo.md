@@ -400,13 +400,14 @@ _For each task or subtask below:_
     - [ ] Returns everything needed to render swipe cards.
   - [ ] Update `swipe-for-you` Edge Function to call this RPC (using `getAdminClient()` where appropriate) and map rows to swipe DTOs.
 
-- [ ] Per-variant swipe deck caching
-  - [ ] Use React Query keys like:
-    - [ ] `["swipeDeck", { variant: "for-you" }]`
-    - [ ] `["swipeDeck", { variant: "from-friends" }]`
-    - [ ] `["swipeDeck", { variant: "trending" }]`
-  - [ ] Cache decks per variant so tab-switching doesn’t refetch unnecessarily.
-  - [ ] Add a “refresh” action to manually fetch a new deck.
+- [✔️] Per-variant swipe deck caching
+  DONE – 2025-12-04 05:17 – Added React Query–backed deck caching per swipe variant and manual refresh support in `src/modules/swipe/useSwipeDeck.ts`.
+  - [✔️] Use React Query keys like:
+    - [✔️] `["swipeDeck", { variant: "for-you" }]`
+    - [✔️] `["swipeDeck", { variant: "from-friends" }]`
+    - [✔️] `["swipeDeck", { variant: "trending" }]`
+  - [✔️] Cache decks per variant so tab-switching doesn’t refetch unnecessarily.
+  - [✔️] Add a “refresh” action to manually fetch a new deck.
 
 - [ ] Swipe Edge functions consolidation
   - [ ] Ensure shared logic (seen titles, preference profiles) is in `_shared/swipe.ts` and `_shared/preferences.ts`.
