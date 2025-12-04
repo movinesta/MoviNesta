@@ -524,9 +524,10 @@ _For each task or subtask below:_
       DONE – 2025-12-04 04:17 – Added an accessible landmark label to the fixed bottom navigation in `AppShell`.
     - [✔️] Hide icons from screen readers (`aria-hidden="true"`) and expose readable labels.
       DONE – 2025-12-04 04:17 – Confirmed bottom nav icons are decorative-only while text labels remain accessible.
-  - [ ] Modals & drawers:
-    - [ ] Add focus trap and restore focus to the opener on close.
-    - [ ] Use `aria-modal="true"` and appropriate labeling.
+  - [✔️] Modals & drawers:
+    DONE – 2025-12-04 05:27 – Added focus traps, aria-modal dialog markup, and opener focus restoration for the message edit modal and home feed filters sheet in `src/modules/messages/ConversationPage.tsx` and `src/modules/home/HomeFeedTab.tsx`.
+    - [✔️] Add focus trap and restore focus to the opener on close.
+    - [✔️] Use `aria-modal="true"` and appropriate labeling.
   - [✔️] Messages:
     DONE – 2025-12-04 04:41 – Added aria-labels to message bubbles in `ConversationPage` to announce sender context for screen readers.
     - [✔️] Distinguish own vs others’ messages for screen readers (e.g. `aria-label` with “You” or sender name).
