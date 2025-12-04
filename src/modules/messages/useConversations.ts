@@ -17,6 +17,10 @@ type MessageRow = Pick<
   Database["public"]["Tables"]["messages"]["Row"],
   "id" | "conversation_id" | "user_id" | "body" | "created_at"
 >;
+type ReadReceiptRow = Pick<
+  Database["public"]["Tables"]["message_read_receipts"]["Row"],
+  "conversation_id" | "user_id" | "last_read_at" | "last_read_message_id"
+>;
 
 export interface ConversationParticipant {
   id: string;
@@ -71,7 +75,11 @@ export const useConversations = () => {
       }
 
       const conversationIds = Array.from(
-        new Set(participantRows.map((row) => row.conversation_id)),
+        new Set(
+          participantRows
+            .map((row) => row.conversation_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
       );
 
       if (conversationIds.length === 0) {
@@ -189,7 +197,9 @@ export const useConversations = () => {
         }
       >();
 
-      for (const row of receiptsData ?? []) {
+      const typedReceipts: ReadReceiptRow[] = receiptsData ?? [];
+
+      for (const row of typedReceipts) {
         const convId = row.conversation_id;
         const userIdForRow = row.user_id;
         const lastReadAt = row.last_read_at ?? null;
