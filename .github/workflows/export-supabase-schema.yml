@@ -1,17 +1,20 @@
 name: Export Full Supabase Schema
 
+# Trigger workflow manually or on main branch push, and also schedule daily backups
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 2 * * *' # Runs daily at 02:00 UTC
 
 jobs:
   export-schema:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -21,7 +24,7 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Dump full schema (all schemas + RLS)
+      # 3️⃣ Dump the full Supabase schema
       - name: Dump Full Supabase Schema
         run: |
           mkdir -p supabase
@@ -35,10 +38,13 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      # 4️⃣ Commit schema changes only if modified
+      # 4️⃣ Commit and push schema changes automatically using PAT token
       - name: Commit Schema Changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "chore: update full Supabase schema dump"
           branch: main
           file_pattern: "supabase/schema.sql"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          token: ${{ secrets.PAT_TOKEN }}
