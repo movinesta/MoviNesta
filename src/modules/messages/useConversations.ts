@@ -11,16 +11,22 @@ import { useAuth } from "../auth/AuthProvider";
 import { getMessagePreview } from "./messageText";
 import { formatTimeAgo } from "./formatTimeAgo";
 
-type ConversationRow = Database["public"]["Tables"]["conversations"]["Row"];
-type ParticipantRow = Database["public"]["Tables"]["conversation_participants"]["Row"];
-type MessageRow = Pick<
-  Database["public"]["Tables"]["messages"]["Row"],
-  "id" | "conversation_id" | "user_id" | "body" | "created_at"
->;
-type ReadReceiptRow = Pick<
-  Database["public"]["Tables"]["message_read_receipts"]["Row"],
-  "conversation_id" | "user_id" | "last_read_at" | "last_read_message_id"
->;
+type ConversationSummaryRow =
+  Database["public"]["Functions"]["get_conversation_summaries"]["Returns"][number];
+
+type RpcParticipant = {
+  id: string;
+  displayName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  isSelf: boolean;
+};
+
+type RpcReadReceipt = {
+  userId: string;
+  lastReadMessageId: string | null;
+  lastReadAt: string | null;
+};
 
 export interface ConversationParticipant {
   id: string;
@@ -59,205 +65,51 @@ export const useConversations = () => {
     queryFn: async (): Promise<ConversationListItem[]> => {
       if (!userId) return [];
 
-      // 1) Which conversations does the current user participate in?
-      const { data: participantRows, error: participantsError } = await supabase
-        .from("conversation_participants")
-        .select("conversation_id")
-        .eq("user_id", userId);
+      const { data, error } = await supabase.rpc("get_conversation_summaries", {
+        p_user_id: userId,
+      });
 
-      if (participantsError) {
-        console.error("[useConversations] Failed to load participants", participantsError);
-        throw new Error(participantsError.message);
+      if (error) {
+        console.error("[useConversations] Failed to load conversation summaries", error);
+        throw new Error(error.message);
       }
 
-      if (!participantRows || participantRows.length === 0) {
-        return [];
-      }
+      const summaries: ConversationSummaryRow[] = data ?? [];
 
-      const conversationIds = Array.from(
-        new Set(
-          participantRows
-            .map((row) => row.conversation_id)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      );
+      return summaries.map((summary) => {
+        const participants = Array.isArray(summary.participants)
+          ? (summary.participants as RpcParticipant[])
+          : [];
 
-      if (conversationIds.length === 0) {
-        return [];
-      }
+        const receipts = Array.isArray(summary.participant_receipts)
+          ? (summary.participant_receipts as RpcReadReceipt[])
+          : [];
 
-      // 2) Fetch conversations metadata
-      const { data: conversationsData, error: conversationsError } = await supabase
-        .from("conversations")
-        .select("id, is_group, title, created_at, updated_at, created_by")
-        .in("id", conversationIds)
-        .order("updated_at", { ascending: false });
-
-      if (conversationsError) {
-        console.error("[useConversations] Failed to load conversations", conversationsError);
-        throw new Error(conversationsError.message);
-      }
-
-      const conversations: ConversationRow[] = conversationsData ?? [];
-
-      // 3) Fetch participants for these conversations
-      const { data: allParticipantsData, error: allParticipantsError } = await supabase
-        .from("conversation_participants")
-        .select("conversation_id, user_id, role, created_at")
-        .in("conversation_id", conversationIds);
-
-      if (allParticipantsError) {
-        console.error(
-          "[useConversations] Failed to load conversation participants",
-          allParticipantsError,
-        );
-        throw new Error(allParticipantsError.message);
-      }
-
-      const allParticipants: ParticipantRow[] = allParticipantsData ?? [];
-
-      // 4) Collect all user ids we need profiles for
-      const userIds = Array.from(new Set(allParticipants.map((row) => row.user_id)));
-
-      // 5) Fetch profiles for participants
-      let profilesById = new Map<
-        string,
-        {
-          id: string;
-          username: string | null;
-          displayName: string | null;
-          avatarUrl: string | null;
-        }
-      >();
-      if (userIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, username, display_name, avatar_url")
-          .in("id", userIds);
-
-        if (profilesError) {
-          console.error("[useConversations] Failed to load profiles", profilesError);
-          throw new Error(profilesError.message);
-        }
-
-        profilesById = new Map(
-          (profilesData ?? []).map((row) => [
-            row.id,
-            {
-              id: row.id,
-              username: row.username,
-              displayName: row.display_name,
-              avatarUrl: row.avatar_url,
-            },
-          ]),
-        );
-      }
-
-      // 6) Fetch recent messages for these conversations (we'll compute "last message")
-      const { data: messagesData, error: messagesError } = await supabase
-        .from("messages")
-        .select("id, conversation_id, user_id, body, created_at")
-        .in("conversation_id", conversationIds)
-        .order("created_at", { ascending: false });
-
-      if (messagesError) {
-        console.error("[useConversations] Failed to load messages", messagesError);
-        throw new Error(messagesError.message);
-      }
-
-      const messages: MessageRow[] = messagesData ?? [];
-
-      // Group messages by conversation id, newest first (thanks to the ordering above)
-      const messagesByConversation = new Map<string, MessageRow[]>();
-      for (const msg of messages) {
-        const convId = msg.conversation_id;
-        if (!messagesByConversation.has(convId)) {
-          messagesByConversation.set(convId, []);
-        }
-        messagesByConversation.get(convId)!.push(msg);
-      }
-
-      // 7) Read receipts for these conversations (all participants)
-      const { data: receiptsData, error: receiptsError } = await supabase
-        .from("message_read_receipts")
-        .select("conversation_id, user_id, last_read_at, last_read_message_id")
-        .in("conversation_id", conversationIds);
-
-      if (receiptsError) {
-        console.error("[useConversations] Failed to load read receipts", receiptsError);
-        throw new Error(receiptsError.message);
-      }
-
-      const receiptsByConversation = new Map<
-        string,
-        {
-          selfLastReadAt: string | null;
-          selfLastReadMessageId: string | null;
-          others: { userId: string; lastReadAt: string | null; lastReadMessageId: string | null }[];
-        }
-      >();
-
-      const typedReceipts: ReadReceiptRow[] = receiptsData ?? [];
-
-      for (const row of typedReceipts) {
-        const convId = row.conversation_id;
-        const userIdForRow = row.user_id;
-        const lastReadAt = row.last_read_at ?? null;
-        const lastReadMessageId = row.last_read_message_id ?? null;
-
-        let entry = receiptsByConversation.get(convId);
-        if (!entry) {
-          entry = { selfLastReadAt: null, selfLastReadMessageId: null, others: [] };
-          receiptsByConversation.set(convId, entry);
-        }
-
-        if (userIdForRow === userId) {
-          entry.selfLastReadAt = lastReadAt;
-          entry.selfLastReadMessageId = lastReadMessageId;
-        } else {
-          entry.others.push({ userId: userIdForRow, lastReadAt, lastReadMessageId });
-        }
-      }
-
-      // 8) Compose final list items
-      const result: ConversationListItem[] = conversations.map((conv) => {
-        const convId = conv.id;
-        const isGroup = Boolean(conv.is_group);
-        const participantsForConv = allParticipants.filter((row) => row.conversation_id === convId);
-
-        const participantModels: ConversationParticipant[] = participantsForConv.map((row) => {
-          const profile = profilesById.get(row.user_id);
-          const displayName = profile?.displayName ?? profile?.username ?? "Unknown user";
-
-          return {
-            id: profile?.id ?? row.user_id,
-            displayName,
-            username: profile?.username ?? null,
-            avatarUrl: profile?.avatarUrl ?? null,
-            isSelf: row.user_id === userId,
-          };
-        });
-
-        const others = participantModels.filter((p) => !p.isSelf);
-        const selfIncluded = participantModels.some((p) => p.isSelf);
+        const others = participants.filter((p) => !p.isSelf);
+        const selfIncluded = participants.some((p) => p.isSelf);
+        const isGroup = Boolean(summary.is_group);
 
         let title: string;
         let subtitle: string;
 
         if (isGroup) {
           title =
-            conv.title ??
+            summary.title ??
             (others.length > 0
               ? others
                   .slice(0, 3)
-                  .map((p) => p.displayName)
+                  .map((p) => p.displayName ?? p.username ?? "Unknown user")
                   .join(", ")
               : "Group conversation");
           subtitle =
-            others.length > 0 ? `${participantModels.length} participants` : "Group conversation";
+            others.length > 0 ? `${participants.length} participants` : "Group conversation";
         } else {
-          const primaryOther = others[0] ?? participantModels[0];
-          title = primaryOther?.displayName ?? "Direct message";
+          const primaryOther = others[0] ?? participants[0];
+          title =
+            primaryOther?.displayName ??
+            primaryOther?.username ??
+            summary.title ??
+              "Direct message";
           subtitle =
             primaryOther?.username != null
               ? `@${primaryOther.username}`
@@ -266,55 +118,55 @@ export const useConversations = () => {
                 : "Direct message";
         }
 
-        const convMessages = messagesByConversation.get(convId) ?? [];
-        const lastMessage = convMessages[0];
-        const lastMessagePreview = lastMessage ? getMessagePreview(lastMessage.body) : null;
-        const lastMessageAt = lastMessage?.created_at ?? conv.updated_at ?? conv.created_at ?? null;
+        const lastMessagePreview = summary.last_message_body
+          ? getMessagePreview(summary.last_message_body)
+          : null;
+
+        const lastMessageAt =
+          summary.last_message_created_at ?? summary.updated_at ?? summary.created_at ?? null;
         const lastMessageAtLabel = formatTimeAgo(lastMessageAt);
 
-        const receipt = receiptsByConversation.get(convId);
-        const selfLastReadAt = receipt?.selfLastReadAt ?? null;
-        const selfLastReadMessageId = receipt?.selfLastReadMessageId ?? null;
+        const selfLastReadAt = summary.self_last_read_at ?? null;
+        const selfLastReadMessageId = summary.self_last_read_message_id ?? null;
 
         const hasUnread =
-          !!lastMessage &&
-          ((selfLastReadMessageId && selfLastReadMessageId !== lastMessage.id) ||
+          !!summary.last_message_id &&
+          ((selfLastReadMessageId && selfLastReadMessageId !== summary.last_message_id) ||
             (!selfLastReadMessageId &&
               lastMessageAt &&
               (!selfLastReadAt ||
                 new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime())));
 
-        const lastMessageIsFromSelf = !!lastMessage && lastMessage.user_id === userId;
+        const lastMessageIsFromSelf = summary.last_message_user_id === userId;
 
         let lastMessageSeenByOthers = false;
 
-        if (!isGroup && lastMessage && lastMessageIsFromSelf && lastMessageAt) {
-          const othersReceipts = receipt?.others ?? [];
-          const other = othersReceipts[0];
+        if (!isGroup && summary.last_message_id && lastMessageIsFromSelf && lastMessageAt) {
+          const otherReceipt = receipts.find((r) => r.userId !== userId);
 
-          if (other?.lastReadMessageId) {
-            if (other.lastReadMessageId === lastMessage.id) {
-              lastMessageSeenByOthers = true;
-            }
-          } else if (other?.lastReadAt) {
+          if (otherReceipt?.lastReadMessageId) {
+            lastMessageSeenByOthers = otherReceipt.lastReadMessageId === summary.last_message_id;
+          } else if (otherReceipt?.lastReadAt) {
             const msgTime = new Date(lastMessageAt).getTime();
-            const otherReadTime = new Date(other.lastReadAt).getTime();
-            if (
-              !Number.isNaN(msgTime) &&
-              !Number.isNaN(otherReadTime) &&
-              otherReadTime >= msgTime
-            ) {
+            const otherReadTime = new Date(otherReceipt.lastReadAt).getTime();
+            if (!Number.isNaN(msgTime) && !Number.isNaN(otherReadTime) && otherReadTime >= msgTime) {
               lastMessageSeenByOthers = true;
             }
           }
         }
 
         return {
-          id: convId,
+          id: summary.conversation_id,
           isGroup,
           title,
           subtitle,
-          participants: participantModels,
+          participants: participants.map((p) => ({
+            id: p.id,
+            displayName: p.displayName ?? p.username ?? "Unknown user",
+            username: p.username,
+            avatarUrl: p.avatarUrl,
+            isSelf: p.isSelf,
+          })),
           lastMessagePreview,
           lastMessageAt: lastMessageAt ?? null,
           lastMessageAtLabel,
@@ -323,16 +175,6 @@ export const useConversations = () => {
           lastMessageSeenByOthers,
         };
       });
-
-      const sorted = [...result].sort((a, b) => {
-        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-        const safeATime = Number.isNaN(aTime) ? 0 : aTime;
-        const safeBTime = Number.isNaN(bTime) ? 0 : bTime;
-        return safeBTime - safeATime;
-      });
-
-      return sorted;
     },
   });
 };
