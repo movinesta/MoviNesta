@@ -77,7 +77,10 @@ const AppShell: React.FC = () => {
       </div>
 
       {!isConversationRoute && (
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-mn-border-subtle/80 bg-mn-bg/95 shadow-mn-card backdrop-blur">
+        <nav
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-mn-border-subtle/80 bg-mn-bg/95 shadow-mn-card backdrop-blur"
+          aria-label="Main"
+        >
           <div className={bottomNavInnerClassName}>
             {bottomTabs.map((tab) => {
               const Icon = tab.icon;
