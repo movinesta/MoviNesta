@@ -338,12 +338,13 @@ _For each task or subtask below:_
   - [✔️] Implement loading more results as the user scrolls near the bottom (or via a “Load more” button).
   - [✔️] Ensure deduplication across pages (no repeated titles).
 
-- [ ] Extract search service
-  - [ ] Create `src/lib/searchTitles.service.ts` that:
-    - [ ] Accepts query + filters as input.
-    - [ ] Calls Supabase + TMDB proxy + batch sync as needed.
-    - [ ] Returns a normalized array of `TitleSearchResult`.
-  - [ ] Make `useSearchTitles` a thin React Query wrapper around this service.
+- [✔️] Extract search service
+  DONE – 2025-05-16 12:00 – Implemented `search.service.ts` and wired `useSearchTitles` as a thin React Query wrapper around the shared search service for normalized title results from Supabase + TMDb. Key files: `src/modules/search/search.service.ts`, `src/modules/search/useSearchTitles.ts`.
+  - [✔️] Create `src/lib/searchTitles.service.ts` that:
+    - [✔️] Accepts query + filters as input.
+    - [✔️] Calls Supabase + TMDB proxy + batch sync as needed.
+    - [✔️] Returns a normalized array of `TitleSearchResult`.
+  - [✔️] Make `useSearchTitles` a thin React Query wrapper around this service.
 
 ---
 
