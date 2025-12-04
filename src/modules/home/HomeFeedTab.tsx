@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { BookmarkPlus, MessageSquare, Sparkles, Star } from "lucide-react";
+import { Virtuoso } from "react-virtuoso";
 import HomeFeedItemCard from "./HomeFeedItemCard";
 import type { HomeFeedItem } from "./homeFeedTypes";
 import { useHomeFeed } from "./useHomeFeed";
@@ -88,6 +89,12 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({ quickFilter }) => {
     [items, activeFilter, quickFilter],
   );
 
+  const handleLoadMore = () => {
+    if (hasMore && !isLoadingMore) {
+      loadMore();
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -127,23 +134,38 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({ quickFilter }) => {
       ) : filteredItems.length === 0 ? (
         <EmptyFeedState />
       ) : (
-        <div className="space-y-3">
-          {filteredItems.map((item) => (
-            <HomeFeedItemCard key={item.id} item={item} />
-          ))}
-          {hasMore && (
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={loadMore}
-                disabled={isLoadingMore}
-                className="mx-auto flex items-center justify-center rounded-full border border-mn-border-subtle bg-mn-bg-elevated px-3 py-1.5 text-[11px] text-mn-text-secondary shadow-mn-soft disabled:opacity-60"
-              >
-                {isLoadingMore ? "Loading more..." : "Load more"}
-              </button>
+        <Virtuoso
+          style={{ height: "70vh" }}
+          data={filteredItems}
+          computeItemKey={(_, item) => item.id}
+          endReached={handleLoadMore}
+          components={{
+            List: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => (
+              <div ref={ref} className="space-y-3" {...props} />
+            )),
+            Footer: () => (
+              <div className="pt-1">
+                {hasMore ? (
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="mx-auto flex items-center justify-center rounded-full border border-mn-border-subtle bg-mn-bg-elevated px-3 py-1.5 text-[11px] text-mn-text-secondary shadow-mn-soft disabled:opacity-60"
+                  >
+                    {isLoadingMore ? "Loading more..." : "Load more"}
+                  </button>
+                ) : (
+                  <p className="py-2 text-center text-[11px] text-mn-text-muted">You&apos;re all caught up.</p>
+                )}
+              </div>
+            ),
+          }}
+          itemContent={(index, item) => (
+            <div className="pb-1">
+              <HomeFeedItemCard item={item} />
             </div>
           )}
-        </div>
+        />
       )}
     </div>
   );

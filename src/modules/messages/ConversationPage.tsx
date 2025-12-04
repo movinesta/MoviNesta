@@ -501,7 +501,7 @@ const ConversationPage: React.FC = () => {
     onRecovered: handleSendRecovered,
     otherUserId: !isGroupConversation ? (otherParticipant?.id ?? null) : null,
   });
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -740,10 +740,12 @@ const ConversationPage: React.FC = () => {
     readReceipts,
   ]);
 
-  useEffect(() => {
-    if (!messages || messages.length === 0) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages?.length]);
+  const visibleMessages = useMemo(
+    () => uiMessages.filter(({ message }) => !hiddenMessageIds[message.id]),
+    [uiMessages, hiddenMessageIds],
+  );
+
+  const hasVisibleMessages = visibleMessages.length > 0;
 
   useEffect(() => {
     lastReadRef.current = { conversationId: null, messageId: null, userId: null };
@@ -1424,29 +1426,27 @@ const ConversationPage: React.FC = () => {
               className="pointer-events-none absolute inset-x-8 top-4 h-20 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-mn-primary/10 to-blue-500/10 blur-3xl"
               aria-hidden="true"
             />
-            <MessageList>
-              {isLoading && !hasMessages && (
-                <div className="flex h-full items-center justify-center">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-3 py-1.5 text-[12px] text-mn-text-secondary">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                    <span>Loading messages…</span>
+            <MessageList
+              items={visibleMessages}
+              isLoading={isLoading && !hasMessages}
+              loadingContent={
+                <div className="inline-flex items-center gap-2 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-3 py-1.5 text-[12px] text-mn-text-secondary">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  <span>Loading messages…</span>
+                </div>
+              }
+              errorContent={
+                isMessagesError ? (
+                  <div className="mb-3 rounded-md border border-mn-border-subtle bg-mn-bg/90 px-3 py-2 text-[12px] text-mn-error">
+                    <p className="font-medium">We couldn&apos;t load this conversation.</p>
+                    {messagesError instanceof Error && (
+                      <p className="mt-1 text-[11px] text-mn-text-secondary">{messagesError.message}</p>
+                    )}
                   </div>
-                </div>
-              )}
-
-              {isMessagesError && (
-                <div className="mb-3 rounded-md border border-mn-border-subtle bg-mn-bg/90 px-3 py-2 text-[12px] text-mn-error">
-                  <p className="font-medium">We couldn&apos;t load this conversation.</p>
-                  {messagesError instanceof Error && (
-                    <p className="mt-1 text-[11px] text-mn-text-secondary">
-                      {messagesError.message}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {!isLoading && !isMessagesError && !hasMessages && (
-                <div className="flex h-full items-center justify-center">
+                ) : undefined
+              }
+              emptyContent={
+                !hasVisibleMessages ? (
                   <div className="text-center text-[12px] text-mn-text-secondary">
                     <p className="font-medium">
                       {isGroupConversation ? "No messages in this group yet." : "No messages yet."}
@@ -1457,10 +1457,34 @@ const ConversationPage: React.FC = () => {
                         : "Say hi to start the conversation."}
                     </p>
                   </div>
-                </div>
-              )}
-
-              {uiMessages.map((uiMessage, index) => {
+                ) : undefined
+              }
+              footer={
+                remoteTypingUsers.length > 0 ? (
+                  <div className="mt-1 flex items-center justify-start gap-2 text-[11px] text-mn-text-muted">
+                    <span>
+                      {isGroupConversation
+                        ? remoteTypingUsers.length === 1
+                          ? `${remoteTypingUsers[0]} is typing…`
+                          : remoteTypingUsers.length === 2
+                            ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
+                            : "Several people are typing…"
+                        : "Typing…"}
+                    </span>
+                    <span className="inline-flex items-center gap-0.5" aria-hidden="true">
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
+                    </span>
+                  </div>
+                ) : (
+                  <div className="h-1" aria-hidden />
+                )
+              }
+              followOutput={isAtBottom ? "smooth" : false}
+              onAtBottomChange={setIsAtBottom}
+              computeItemKey={(_, item) => item.message.id}
+              itemContent={(index, uiMessage) => {
                 const {
                   message,
                   meta,
@@ -1471,13 +1495,9 @@ const ConversationPage: React.FC = () => {
                   showDeliveryStatus,
                 } = uiMessage;
 
-                if (hiddenMessageIds[message.id]) {
-                  return null;
-                }
-
-                const previous = index > 0 ? (uiMessages[index - 1]?.message ?? null) : null;
+                const previous = index > 0 ? (visibleMessages[index - 1]?.message ?? null) : null;
                 const next =
-                  index < uiMessages.length - 1 ? (uiMessages[index + 1]?.message ?? null) : null;
+                  index < visibleMessages.length - 1 ? (visibleMessages[index + 1]?.message ?? null) : null;
 
                 const previousSameSender =
                   previous != null && previous.senderId === message.senderId;
@@ -1530,8 +1550,6 @@ const ConversationPage: React.FC = () => {
                 const showAvatarAndName = !isSelf && endsGroup;
 
                 const handleBubbleToggle = () => {
-                  // One tap toggles reaction/action bar.
-                  // If this click comes right after a long press, ignore it so the menu doesn't instantly close.
                   if (longPressTriggeredRef.current) {
                     longPressTriggeredRef.current = false;
                     return;
@@ -1544,7 +1562,7 @@ const ConversationPage: React.FC = () => {
                 };
 
                 return (
-                  <React.Fragment key={message.id}>
+                  <div className="px-0" key={message.id}>
                     {showDateDivider && (
                       <div className="my-4 flex items-center justify-center">
                         <div className="inline-flex items-center gap-3 text-[11px] text-mn-text-muted">
@@ -1658,7 +1676,6 @@ const ConversationPage: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Inline Telegram-style reaction bar + edit/delete */}
                       {activeActionMessageId === message.id && !isDeletedMessage && (
                         <div
                           className={`mt-1 flex w-full ${
@@ -1703,18 +1720,19 @@ const ConversationPage: React.FC = () => {
                                   }}
                                   className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg"
                                 >
-                                  <Edit3 className="h-3 w-3" aria-hidden="true" />
+                                  <Edit3 className="h-3.5 w-3.5" aria-hidden />
                                   <span>Edit</span>
                                 </button>
+
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setDeleteDialog({ messageId: message.id });
                                     setActiveActionMessageId(null);
+                                    setMessageToDelete(message);
                                   }}
-                                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-mn-error hover:bg-mn-bg"
+                                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-mn-error hover:bg-mn-error/10"
                                 >
-                                  <Trash2 className="h-3 w-3" aria-hidden="true" />
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
                                   <span>Delete</span>
                                 </button>
                               </div>
@@ -1723,87 +1741,68 @@ const ConversationPage: React.FC = () => {
                         </div>
                       )}
 
-                      <div className={`flex w-full ${isSelf ? "justify-end" : "justify-start"}`}>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-mn-text-muted">
-                          <span>{formatMessageTime(message.createdAt)}</span>
-
-                          {editedAt && !isDeletedMessage && (
-                            <span>· edited {formatMessageTime(editedAt)}</span>
-                          )}
-
-                          {isDeletedMessage && deletedAt && (
-                            <span>· deleted {formatMessageTime(deletedAt)}</span>
-                          )}
-
-                          {/* Only show delivery/seen indicator on the last outgoing message */}
-                          {showDeliveryStatus && deliveryStatus && (
-                            <span
-                              className={`inline-flex items-center gap-1 ${
-                                deliveryStatus.status === "failed" ? "text-mn-error" : ""
-                              }`}
-                            >
-                              {deliveryStatus.status === "sending" && (
-                                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                              )}
-                              {deliveryStatus.status === "sent" && (
-                                <Check className="h-3 w-3" aria-hidden="true" />
-                              )}
-                              {deliveryStatus.status === "delivered" && (
-                                <CheckCheck className="h-3 w-3" aria-hidden="true" />
-                              )}
-                              {deliveryStatus.status === "seen" && (
-                                <>
-                                  <CheckCheck
-                                    className="h-3 w-3 text-mn-primary"
-                                    aria-hidden="true"
-                                  />
-                                  {deliveryStatus.seenAt && (
-                                    <span>{formatMessageTime(deliveryStatus.seenAt)}</span>
-                                  )}
-                                </>
-                              )}
-                              {deliveryStatus.status === "failed" && (
-                                <>
-                                  <Info className="h-3 w-3" aria-hidden="true" />
-                                  <span>Failed to send</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRetryMessage(message.id)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-mn-primary/10 px-2 py-0.5 text-[10px] font-semibold text-mn-primary ring-1 ring-mn-primary/40 transition hover:-translate-y-0.5"
-                                  >
-                                    Retry
-                                  </button>
-                                </>
-                              )}
-                            </span>
+                      {showDeliveryStatus && deliveryStatus && (
+                        <div
+                          className={`flex items-center gap-1 text-[10px] text-mn-text-muted ${
+                            isSelf ? "justify-end pr-1" : "justify-start pl-7"
+                          }`}
+                        >
+                          {deliveryStatus.status === "failed" ? (
+                            <>
+                              <AlertCircle className="h-3 w-3 text-mn-error" aria-hidden />
+                              <span>Failed to send.</span>
+                              <button
+                                type="button"
+                                className="text-mn-error underline"
+                                onClick={() => {
+                                  const failedPayload = failedMessages[message.id];
+                                  if (failedPayload) {
+                                    setDraft(failedPayload.text);
+                                    setLastFailedPayload(failedPayload);
+                                  }
+                                }}
+                              >
+                                Retry
+                              </button>
+                            </>
+                          ) : deliveryStatus.status === "delivered" ? (
+                            <>
+                              <Check className="h-3 w-3" aria-hidden />
+                              <span>Delivered</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCheck className="h-3 w-3" aria-hidden />
+                              <span>Seen</span>
+                            </>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-              {remoteTypingUsers.length > 0 && (
-                <div className="mt-1 flex items-center justify-start gap-2 text-[11px] text-mn-text-muted">
-                  <span>
-                    {isGroupConversation
-                      ? remoteTypingUsers.length === 1
-                        ? `${remoteTypingUsers[0]} is typing…`
-                        : remoteTypingUsers.length === 2
-                          ? `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`
-                          : "Several people are typing…"
-                      : "Typing…"}
-                  </span>
-                  <span className="inline-flex items-center gap-0.5" aria-hidden="true">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-mn-text-muted" />
-                  </span>
-                </div>
-              )}
+                      )}
 
-              <div ref={messagesEndRef} />
-            </MessageList>
+                      {isDeletedMessage && deletedAt && (
+                        <p
+                          className={`text-[10px] text-mn-text-muted ${
+                            isSelf ? "text-right pr-1" : "text-left pl-7"
+                          }`}
+                        >
+                          Deleted {formatMessageTime(deletedAt)}
+                        </p>
+                      )}
+
+                      {!isDeletedMessage && editedAt && (
+                        <p
+                          className={`text-[10px] text-mn-text-muted ${
+                            isSelf ? "text-right pr-1" : "text-left pl-7"
+                          }`}
+                        >
+                          Edited {formatMessageTime(editedAt)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
+            />
 
             {/* Emoji picker popover */}
             {showEmojiPicker && (
