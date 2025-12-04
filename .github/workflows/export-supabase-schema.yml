@@ -1,4 +1,4 @@
-name: Export Supabase Schema
+name: Export Full Supabase Schema
 
 on:
   workflow_dispatch:
@@ -21,23 +21,25 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Dump the schema
-      - name: Dump Supabase Schema
+      # 3️⃣ Dump everything including RLS
+      - name: Dump Full Supabase Schema
         run: |
           mkdir -p supabase
-          echo "Dumping public schema from Supabase Session Pooler..."
+          echo "Dumping full Supabase schema including RLS policies..."
           supabase db dump \
             --db-url "$SUPABASE_DB_URL" \
-            --schema public \
-            --file supabase/schema.sql
+            --file supabase/schema.sql \
+            --verbose
+          
           echo "Listing files in supabase folder:"
           ls -l supabase/
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
-      # 4️⃣ Commit schema back to repo
+      # 4️⃣ Commit schema changes only if modified
       - name: Commit Schema Changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "chore: update Supabase schema dump"
+          commit_message: "chore: update full Supabase schema dump"
           branch: main
+          file_pattern: "supabase/schema.sql"
