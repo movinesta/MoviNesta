@@ -41,6 +41,18 @@ import { MessageList } from "./components/MessageList";
 import { MessageBubble } from "./components/MessageBubble";
 import { MessageComposer } from "./components/MessageComposer";
 
+type ReactionSummary = { emoji: string; count: number; reactedBySelf: boolean };
+
+interface UiMessage {
+  message: ConversationMessage;
+  meta: ReturnType<typeof getMessageMeta>;
+  sender: ConversationParticipant | null;
+  isSelf: boolean;
+  deliveryStatus: MessageDeliveryStatus | null;
+  showDeliveryStatus: boolean;
+  reactions: ReactionSummary[];
+}
+
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "😍"];
 
 const CHAT_MEDIA_BUCKET = "chat-media";
@@ -65,17 +77,18 @@ const useConversationReadReceipts = (conversationId: string | null) => {
       const { data, error } = await supabase
         .from("message_read_receipts")
         .select("user_id, conversation_id, last_read_at, last_read_message_id")
-        .eq("conversation_id", conversationId);
+        .eq("conversation_id", conversationId)
+        .order("last_read_at", { ascending: false, nullsLast: true });
 
       if (error) {
         console.error("[ConversationPage] Failed to load read receipts", error);
         throw new Error(error.message);
       }
 
-      return (data ?? []).map((row: any) => ({
-        userId: row.user_id as string,
-        lastReadAt: (row.last_read_at as string | null) ?? null,
-        lastReadMessageId: (row.last_read_message_id as string | null) ?? null,
+      return (data ?? []).map((row) => ({
+        userId: row.user_id,
+        lastReadAt: row.last_read_at ?? null,
+        lastReadMessageId: row.last_read_message_id ?? null,
       }));
     },
   });
@@ -137,12 +150,12 @@ const useConversationDeliveryReceipts = (conversationId: string | null) => {
         throw new Error(error.message);
       }
 
-      return (data ?? []).map((row: any) => ({
-        id: row.id as string,
-        conversationId: row.conversation_id as string,
-        messageId: row.message_id as string,
-        userId: row.user_id as string,
-        deliveredAt: (row.delivered_at as string | null) ?? row.created_at,
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        conversationId: row.conversation_id,
+        messageId: row.message_id,
+        userId: row.user_id,
+        deliveredAt: row.delivered_at ?? row.created_at,
       }));
     },
   });
@@ -814,6 +827,50 @@ const ConversationPage: React.FC = () => {
 
     return map;
   }, [reactions, user?.id]);
+
+  const uiMessages = useMemo<UiMessage[]>(() => {
+    if (!messages) return [];
+
+    return messages.map((message) => {
+      const meta = getMessageMeta(message.body);
+      const sender = participantsById.get(message.senderId) ?? null;
+      const isSelf = sender?.isSelf ?? (currentUserId != null && message.senderId === currentUserId);
+      const deliveryStatus = getMessageDeliveryStatus(
+        message,
+        conversation ?? null,
+        deliveryReceipts,
+        readReceipts,
+        currentUserId,
+        failedMessages,
+      );
+
+      const showDeliveryStatus =
+        !!deliveryStatus &&
+        isSelf &&
+        !meta.deleted &&
+        (deliveryStatus.status === "failed" || lastOwnMessageId === message.id);
+
+      return {
+        message,
+        meta,
+        sender,
+        isSelf,
+        deliveryStatus,
+        showDeliveryStatus,
+        reactions: reactionsByMessageId.get(message.id) ?? [],
+      };
+    });
+  }, [
+    conversation,
+    currentUserId,
+    deliveryReceipts,
+    failedMessages,
+    lastOwnMessageId,
+    messages,
+    participantsById,
+    reactionsByMessageId,
+    readReceipts,
+  ]);
 
   useEffect(() => {
     if (!messages || messages.length === 0) return;
@@ -1532,19 +1589,16 @@ const ConversationPage: React.FC = () => {
                 </div>
               )}
 
-              {messages?.map((message, index) => {
-                // "Delete for me" hides message locally only
+              {uiMessages.map((uiMessage, index) => {
+                const { message, meta, sender, isSelf, deliveryStatus, reactions, showDeliveryStatus } =
+                  uiMessage;
+
                 if (hiddenMessageIds[message.id]) {
                   return null;
                 }
 
-                const participant = participantsById.get(message.senderId);
-                const isSelf =
-                  participant?.isSelf ?? (user?.id != null && message.senderId === user.id);
-
-                const previous = index > 0 ? (messages?.[index - 1] ?? null) : null;
-                const next =
-                  index < (messages?.length ?? 0) - 1 ? (messages?.[index + 1] ?? null) : null;
+                const previous = index > 0 ? uiMessages[index - 1]?.message ?? null : null;
+                const next = index < uiMessages.length - 1 ? uiMessages[index + 1]?.message ?? null : null;
 
                 const previousSameSender =
                   previous != null && previous.senderId === message.senderId;
@@ -1567,7 +1621,6 @@ const ConversationPage: React.FC = () => {
                 const stackSpacing =
                   index === 0 || showDateDivider ? "mt-0" : startsGroup ? "mt-3" : "mt-1.5";
 
-                const meta = getMessageMeta(message.body);
                 const isDeletedMessage = meta.deleted === true;
                 const editedAt = meta.editedAt;
                 const deletedAt = meta.deletedAt;
@@ -1576,7 +1629,7 @@ const ConversationPage: React.FC = () => {
                   isSelf,
                   isDeleted: isDeletedMessage,
                 });
-                const name = participant?.displayName ?? (isSelf ? "You" : "Someone");
+                const name = sender?.displayName ?? (isSelf ? "You" : "Someone");
                 const text = isDeletedMessage
                   ? "This message was deleted"
                   : parseMessageText(message.body);
@@ -1600,24 +1653,6 @@ const ConversationPage: React.FC = () => {
                 })();
 
                 const showAvatarAndName = !isSelf && endsGroup;
-
-                const messageReactions = reactionsByMessageId.get(message.id) ?? [];
-
-                const deliveryStatus = getMessageDeliveryStatus(
-                  message,
-                  conversation ?? null,
-                  deliveryReceipts,
-                  readReceipts,
-                  user?.id ?? null,
-                  failedMessages,
-                );
-
-                const isLastOwnMessage = isSelf && lastOwnMessageId === message.id;
-                const showDeliveryStatus =
-                  isSelf &&
-                  !isDeletedMessage &&
-                  deliveryStatus &&
-                  (deliveryStatus.status === "failed" || isLastOwnMessage);
 
                 const handleBubbleToggle = () => {
                   // One tap toggles reaction/action bar.
@@ -1663,10 +1698,10 @@ const ConversationPage: React.FC = () => {
                           <>
                             {showAvatarAndName ? (
                               <div className="mt-auto h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-mn-bg/80 ring-1 ring-mn-border-subtle">
-                                {participant?.avatarUrl ? (
+                                {sender?.avatarUrl ? (
                                   <img
-                                    src={participant.avatarUrl}
-                                    alt={participant.displayName ?? undefined}
+                                    src={sender.avatarUrl}
+                                    alt={sender.displayName ?? undefined}
                                     className="h-full w-full object-cover"
                                     loading="lazy"
                                   />
@@ -1709,14 +1744,14 @@ const ConversationPage: React.FC = () => {
                         </MessageBubble>
                       </div>
 
-                      {messageReactions.length > 0 && (
+                      {reactions.length > 0 && (
                         <div
                           className={`mt-0.5 flex w-full ${
                             isSelf ? "justify-end pr-6" : "justify-start pl-6"
                           }`}
                         >
                           <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-1.5 py-0.5 text-[11px] text-mn-text-primary shadow-mn-soft ring-1 ring-mn-border-subtle/70">
-                            {messageReactions.map((reaction) => (
+                            {reactions.map((reaction) => (
                               <button
                                 key={reaction.emoji}
                                 type="button"
