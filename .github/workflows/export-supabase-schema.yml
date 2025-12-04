@@ -21,15 +21,14 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Dump everything including RLS
+      # 3️⃣ Dump full schema (all schemas + RLS)
       - name: Dump Full Supabase Schema
         run: |
           mkdir -p supabase
           echo "Dumping full Supabase schema including RLS policies..."
           supabase db dump \
             --db-url "$SUPABASE_DB_URL" \
-            --file supabase/schema.sql \
-            --verbose
+            --file supabase/schema.sql
           
           echo "Listing files in supabase folder:"
           ls -l supabase/
