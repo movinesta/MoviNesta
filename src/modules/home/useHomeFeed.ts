@@ -6,9 +6,9 @@ import type { Database } from "@/types/supabase";
 import type { AvatarColorKey, FeedTitle, FeedUser, HomeFeedItem } from "./homeFeedTypes";
 
 type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
+type HomeFeedRow = Database["public"]["Functions"]["get_home_feed"]["Returns"][number];
 type TitleRow = Database["public"]["Tables"]["titles"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
-type FollowRow = Database["public"]["Tables"]["follows"]["Row"];
 
 const FEED_PAGE_SIZE = 40;
 
@@ -197,42 +197,17 @@ export const fetchHomeFeedPage = async (
   userId: string,
   cursor: string | null = null,
 ): Promise<{ items: HomeFeedItem[]; nextCursor: string | null; hasMore: boolean }> => {
-  const { data: followsData, error: followsError } = await supabase
-    .from("follows")
-    .select("followed_id")
-    .eq("follower_id", userId);
-
-  if (followsError) {
-    console.warn("[useHomeFeed] Failed to load follows", followsError.message);
-  }
-
-  const friendIds = (followsData ?? [])
-    .map((row: FollowRow) => row.followed_id)
-    .filter((id): id is string => Boolean(id));
-
-  const scopedUserIds = Array.from(new Set<string>([userId, ...friendIds]));
-
-  if (!scopedUserIds.length) {
-    return { items: [], nextCursor: null, hasMore: false };
-  }
-
-  let eventsQuery = supabase
-    .from("activity_events")
-    .select("id, created_at, user_id, event_type, title_id, payload")
-    .in("user_id", scopedUserIds)
-    .order("created_at", { ascending: false });
-
-  if (cursor) {
-    eventsQuery = eventsQuery.lt("created_at", cursor);
-  }
-
-  const { data: eventsData, error: eventsError } = await eventsQuery.limit(FEED_PAGE_SIZE + 1);
+  const { data: eventsData, error: eventsError } = await supabase.rpc("get_home_feed", {
+    p_user_id: userId,
+    p_limit: FEED_PAGE_SIZE,
+    p_cursor: cursor,
+  });
 
   if (eventsError) {
     throw new Error(eventsError.message);
   }
 
-  const rows = eventsData ?? [];
+  const rows = (eventsData as HomeFeedRow[] | null) ?? [];
 
   if (!rows.length) {
     return { items: [], nextCursor: null, hasMore: false };

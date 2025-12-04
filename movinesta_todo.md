@@ -433,11 +433,12 @@ _For each task or subtask below:_
     - [✔️] Maps raw rows to `HomeFeedItem[]`.
   - [✔️] Implement `HomeFeedItemCard` that switches on `item.kind` and renders appropriate cards.
 
-- [ ] `get_home_feed` RPC
-  - [ ] Implement Postgres function `get_home_feed(p_user_id uuid, p_limit int, p_cursor timestamptz/null)` to:
-    - [ ] Build a timeline of relevant events from follows, reviews, ratings, etc.
-    - [ ] Return rows with `kind`, `created_at`, `score`, and a JSON `payload`.
-  - [ ] Update home feed Edge/React logic to call this RPC via Supabase.
+- [✔️] `get_home_feed` RPC
+  DONE – 2025-12-04 11:43 – Added RLS-checked `get_home_feed` RPC returning paginated activity events and updated `useHomeFeed` to page via the RPC instead of client-side joins.
+  - [✔️] Implement Postgres function `get_home_feed(p_user_id uuid, p_limit int, p_cursor timestamptz/null)` to:
+    - [✔️] Build a timeline of relevant events from follows, reviews, ratings, etc.
+    - [✔️] Return rows with `kind`, `created_at`, `score`, and a JSON `payload`.
+  - [✔️] Update home feed Edge/React logic to call this RPC via Supabase.
 
 - [✔️] Swipe deck state machine
   DONE – 2025-12-04 05:00 – Refactored `useSwipeDeck` to use an explicit status state with error messaging and exhaustion handling while keeping swipe logging non-blocking.

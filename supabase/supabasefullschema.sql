@@ -804,6 +804,44 @@ CREATE INDEX IF NOT EXISTS library_entries_user_id_idx
 CREATE INDEX IF NOT EXISTS activity_events_user_id_created_at_idx
   ON public.activity_events USING btree (user_id, created_at);
 
+-- ----------------------
+-- Home feed RPC
+-- ----------------------
+
+CREATE OR REPLACE FUNCTION public.get_home_feed(
+  p_user_id uuid,
+  p_limit integer DEFAULT 40,
+  p_cursor timestamptz DEFAULT NULL
+)
+RETURNS SETOF public.activity_events
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  effective_limit integer := LEAST(COALESCE(p_limit, 40), 200);
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN QUERY
+  SELECT e.*
+  FROM public.activity_events e
+  WHERE (
+      e.user_id = p_user_id
+      OR e.user_id IN (
+        SELECT f.followed_id
+        FROM public.follows f
+        WHERE f.follower_id = p_user_id
+      )
+    )
+    AND (p_cursor IS NULL OR e.created_at < p_cursor)
+  ORDER BY e.created_at DESC
+  LIMIT effective_limit + 1;
+END;
+$$;
+
 CREATE INDEX IF NOT EXISTS follows_follower_id_idx
   ON public.follows USING btree (follower_id);
 CREATE INDEX IF NOT EXISTS follows_followed_id_idx

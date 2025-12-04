@@ -1751,6 +1751,32 @@ export interface Database {
           watch_count_by_month: Json | null;
         }[];
       };
+      get_home_feed: {
+        Args: {
+          p_user_id: string;
+          p_limit?: number;
+          p_cursor?: string | null;
+        };
+        Returns: {
+          id: string;
+          created_at: string;
+          user_id: string;
+          event_type:
+            | "rating_created"
+            | "review_created"
+            | "watchlist_added"
+            | "watchlist_removed"
+            | "follow_created"
+            | "comment_created"
+            | "reply_created"
+            | "list_created"
+            | "list_item_added"
+            | "message_sent";
+          title_id: string | null;
+          related_user_id: string | null;
+          payload: Json | null;
+        }[];
+      };
     };
     Enums: {
       activity_event_type:
