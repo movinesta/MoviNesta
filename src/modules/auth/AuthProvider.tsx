@@ -5,9 +5,17 @@ import React, {
   useEffect,
   useState,
   ReactNode,
+  useRef,
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { queryClient } from "../../lib/react-query";
+import { qk } from "../../lib/queryKeys";
+import { fetchHomeFeedPage } from "../home/useHomeFeed";
+import { fetchDiaryStats } from "../diary/useDiaryStats";
+import { fetchConversationSummaries } from "../messages/useConversations";
+import { prefillSwipeDeckCache } from "../swipe/useSwipeDeck";
+import type { SwipeDeckKindOrCombined } from "../swipe/useSwipeDeck";
 
 interface AuthContextValue {
   user: User | null;
@@ -24,6 +32,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const prefetchedForUserRef = useRef<string | null>(null);
 
   const loadUser = useCallback(async () => {
     setLoading(true);
@@ -53,6 +62,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       subscription.unsubscribe();
     };
   }, [loadUser]);
+
+  useEffect(() => {
+    if (import.meta.env.MODE === "test") return;
+
+    const userId = user?.id;
+    if (!userId) {
+      prefetchedForUserRef.current = null;
+      return;
+    }
+
+    if (prefetchedForUserRef.current === userId) return;
+    prefetchedForUserRef.current = userId;
+
+    const swipeVariants: SwipeDeckKindOrCombined[] = [
+      "combined",
+      "for-you",
+      "from-friends",
+      "trending",
+    ];
+
+    const prefetchAfterSignIn = async () => {
+      await Promise.allSettled([
+        queryClient.prefetchInfiniteQuery({
+          queryKey: qk.homeFeed(userId),
+          initialPageParam: null as string | null,
+          queryFn: ({ pageParam }) => fetchHomeFeedPage(userId, pageParam ?? null),
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["conversations", userId],
+          queryFn: () => fetchConversationSummaries(userId),
+        }),
+        queryClient.prefetchQuery({
+          queryKey: qk.diaryStats(userId),
+          queryFn: () => fetchDiaryStats(userId),
+        }),
+        ...swipeVariants.map((variant) =>
+          prefillSwipeDeckCache(queryClient, variant, {
+            limit: variant === "combined" ? 36 : 18,
+          }),
+        ),
+      ]);
+    };
+
+    void prefetchAfterSignIn();
+  }, [user?.id]);
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();

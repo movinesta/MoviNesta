@@ -603,13 +603,14 @@ _For each task or subtask below:_
     - [✔️] Diary timeline and stats.
   - [✔️] Use skeletons while queries are loading to avoid jarring blank states.
 
-- [ ] Background prefetch & app shell performance
-  - [ ] After successful sign-in, prefetch:
-    - [ ] Home feed.
-    - [ ] Swipe decks.
-    - [ ] Recent conversations.
-    - [ ] Diary stats summary.
-  - [ ] Use React Query prefetch APIs and/or idle callbacks to avoid blocking initial paint.
+- [✔️] Background prefetch & app shell performance
+  DONE – 2025-12-04 10:54 – Added post-sign-in React Query prefetch for home feed, swipe decks, conversations, and diary stats via AuthProvider helpers.
+  - [✔️] After successful sign-in, prefetch:
+    - [✔️] Home feed.
+    - [✔️] Swipe decks.
+    - [✔️] Recent conversations.
+    - [✔️] Diary stats summary.
+  - [✔️] Use React Query prefetch APIs and/or idle callbacks to avoid blocking initial paint.
 
 - [✔️] Routing & code splitting
   DONE – 2025-12-03 16:30 – Lazy loaded all page-level routes in `src/router.tsx` while keeping `AppShell` eager and retaining the existing Suspense fallback.

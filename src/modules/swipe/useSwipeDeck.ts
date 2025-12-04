@@ -6,7 +6,7 @@
  * minimal card fields defined in `SwipeCardData` and that Supabase RLS limits
  * access by user.
  */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
@@ -72,6 +72,9 @@ const extractSwipeCards = (value: unknown): SwipeCardData[] => {
   return [];
 };
 
+export const swipeDeckQueryKey = (kind: SwipeDeckKindOrCombined) =>
+  ["swipeDeck", { variant: kind }] as const;
+
 export const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
 
 export function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
@@ -116,6 +119,101 @@ interface SwipeEventPayload {
   sourceOverride?: SwipeDeckKind;
 }
 
+export async function fetchSwipeCardsFromSource(
+  source: SwipeDeckKind,
+  count: number,
+): Promise<SwipeCardData[]> {
+  const fnName =
+    source === "for-you"
+      ? "swipe-for-you"
+      : source === "from-friends"
+        ? "swipe-from-friends"
+        : "swipe-trending";
+
+  try {
+    const response = await callSupabaseFunction<SwipeDeckResponse>(
+      fnName,
+      { limit: count },
+      { timeoutMs: 25000 },
+    );
+
+    const cards = extractSwipeCards(response).map((card) => ({ ...card, source }));
+    if (cards.length) {
+      console.debug("[useSwipeDeck]", fnName, "returned", cards.length, "cards");
+      return cards;
+    }
+  } catch (err) {
+    if ((err as Error)?.name === "AbortError") {
+      console.warn("[useSwipeDeck]", fnName, "timed out");
+    } else {
+      console.warn("[useSwipeDeck] invoke error from", fnName, err);
+    }
+  }
+
+  return [];
+}
+
+export async function fetchSwipeBatch(
+  kind: SwipeDeckKindOrCombined,
+  batchSize: number,
+  weights?: Record<SwipeDeckKind, number>,
+): Promise<SwipeCardData[]> {
+  if (kind === "combined") {
+    const appliedWeights = weights ?? loadInitialSourceWeights();
+    const weightTotal = Object.values(appliedWeights).reduce((acc, weight) => acc + weight, 0) || 1;
+    const plannedTotal = Math.max(batchSize, 18);
+
+    const plannedCounts: Record<SwipeDeckKind, number> = {
+      "for-you": Math.max(6, Math.round((appliedWeights["for-you"] / weightTotal) * plannedTotal)),
+      "from-friends": Math.max(
+        4,
+        Math.round((appliedWeights["from-friends"] / weightTotal) * plannedTotal),
+      ),
+      trending: Math.max(4, Math.round((appliedWeights.trending / weightTotal) * plannedTotal)),
+    };
+
+    const [forYou, friends, trending] = await Promise.all([
+      fetchSwipeCardsFromSource("for-you", plannedCounts["for-you"]),
+      fetchSwipeCardsFromSource("from-friends", plannedCounts["from-friends"]),
+      fetchSwipeCardsFromSource("trending", plannedCounts.trending),
+    ]);
+
+    let collected: SwipeCardData[][] = [forYou, friends, trending];
+
+    const collectedFlat = collected.flat();
+    if (collectedFlat.length < plannedTotal) {
+      const deficit = plannedTotal - collectedFlat.length;
+      const prioritizedSource = Object.entries(appliedWeights).sort((a, b) => b[1] - a[1])[0]?.[0] as
+        | SwipeDeckKind
+        | undefined;
+      const fallback = await fetchSwipeCardsFromSource(prioritizedSource ?? "for-you", deficit + 6);
+      collected = [...collected, fallback];
+    }
+
+    return buildInterleavedDeck(collected, plannedTotal);
+  }
+
+  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
+}
+
+export async function prefillSwipeDeckCache(
+  queryClient: QueryClient,
+  kind: SwipeDeckKindOrCombined,
+  options?: { limit?: number; weights?: Record<SwipeDeckKind, number> },
+): Promise<void> {
+  const limit = options?.limit ?? 40;
+  const existing = queryClient.getQueryData<SwipeDeckState>(swipeDeckQueryKey(kind));
+  if (existing?.cards.length) return;
+
+  const cards = await fetchSwipeBatch(kind, limit, options?.weights);
+  queryClient.setQueryData(swipeDeckQueryKey(kind), {
+    status: cards.length ? "ready" : "loading",
+    cards,
+    index: null,
+    errorMessage: null,
+  });
+}
+
 export function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCardData[] {
   const maxLength = Math.max(...lists.map((list) => list.length));
   const interleaved: SwipeCardData[] = [];
@@ -148,7 +246,7 @@ export const trimDeck = (
 export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number }) {
   const limit = options?.limit ?? 40;
   const queryClient = useQueryClient();
-  const deckCacheKey = useMemo(() => ["swipeDeck", { variant: kind }], [kind]);
+  const deckCacheKey = useMemo(() => swipeDeckQueryKey(kind), [kind]);
 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<SwipeCardData[]>([]);
@@ -248,79 +346,6 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     [getNewCards, scheduleAssetPrefetch, setDeckStateWithCache],
   );
 
-  const fetchFromSource = useCallback(
-    async (source: SwipeDeckKind, count: number): Promise<SwipeCardData[]> => {
-      const fnName =
-        source === "for-you"
-          ? "swipe-for-you"
-          : source === "from-friends"
-            ? "swipe-from-friends"
-            : "swipe-trending";
-
-      // 1) Edge function primary
-      try {
-        const response = await callSupabaseFunction<SwipeDeckResponse>(
-          fnName,
-          { limit: count },
-          { timeoutMs: 25000 },
-        );
-
-        const cards = extractSwipeCards(response).map((card) => ({ ...card, source }));
-        if (cards.length) {
-          console.debug("[useSwipeDeck]", fnName, "returned", cards.length, "cards");
-          return cards;
-        }
-      } catch (err) {
-        if ((err as Error)?.name === "AbortError") {
-          console.warn("[useSwipeDeck]", fnName, "timed out");
-        } else {
-          console.warn("[useSwipeDeck] invoke error from", fnName, err);
-        }
-      }
-
-      return [];
-    },
-    [],
-  );
-
-  const fetchCombinedBatch = useCallback(
-    async (batchSize: number): Promise<SwipeCardData[]> => {
-      const weights = sourceWeightsRef.current;
-      const weightTotal = Object.values(weights).reduce((acc, weight) => acc + weight, 0);
-      const plannedTotal = Math.max(batchSize, 18);
-
-      const plannedCounts: Record<SwipeDeckKind, number> = {
-        "for-you": Math.max(6, Math.round((weights["for-you"] / weightTotal) * plannedTotal)),
-        "from-friends": Math.max(
-          4,
-          Math.round((weights["from-friends"] / weightTotal) * plannedTotal),
-        ),
-        trending: Math.max(4, Math.round((weights.trending / weightTotal) * plannedTotal)),
-      };
-
-      const [forYou, friends, trending] = await Promise.all([
-        fetchFromSource("for-you", plannedCounts["for-you"]),
-        fetchFromSource("from-friends", plannedCounts["from-friends"]),
-        fetchFromSource("trending", plannedCounts.trending),
-      ]);
-
-      let collected: SwipeCardData[][] = [forYou, friends, trending];
-
-      const collectedFlat = collected.flat();
-      if (collectedFlat.length < plannedTotal) {
-        const deficit = plannedTotal - collectedFlat.length;
-        const prioritizedSource = Object.entries(weights).sort(
-          (a, b) => b[1] - a[1],
-        )[0]?.[0] as SwipeDeckKind;
-        const fallback = await fetchFromSource(prioritizedSource ?? "for-you", deficit + 6);
-        collected = [...collected, fallback];
-      }
-
-      return buildInterleavedDeck(collected, plannedTotal);
-    },
-    [fetchFromSource],
-  );
-
   const fetchBatch = useCallback(
     async (batchSize = limit) => {
       if (fetchingRef.current) return;
@@ -333,10 +358,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       }));
 
       try {
-        const raw =
-          kind === "combined"
-            ? await fetchCombinedBatch(batchSize)
-            : await fetchFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
+        const raw = await fetchSwipeBatch(kind, batchSize, sourceWeightsRef.current);
 
         if (!raw.length) {
           // No new cards available right now – this is a valid state (end of deck),
@@ -380,7 +402,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
         );
       }
     },
-    [appendCards, fetchCombinedBatch, fetchFromSource, kind, limit, setDeckStateWithCache],
+    [appendCards, kind, limit, setDeckStateWithCache],
   );
 
   useEffect(() => {
