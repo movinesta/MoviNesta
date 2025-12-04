@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2, Info } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
 
 const STORAGE_KEY = "moviNesta.notifications";
@@ -52,6 +52,14 @@ const SettingsNotificationsPage: React.FC = () => {
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
       <TopBar title="Notifications" subtitle="Control how MoviNesta keeps in touch with you." />
+
+      <div className="mx-4 flex items-start gap-2 rounded-md border border-mn-border-subtle/70 bg-mn-bg-elevated/70 p-3 text-[12px] text-mn-text-secondary shadow-mn-card">
+        <Info className="mt-0.5 h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
+        <p className="leading-relaxed">
+          Notification preferences are currently stored on <strong>this device only</strong>. Backend sync is coming soon,
+          so changes here won&apos;t update your settings across other devices yet.
+        </p>
+      </div>
 
       <section className="space-y-4 px-4 pb-24">
         {/* Email */}

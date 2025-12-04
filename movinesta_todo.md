@@ -419,8 +419,9 @@ _For each task or subtask below:_
   - [✔️] Use the selected language for TMDB requests when appropriate.
 
 - [ ] Notification settings → backend
-  - [ ] Short term:
-    - [ ] In `SettingsNotificationsPage`, clarify that toggles are currently local to the device until wired to the backend.
+  - [✔️] Short term:
+    - [✔️] In `SettingsNotificationsPage`, clarify that toggles are currently local to the device until wired to the backend.
+      DONE – 2025-12-04 04:35 – Added device-only notice to SettingsNotificationsPage with Info icon callout to set expectations before backend sync.
   - [ ] Medium term:
     - [ ] Create `notification_preferences` table keyed by user ID, matching the options in the UI.
     - [ ] Add RLS so users can only read/write their own preferences.
