@@ -421,16 +421,17 @@ _For each task or subtask below:_
 
 ## 8. Home feed & swipe
 
-- [ ] Home feed modeling
-  - [ ] Define a `HomeFeedItem` discriminated union, including variants such as:
-    - [ ] `friend-rating`
-    - [ ] `friend-review`
-    - [ ] `recommendation`
-    - [ ] `watchlist-add`
-  - [ ] Implement `useHomeFeed(userId)` that:
-    - [ ] Pulls data via Supabase / Edge Function.
-    - [ ] Maps raw rows to `HomeFeedItem[]`.
-  - [ ] Implement `HomeFeedItemCard` that switches on `item.kind` and renders appropriate cards.
+- [✔️] Home feed modeling
+  DONE – 2025-12-04 10:44 – Added typed HomeFeedItem union, Supabase-backed useHomeFeed hook, and HomeFeedItemCard renderer for ratings, reviews, recommendations, and watchlist adds.
+  - [✔️] Define a `HomeFeedItem` discriminated union, including variants such as:
+    - [✔️] `friend-rating`
+    - [✔️] `friend-review`
+    - [✔️] `recommendation`
+    - [✔️] `watchlist-add`
+  - [✔️] Implement `useHomeFeed(userId)` that:
+    - [✔️] Pulls data via Supabase / Edge Function.
+    - [✔️] Maps raw rows to `HomeFeedItem[]`.
+  - [✔️] Implement `HomeFeedItemCard` that switches on `item.kind` and renders appropriate cards.
 
 - [ ] `get_home_feed` RPC
   - [ ] Implement Postgres function `get_home_feed(p_user_id uuid, p_limit int, p_cursor timestamptz/null)` to:
