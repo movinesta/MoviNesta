@@ -81,6 +81,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
 }) => {
   const { value: active, setValue, idBase } = useTabs();
   const isActive = active === value;
+  const triggerId = `${idBase}-tab-${value}`;
 
   const base =
     "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-medium outline-none transition";
@@ -97,6 +98,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       role="tab"
       aria-selected={isActive}
       aria-controls={`${idBase}-tabpanel-${value}`}
+      id={triggerId}
       className={classes}
       onClick={() => setValue(value)}
       {...props}
@@ -118,7 +120,12 @@ export const TabsContent: React.FC<TabsContentProps> = ({ value, className = "",
   if (active !== value) return null;
 
   return (
-    <div role="tabpanel" id={`${idBase}-tabpanel-${value}`} className={className}>
+    <div
+      role="tabpanel"
+      id={`${idBase}-tabpanel-${value}`}
+      aria-labelledby={`${idBase}-tab-${value}`}
+      className={className}
+    >
       {children}
     </div>
   );

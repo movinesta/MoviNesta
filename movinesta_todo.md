@@ -470,9 +470,12 @@ _For each task or subtask below:_
   - [ ] Use shared `Input` for search fields and forms, reducing repeated markup.
 
 - [ ] Accessibility improvements
-  - [ ] Tabs:
-    - [ ] Ensure tab triggers have `role="tab"`, `aria-selected`, `aria-controls` and associated IDs.
-    - [ ] Panels use `role="tabpanel"` and `aria-labelledby`.
+  - [✔️] Tabs:
+    DONE – 2025-12-04 04:10 – Tabs component now wires IDs between triggers and panels for better a11y semantics.
+    - [✔️] Ensure tab triggers have `role="tab"`, `aria-selected`, `aria-controls` and associated IDs.
+      DONE – 2025-12-04 04:10 – Added stable trigger IDs to match aria-controls in shared Tabs triggers.
+    - [✔️] Panels use `role="tabpanel"` and `aria-labelledby`.
+      DONE – 2025-12-04 04:10 – Tabs panels now reference their trigger via aria-labelledby for SR navigation.
   - [ ] Bottom navigation:
     - [ ] Wrap in `<nav aria-label="Main">`.
     - [ ] Hide icons from screen readers (`aria-hidden="true"`) and expose readable labels.
