@@ -1000,6 +1000,7 @@ export interface Database {
           is_group: boolean;
           title: string | null;
           created_by: string | null;
+          direct_participant_ids: string[] | null;
           updated_at: string;
         };
         Insert: {
@@ -1008,6 +1009,7 @@ export interface Database {
           is_group?: boolean;
           title?: string | null;
           created_by?: string | null;
+          direct_participant_ids?: string[] | null;
           updated_at?: string;
         };
         Update: {
@@ -1016,6 +1018,7 @@ export interface Database {
           is_group?: boolean;
           title?: string | null;
           created_by?: string | null;
+          direct_participant_ids?: string[] | null;
           updated_at?: string;
         };
         Relationships: [
