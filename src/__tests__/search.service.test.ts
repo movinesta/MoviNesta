@@ -99,6 +99,11 @@ describe("searchTitles merge logic", () => {
       "library-2",
       "tmdb-333",
     ]);
+    expect(results.map((item) => item.source)).toEqual([
+      "library",
+      "library",
+      "external-only",
+    ]);
     expect(results.map((item) => item.title)).toEqual([
       "Library Hit",
       "Already Synced",
@@ -119,10 +124,10 @@ describe("searchTitles merge logic", () => {
     const results = await searchTitles({ query: "test" });
 
     expect(mockInvoke).toHaveBeenCalledTimes(2);
-    expect(results.map((item) => ({ id: item.id, type: item.type }))).toEqual([
-      { id: "library-1", type: "movie" },
-      { id: "synced-222", type: "series" },
-      { id: "tmdb-333", type: "movie" },
+    expect(results.map((item) => ({ id: item.id, type: item.type, source: item.source }))).toEqual([
+      { id: "library-1", type: "movie", source: "library" },
+      { id: "synced-222", type: "series", source: "external-synced" },
+      { id: "tmdb-333", type: "movie", source: "external-only" },
     ]);
   });
 });
