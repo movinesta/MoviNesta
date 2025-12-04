@@ -62,6 +62,18 @@ const toDiaryStats = (row?: DiaryStatsRow | null): DiaryStats => {
   };
 };
 
+export const fetchDiaryStats = async (userId: string): Promise<DiaryStats> => {
+  const { data, error } = await supabase.rpc("get_diary_stats", {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return toDiaryStats(data?.[0]);
+};
+
 export const useDiaryStats = () => {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -72,15 +84,7 @@ export const useDiaryStats = () => {
     queryFn: async (): Promise<DiaryStats> => {
       if (!userId) return EMPTY_STATS;
 
-      const { data, error } = await supabase.rpc("get_diary_stats", {
-        p_user_id: userId,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return toDiaryStats(data?.[0]);
+      return fetchDiaryStats(userId);
     },
   });
 

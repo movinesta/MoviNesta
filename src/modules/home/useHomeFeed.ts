@@ -193,7 +193,7 @@ const mapEventToFeedItem = (
   }
 };
 
-const fetchHomeFeed = async (
+export const fetchHomeFeedPage = async (
   userId: string,
   cursor: string | null = null,
 ): Promise<{ items: HomeFeedItem[]; nextCursor: string | null; hasMore: boolean }> => {
@@ -321,7 +321,7 @@ export const useHomeFeed = (): UseHomeFeedResult => {
         if (!user?.id) {
           return { items: [], nextCursor: null, hasMore: false };
         }
-        return fetchHomeFeed(user.id, pageParam);
+        return fetchHomeFeedPage(user.id, pageParam);
       },
       getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
     });
