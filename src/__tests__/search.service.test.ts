@@ -121,12 +121,17 @@ describe("searchTitles merge logic", () => {
       makeExternal({ tmdbId: 333, title: "External Only" }),
     ];
 
-    state.invokeResponses.push({ titleId: "synced-222" }, {});
+    state.invokeResponses.push({
+      results: [
+        { tmdbId: 222, titleId: "synced-222" },
+        { tmdbId: 333, titleId: null },
+      ],
+    });
 
     const page = await searchTitles({ query: "test" });
     const results = page.results;
 
-    expect(mockInvoke).toHaveBeenCalledTimes(2);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
     expect(results.map((item) => ({ id: item.id, type: item.type, source: item.source }))).toEqual([
       { id: "library-1", type: "movie", source: "library" },
       { id: "synced-222", type: "series", source: "external-synced" },
