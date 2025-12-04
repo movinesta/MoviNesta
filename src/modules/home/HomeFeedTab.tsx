@@ -1,5 +1,5 @@
 import { qk } from "../../lib/queryKeys";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import {
@@ -540,10 +540,69 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
 }) => {
   const { items, isLoading, isLoadingMore, hasMore, error, loadMore } = useFeed();
   const [filter, setFilter] = useState<FeedFilter>("all");
+  const filtersDialogRef = useRef<HTMLDivElement | null>(null);
+  const filtersCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastFiltersTriggerRef = useRef<HTMLElement | null>(null);
+  const wasFiltersOpenRef = useRef(false);
 
   useEffect(() => {
     setFilter(quickFilter as FeedFilter);
   }, [quickFilter]);
+
+  useEffect(() => {
+    if (!isFiltersSheetOpen) {
+      if (wasFiltersOpenRef.current && lastFiltersTriggerRef.current) {
+        lastFiltersTriggerRef.current.focus();
+      }
+      wasFiltersOpenRef.current = false;
+      return;
+    }
+
+    wasFiltersOpenRef.current = true;
+
+    const previousActive = document.activeElement;
+    if (previousActive instanceof HTMLElement) {
+      lastFiltersTriggerRef.current = previousActive;
+    }
+
+    const dialogEl = filtersDialogRef.current;
+    const focusable = dialogEl?.querySelectorAll<HTMLElement>(
+      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+    );
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!dialogEl) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onFiltersSheetOpenChange?.(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || !focusable || focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    dialogEl?.addEventListener("keydown", handleKeyDown);
+
+    queueMicrotask(() => {
+      (filtersCloseButtonRef.current ?? focusable?.[0] ?? dialogEl)?.focus();
+    });
+
+    return () => dialogEl?.removeEventListener("keydown", handleKeyDown);
+  }, [isFiltersSheetOpen, onFiltersSheetOpenChange]);
 
   const filteredItems = useMemo(
     () => items.filter((item) => filterMatchesItem(item, filter)),
@@ -579,11 +638,13 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
             aria-label="Filter home feed"
             className="w-full max-w-sm rounded-t-3xl bg-mn-bg-elevated p-3 pb-4 shadow-mn-soft sm:rounded-3xl"
             tabIndex={-1}
+            ref={filtersDialogRef}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-[12px] font-semibold text-mn-text-primary">Feed filters</h2>
               <button
                 type="button"
+                ref={filtersCloseButtonRef}
                 onClick={() => onFiltersSheetOpenChange?.(false)}
                 className="text-[11px] text-mn-text-muted hover:text-mn-text-secondary"
               >

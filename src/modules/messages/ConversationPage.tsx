@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -827,8 +827,64 @@ const ConversationPage: React.FC = () => {
     messageId: string;
     text: string;
   } | null>(null);
+  const editDialogRef = useRef<HTMLDivElement | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const editTriggerRef = useRef<HTMLElement | null>(null);
 
   const [editError, setEditError] = useState<string | null>(null);
+
+  const closeEditDialog = useCallback(() => {
+    setEditingMessage(null);
+    setEditError(null);
+    if (editTriggerRef.current) {
+      editTriggerRef.current.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!editingMessage) {
+      return undefined;
+    }
+
+    const dialogEl = editDialogRef.current;
+
+    const focusable = dialogEl?.querySelectorAll<HTMLElement>(
+      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+    );
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!dialogEl) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeEditDialog();
+        return;
+      }
+
+      if (event.key !== "Tab" || !focusable || focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    dialogEl?.addEventListener("keydown", handleKeyDown);
+
+    queueMicrotask(() => {
+      editTextareaRef.current?.focus();
+    });
+
+    return () => dialogEl?.removeEventListener("keydown", handleKeyDown);
+  }, [editingMessage, closeEditDialog]);
 
   const reactionsByMessageId = useMemo(() => {
     const map = new Map<string, { emoji: string; count: number; reactedBySelf: boolean }[]>();
@@ -1909,7 +1965,8 @@ const ConversationPage: React.FC = () => {
                               <div className="mt-1 flex items-center justify-end gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(event) => {
+                                    editTriggerRef.current = event.currentTarget;
                                     setEditingMessage({
                                       messageId: message.id,
                                       text: parseMessageText(message.body) ?? "",
@@ -2218,15 +2275,20 @@ const ConversationPage: React.FC = () => {
       {/* Edit message modal */}
       {editingMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-5 shadow-2xl">
+          <div
+            ref={editDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-message-title"
+            className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated p-5 shadow-2xl"
+          >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-[15px] font-semibold text-mn-text-primary">Edit message</h2>
+              <h2 id="edit-message-title" className="text-[15px] font-semibold text-mn-text-primary">
+                Edit message
+              </h2>
               <button
                 type="button"
-                onClick={() => {
-                  setEditingMessage(null);
-                  setEditError(null);
-                }}
+                onClick={closeEditDialog}
                 className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-mn-bg text-mn-text-secondary shadow-mn-soft transition hover:-translate-y-0.5 hover:bg-mn-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
                 aria-label="Close edit message"
               >
@@ -2236,6 +2298,7 @@ const ConversationPage: React.FC = () => {
 
             <div className="mt-3 rounded-2xl bg-mn-bg px-3 py-2 ring-1 ring-mn-border-subtle/70">
               <textarea
+                ref={editTextareaRef}
                 value={editingMessage.text}
                 onChange={(event) =>
                   setEditingMessage((prev) => (prev ? { ...prev, text: event.target.value } : prev))
@@ -2250,10 +2313,7 @@ const ConversationPage: React.FC = () => {
             <div className="mt-4 flex justify-end gap-2 text-[13px]">
               <button
                 type="button"
-                onClick={() => {
-                  setEditingMessage(null);
-                  setEditError(null);
-                }}
+                onClick={closeEditDialog}
                 className="rounded-full px-3 py-1.5 text-mn-text-secondary hover:bg-mn-bg"
               >
                 Cancel
@@ -2272,7 +2332,7 @@ const ConversationPage: React.FC = () => {
                     },
                     {
                       onSuccess: () => {
-                        setEditingMessage(null);
+                        closeEditDialog();
                       },
                       onError: () => {
                         setEditError("Couldn't save changes. Please try again.");
