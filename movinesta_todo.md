@@ -313,10 +313,11 @@ _For each task or subtask below:_
     - [✔️] Reloading keeps the same search state.
     - [✔️] Back/forward navigation restores previous queries and filters.
 
-- [ ] Infinite scroll for search results
-  - [ ] Switch title search to `useInfiniteQuery` with a clear `getNextPageParam`.
-  - [ ] Implement loading more results as the user scrolls near the bottom (or via a “Load more” button).
-  - [ ] Ensure deduplication across pages (no repeated titles).
+- [✔️] Infinite scroll for search results
+  DONE – 2025-12-04 04:55 – Added paginated title search with useInfiniteQuery, Supabase/TMDb paging, and a load-more control to keep results deduped across pages.
+  - [✔️] Switch title search to `useInfiniteQuery` with a clear `getNextPageParam`.
+  - [✔️] Implement loading more results as the user scrolls near the bottom (or via a “Load more” button).
+  - [✔️] Ensure deduplication across pages (no repeated titles).
 
 - [ ] Extract search service
   - [ ] Create `src/lib/searchTitles.service.ts` that:

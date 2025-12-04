@@ -17,6 +17,7 @@ vi.mock("../lib/supabase", () => {
       select: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
       abortSignal: vi.fn().mockReturnThis(),
       or: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -39,7 +40,7 @@ vi.mock("../lib/supabase", () => {
 });
 
 vi.mock("../modules/search/externalMovieSearch", () => ({
-  searchExternalTitles: vi.fn(async () => state.externalResults),
+  searchExternalTitles: vi.fn(async () => ({ results: state.externalResults, hasMore: false })),
 }));
 
 // Import after mocks are registered.
@@ -92,7 +93,8 @@ describe("searchTitles merge logic", () => {
       makeExternal({ tmdbId: 333, title: "Fresh External" }),
     ];
 
-    const results = await searchTitles({ query: "test" });
+    const page = await searchTitles({ query: "test" });
+    const results = page.results;
 
     expect(results.map((item) => item.id)).toEqual([
       "library-1",
@@ -121,7 +123,8 @@ describe("searchTitles merge logic", () => {
 
     state.invokeResponses.push({ titleId: "synced-222" }, {});
 
-    const results = await searchTitles({ query: "test" });
+    const page = await searchTitles({ query: "test" });
+    const results = page.results;
 
     expect(mockInvoke).toHaveBeenCalledTimes(2);
     expect(results.map((item) => ({ id: item.id, type: item.type, source: item.source }))).toEqual([
