@@ -276,12 +276,18 @@ _For each task or subtask below:_
   - [✔️] Integrate read/delivery state with `UiMessage` so the UI can render consistent indicators.
     DONE – 2025-12-04 07:53 – Precomputes `UiMessage` metadata in `ConversationPage.tsx` so delivery/read indicators render predictably alongside reactions.
 
-- [ ] Reactions
-  - [ ] Confirm `message_reactions` is fully wired:
-    - [ ] Typings in `Database` and frontend.
-    - [ ] RLS (only participants can react, user can remove own reaction).
-    - [ ] Indexes on `message_reactions(conversation_id, message_id)` or similar.
-  - [ ] Extract reaction logic from `ConversationPage` into a smaller hook or utility to simplify the main component.
+- [✔️] Reactions
+  DONE – 2025-12-04 10:05 – Typed message reactions, tightened RLS, added indexes/unique key, and moved reaction querying/mutation logic into a shared hook (`supabase/schema.sql`, `src/modules/messages/useConversationReactions.ts`, `src/modules/messages/ConversationPage.tsx`).
+  - [✔️] Confirm `message_reactions` is fully wired:
+    DONE – 2025-12-04 10:05 – Message reaction rows now mapped via Supabase typings with dedicated hook coverage (`src/modules/messages/useConversationReactions.ts`).
+    - [✔️] Typings in `Database` and frontend.
+      DONE – 2025-12-04 10:05 – `message_reactions` rows use generated Supabase types to build domain models and reaction summaries (`src/modules/messages/messageModel.ts`, `src/modules/messages/useConversationReactions.ts`).
+    - [✔️] RLS (only participants can react, user can remove own reaction).
+      DONE – 2025-12-04 10:05 – Added participant read access with owner-only write/delete policies for reactions to enforce membership and self-removal (`supabase/schema.sql`).
+    - [✔️] Indexes on `message_reactions(conversation_id, message_id)` or similar.
+      DONE – 2025-12-04 10:05 – Added composite lookup index plus unique constraint for per-user emoji toggling (`supabase/schema.sql`).
+  - [✔️] Extract reaction logic from `ConversationPage` into a smaller hook or utility to simplify the main component.
+    DONE – 2025-12-04 10:05 – Introduced `useConversationReactions` to house querying, optimistic toggles, and summaries, slimming `ConversationPage` (`src/modules/messages/useConversationReactions.ts`, `src/modules/messages/ConversationPage.tsx`).
 
   - [ ] Blocked users enforcement
   - [ ] Confirm `blocked_users` is used consistently:
