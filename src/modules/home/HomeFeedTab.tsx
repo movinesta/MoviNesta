@@ -212,8 +212,7 @@ const normalizeActivityPayload = (payload: ActivityPayload): NormalizedActivityP
 
     return {
       rating: typeof record.rating === "number" ? record.rating : undefined,
-      review_snippet:
-        typeof record.review_snippet === "string" ? record.review_snippet : undefined,
+      review_snippet: typeof record.review_snippet === "string" ? record.review_snippet : undefined,
       headline: typeof record.headline === "string" ? record.headline : undefined,
       extra: typeof record.extra === "string" ? record.extra : undefined,
       emoji: typeof record.emoji === "string" ? record.emoji : undefined,

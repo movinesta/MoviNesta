@@ -61,16 +61,18 @@ describe("useSendMessage", () => {
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
 
-    return ({ children }: { children: React.ReactNode }) => (
+    const QueryClientWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
+    QueryClientWrapper.displayName = "QueryClientWrapper";
+
+    return QueryClientWrapper;
   };
 
   it("refuses to send when the other user has blocked you", async () => {
-    const { result } = renderHook(
-      () => useSendMessage("conv-1", { otherUserId: "other" }),
-      { wrapper: createWrapper() },
-    );
+    const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
+      wrapper: createWrapper(),
+    });
 
     mockBlockStatus.blockedYou = true;
 
@@ -83,10 +85,9 @@ describe("useSendMessage", () => {
     mockBlockStatus.youBlocked = false;
     mockBlockStatus.blockedYou = false;
 
-    const { result } = renderHook(
-      () => useSendMessage("conv-1", { otherUserId: "other" }),
-      { wrapper: createWrapper() },
-    );
+    const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
+      wrapper: createWrapper(),
+    });
 
     const response = await result.current.mutateAsync({ text: "hey", attachmentPath: null });
 

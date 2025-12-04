@@ -56,8 +56,9 @@ const SettingsNotificationsPage: React.FC = () => {
       <div className="mx-4 flex items-start gap-2 rounded-md border border-mn-border-subtle/70 bg-mn-bg-elevated/70 p-3 text-[12px] text-mn-text-secondary shadow-mn-card">
         <Info className="mt-0.5 h-4 w-4 text-mn-text-secondary" aria-hidden="true" />
         <p className="leading-relaxed">
-          Notification preferences are currently stored on <strong>this device only</strong>. Backend sync is coming soon,
-          so changes here won&apos;t update your settings across other devices yet.
+          Notification preferences are currently stored on <strong>this device only</strong>.
+          Backend sync is coming soon, so changes here won&apos;t update your settings across other
+          devices yet.
         </p>
       </div>
 

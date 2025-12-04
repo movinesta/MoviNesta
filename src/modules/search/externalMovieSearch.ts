@@ -57,28 +57,28 @@ export async function searchExternalTitles(
 
   return {
     results: results
-    .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
-      return Boolean(
-        item &&
-          typeof item.id === "number" &&
-          (item.media_type === "movie" || item.media_type === "tv"),
-      );
-    })
-    .slice(0, 20)
-    .map((item) => {
-      const mediaType: ExternalMediaType = item.media_type === "tv" ? "tv" : "movie";
-      const releaseDate: string | null = item.release_date ?? item.first_air_date ?? null;
-      const year = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
+      .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
+        return Boolean(
+          item &&
+            typeof item.id === "number" &&
+            (item.media_type === "movie" || item.media_type === "tv"),
+        );
+      })
+      .slice(0, 20)
+      .map((item) => {
+        const mediaType: ExternalMediaType = item.media_type === "tv" ? "tv" : "movie";
+        const releaseDate: string | null = item.release_date ?? item.first_air_date ?? null;
+        const year = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
 
-      return {
-        tmdbId: Number(item.id),
-        imdbId: item.imdb_id ?? null,
-        title: item.title ?? item.name ?? "Untitled",
-        year: Number.isNaN(year) ? null : year,
-        type: mediaType,
-        posterUrl: tmdbImageUrl(item.poster_path ?? null),
-      } satisfies ExternalTitleResult;
-    }),
+        return {
+          tmdbId: Number(item.id),
+          imdbId: item.imdb_id ?? null,
+          title: item.title ?? item.name ?? "Untitled",
+          year: Number.isNaN(year) ? null : year,
+          type: mediaType,
+          posterUrl: tmdbImageUrl(item.poster_path ?? null),
+        } satisfies ExternalTitleResult;
+      }),
     hasMore: page < totalPages,
   };
 }

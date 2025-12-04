@@ -86,7 +86,6 @@ interface CreateDirectConversationResponse {
   errorCode?: string;
 }
 
-
 type RatingsProps = {
   imdb_rating: number | null;
   omdb_rt_rating_pct: number | null;
@@ -266,15 +265,9 @@ const TitleDetailPage: React.FC = () => {
 
   const { user } = useAuth();
   const { updateStatus, updateRating } = useDiaryLibraryMutations();
-  const {
-    data: diaryEntryData,
-    isLoading: diaryEntryLoading,
-  } = useTitleDiaryEntry(titleId);
+  const { data: diaryEntryData } = useTitleDiaryEntry(titleId);
   const diaryEntry = diaryEntryData ?? { status: null, rating: null };
-  const {
-    data: friendsReactions,
-    isLoading: friendsReactionsLoading,
-  } = useQuery<
+  const { data: friendsReactions, isLoading: friendsReactionsLoading } = useQuery<
     {
       userId: string;
       displayName: string | null;
@@ -305,7 +298,9 @@ const TitleDetailPage: React.FC = () => {
         throw followsError;
       }
 
-      const friendIds = (follows ?? []).map((row: any) => row.followed_user_id as string).filter(Boolean);
+      const friendIds = (follows ?? [])
+        .map((row: any) => row.followed_user_id as string)
+        .filter(Boolean);
 
       if (!friendIds.length) return [];
 
@@ -373,6 +368,26 @@ const TitleDetailPage: React.FC = () => {
     },
   });
 
+  const posterImage = data
+    ? (data.poster_url ?? data.omdb_poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
+    : null;
+
+  const backdropImage = data
+    ? (data.backdrop_url ??
+      tmdbImageUrl(data.tmdb_backdrop_path, "w1280") ??
+      tmdbImageUrl(data.tmdb_backdrop_path, "w780"))
+    : null;
+
+  React.useEffect(() => {
+    const urls = [posterImage, backdropImage].filter((url): url is string => Boolean(url));
+    if (urls.length === 0) return;
+
+    urls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [posterImage, backdropImage]);
+
   if (!titleId) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
@@ -434,11 +449,7 @@ const TitleDetailPage: React.FC = () => {
   }
 
   const displayTitle =
-    data.primary_title ??
-    data.omdb_title ??
-    data.tmdb_title ??
-    data.original_title ??
-    "Untitled";
+    data.primary_title ?? data.omdb_title ?? data.tmdb_title ?? data.original_title ?? "Untitled";
 
   const derivedYear =
     data.release_year ?? (data.release_date ? new Date(data.release_date).getFullYear() : null);
@@ -460,8 +471,8 @@ const TitleDetailPage: React.FC = () => {
     data.content_type === "movie"
       ? "Movie"
       : data.content_type === "tv"
-      ? "TV Series"
-      : data.content_type ?? null;
+        ? "TV Series"
+        : (data.content_type ?? null);
 
   const primaryLanguage =
     data.language ?? data.omdb_language ?? data.tmdb_original_language ?? null;
@@ -476,13 +487,6 @@ const TitleDetailPage: React.FC = () => {
 
   const overview = data.plot ?? data.tmdb_overview ?? data.omdb_plot ?? null;
 
-  const posterImage = data.poster_url ?? data.omdb_poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500");
-
-  const backdropImage =
-    data.backdrop_url ??
-    tmdbImageUrl(data.tmdb_backdrop_path, "w1280") ??
-    tmdbImageUrl(data.tmdb_backdrop_path, "w780");
-
   const metaPieces: string[] = [];
   if (derivedYear) metaPieces.push(String(derivedYear));
   if (displayContentType) metaPieces.push(displayContentType);
@@ -496,14 +500,6 @@ const TitleDetailPage: React.FC = () => {
 
   const normalizedContentType: TitleType | null =
     data.content_type === "movie" || data.content_type === "tv" ? data.content_type : null;
-
-  React.useEffect(() => {
-    const urls = [posterImage, backdropImage].filter((url): url is string => Boolean(url));
-    urls.forEach((url) => {
-      const img = new Image();
-      img.src = url;
-    });
-  }, [posterImage, backdropImage]);
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -567,8 +563,12 @@ const TitleDetailPage: React.FC = () => {
 
           <div className="flex flex-1 flex-col gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.12em] text-mn-text-muted">{displayContentType ?? "Title"}</p>
-              <h1 className="text-2xl font-semibold text-mn-text-primary sm:text-3xl">{displayTitle}</h1>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-mn-text-muted">
+                {displayContentType ?? "Title"}
+              </p>
+              <h1 className="text-2xl font-semibold text-mn-text-primary sm:text-3xl">
+                {displayTitle}
+              </h1>
               <p className="text-[12.5px] text-mn-text-secondary">{metaLine}</p>
             </div>
 
@@ -625,7 +625,11 @@ const TitleDetailPage: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-mn-text-secondary">
               <span className="font-semibold text-mn-text-primary">Your rating</span>
-              <RatingStars value={diaryEntry?.rating ?? null} disabled={updateRating.isPending} onChange={setDiaryRating} />
+              <RatingStars
+                value={diaryEntry?.rating ?? null}
+                disabled={updateRating.isPending}
+                onChange={setDiaryRating}
+              />
               {diaryEntry?.rating != null && (
                 <span className="text-[11px] text-mn-text-muted">{diaryEntry.rating}/10</span>
               )}
@@ -651,10 +655,14 @@ const TitleDetailPage: React.FC = () => {
                 <p className="text-[13px] font-medium text-mn-text-primary">{data.tagline}</p>
               )}
               {overview && (
-                <p className="mt-1 text-[12.5px] leading-relaxed text-mn-text-secondary">{overview}</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-mn-text-secondary">
+                  {overview}
+                </p>
               )}
               {!data.tagline && !overview && (
-                <p className="text-[12px] text-mn-text-muted">We don&apos;t have a plot summary for this title yet.</p>
+                <p className="text-[12px] text-mn-text-muted">
+                  We don&apos;t have a plot summary for this title yet.
+                </p>
               )}
               {genres && genres.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -719,72 +727,74 @@ const TitleDetailPage: React.FC = () => {
               )}
             </div>
 
-            {user && !friendsReactionsLoading && friendsReactions && friendsReactions.length > 0 && (
-              <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-3 text-[12px] text-mn-text-secondary">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-mn-text-primary">Friends who liked this</p>
-                    <p className="mt-0.5 text-[11.5px] text-mn-text-muted">
-                      See which friends have rated this title and how they felt about it.
-                    </p>
+            {user &&
+              !friendsReactionsLoading &&
+              friendsReactions &&
+              friendsReactions.length > 0 && (
+                <div className="rounded-2xl border border-mn-border-subtle/80 bg-mn-bg-elevated/80 px-3 py-3 text-[12px] text-mn-text-secondary">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-mn-text-primary">Friends who liked this</p>
+                      <p className="mt-0.5 text-[11.5px] text-mn-text-muted">
+                        See which friends have rated this title and how they felt about it.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 flex flex-col gap-2">
+                    {friendsReactions.slice(0, 4).map((friend) => {
+                      const label =
+                        friend.displayName ?? (friend.username ? `@${friend.username}` : "Friend");
+                      return (
+                        <div
+                          key={friend.userId}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-mn-border-subtle/60 bg-mn-bg/80 px-2.5 py-1.5"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-mn-bg-elevated text-[11px] font-semibold text-mn-text-primary">
+                              {friend.avatarUrl ? (
+                                <img
+                                  src={friend.avatarUrl}
+                                  alt={label ?? "Friend avatar"}
+                                  className="h-7 w-7 rounded-full object-cover"
+                                />
+                              ) : (
+                                (label ?? "?")[0]?.toUpperCase()
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11.5px] font-medium text-mn-text-primary">
+                                {label}
+                              </span>
+                              {friend.rating != null && (
+                                <span className="text-[11px] text-mn-text-muted">
+                                  Rated {friend.rating}/10
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <Link
+                              to={friend.username ? `/u/${friend.username}` : `/u/${friend.userId}`}
+                              className="text-[11px] font-medium text-mn-primary underline"
+                            >
+                              View profile
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleStartConversation(friend.userId)}
+                              disabled={startingConversationFor === friend.userId}
+                              className="text-[11px] font-medium text-mn-primary/90 underline disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {startingConversationFor === friend.userId ? "Starting…" : "Message"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-
-                <div className="mt-2 flex flex-col gap-2">
-                  {friendsReactions.slice(0, 4).map((friend) => {
-                    const label =
-                      friend.displayName ??
-                      (friend.username ? `@${friend.username}` : "Friend");
-                    return (
-                      <div
-                        key={friend.userId}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-mn-border-subtle/60 bg-mn-bg/80 px-2.5 py-1.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-mn-bg-elevated text-[11px] font-semibold text-mn-text-primary">
-                            {friend.avatarUrl ? (
-                              <img
-                                src={friend.avatarUrl}
-                                alt={label ?? "Friend avatar"}
-                                className="h-7 w-7 rounded-full object-cover"
-                              />
-                            ) : (
-                              (label ?? "?")[0]?.toUpperCase()
-                            )}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11.5px] font-medium text-mn-text-primary">
-                              {label}
-                            </span>
-                            {friend.rating != null && (
-                              <span className="text-[11px] text-mn-text-muted">
-                                Rated {friend.rating}/10
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Link
-                            to={friend.username ? `/u/${friend.username}` : `/u/${friend.userId}`}
-                            className="text-[11px] font-medium text-mn-primary underline"
-                          >
-                            View profile
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleStartConversation(friend.userId)}
-                            disabled={startingConversationFor === friend.userId}
-                            className="text-[11px] font-medium text-mn-primary/90 underline disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {startingConversationFor === friend.userId ? "Starting…" : "Message"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
       </PageSection>

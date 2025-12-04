@@ -60,24 +60,24 @@ export const useBlockStatus = (otherUserId: string | null) => {
 
   const queryKey = ["block-status", userId, otherUserId] as const;
 
-    const query = useQuery<BlockStatus>({
-      queryKey,
-      enabled: Boolean(userId && otherUserId && userId !== otherUserId),
-      staleTime: 30_000,
-      queryFn: async () => {
-        if (!userId || !otherUserId || userId === otherUserId) {
-          return { youBlocked: false, blockedYou: false };
-        }
+  const query = useQuery<BlockStatus>({
+    queryKey,
+    enabled: Boolean(userId && otherUserId && userId !== otherUserId),
+    staleTime: 30_000,
+    queryFn: async () => {
+      if (!userId || !otherUserId || userId === otherUserId) {
+        return { youBlocked: false, blockedYou: false };
+      }
 
-        try {
-          return await fetchBlockStatus(supabase, userId, otherUserId);
-        } catch (error) {
-          console.error("[useBlockStatus] Failed to load block status", error);
-          const err = error as { message?: string };
-          throw new Error(err.message ?? "Failed to load block status");
-        }
-      },
-    });
+      try {
+        return await fetchBlockStatus(supabase, userId, otherUserId);
+      } catch (error) {
+        console.error("[useBlockStatus] Failed to load block status", error);
+        const err = error as { message?: string };
+        throw new Error(err.message ?? "Failed to load block status");
+      }
+    },
+  });
 
   const block = useMutation({
     mutationFn: async () => {

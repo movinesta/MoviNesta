@@ -5,11 +5,7 @@ import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lu
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
-type RecommendationSectionKind =
-  | "friends-trending"
-  | "because-you-liked"
-  | "anime"
-  | "continue";
+type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue";
 
 interface RecommendationItem {
   id: string;

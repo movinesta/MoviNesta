@@ -30,8 +30,6 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "anime", label: "Anime" },
 ];
 
-
-
 const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
   userId,
   isOwnProfile = false,
@@ -185,110 +183,112 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
           </div>
         ) : (
           entries.map((entry) => {
-          const handleStatusCycle = () => {
-            if (!canEdit) return;
-            const order: DiaryStatus[] = ["want_to_watch", "watching", "watched", "dropped"];
-            const idx = order.indexOf(entry.status);
-            const next = order[(idx + 1) % order.length];
-            updateStatus.mutate({ titleId: entry.titleId, status: next, type: entry.type });
-          };
+            const handleStatusCycle = () => {
+              if (!canEdit) return;
+              const order: DiaryStatus[] = ["want_to_watch", "watching", "watched", "dropped"];
+              const idx = order.indexOf(entry.status);
+              const next = order[(idx + 1) % order.length];
+              updateStatus.mutate({ titleId: entry.titleId, status: next, type: entry.type });
+            };
 
-          const handleStarClick = (value: number) => {
-            if (!canEdit) return;
-            const nextRating = entry.rating === value ? null : value;
-            updateRating.mutate({
-              titleId: entry.titleId,
-              rating: nextRating,
-              type: entry.type,
-            });
-          };
+            const handleStarClick = (value: number) => {
+              if (!canEdit) return;
+              const nextRating = entry.rating === value ? null : value;
+              updateRating.mutate({
+                titleId: entry.titleId,
+                rating: nextRating,
+                type: entry.type,
+              });
+            };
 
-          const titleUrl = `/title/${entry.titleId}`;
+            const titleUrl = `/title/${entry.titleId}`;
 
-          return (
-            <article
-              key={entry.id}
-              className="group flex flex-col overflow-hidden rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 shadow-mn-card"
-            >
-              <Link to={titleUrl} className="relative block">
-                <div className="aspect-[2/3] w-full overflow-hidden bg-mn-bg/80">
-                  {entry.posterUrl ? (
-                    <img
-                      src={entry.posterUrl}
-                      alt={entry.title}
-                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[10px] text-mn-text-muted">
-                      <Film className="mr-1 h-4 w-4" />
-                      No poster
+            return (
+              <article
+                key={entry.id}
+                className="group flex flex-col overflow-hidden rounded-mn-card border border-mn-border-subtle/60 bg-mn-bg-elevated/80 shadow-mn-card"
+              >
+                <Link to={titleUrl} className="relative block">
+                  <div className="aspect-[2/3] w-full overflow-hidden bg-mn-bg/80">
+                    {entry.posterUrl ? (
+                      <img
+                        src={entry.posterUrl}
+                        alt={entry.title}
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] text-mn-text-muted">
+                        <Film className="mr-1 h-4 w-4" />
+                        No poster
+                      </div>
+                    )}
+                  </div>
+                </Link>
+
+                <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+                  <div className="min-h-[2.4rem]">
+                    <Link
+                      to={titleUrl}
+                      className="line-clamp-2 text-[13px] font-medium text-mn-text-primary hover:underline"
+                    >
+                      {entry.title}
+                    </Link>
+                    {entry.year && (
+                      <p className="text-[10px] text-mn-text-secondary">({entry.year})</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-1">
+                    <button
+                      type="button"
+                      onClick={handleStatusCycle}
+                      disabled={isMutating || !canEdit}
+                      className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition ${diaryStatusPillClasses(
+                        entry.status ?? null,
+                      )} ${
+                        isMutating
+                          ? "opacity-70"
+                          : canEdit
+                            ? "hover:border-mn-primary/70 hover:bg-mn-primary-soft"
+                            : "opacity-80"
+                      }`}
+                    >
+                      {diaryStatusLabel(entry.status ?? null)}
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, idx) => {
+                          const value = idx + 1;
+                          const isFilled = (entry.rating ?? 0) >= value;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="p-0.5"
+                              disabled={isMutating || !canEdit}
+                              onClick={() => handleStarClick(value)}
+                            >
+                              <Star
+                                className={`h-3.5 w-3.5 ${
+                                  isFilled
+                                    ? "fill-yellow-400 text-yellow-300"
+                                    : "text-mn-text-muted"
+                                }`}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <span className="text-[10px] text-mn-text-muted">
+                        {entry.rating != null ? `${entry.rating}/5` : "No rating"}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </Link>
-
-              <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-                <div className="min-h-[2.4rem]">
-                  <Link
-                    to={titleUrl}
-                    className="line-clamp-2 text-[13px] font-medium text-mn-text-primary hover:underline"
-                  >
-                    {entry.title}
-                  </Link>
-                  {entry.year && (
-                    <p className="text-[10px] text-mn-text-secondary">({entry.year})</p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between gap-1">
-                  <button
-                    type="button"
-                    onClick={handleStatusCycle}
-                    disabled={isMutating || !canEdit}
-                    className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition ${diaryStatusPillClasses(
-                      entry.status ?? null,
-                    )} ${
-                      isMutating
-                        ? "opacity-70"
-                        : canEdit
-                          ? "hover:border-mn-primary/70 hover:bg-mn-primary-soft"
-                          : "opacity-80"
-                    }`}
-                  >
-                    {diaryStatusLabel(entry.status ?? null)}
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: 5 }).map((_, idx) => {
-                        const value = idx + 1;
-                        const isFilled = (entry.rating ?? 0) >= value;
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            className="p-0.5"
-                            disabled={isMutating || !canEdit}
-                            onClick={() => handleStarClick(value)}
-                          >
-                            <Star
-                              className={`h-3.5 w-3.5 ${
-                                isFilled ? "fill-yellow-400 text-yellow-300" : "text-mn-text-muted"
-                              }`}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <span className="text-[10px] text-mn-text-muted">
-                      {entry.rating != null ? `${entry.rating}/5` : "No rating"}
-                    </span>
                   </div>
                 </div>
-              </div>
-            </article>
-          );
-        })
+              </article>
+            );
+          })
         )}
       </div>
     </div>

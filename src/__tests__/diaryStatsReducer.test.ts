@@ -35,24 +35,18 @@ describe("reduceDiaryStats", () => {
       { rating: 2, count: 1 },
       { rating: 4.5, count: 2 },
     ]);
-    expect(stats.watchCountByMonth).toEqual([
-      { month: "2024-02", count: 2 },
-    ]);
+    expect(stats.watchCountByMonth).toEqual([{ month: "2024-02", count: 2 }]);
   });
 
   it("sorts watch counts chronologically and respects top genres input", () => {
-    const ratings: RatingsRow[] = [
-      { rating: 5, created_at: "2023-01-01", title_id: "x" },
-    ];
+    const ratings: RatingsRow[] = [{ rating: 5, created_at: "2023-01-01", title_id: "x" }];
     const library: LibraryRow[] = [
       { title_id: "x", status: "watched", updated_at: "2023-11-05" },
       { title_id: "y", status: "watched", updated_at: "2023-01-09" },
       { title_id: "z", status: "watched", updated_at: "2024-01-01" },
     ];
 
-    const stats = reduceDiaryStats(ratings, library, [
-      { genre: "drama", count: 3 },
-    ]);
+    const stats = reduceDiaryStats(ratings, library, [{ genre: "drama", count: 3 }]);
 
     expect(stats.watchCountByMonth).toEqual([
       { month: "2023-01", count: 1 },

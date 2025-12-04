@@ -4,7 +4,11 @@ import { Link } from "react-router-dom";
 import { Film, Star, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { supabase } from "../../lib/supabase";
-import { useSearchTitles, type TitleSearchFilters, type TitleSearchResult } from "./useSearchTitles";
+import {
+  useSearchTitles,
+  type TitleSearchFilters,
+  type TitleSearchResult,
+} from "./useSearchTitles";
 
 interface SearchTitlesTabProps {
   query: string;
@@ -74,18 +78,11 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
 const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onResetFilters }) => {
   const trimmedQuery = query.trim();
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useSearchTitles({
-    query: trimmedQuery,
-    filters,
-  });
+  const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSearchTitles({
+      query: trimmedQuery,
+      filters,
+    });
 
   const results = data?.pages.flatMap((page) => page.results) ?? [];
   const totalResults = results.length;
@@ -105,12 +102,6 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       `Language: ${filters.originalLanguage === "en" ? "English" : filters.originalLanguage}`,
     );
   }
-
-  const hasFiltersApplied =
-    filters.type !== "all" ||
-    typeof filters.minYear === "number" ||
-    typeof filters.maxYear === "number" ||
-    Boolean(filters.originalLanguage);
 
   const filterSummary = activeFilterLabels.length
     ? activeFilterLabels.join(" • ")
@@ -170,17 +161,20 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         <div className="space-y-1.5">
           <p className="text-[11px] font-medium text-mn-text-primary">Try searching for</p>
           <div className="flex flex-wrap gap-1.5 text-[11px]">
-            {["Sci-fi romance", "Feel-good comedies", "Films from 2020s", "Cozy rainy-day movies"].map(
-              (label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-1 text-mn-text-muted"
-                >
-                  <Film className="mr-1 h-3 w-3 text-mn-text-muted" aria-hidden="true" />
-                  {label}
-                </span>
-              ),
-            )}
+            {[
+              "Sci-fi romance",
+              "Feel-good comedies",
+              "Films from 2020s",
+              "Cozy rainy-day movies",
+            ].map((label) => (
+              <span
+                key={label}
+                className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-1 text-mn-text-muted"
+              >
+                <Film className="mr-1 h-3 w-3 text-mn-text-muted" aria-hidden="true" />
+                {label}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -190,8 +184,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
             <span>Trending this week</span>
           </p>
           <p className="text-[11px] text-mn-text-muted">
-            Once analytics are wired up, you can show what your friends and the community are watching
-            the most here.
+            Once analytics are wired up, you can show what your friends and the community are
+            watching the most here.
           </p>
         </div>
       </div>
@@ -260,9 +254,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-mn-text-secondary">
-          Showing{" "}
-          <span className="font-semibold text-mn-text-primary">{totalResults}</span>{" "}
-          result{totalResults === 1 ? "" : "s"} across your catalog and external sources for{" "}
+          Showing <span className="font-semibold text-mn-text-primary">{totalResults}</span> result
+          {totalResults === 1 ? "" : "s"} across your catalog and external sources for{" "}
           <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>.
         </p>
         <Button

@@ -25,7 +25,9 @@ const ToastProvider: React.FC = () => {
           <div className="flex items-start justify-between px-4 py-3">
             <div className="flex-1">
               <p className="text-sm font-semibold leading-tight">{toast.title}</p>
-              {toast.description && <p className="mt-1 text-sm leading-snug text-slate-200">{toast.description}</p>}
+              {toast.description && (
+                <p className="mt-1 text-sm leading-snug text-slate-200">{toast.description}</p>
+              )}
             </div>
             <button
               type="button"

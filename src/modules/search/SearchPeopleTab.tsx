@@ -24,8 +24,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const toggleFollow = useToggleFollow();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [startingConversationFor, setStartingConversationFor] =
-    useState<string | null>(null);
+  const [startingConversationFor, setStartingConversationFor] = useState<string | null>(null);
 
   const results = data ?? [];
 
@@ -85,9 +84,8 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     return (
       <div className="space-y-3">
         <p className="text-[12px] text-mn-text-secondary">
-          Start typing a name or @username to find people. Once the social graph
-          is wired up, you&apos;ll be able to follow friends and start
-          conversations from here.
+          Start typing a name or @username to find people. Once the social graph is wired up,
+          you&apos;ll be able to follow friends and start conversations from here.
         </p>
         <div className="flex items-center gap-2 rounded-mn-card border border-dashed border-mn-border-subtle bg-mn-bg-elevated/60 px-3 py-2 text-[11px] text-mn-text-muted">
           <Users className="h-4 w-4" aria-hidden="true" />
@@ -100,12 +98,9 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <p className="text-[12px] text-mn-text-secondary">
-          Searching for people…
-        </p>
+        <p className="text-[12px] text-mn-text-secondary">Searching for people…</p>
         <div className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80 px-3 py-4 text-[11px] text-mn-text-muted">
-          We&apos;ll show matching profiles here as soon as the results come
-          back.
+          We&apos;ll show matching profiles here as soon as the results come back.
         </div>
       </div>
     );
@@ -114,12 +109,9 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   if (isError) {
     return (
       <div className="space-y-3">
-        <p className="text-[12px] text-mn-text-primary">
-          Something went wrong.
-        </p>
+        <p className="text-[12px] text-mn-text-primary">Something went wrong.</p>
         <p className="text-[11px] text-mn-text-muted">
-          {error?.message ??
-            "We couldn&apos;t search for people right now. Please try again."}
+          {error?.message ?? "We couldn&apos;t search for people right now. Please try again."}
         </p>
       </div>
     );
@@ -153,8 +145,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
 
       <ul className="divide-y divide-mn-border-subtle/60 rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/80">
         {results.map((person) => {
-          const displayName =
-            person.displayName ?? person.username ?? "Unknown user";
+          const displayName = person.displayName ?? person.username ?? "Unknown user";
           const handle = person.username ? `@${person.username}` : null;
 
           return (
@@ -184,11 +175,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                   <p className="truncate text-[13px] font-medium text-mn-text-primary">
                     {displayName}
                   </p>
-                  {handle && (
-                    <p className="mt-0.5 text-[11px] text-mn-text-muted">
-                      {handle}
-                    </p>
-                  )}
+                  {handle && <p className="mt-0.5 text-[11px] text-mn-text-muted">{handle}</p>}
                   {person.bio && (
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-mn-text-secondary">
                       {person.bio}
@@ -204,9 +191,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                         </span>
                       )}
                       {typeof person.followersCount === "number" &&
-                        typeof person.followingCount === "number" && (
-                          <span>{" · "}</span>
-                        )}
+                        typeof person.followingCount === "number" && <span>{" · "}</span>}
                       {typeof person.followingCount === "number" && (
                         <span>following {person.followingCount}</span>
                       )}
@@ -259,10 +244,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                       <span>Starting…</span>
                     ) : (
                       <>
-                        <MessageCircle
-                          className="h-3 w-3"
-                          aria-hidden="true"
-                        />
+                        <MessageCircle className="h-3 w-3" aria-hidden="true" />
                         <span>Message</span>
                       </>
                     )}

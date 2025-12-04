@@ -8,11 +8,7 @@ interface SwipeSyncBannerProps {
   isRetrying?: boolean;
 }
 
-const SwipeSyncBanner: React.FC<SwipeSyncBannerProps> = ({
-  message,
-  onRetry,
-  isRetrying,
-}) => {
+const SwipeSyncBanner: React.FC<SwipeSyncBannerProps> = ({ message, onRetry, isRetrying }) => {
   if (!message) {
     return null;
   }

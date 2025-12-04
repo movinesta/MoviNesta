@@ -126,9 +126,7 @@ const searchSupabaseTitles = async (
 
   if (query) {
     const ilikeQuery = `%${query}%`;
-    builder = builder.or(
-      `primary_title.ilike.${ilikeQuery},original_title.ilike.${ilikeQuery}`,
-    );
+    builder = builder.or(`primary_title.ilike.${ilikeQuery},original_title.ilike.${ilikeQuery}`);
   }
 
   if (filters?.type && filters.type !== "all") {
@@ -166,9 +164,12 @@ const searchSupabaseTitles = async (
   return { results: rows.map(mapTitleRowToResult), hasMore };
 };
 
-export const searchTitles = async (
-  params: { query: string; filters?: TitleSearchFilters; page?: number; signal?: AbortSignal },
-): Promise<TitleSearchResultPage> => {
+export const searchTitles = async (params: {
+  query: string;
+  filters?: TitleSearchFilters;
+  page?: number;
+  signal?: AbortSignal;
+}): Promise<TitleSearchResultPage> => {
   const { query, filters, page = 1, signal } = params;
   const trimmedQuery = query.trim();
 
@@ -185,7 +186,11 @@ export const searchTitles = async (
     console.warn("[search.service] Supabase search failed, falling back to TMDb", err);
   }
 
-  const { results: externalResults, hasMore: externalHasMore } = await searchExternalTitles(trimmedQuery, page, signal);
+  const { results: externalResults, hasMore: externalHasMore } = await searchExternalTitles(
+    trimmedQuery,
+    page,
+    signal,
+  );
 
   throwIfAborted(signal);
   if (!externalResults.length && supabaseResults.length > 0) {
@@ -245,9 +250,10 @@ export const searchTitles = async (
       if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return null;
 
       const type: TitleType = item.type === "tv" ? "series" : "movie";
-      const titleId = item.tmdbId && syncedTitleIdsByTmdb.get(item.tmdbId)
-        ? syncedTitleIdsByTmdb.get(item.tmdbId)!
-        : `tmdb-${item.tmdbId}`;
+      const titleId =
+        item.tmdbId && syncedTitleIdsByTmdb.get(item.tmdbId)
+          ? syncedTitleIdsByTmdb.get(item.tmdbId)!
+          : `tmdb-${item.tmdbId}`;
       const isSynced = titleId.startsWith("tmdb-") === false;
 
       return {

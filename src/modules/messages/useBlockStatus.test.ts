@@ -47,8 +47,6 @@ describe("fetchBlockStatus", () => {
       })),
     };
 
-    await expect(fetchBlockStatus(failingClient as any, "me", "them")).rejects.toThrow(
-      "boom",
-    );
+    await expect(fetchBlockStatus(failingClient as any, "me", "them")).rejects.toThrow("boom");
   });
 });

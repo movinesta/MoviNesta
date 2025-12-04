@@ -96,16 +96,8 @@ describe("searchTitles merge logic", () => {
     const page = await searchTitles({ query: "test" });
     const results = page.results;
 
-    expect(results.map((item) => item.id)).toEqual([
-      "library-1",
-      "library-2",
-      "tmdb-333",
-    ]);
-    expect(results.map((item) => item.source)).toEqual([
-      "library",
-      "library",
-      "external-only",
-    ]);
+    expect(results.map((item) => item.id)).toEqual(["library-1", "library-2", "tmdb-333"]);
+    expect(results.map((item) => item.source)).toEqual(["library", "library", "external-only"]);
     expect(results.map((item) => item.title)).toEqual([
       "Library Hit",
       "Already Synced",
@@ -114,7 +106,9 @@ describe("searchTitles merge logic", () => {
   });
 
   it("places library results first, then synced external titles, then external-only entries", async () => {
-    state.supabaseRows = [makeTitleRow({ id: "library-1", primary_title: "Library", tmdb_id: 111 })];
+    state.supabaseRows = [
+      makeTitleRow({ id: "library-1", primary_title: "Library", tmdb_id: 111 }),
+    ];
 
     state.externalResults = [
       makeExternal({ tmdbId: 222, title: "Needs Sync", type: "tv" }),

@@ -18,7 +18,8 @@ const emit = () => {
   listeners.forEach((listener) => listener());
 };
 
-const createId = () => crypto.randomUUID?.() ?? `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const createId = () =>
+  crypto.randomUUID?.() ?? `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 export const getToastsSnapshot = () => toasts;
 

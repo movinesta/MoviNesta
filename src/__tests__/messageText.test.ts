@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getMessageMeta, getMessagePreview, parseMessageText } from "../modules/messages/messageText";
+import {
+  getMessageMeta,
+  getMessagePreview,
+  parseMessageText,
+} from "../modules/messages/messageText";
 
 describe("parseMessageText", () => {
   it("handles plain strings and null bodies", () => {
@@ -11,11 +15,7 @@ describe("parseMessageText", () => {
     expect(parseMessageText(JSON.stringify({ text: "hi there" }))).toBe("hi there");
 
     const blockPayload = {
-      blocks: [
-        { text: " first line " },
-        { text: "" },
-        { text: "second line" },
-      ],
+      blocks: [{ text: " first line " }, { text: "" }, { text: "second line" }],
     };
     expect(parseMessageText(JSON.stringify(blockPayload))).toBe("first line\nsecond line");
   });
@@ -33,7 +33,9 @@ describe("parseMessageText", () => {
 
 describe("getMessagePreview", () => {
   it("normalizes whitespace and clamps the length", () => {
-    const body = JSON.stringify({ text: "A long message that should be truncated once it exceeds the preview budget" });
+    const body = JSON.stringify({
+      text: "A long message that should be truncated once it exceeds the preview budget",
+    });
     const preview = getMessagePreview(body, 40);
     expect(preview).toBe("A long message that should be truncated…");
   });

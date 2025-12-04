@@ -125,9 +125,7 @@ export const isWithinGroupingWindow = (
   return newer.getTime() - older.getTime() <= maxGapMs;
 };
 
-export const mapMessageRowToConversationMessage = (
-  row: MessageRow,
-): ConversationMessage => ({
+export const mapMessageRowToConversationMessage = (row: MessageRow): ConversationMessage => ({
   id: row.id,
   conversationId: row.conversation_id,
   senderId: row.user_id,

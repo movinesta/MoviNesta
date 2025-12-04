@@ -40,13 +40,13 @@ export interface Database {
             columns: ["id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       titles: {
         Row: {
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           omdb_imdb_id: string | null;
           tmdb_id: number | null;
           primary_title: string | null;
@@ -100,7 +100,7 @@ export interface Database {
           tmdb_release_date: string | null;
           tmdb_poster_path: string | null;
           tmdb_backdrop_path: string | null;
-          data_source: 'omdb' | 'tmdb';
+          data_source: "omdb" | "tmdb";
           source_priority: number;
           raw_payload: Json | null;
           youtube_trailer_video_id: string | null;
@@ -136,7 +136,7 @@ export interface Database {
         };
         Insert: {
           title_id?: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           omdb_imdb_id?: string | null;
           tmdb_id?: number | null;
           primary_title?: string | null;
@@ -190,7 +190,7 @@ export interface Database {
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
           tmdb_backdrop_path?: string | null;
-          data_source?: 'omdb' | 'tmdb';
+          data_source?: "omdb" | "tmdb";
           source_priority?: number;
           raw_payload?: Json | null;
           youtube_trailer_video_id?: string | null;
@@ -226,7 +226,7 @@ export interface Database {
         };
         Update: {
           title_id?: string;
-          content_type?: 'movie' | 'series' | 'anime';
+          content_type?: "movie" | "series" | "anime";
           omdb_imdb_id?: string | null;
           tmdb_id?: number | null;
           primary_title?: string | null;
@@ -280,7 +280,7 @@ export interface Database {
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
           tmdb_backdrop_path?: string | null;
-          data_source?: 'omdb' | 'tmdb';
+          data_source?: "omdb" | "tmdb";
           source_priority?: number;
           raw_payload?: Json | null;
           youtube_trailer_video_id?: string | null;
@@ -314,8 +314,7 @@ export interface Database {
           omdb_title?: string | null;
           omdb_year?: number | null;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       movies: {
         Row: {
@@ -354,7 +353,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       series: {
@@ -394,7 +393,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       anime: {
@@ -434,7 +433,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       seasons: {
@@ -477,7 +476,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       episodes: {
@@ -532,7 +531,7 @@ export interface Database {
             columns: ["season_id"];
             referencedRelation: "seasons";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       ratings: {
@@ -540,7 +539,7 @@ export interface Database {
           id: string;
           user_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           rating: number;
           comment: string | null;
           created_at: string;
@@ -550,7 +549,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           rating: number;
           comment?: string | null;
           created_at?: string;
@@ -560,7 +559,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           title_id?: string;
-          content_type?: 'movie' | 'series' | 'anime';
+          content_type?: "movie" | "series" | "anime";
           rating?: number;
           comment?: string | null;
           created_at?: string;
@@ -578,7 +577,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       library_entries: {
@@ -586,8 +585,8 @@ export interface Database {
           id: string;
           user_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
-          status: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
+          content_type: "movie" | "series" | "anime";
+          status: "want_to_watch" | "watching" | "watched" | "dropped";
           notes: string | null;
           started_at: string | null;
           completed_at: string | null;
@@ -598,8 +597,8 @@ export interface Database {
           id?: string;
           user_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
-          status?: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
+          content_type: "movie" | "series" | "anime";
+          status?: "want_to_watch" | "watching" | "watched" | "dropped";
           notes?: string | null;
           started_at?: string | null;
           completed_at?: string | null;
@@ -610,8 +609,8 @@ export interface Database {
           id?: string;
           user_id?: string;
           title_id?: string;
-          content_type?: 'movie' | 'series' | 'anime';
-          status?: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
+          content_type?: "movie" | "series" | "anime";
+          status?: "want_to_watch" | "watching" | "watched" | "dropped";
           notes?: string | null;
           started_at?: string | null;
           completed_at?: string | null;
@@ -630,7 +629,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       reviews: {
@@ -638,7 +637,7 @@ export interface Database {
           id: string;
           user_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           rating: number | null;
           headline: string | null;
           body: string | null;
@@ -650,7 +649,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           rating?: number | null;
           headline?: string | null;
           body?: string | null;
@@ -662,7 +661,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           title_id?: string;
-          content_type?: 'movie' | 'series' | 'anime';
+          content_type?: "movie" | "series" | "anime";
           rating?: number | null;
           headline?: string | null;
           body?: string | null;
@@ -682,7 +681,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       comments: {
@@ -731,7 +730,7 @@ export interface Database {
             columns: ["parent_comment_id"];
             referencedRelation: "comments";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       lists: {
@@ -768,7 +767,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       list_items: {
@@ -776,7 +775,7 @@ export interface Database {
           id: string;
           list_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           position: number;
           note: string | null;
           created_at: string;
@@ -786,7 +785,7 @@ export interface Database {
           id?: string;
           list_id: string;
           title_id: string;
-          content_type: 'movie' | 'series' | 'anime';
+          content_type: "movie" | "series" | "anime";
           position?: number;
           note?: string | null;
           created_at?: string;
@@ -796,7 +795,7 @@ export interface Database {
           id?: string;
           list_id?: string;
           title_id?: string;
-          content_type?: 'movie' | 'series' | 'anime';
+          content_type?: "movie" | "series" | "anime";
           position?: number;
           note?: string | null;
           created_at?: string;
@@ -814,7 +813,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       follows: {
@@ -845,7 +844,7 @@ export interface Database {
             columns: ["followed_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       review_reactions: {
@@ -882,7 +881,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       comment_likes: {
@@ -913,7 +912,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       activity_events: {
@@ -921,7 +920,17 @@ export interface Database {
           id: string;
           created_at: string;
           user_id: string;
-          event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';
+          event_type:
+            | "rating_created"
+            | "review_created"
+            | "watchlist_added"
+            | "watchlist_removed"
+            | "follow_created"
+            | "comment_created"
+            | "reply_created"
+            | "list_created"
+            | "list_item_added"
+            | "message_sent";
           title_id: string | null;
           related_user_id: string | null;
           payload: Json | null;
@@ -930,7 +939,17 @@ export interface Database {
           id?: string;
           created_at?: string;
           user_id: string;
-          event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';
+          event_type:
+            | "rating_created"
+            | "review_created"
+            | "watchlist_added"
+            | "watchlist_removed"
+            | "follow_created"
+            | "comment_created"
+            | "reply_created"
+            | "list_created"
+            | "list_item_added"
+            | "message_sent";
           title_id?: string | null;
           related_user_id?: string | null;
           payload?: Json | null;
@@ -939,7 +958,17 @@ export interface Database {
           id?: string;
           created_at?: string;
           user_id?: string;
-          event_type?: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';
+          event_type?:
+            | "rating_created"
+            | "review_created"
+            | "watchlist_added"
+            | "watchlist_removed"
+            | "follow_created"
+            | "comment_created"
+            | "reply_created"
+            | "list_created"
+            | "list_item_added"
+            | "message_sent";
           title_id?: string | null;
           related_user_id?: string | null;
           payload?: Json | null;
@@ -956,7 +985,7 @@ export interface Database {
             columns: ["related_user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       notifications: {
@@ -990,7 +1019,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       conversations: {
@@ -1027,26 +1056,26 @@ export interface Database {
             columns: ["created_by"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       conversation_participants: {
         Row: {
           conversation_id: string;
           user_id: string;
-          role: 'member' | 'admin' | 'owner';
+          role: "member" | "admin" | "owner";
           created_at: string;
         };
         Insert: {
           conversation_id: string;
           user_id: string;
-          role?: 'member' | 'admin' | 'owner';
+          role?: "member" | "admin" | "owner";
           created_at?: string;
         };
         Update: {
           conversation_id?: string;
           user_id?: string;
-          role?: 'member' | 'admin' | 'owner';
+          role?: "member" | "admin" | "owner";
           created_at?: string;
         };
         Relationships: [
@@ -1061,7 +1090,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       messages: {
@@ -1101,7 +1130,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       message_reactions: {
@@ -1147,7 +1176,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       message_delivery_receipts: {
@@ -1193,7 +1222,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       message_read_receipts: {
@@ -1233,7 +1262,7 @@ export interface Database {
             columns: ["last_read_message_id"];
             referencedRelation: "messages";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       title_stats: {
@@ -1267,7 +1296,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       user_stats: {
@@ -1313,7 +1342,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       genres: {
@@ -1332,8 +1361,7 @@ export interface Database {
           name?: string;
           slug?: string;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       title_genres: {
         Row: {
@@ -1360,7 +1388,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       people: {
@@ -1382,8 +1410,7 @@ export interface Database {
           tmdb_id?: number | null;
           imdb_id?: string | null;
         };
-        Relationships: [
-        ];
+        Relationships: [];
       };
       title_credits: {
         Row: {
@@ -1422,26 +1449,26 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       episode_progress: {
         Row: {
           user_id: string;
           episode_id: string;
-          status: 'watching' | 'watched' | 'skipped';
+          status: "watching" | "watched" | "skipped";
           watched_at: string;
         };
         Insert: {
           user_id: string;
           episode_id: string;
-          status?: 'watching' | 'watched' | 'skipped';
+          status?: "watching" | "watched" | "skipped";
           watched_at?: string;
         };
         Update: {
           user_id?: string;
           episode_id?: string;
-          status?: 'watching' | 'watched' | 'skipped';
+          status?: "watching" | "watched" | "skipped";
           watched_at?: string;
         };
         Relationships: [
@@ -1456,7 +1483,7 @@ export interface Database {
             columns: ["episode_id"];
             referencedRelation: "episodes";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       user_tags: {
@@ -1487,7 +1514,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       user_title_tags: {
@@ -1527,7 +1554,7 @@ export interface Database {
             columns: ["title_id"];
             referencedRelation: "titles";
             referencedColumns: ["title_id"];
-          }
+          },
         ];
       };
       blocked_users: {
@@ -1558,7 +1585,7 @@ export interface Database {
             columns: ["blocked_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       user_settings: {
@@ -1566,27 +1593,27 @@ export interface Database {
           user_id: string;
           email_notifications: boolean;
           push_notifications: boolean;
-          privacy_profile: 'public' | 'followers_only' | 'private';
-          privacy_activity: 'public' | 'followers_only' | 'private';
-          privacy_lists: 'public' | 'followers_only' | 'private';
+          privacy_profile: "public" | "followers_only" | "private";
+          privacy_activity: "public" | "followers_only" | "private";
+          privacy_lists: "public" | "followers_only" | "private";
           updated_at: string;
         };
         Insert: {
           user_id: string;
           email_notifications?: boolean;
           push_notifications?: boolean;
-          privacy_profile?: 'public' | 'followers_only' | 'private';
-          privacy_activity?: 'public' | 'followers_only' | 'private';
-          privacy_lists?: 'public' | 'followers_only' | 'private';
+          privacy_profile?: "public" | "followers_only" | "private";
+          privacy_activity?: "public" | "followers_only" | "private";
+          privacy_lists?: "public" | "followers_only" | "private";
           updated_at?: string;
         };
         Update: {
           user_id?: string;
           email_notifications?: boolean;
           push_notifications?: boolean;
-          privacy_profile?: 'public' | 'followers_only' | 'private';
-          privacy_activity?: 'public' | 'followers_only' | 'private';
-          privacy_lists?: 'public' | 'followers_only' | 'private';
+          privacy_profile?: "public" | "followers_only" | "private";
+          privacy_activity?: "public" | "followers_only" | "private";
+          privacy_lists?: "public" | "followers_only" | "private";
           updated_at?: string;
         };
         Relationships: [
@@ -1595,7 +1622,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       reports: {
@@ -1605,7 +1632,7 @@ export interface Database {
           target_type: string;
           target_id: string;
           reason: string | null;
-          status: 'open' | 'in_review' | 'resolved' | 'dismissed';
+          status: "open" | "in_review" | "resolved" | "dismissed";
           created_at: string;
           resolved_at: string | null;
           resolved_by: string | null;
@@ -1617,7 +1644,7 @@ export interface Database {
           target_type: string;
           target_id: string;
           reason?: string | null;
-          status?: 'open' | 'in_review' | 'resolved' | 'dismissed';
+          status?: "open" | "in_review" | "resolved" | "dismissed";
           created_at?: string;
           resolved_at?: string | null;
           resolved_by?: string | null;
@@ -1629,7 +1656,7 @@ export interface Database {
           target_type?: string;
           target_id?: string;
           reason?: string | null;
-          status?: 'open' | 'in_review' | 'resolved' | 'dismissed';
+          status?: "open" | "in_review" | "resolved" | "dismissed";
           created_at?: string;
           resolved_at?: string | null;
           resolved_by?: string | null;
@@ -1647,7 +1674,7 @@ export interface Database {
             columns: ["resolved_by"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
     };
@@ -1692,14 +1719,24 @@ export interface Database {
       };
     };
     Enums: {
-      activity_event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent';
-      title_type: 'movie' | 'series' | 'anime' | 'short';
-      episode_status: 'watching' | 'watched' | 'skipped';
-      library_status: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
-      privacy_level: 'public' | 'followers_only' | 'private';
-      content_type: 'movie' | 'series' | 'anime';
-      participant_role: 'member' | 'admin' | 'owner';
-      report_status: 'open' | 'in_review' | 'resolved' | 'dismissed';
+      activity_event_type:
+        | "rating_created"
+        | "review_created"
+        | "watchlist_added"
+        | "watchlist_removed"
+        | "follow_created"
+        | "comment_created"
+        | "reply_created"
+        | "list_created"
+        | "list_item_added"
+        | "message_sent";
+      title_type: "movie" | "series" | "anime" | "short";
+      episode_status: "watching" | "watched" | "skipped";
+      library_status: "want_to_watch" | "watching" | "watched" | "dropped";
+      privacy_level: "public" | "followers_only" | "private";
+      content_type: "movie" | "series" | "anime";
+      participant_role: "member" | "admin" | "owner";
+      report_status: "open" | "in_review" | "resolved" | "dismissed";
     };
     CompositeTypes: {
       [_ in never]: never;
