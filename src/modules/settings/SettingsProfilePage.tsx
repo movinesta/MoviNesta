@@ -6,10 +6,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/useProfile";
+import AvatarPicker from "../../components/forms/AvatarPicker";
 
 interface ProfileFormState {
   displayName: string;
   bio: string;
+  avatarFile: File | null;
 }
 
 const SettingsProfilePage: React.FC = () => {
@@ -20,6 +22,7 @@ const SettingsProfilePage: React.FC = () => {
   const [form, setForm] = useState<ProfileFormState>({
     displayName: "",
     bio: "",
+    avatarFile: null,
   });
 
   // Keep local form state in sync with loaded profile
@@ -28,13 +31,44 @@ const SettingsProfilePage: React.FC = () => {
     setForm({
       displayName: profile.displayName ?? "",
       bio: profile.bio ?? "",
+      avatarFile: null,
     });
   }, [profile]);
 
   const updateProfile = useMutation<void, Error, ProfileFormState>({
-    mutationFn: async ({ displayName, bio }) => {
+    mutationFn: async ({ displayName, bio, avatarFile }) => {
       if (!user) {
         throw new Error("You need to be signed in to update your profile.");
+      }
+
+      let avatarUrl = profile?.avatarUrl ?? null;
+
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split(".").pop();
+        const filePath = `${user.id}/${Date.now()}.${fileExt ?? "jpg"}`;
+
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, avatarFile, {
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const uploadedPath = uploadData?.path ?? filePath;
+
+        const { data: publicUrlData, error: publicUrlError } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(uploadedPath);
+
+        if (publicUrlError) {
+          throw publicUrlError;
+        }
+
+        avatarUrl = publicUrlData.publicUrl ?? avatarUrl;
       }
 
       const { error: updateError } = await supabase
@@ -42,6 +76,7 @@ const SettingsProfilePage: React.FC = () => {
         .update({
           display_name: displayName.trim() || null,
           bio: bio.trim() || null,
+          avatar_url: avatarUrl,
         })
         .eq("id", user.id);
 
@@ -52,6 +87,7 @@ const SettingsProfilePage: React.FC = () => {
     onSuccess: () => {
       // Refresh any profile views (including /u/:username and useCurrentProfile)
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      setForm((prev) => ({ ...prev, avatarFile: null }));
     },
   });
 
@@ -68,6 +104,7 @@ const SettingsProfilePage: React.FC = () => {
     await updateProfile.mutateAsync({
       displayName: form.displayName,
       bio: form.bio,
+      avatarFile: form.avatarFile,
     });
   };
 
@@ -139,6 +176,13 @@ const SettingsProfilePage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
+              <AvatarPicker
+                initialUrl={profile.avatarUrl}
+                description="Upload a square image (PNG/JPG) to use across the app."
+                disabled={updateProfile.isPending}
+                onFileChange={(file) => setForm((prev) => ({ ...prev, avatarFile: file }))}
+              />
+
               <div className="space-y-1.5">
                 <label
                   htmlFor="displayName"
@@ -210,6 +254,7 @@ const SettingsProfilePage: React.FC = () => {
                     setForm({
                       displayName: profile.displayName ?? "",
                       bio: profile.bio ?? "",
+                      avatarFile: null,
                     });
                     updateProfile.reset();
                   }
