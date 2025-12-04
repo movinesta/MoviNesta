@@ -476,9 +476,12 @@ _For each task or subtask below:_
       DONE – 2025-12-04 04:10 – Added stable trigger IDs to match aria-controls in shared Tabs triggers.
     - [✔️] Panels use `role="tabpanel"` and `aria-labelledby`.
       DONE – 2025-12-04 04:10 – Tabs panels now reference their trigger via aria-labelledby for SR navigation.
-  - [ ] Bottom navigation:
-    - [ ] Wrap in `<nav aria-label="Main">`.
-    - [ ] Hide icons from screen readers (`aria-hidden="true"`) and expose readable labels.
+  - [✔️] Bottom navigation:
+    DONE – 2025-12-04 04:17 – Wrapped the bottom navigation in a `<nav aria-label="Main">` container and kept icons hidden from screen readers in `src/layouts/AppShell.tsx`.
+    - [✔️] Wrap in `<nav aria-label="Main">`.
+      DONE – 2025-12-04 04:17 – Added an accessible landmark label to the fixed bottom navigation in `AppShell`.
+    - [✔️] Hide icons from screen readers (`aria-hidden="true"`) and expose readable labels.
+      DONE – 2025-12-04 04:17 – Confirmed bottom nav icons are decorative-only while text labels remain accessible.
   - [ ] Modals & drawers:
     - [ ] Add focus trap and restore focus to the opener on close.
     - [ ] Use `aria-modal="true"` and appropriate labeling.
