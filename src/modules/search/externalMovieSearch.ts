@@ -30,10 +30,11 @@ const throwIfAborted = (signal?: AbortSignal) => {
 
 export async function searchExternalTitles(
   query: string,
+  page = 1,
   signal?: AbortSignal,
-): Promise<ExternalTitleResult[]> {
+): Promise<{ results: ExternalTitleResult[]; hasMore: boolean }> {
   const trimmed = query.trim();
-  if (!trimmed) return [];
+  if (!trimmed) return { results: [], hasMore: false };
 
   throwIfAborted(signal);
 
@@ -42,7 +43,7 @@ export async function searchExternalTitles(
     {
       query: trimmed,
       include_adult: "false",
-      page: 1,
+      page,
     },
     signal,
   );
@@ -50,9 +51,12 @@ export async function searchExternalTitles(
   throwIfAborted(signal);
 
   const results = Array.isArray(body?.results) ? (body.results as TmdbMultiResult[]) : [];
-  if (!results.length) return [];
+  if (!results.length) return { results: [], hasMore: false };
 
-  return results
+  const totalPages = typeof body?.total_pages === "number" ? body.total_pages : 1;
+
+  return {
+    results: results
     .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
       return Boolean(
         item &&
@@ -74,5 +78,7 @@ export async function searchExternalTitles(
         type: mediaType,
         posterUrl: tmdbImageUrl(item.poster_path ?? null),
       } satisfies ExternalTitleResult;
-    });
+    }),
+    hasMore: page < totalPages,
+  };
 }

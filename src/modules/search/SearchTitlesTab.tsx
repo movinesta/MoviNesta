@@ -73,10 +73,21 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
 const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onResetFilters }) => {
   const trimmedQuery = query.trim();
 
-  const { data, isLoading, isError, error } = useSearchTitles({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSearchTitles({
     query: trimmedQuery,
     filters,
   });
+
+  const results = data?.pages.flatMap((page) => page.results) ?? [];
+  const totalResults = results.length;
 
   const activeFilterLabels: string[] = [];
   if (filters.type && filters.type !== "all") {
@@ -109,10 +120,10 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
   const syncedIdsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
-    if (!data || !Array.isArray(data)) return;
+    if (!results || !Array.isArray(results)) return;
     const already = syncedIdsRef.current;
 
-    const toSync = data
+    const toSync = results
       .filter((item) => {
         if (already.has(item.id)) return false;
         // Only sync when we have an ID to work with and no external ratings yet.
@@ -230,7 +241,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     );
   }
 
-  if (!data || data.length === 0) {
+  if (!totalResults) {
     return (
       <div className="space-y-3">
         <p className="text-[12px] text-mn-text-secondary">
@@ -249,8 +260,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-mn-text-secondary">
           Showing{" "}
-          <span className="font-semibold text-mn-text-primary">{data.length}</span>{" "}
-          result{data.length === 1 ? "" : "s"} across your catalog and external sources for{" "}
+          <span className="font-semibold text-mn-text-primary">{totalResults}</span>{" "}
+          result{totalResults === 1 ? "" : "s"} across your catalog and external sources for{" "}
           <span className="font-semibold text-mn-text-primary">{trimmedQuery}</span>.
         </p>
         <button
@@ -273,10 +284,23 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       </div>
 
       <ul className="space-y-2">
-        {data.map((item) => (
+        {results.map((item) => (
           <TitleSearchResultRow key={item.id} item={item} />
         ))}
       </ul>
+
+      {hasNextPage && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-mn-primary px-4 py-2 text-[11px] font-medium text-white shadow-mn-soft transition hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? "Loading more…" : "Load more results"}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

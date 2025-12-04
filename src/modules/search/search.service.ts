@@ -13,6 +13,11 @@ export interface TitleSearchFilters {
   genreIds?: number[];
 }
 
+export interface TitleSearchResultPage {
+  results: TitleSearchResult[];
+  hasMore: boolean;
+}
+
 export interface TitleSearchResult {
   id: string;
   title: string;
@@ -70,11 +75,14 @@ const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
   };
 };
 
+const PAGE_SIZE = 20;
+
 const searchSupabaseTitles = async (
   query: string,
   filters: TitleSearchFilters | undefined,
+  page: number,
   signal: AbortSignal | undefined,
-): Promise<TitleSearchResult[]> => {
+): Promise<TitleSearchResultPage> => {
   throwIfAborted(signal);
 
   const columns = `
@@ -97,11 +105,13 @@ const searchSupabaseTitles = async (
     ? `${columns}, title_genres!inner(genre_id, genres(id, name))`
     : columns;
 
+  const offset = (page - 1) * PAGE_SIZE;
+
   let builder = supabase
     .from("titles")
-    .select(selectColumns, { distinct: true })
+    .select(selectColumns, { distinct: true, count: "exact" })
     .order("release_year", { ascending: false })
-    .limit(30);
+    .range(offset, offset + PAGE_SIZE - 1);
 
   if (signal) {
     builder = builder.abortSignal(signal);
@@ -134,7 +144,7 @@ const searchSupabaseTitles = async (
     builder = builder.in("title_genres.genre_id", filters.genreIds);
   }
 
-  const { data, error } = await builder.returns<TitleRow[]>();
+  const { data, error, count } = await builder.returns<TitleRow[]>();
 
   if (error) {
     throw new Error(error.message);
@@ -143,30 +153,36 @@ const searchSupabaseTitles = async (
   throwIfAborted(signal);
 
   const rows = data ?? [];
-  return rows.map(mapTitleRowToResult);
+  const totalCount = typeof count === "number" ? count : undefined;
+  const hasMore = totalCount ? offset + rows.length < totalCount : rows.length === PAGE_SIZE;
+
+  return { results: rows.map(mapTitleRowToResult), hasMore };
 };
 
 export const searchTitles = async (
-  params: { query: string; filters?: TitleSearchFilters; signal?: AbortSignal },
-): Promise<TitleSearchResult[]> => {
-  const { query, filters, signal } = params;
+  params: { query: string; filters?: TitleSearchFilters; page?: number; signal?: AbortSignal },
+): Promise<TitleSearchResultPage> => {
+  const { query, filters, page = 1, signal } = params;
   const trimmedQuery = query.trim();
 
   throwIfAborted(signal);
 
   let supabaseResults: TitleSearchResult[] = [];
+  let supabaseHasMore = false;
 
   try {
-    supabaseResults = await searchSupabaseTitles(trimmedQuery, filters, signal);
+    const { results, hasMore } = await searchSupabaseTitles(trimmedQuery, filters, page, signal);
+    supabaseResults = results;
+    supabaseHasMore = hasMore;
   } catch (err) {
     console.warn("[search.service] Supabase search failed, falling back to TMDb", err);
   }
 
-  const externalResults = await searchExternalTitles(trimmedQuery, signal);
+  const { results: externalResults, hasMore: externalHasMore } = await searchExternalTitles(trimmedQuery, page, signal);
 
   throwIfAborted(signal);
   if (!externalResults.length && supabaseResults.length > 0) {
-    return supabaseResults;
+    return { results: supabaseResults, hasMore: supabaseHasMore };
   }
 
   const seenTmdbIds = new Set<number>();
@@ -236,8 +252,13 @@ export const searchTitles = async (
     }),
   );
 
-  return [
+  const combined = [
     ...supabaseResults,
     ...hydratedExternal.filter((item): item is TitleSearchResult => Boolean(item)),
   ];
+
+  return {
+    results: combined,
+    hasMore: supabaseHasMore || externalHasMore,
+  };
 };
