@@ -244,7 +244,8 @@ _For each task or subtask below:_
 
 - [✔️] Split `ConversationPage.tsx` into focused components
   DONE – 2025-12-04 07:29 – Extracted message mapping into `messageModel.ts`, moved message querying to `useConversationMessages`, and split the conversation header, message list/bubble, and composer into dedicated components for reuse.
-  - [ ] Create:
+  - [✔️] Create:
+    DONE – 2025-12-04 07:38 – Split ConversationPage into dedicated header, message list/bubble, composer components and centralized message mapping in messageModel/useConversationMessages for reuse.
     - [✔️] `ConversationPage` – route container + data orchestration.
     - [✔️] `ConversationHeader` – title, participants, back button, overflow menu.
     - [✔️] `MessageList` – grouped messages, date separators, scroll handling.
