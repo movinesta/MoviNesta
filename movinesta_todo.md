@@ -327,12 +327,17 @@ _For each task or subtask below:_
 
 ## 7. Diary, stats & activity
 
-- [ ] Activity payload typing
-  - [ ] Define a discriminated union type for `activity_events.payload` based on `event_type` (e.g. `log`, `rating`, `review`, `status_change`).
-  - [ ] Implement a runtime validator (Zod or custom) to parse and validate payloads.
-  - [ ] Update `useDiaryTimeline` to:
-    - [ ] Parse payload through this validator.
-    - [ ] Return a typed timeline entry or a safe fallback when invalid.
+- [✔️] Activity payload typing
+  DONE – 2025-12-04 04:37 – Added discriminated payload typings and runtime validation for activity events in `src/modules/diary/useDiaryTimeline.ts` so diary items only consume well-formed data.
+  - [✔️] Define a discriminated union type for `activity_events.payload` based on `event_type` (e.g. `log`, `rating`, `review`, `status_change`).
+    DONE – 2025-12-04 04:37 – Introduced event-specific payload union covering ratings, reviews, watchlist, social, list, and message events in `useDiaryTimeline`.
+  - [✔️] Implement a runtime validator (Zod or custom) to parse and validate payloads.
+    DONE – 2025-12-04 04:37 – Added custom validators that narrow payloads per event type and ignore malformed values.
+  - [✔️] Update `useDiaryTimeline` to:
+    - [✔️] Parse payload through this validator.
+      DONE – 2025-12-04 04:37 – Diary timeline now routes Supabase payloads through the validator before mapping to UI fields.
+    - [✔️] Return a typed timeline entry or a safe fallback when invalid.
+      DONE – 2025-12-04 04:37 – Timeline items now gracefully fall back to nulls when payload validation fails.
 
 - [ ] `get_diary_stats` RPC
   - [ ] Implement Postgres function `get_diary_stats(p_user_id uuid)` that returns:
