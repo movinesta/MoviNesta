@@ -255,16 +255,17 @@ _For each task or subtask below:_
     - [✔️] `useConversationMessages` – fetch + realtime subscription.
   - [✔️] Move non-UI logic (data transforms, mapping from DB rows) into `messageModel.ts` and/or service layer.
 
-- [ ] Realtime messages with optimistic updates
-  - [ ] Implement `useConversationMessages` to:
-    - [ ] Fetch initial messages with ordered `created_at`.
-    - [ ] Subscribe to realtime `INSERT` events for the current conversation.
-    - [ ] Maintain a deduplicated list of `UiMessage`s.
-  - [ ] In `MessageComposer`:
-    - [ ] Add an optimistic `UiMessage` with `status: "sending"` and a temp ID.
-    - [ ] Insert the message via Supabase / Edge Function.
-    - [ ] Reconcile the server message (from realtime) with the temp one and mark as `sent`.
-    - [ ] On failure, change `status` to `"error"` and display a retry affordance.
+- [✔️] Realtime messages with optimistic updates
+  DONE – 2025-12-04 07:43 – Added realtime `useConversationMessages` subscription that fetches ordered history, dedupes new inserts/updates, and keeps optimistic send/retry flow aligned with server events in `src/modules/messages/useConversationMessages.ts` and `ConversationPage`.
+  - [✔️] Implement `useConversationMessages` to:
+    - [✔️] Fetch initial messages with ordered `created_at`.
+    - [✔️] Subscribe to realtime `INSERT` events for the current conversation.
+    - [✔️] Maintain a deduplicated list of `UiMessage`s.
+  - [✔️] In `MessageComposer`:
+    - [✔️] Add an optimistic `UiMessage` with `status: "sending"` and a temp ID.
+    - [✔️] Insert the message via Supabase / Edge Function.
+    - [✔️] Reconcile the server message (from realtime) with the temp one and mark as `sent`.
+    - [✔️] On failure, change `status` to `"error"` and display a retry affordance.
 
 - [ ] Delivery & read receipts UI
   - [ ] Ensure queries for `message_read_receipts` and `message_delivery_receipts` use appropriate indexes.
