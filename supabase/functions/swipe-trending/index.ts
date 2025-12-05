@@ -1,24 +1,38 @@
 // supabase/functions/swipe-trending/index.ts
 //
-// Returns a "Trending" swipe deck.
-// Trending = titles that have a lot of recent activity (last ~7 days),
-// with a fallback to global popularity if there isn't enough signal.
-// Also triggers `catalog-sync` for up to 3 cards per call.
+// "Ultimate" Trending swipe deck.
+// --------------------------------
+// - Primary signal: recent activity_events (last 7 days), weighted by
+//   event type + time decay.
+// - Secondary signal: tmdb_popularity.
+// - Personalized: gently boosted towards the user's favorite genres / types.
+// - Diverse: limits how many cards per genre to avoid repetition.
+// - Safe: filters out titles the user has already interacted with and
+//   falls back to a global popularity deck if data is sparse.
+// - Still triggers catalog-sync and catalog-backfill in the background.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import {
-  corsHeaders,
   handleOptions,
   jsonError,
   jsonResponse,
 } from "../_shared/http.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
+import {
+  computeUserProfile,
+  type UserProfile,
+} from "../_shared/preferences.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+// Deck sizing constants
+const MAX_DECK_SIZE = 30;
+const MIN_TRENDING_CARDS = 12; // if we have fewer than this, blend in popularity
+const MAX_PER_GENRE = 5;
 
 type SwipeCard = {
   id: string;
@@ -33,34 +47,11 @@ type SwipeCard = {
   contentType: "movie" | "series" | null;
 };
 
-type EnvConfigError = Response | null;
-
-function jsonOk(body: unknown, status = 200): Response {
-  return jsonResponse(body, status);
-}
-
-/**
- * Validate basic environment configuration for this edge function.
- */
-function validateConfig(): EnvConfigError {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error(
-      "[swipe-trending] Missing SUPABASE_URL or SERVICE_ROLE_KEY env vars",
-    );
-    return jsonError("Server not configured", 500, "CONFIG_ERROR");
-  }
-
-  return null;
-}
-
-function getSupabaseAdminClient(req: Request) {
-  return getAdminClient(req);
-}
-
+// ------------------------------------------------------------
 // Main handler
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------
 
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -68,7 +59,7 @@ serve(async (req) => {
     const configError = validateConfig();
     if (configError) return configError;
 
-    const supabase = getSupabaseAdminClient(req);
+    const supabaseAdmin = getAdminClient(req);
     const supabaseAuth = getUserClient(req);
 
     // Require authenticated user
@@ -83,104 +74,105 @@ serve(async (req) => {
     }
 
     if (!user) {
-      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED_NO_USER");
     }
 
-    // Titles this user has already interacted with (ratings, library entries, swipe events)
-    const seenTitleIds = await loadSeenTitleIdsForUser(supabase, user.id);
+    const userId = user.id as string;
+    console.log("[swipe-trending] request", { userId });
 
-    // Prefer titles that are actually trending in recent activity; fall back to
-    // the generic popularity-based deck if there is not enough recent data.
-    let allCards = await loadTrendingCards(supabase);
+    // Titles the user has already interacted with (ratings, library, events)
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, userId);
 
-    if (!allCards.length) {
-      allCards = await loadSwipeCards(supabase);
+    // Lightweight preference profile for personalization
+    const userProfile = await safeComputeUserProfile(supabaseAdmin, userId);
 
-      if (!allCards.length) {
-        // If the titles table is empty (fresh database), kick off a background
-        // catalog backfill so future swipe requests have data to work with.
-        triggerCatalogBackfill("swipe-trending:titles-empty");
-      }
+    // 1) Build trending deck from recent activity
+    let cards = await buildTrendingDeck(
+      supabaseAdmin,
+      seenTitleIds,
+      userProfile,
+    );
+
+    // 2) If not enough trending data, blend in a fallback popularity deck
+    if (cards.length < MIN_TRENDING_CARDS) {
+      const existingIds = new Set(cards.map((c) => c.id));
+      const fallback = await buildPopularityDeck(
+        supabaseAdmin,
+        seenTitleIds,
+        existingIds,
+      );
+      cards = cards.concat(fallback).slice(0, MAX_DECK_SIZE);
     }
 
-    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
+    // 3) If we still have nothing, trigger a catalog backfill
+    if (!cards.length) {
+      await triggerCatalogBackfill("swipe-trending: empty deck");
+    }
 
-    // Fire-and-forget: trigger catalog sync for a few of the cards.
-    const syncCandidates = cards.slice(0, 3);
-    Promise.allSettled(
-      syncCandidates.map((card) =>
-        triggerCatalogSyncForTitle(
-          req,
-          {
-            tmdbId: card.tmdbId,
-            imdbId: card.imdbId,
-            contentType: card.contentType ?? undefined,
-          },
-          { prefix: "[swipe-trending]" },
-        )
-      ),
-    ).catch((err) => {
-      console.warn("[swipe-trending] catalog-sync error", err);
-    });
+    // Fire-and-forget catalog sync for the first few cards
+    const toSync = cards.slice(0, 3);
+    for (const card of toSync) {
+      triggerCatalogSyncForTitle(req, {
+        tmdbId: card.tmdbId,
+        imdbId: card.imdbId ?? undefined,
+        contentType: card.contentType,
+      }).catch((err) =>
+        console.warn("[swipe-trending] catalog-sync error:", err),
+      );
+    }
 
-    return jsonOk({ ok: true, cards });
-  } catch (error) {
-    console.error("[swipe-trending] unexpected error", error);
-    return jsonError("Unexpected error", 500, "UNEXPECTED_ERROR");
+    return jsonResponse({ ok: true, cards });
+  } catch (err) {
+    console.error("[swipe-trending] unexpected error:", err);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
-// Helpers
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------
+// Core logic
+// ------------------------------------------------------------
 
-async function triggerCatalogBackfill(reason: string) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn(
-      "[swipe-trending] Cannot trigger catalog-backfill; missing env vars",
+function validateConfig(): Response | null {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SERVICE_ROLE_KEY) {
+    console.error(
+      "[swipe-trending] Missing required env vars (SUPABASE_URL / ANON / SERVICE_ROLE)",
     );
-    return;
+    return jsonError("Server not configured", 500, "CONFIG_ERROR");
   }
+  return null;
+}
 
+async function safeComputeUserProfile(
+  supabase: ReturnType<typeof getAdminClient>,
+  userId: string,
+): Promise<UserProfile | null> {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ reason }),
-    });
-
-    const text = await res.text().catch(() => "");
-    console.log(
-      "[swipe-trending] catalog-backfill status=",
-      res.status,
-      "body=",
-      text,
-    );
+    return await computeUserProfile(supabase, userId);
   } catch (err) {
-    console.warn("[swipe-trending] catalog-backfill request error:", err);
+    console.warn("[swipe-trending] computeUserProfile failed:", err);
+    return null;
   }
 }
 
 /**
- * Load a trending deck based on recent activity_events (last 7 days),
- * aggregating counts per title, with a bit of weight from tmdb_popularity.
- *
- * NOTE: we aggregate in memory instead of using `.group()` because the
- * Supabase JS query builder in this runtime does not expose `.group()`.
+ * Build the main "trending" deck:
+ * - Uses recent activity_events (last 7 days)
+ * - Weights by event type + time decay
+ * - Mixes in tmdb_popularity
+ * - Boosts scores slightly if they match the user profile
+ * - Applies genre-based diversity and seen filtering
  */
-async function loadTrendingCards(
+async function buildTrendingDeck(
   supabase: ReturnType<typeof getAdminClient>,
+  seenTitleIds: Set<string>,
+  userProfile: UserProfile | null,
 ): Promise<SwipeCard[]> {
   const since = new Date();
   since.setDate(since.getDate() - 7); // last 7 days
 
-  // Load recent interactions per title over the last week, then aggregate
-  // counts in memory.
   const { data: events, error: eventsError } = await supabase
     .from("activity_events")
-    .select("title_id, created_at")
+    .select("title_id, created_at, event_type")
     .gte("created_at", since.toISOString())
     .not("title_id", "is", null)
     .limit(5000);
@@ -193,28 +185,52 @@ async function loadTrendingCards(
     return [];
   }
 
+  if (!events || !events.length) {
+    return [];
+  }
+
+  // Aggregate weighted, time-decayed interactions per title_id
+  const nowMs = Date.now();
   const counts = new Map<string, number>();
 
-  for (const row of events ?? []) {
+  for (const row of events) {
     const titleId = (row as any).title_id as string | null;
     if (!titleId) continue;
 
+    const eventType = (row as any).event_type as string | null;
+    const createdAt = new Date((row as any).created_at).getTime();
+
+    const hoursAgo = (nowMs - createdAt) / 36e5;
+
+    // Event-type weights
+    const baseWeight =
+      eventType === "rating_created" || eventType === "rating_updated"
+        ? 3
+        : eventType === "library_added"
+        ? 2
+        : eventType?.startsWith("swipe_")
+        ? 1
+        : 1;
+
+    // Time decay: half-life ~48h
+    const decay = Math.pow(0.5, hoursAgo / 48);
+
+    const contribution = baseWeight * decay;
     const prev = counts.get(titleId) ?? 0;
-    counts.set(titleId, prev + 1);
+    counts.set(titleId, prev + contribution);
   }
 
   if (!counts.size) {
     return [];
   }
 
-  // Sort titleIds by interaction count (desc) and take top N.
-  const sortedByCount = Array.from(counts.entries()).sort(
+  // Take top N by interaction score so we don't query too many titles
+  const sortedByInteractions = Array.from(counts.entries()).sort(
     (a, b) => b[1] - a[1],
   );
-  const topEntries = sortedByCount.slice(0, 200);
+  const topEntries = sortedByInteractions.slice(0, 300);
   const titleIds = topEntries.map(([titleId]) => titleId);
 
-  // Fetch metadata for these titles.
   const { data: titleRows, error: titleError } = await supabase
     .from("titles")
     .select(
@@ -231,16 +247,15 @@ async function loadTrendingCards(
         "rt_tomato_pct",
         "deleted_at",
         "tmdb_popularity",
+        "genres",
       ].join(","),
     )
     .in("title_id", titleIds)
     .is("deleted_at", null);
 
   if (titleError) {
-    console.warn(
-      "[swipe-trending] titles query error:",
-      titleError.message,
-    );
+    console.warn("[swipe-trending] titles query error:", titleError.message);
+    return [];
   }
 
   const byId = new Map<string, any>();
@@ -249,6 +264,7 @@ async function loadTrendingCards(
   }
 
   type Scored = { score: number; meta: any };
+
   const scored: Scored[] = [];
 
   for (const [titleId, interactions] of topEntries) {
@@ -256,9 +272,12 @@ async function loadTrendingCards(
     if (!meta) continue;
 
     const popularity = Number((meta as any).tmdb_popularity ?? 0);
+    const popScore = Math.log10(1 + Math.max(0, popularity)) * 0.7;
 
-    let score = interactions;
-    score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
+    let score = interactions + popScore;
+
+    // Personalization boost
+    score *= computeUserBoost(meta, userProfile);
 
     scored.push({ score, meta });
   }
@@ -269,27 +288,53 @@ async function loadTrendingCards(
 
   scored.sort((a, b) => b.score - a.score);
 
-  const top = scored.slice(0, 50);
+  // Apply diversity + seen filtering
+  const genreCounts = new Map<string, number>();
+  const final: SwipeCard[] = [];
 
-  return top.map(({ meta }) => ({
-    id: meta.title_id,
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null,
-  }));
+  for (const { meta } of scored) {
+    if (final.length >= MAX_DECK_SIZE) break;
+
+    const id = String(meta.title_id);
+    if (seenTitleIds.has(id)) continue;
+
+    const genres: string[] = Array.isArray(meta.genres)
+      ? meta.genres
+      : typeof meta.genres === "string"
+      ? (meta.genres as string).split(",").map((g) => g.trim())
+      : [];
+
+    let skipForGenreCap = false;
+    if (genres.length) {
+      for (const g of genres) {
+        const current = genreCounts.get(g) ?? 0;
+        if (current >= MAX_PER_GENRE) {
+          skipForGenreCap = true;
+          break;
+        }
+      }
+    }
+
+    if (skipForGenreCap) continue;
+
+    final.push(mapMetaToCard(meta));
+
+    for (const g of genres) {
+      genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
+    }
+  }
+
+  return final;
 }
 
 /**
- * Generic popularity-based fallback deck.
+ * Popularity-based fallback deck.
+ * Uses tmdb_popularity, filters seen titles, and avoids duplicates.
  */
-async function loadSwipeCards(
+async function buildPopularityDeck(
   supabase: ReturnType<typeof getAdminClient>,
+  seenTitleIds: Set<string>,
+  alreadyIncludedIds: Set<string>,
 ): Promise<SwipeCard[]> {
   const { data: rows, error } = await supabase
     .from("titles")
@@ -307,6 +352,7 @@ async function loadSwipeCards(
         "rt_tomato_pct",
         "deleted_at",
         "tmdb_popularity",
+        "genres",
       ].join(","),
     )
     .is("deleted_at", null)
@@ -314,12 +360,65 @@ async function loadSwipeCards(
     .limit(200);
 
   if (error) {
-    console.error("[swipe-trending] titles query error:", error.message);
-    throw new Error("Failed to load titles");
+    console.warn(
+      "[swipe-trending] fallback titles query error:",
+      error.message,
+    );
+    return [];
   }
 
-  return (rows ?? []).map((meta: any) => ({
-    id: meta.title_id,
+  const cards: SwipeCard[] = [];
+
+  for (const meta of rows ?? []) {
+    if (cards.length >= MAX_DECK_SIZE) break;
+
+    const id = String((meta as any).title_id);
+    if (seenTitleIds.has(id)) continue;
+    if (alreadyIncludedIds.has(id)) continue;
+
+    cards.push(mapMetaToCard(meta));
+  }
+
+  return cards;
+}
+
+// ------------------------------------------------------------
+// Scoring helpers
+// ------------------------------------------------------------
+
+function computeUserBoost(meta: any, profile: UserProfile | null): number {
+  if (!profile) return 1;
+
+  let boost = 1;
+
+  // Genre-based boost
+  const userGenres = profile.favoriteGenres ?? [];
+  if (userGenres.length) {
+    const genres: string[] = Array.isArray(meta.genres)
+      ? meta.genres
+      : typeof meta.genres === "string"
+      ? (meta.genres as string).split(",").map((g) => g.trim())
+      : [];
+
+    const overlap = genres.filter((g) => userGenres.includes(g));
+    if (overlap.length > 0) {
+      boost += 0.2;
+    }
+  }
+
+  // Content-type preference
+  if (profile.preferredContentType && meta.content_type) {
+    if (meta.content_type === profile.preferredContentType) {
+      boost += 0.1;
+    }
+  }
+
+  return boost;
+}
+
+function mapMetaToCard(meta: any): SwipeCard {
+  return {
+    id: String(meta.title_id),
     title: meta.primary_title ?? null,
     year: meta.release_year ?? null,
     posterUrl: meta.poster_url ?? null,
@@ -329,5 +428,38 @@ async function loadSwipeCards(
     tmdbId: meta.tmdb_id ?? null,
     imdbId: meta.omdb_imdb_id ?? null,
     contentType: meta.content_type ?? null,
-  }));
+  };
+}
+
+// ------------------------------------------------------------
+// Catalog helpers
+// ------------------------------------------------------------
+
+async function triggerCatalogBackfill(reason: string): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn(
+      "[swipe-trending] Cannot trigger catalog-backfill; missing env vars",
+    );
+    return;
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ reason }),
+    });
+
+    const txt = await res.text().catch(() => "");
+    console.log(
+      "[swipe-trending] catalog-backfill response",
+      res.status,
+      txt.slice(0, 200),
+    );
+  } catch (err) {
+    console.warn("[swipe-trending] catalog-backfill fetch error", err);
+  }
 }
