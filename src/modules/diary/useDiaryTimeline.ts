@@ -231,7 +231,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
             payload?.event_type === "rating_created" || payload?.event_type === "review_created"
               ? (payload.headline ?? null)
               : null,
-          extra: payload?.extra ?? null,
+          extra: (payload as any)?.extra ?? null,
           emoji:
             payload?.event_type === "rating_created" || payload?.event_type === "review_created"
               ? (payload.emoji ?? null)
