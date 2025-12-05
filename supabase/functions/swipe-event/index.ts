@@ -288,7 +288,7 @@ async function updateTitleStats(
     }
 
     // For watch_count we approximate "has some non-want_to_watch entry"
-    const { count: watchCount, error: watchAggError } = await supabase
+    const { count: watchCountRaw, error: watchAggError } = await supabase
       .from("library_entries")
       .select("*", { count: "exact", head: true })
       .eq("title_id", titleId)
@@ -303,7 +303,7 @@ async function updateTitleStats(
     const avgRating = (ratingAgg as any)?.avg_rating ?? null;
     const ratingsCount = (ratingAgg as any)?.ratings_count ?? 0;
     const reviewsCount = (reviewAgg as any)?.reviews_count ?? 0;
-    const watchCount = watchCount ?? 0;
+    const watchCount = watchCountRaw ?? 0;
 
     await supabase
       .from("title_stats")
