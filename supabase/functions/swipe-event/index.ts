@@ -8,7 +8,12 @@ import {
   jsonResponse,
   validateRequest,
 } from "../_shared/http.ts";
-import { getUserClient } from "../_shared/supabase.ts";
+import { getUserClient, getAdminClient } from "../_shared/supabase.ts";
+
+function buildSupabaseClient(req: Request) {
+  return getAdminClient(req);
+}
+
 
 type SwipeDirection = "like" | "dislike" | "skip";
 
