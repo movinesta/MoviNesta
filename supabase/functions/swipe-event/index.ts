@@ -266,43 +266,60 @@ async function updateTitleStats(
   titleId: string,
 ): Promise<void> {
   try {
-    // Aggregate ratings for this title
-    const { data: ratingAgg, error: ratingAggError } = await supabase
+    // Aggregate ratings for this title in application code to avoid complex SQL in PostgREST.
+    const { data: ratingRows, error: ratingError } = await supabase
       .from("ratings")
-      .select("avg(rating)::numeric as avg_rating, count(*)::int as ratings_count")
-      .eq("title_id", titleId)
-      .single();
+      .select("rating")
+      .eq("title_id", titleId);
 
-    if (ratingAggError) {
-      console.warn("[swipe-event] updateTitleStats ratings agg error:", ratingAggError.message);
+    let avgRating: number | null = null;
+    let ratingsCount = 0;
+
+    if (ratingError) {
+      console.warn(
+        "[swipe-event] updateTitleStats ratings agg error:",
+        ratingError.message ?? ratingError,
+      );
+    } else if (ratingRows && ratingRows.length > 0) {
+      ratingsCount = ratingRows.length;
+      let sum = 0;
+      for (const row of ratingRows as any[]) {
+        const r = (row as any).rating;
+        if (typeof r === "number") {
+          sum += r;
+        }
+      }
+      if (ratingsCount > 0) {
+        avgRating = sum / ratingsCount;
+      }
     }
 
-    const { data: reviewAgg, error: reviewAggError } = await supabase
+    const { count: reviewsCountRaw, error: reviewsError } = await supabase
       .from("reviews")
-      .select("count(*)::int as reviews_count")
-      .eq("title_id", titleId)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("title_id", titleId);
 
-    if (reviewAggError) {
-      console.warn("[swipe-event] updateTitleStats reviews agg error:", reviewAggError.message);
+    if (reviewsError) {
+      console.warn(
+        "[swipe-event] updateTitleStats reviews agg error:",
+        reviewsError.message ?? reviewsError,
+      );
     }
 
-    // For watch_count we approximate "has some non-want_to_watch entry"
-    const { count: watchCountRaw, error: watchAggError } = await supabase
+    const { count: watchCountRaw, error: watchError } = await supabase
       .from("library_entries")
       .select("*", { count: "exact", head: true })
       .eq("title_id", titleId)
       .neq("status", "want_to_watch");
 
-    if (watchAggError) {
-      console.warn("[swipe-event] updateTitleStats watch agg error:", watchAggError.message);
+    if (watchError) {
+      console.warn(
+        "[swipe-event] updateTitleStats watch agg error:",
+        watchError.message ?? watchError,
+      );
     }
 
-    const now = new Date().toISOString();
-
-    const avgRating = (ratingAgg as any)?.avg_rating ?? null;
-    const ratingsCount = (ratingAgg as any)?.ratings_count ?? 0;
-    const reviewsCount = (reviewAgg as any)?.reviews_count ?? 0;
+    const reviewsCount = reviewsCountRaw ?? 0;
     const watchCount = watchCountRaw ?? 0;
 
     await supabase
@@ -314,7 +331,6 @@ async function updateTitleStats(
           ratings_count: ratingsCount,
           reviews_count: reviewsCount,
           watch_count: watchCount,
-          last_updated_at: now,
         },
         { onConflict: "title_id" },
       );
@@ -330,72 +346,85 @@ async function updateUserStats(
   try {
     const now = new Date().toISOString();
 
-    // Ratings
-    const { data: ratingsAgg, error: ratingsAggError } = await supabase
+    const { count: ratingsCountRaw, error: ratingsError } = await supabase
       .from("ratings")
-      .select("count(*)::int as ratings_count")
-      .eq("user_id", userId)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
 
-    if (ratingsAggError) {
-      console.warn("[swipe-event] updateUserStats ratings agg error:", ratingsAggError.message);
+    if (ratingsError) {
+      console.warn(
+        "[swipe-event] updateUserStats ratings agg error:",
+        ratingsError.message ?? ratingsError,
+      );
     }
 
-    const { data: reviewsAgg, error: reviewsAggError } = await supabase
+    const { count: reviewsCountRaw, error: reviewsError } = await supabase
       .from("reviews")
-      .select("count(*)::int as reviews_count")
-      .eq("user_id", userId)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
 
-    if (reviewsAggError) {
-      console.warn("[swipe-event] updateUserStats reviews agg error:", reviewsAggError.message);
+    if (reviewsError) {
+      console.warn(
+        "[swipe-event] updateUserStats reviews agg error:",
+        reviewsError.message ?? reviewsError,
+      );
     }
 
-    const { data: watchlistAgg, error: watchlistAggError } = await supabase
+    const { count: watchlistCountRaw, error: watchlistError } = await supabase
       .from("library_entries")
-      .select("count(*)::int as watchlist_count")
+      .select("*", { count: "exact", head: true })
       .eq("user_id", userId)
-      .eq("status", "want_to_watch")
-      .single();
+      .eq("status", "want_to_watch");
 
-    if (watchlistAggError) {
-      console.warn("[swipe-event] updateUserStats watchlist agg error:", watchlistAggError.message);
+    if (watchlistError) {
+      console.warn(
+        "[swipe-event] updateUserStats watchlist agg error:",
+        watchlistError.message ?? watchlistError,
+      );
     }
 
-    const { data: commentsAgg, error: commentsAggError } = await supabase
+    const { count: commentsCountRaw, error: commentsError } = await supabase
       .from("comments")
-      .select("count(*)::int as comments_count")
-      .eq("user_id", userId)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
 
-    if (commentsAggError) {
-      console.warn("[swipe-event] updateUserStats comments agg error:", commentsAggError.message);
+    if (commentsError) {
+      console.warn(
+        "[swipe-event] updateUserStats comments agg error:",
+        commentsError.message ?? commentsError,
+      );
     }
 
-    const { count: listsCountRaw, error: listsAggError } = await supabase
+    const { count: listsCountRaw, error: listsError } = await supabase
       .from("lists")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
-    if (listsAggError) {
-      console.warn("[swipe-event] updateUserStats lists agg error:", listsAggError.message);
+    if (listsError) {
+      console.warn(
+        "[swipe-event] updateUserStats lists agg error:",
+        listsError.message ?? listsError,
+      );
     }
 
-    const { count: messagesSentCountRaw, error: messagesAggError } = await supabase
+    const { count: messagesSentCountRaw, error: messagesError } = await supabase
       .from("messages")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
-    if (messagesAggError) {
-      console.warn("[swipe-event] updateUserStats messages agg error:", messagesAggError.message);
+    if (messagesError) {
+      console.warn(
+        "[swipe-event] updateUserStats messages agg error:",
+        messagesError.message ?? messagesError,
+      );
     }
 
-    const ratingsCount = (ratingsAgg as any)?.ratings_count ?? 0;
-    const reviewsCount = (reviewsAgg as any)?.reviews_count ?? 0;
-    const watchlistCount = (watchlistAgg as any)?.watchlist_count ?? 0;
-    const commentsCount = (commentsAgg as any)?.comments_count ?? 0;
-    const listsCount = (listsAgg as any)?.count ?? 0;
-    const messagesSentCount = (messagesAgg as any)?.count ?? 0;
+    const ratingsCount = ratingsCountRaw ?? 0;
+    const reviewsCount = reviewsCountRaw ?? 0;
+    const watchlistCount = watchlistCountRaw ?? 0;
+    const commentsCount = commentsCountRaw ?? 0;
+    const listsCount = listsCountRaw ?? 0;
+    const messagesSentCount = messagesSentCountRaw ?? 0;
 
     await supabase
       .from("user_stats")
