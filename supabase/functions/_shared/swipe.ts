@@ -15,20 +15,20 @@ export async function loadSeenTitleIdsForUser(
   const limit = opts?.limit ?? 2000;
   const seen = new Set<string>();
 
-  // Ratings: any title the user has rated.
+  // Ratings
   try {
-    const { data: ratings, error: ratingsError } = await supabase
+    const { data, error } = await supabase
       .from("ratings")
       .select("title_id")
       .eq("user_id", userId)
       .limit(limit);
 
-    if (ratingsError) {
-      console.warn("[swipe:seen] ratings error", ratingsError);
-    } else if (Array.isArray(ratings)) {
-      for (const row of ratings) {
+    if (error) {
+      console.warn("[swipe:seen] ratings error", error);
+    } else if (Array.isArray(data)) {
+      for (const row of data) {
         if (row?.title_id) {
-          seen.add(row.title_id as string);
+          seen.add(String(row.title_id));
         }
       }
     }
@@ -36,20 +36,20 @@ export async function loadSeenTitleIdsForUser(
     console.warn("[swipe:seen] ratings fetch failed", err);
   }
 
-  // Library entries: anything on watchlist / in history.
+  // Library entries
   try {
-    const { data: libraryRows, error: libError } = await supabase
+    const { data, error } = await supabase
       .from("library_entries")
       .select("title_id")
       .eq("user_id", userId)
       .limit(limit);
 
-    if (libError) {
-      console.warn("[swipe:seen] library_entries error", libError);
-    } else if (Array.isArray(libraryRows)) {
-      for (const row of libraryRows) {
+    if (error) {
+      console.warn("[swipe:seen] library_entries error", error);
+    } else if (Array.isArray(data)) {
+      for (const row of data) {
         if (row?.title_id) {
-          seen.add(row.title_id as string);
+          seen.add(String(row.title_id));
         }
       }
     }
@@ -57,22 +57,20 @@ export async function loadSeenTitleIdsForUser(
     console.warn("[swipe:seen] library_entries fetch failed", err);
   }
 
-  // Activity events: swipes and rating-created events.
+  // Activity events (swipes, rating_created, etc.)
   try {
-    const { data: activityRows, error: activityError } = await supabase
+    const { data, error } = await supabase
       .from("activity_events")
-      .select("title_id, event_type")
+      .select("title_id")
       .eq("user_id", userId)
-      .in("event_type", ["rating_created", "swipe_skipped"])
-      .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (activityError) {
-      console.warn("[swipe:seen] activity_events error", activityError);
-    } else if (Array.isArray(activityRows)) {
-      for (const row of activityRows) {
+    if (error) {
+      console.warn("[swipe:seen] activity_events error", error);
+    } else if (Array.isArray(data)) {
+      for (const row of data) {
         if (row?.title_id) {
-          seen.add(row.title_id as string);
+          seen.add(String(row.title_id));
         }
       }
     }
