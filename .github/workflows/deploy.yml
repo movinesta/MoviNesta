@@ -19,11 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Node (use 22 instead of 18)
+      # Setup Node (use LTS v24)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       # Install dependencies (with some retry config for transient registry errors)
