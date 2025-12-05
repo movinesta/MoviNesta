@@ -19,15 +19,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Node
+      # Setup Node (use 22 instead of 18)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
+          cache: npm
 
-      # Install dependencies
+      # Install dependencies (with some retry config for transient registry errors)
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 1000
+          npm config set fetch-retry-maxtimeout 60000
+          npm ci
 
       # Create a .env file with secrets
       - name: Create .env file
@@ -76,5 +81,4 @@ jobs:
           version: latest
 
       - name: Deploy all Supabase Edge Functions
-        # 👇 no working-directory here; runs from repo root
         run: supabase functions deploy --project-ref "$PROJECT_ID" --use-api
