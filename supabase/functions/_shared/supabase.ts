@@ -11,35 +11,51 @@ const requireEnv = (key: string, value: string | null) => {
   return value;
 };
 
+/**
+ * Auth-scoped client (uses the caller's JWT from the Authorization header).
+ * This is what you want for "acting as the user" with RLS enabled.
+ */
 export const getUserClient = (req: Request) => {
   const supabaseUrl = requireEnv("SUPABASE_URL", SUPABASE_URL);
   const anonKey = requireEnv("SUPABASE_ANON_KEY", SUPABASE_ANON_KEY);
 
+  // Always send the anon key
+  const headers: Record<string, string> = {
+    apikey: anonKey,
+  };
+
+  // ❗ IMPORTANT:
+  // Only set Authorization if the header actually exists.
+  // Sending an empty string here makes PostgREST try to parse an invalid JWT
+  // and results in "Expected 3 parts in JWT; got 1".
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+
   return createClient(supabaseUrl, anonKey, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-        apikey: anonKey,
-      },
-    },
+    global: { headers },
   });
 };
 
-export const getAdminClient = (req?: Request) => {
+/**
+ * Admin client using the service role key (bypasses RLS).
+ * We **do not** forward the incoming Authorization header here.
+ */
+export const getAdminClient = (_req?: Request) => {
   const supabaseUrl = requireEnv("SUPABASE_URL", SUPABASE_URL);
   const serviceRoleKey = requireEnv(
     "SUPABASE_SERVICE_ROLE_KEY",
     SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  const headers: Record<string, string> = {};
-  const authorization = req?.headers.get("Authorization");
-  const anonKey = SUPABASE_ANON_KEY;
-
-  if (authorization) headers.Authorization = authorization;
-  if (anonKey) headers.apikey = anonKey;
-
+  // Use the service role key as the API key and JWT.
   return createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers },
+    global: {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+    },
   });
 };
