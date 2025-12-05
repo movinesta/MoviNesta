@@ -524,11 +524,9 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     tmdb_adult: details.adult ?? null,
     tmdb_original_language: details.original_language ?? null,
     tmdb_media_type: type,
-    tmdb_runtime_minutes: runtimeMinutes,
-    tmdb_production_countries: productionCountries.length
-      ? productionCountries
-      : null,
-    tmdb_spoken_languages: spokenLanguages.length ? spokenLanguages : null,
+    tmdb_runtime: runtimeMinutes,
+    tmdb_episode_run_time: Array.isArray(details.episode_run_time) ? details.episode_run_time : null,
+    tmdb_genre_names: genresArray.length ? genresArray : null,
 
     tmdb_raw: details,
   };
@@ -659,7 +657,7 @@ function buildCanonicalBlock(
       ? tmdb.tmdb_genre_names
       : null;
 
-  const tmdbRuntimeMinutes = tmdb.tmdb_runtime_minutes ?? null;
+  const tmdbRuntimeMinutes = tmdb.tmdb_runtime ?? null;
   const tmdbPosterUrl = buildTmdbImageUrl(tmdb.tmdb_poster_path, "w500");
   const tmdbBackdropUrl = buildTmdbImageUrl(tmdb.tmdb_backdrop_path, "w780");
 
