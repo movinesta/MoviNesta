@@ -3,7 +3,7 @@ import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
-import type { TitleType } from "../search/useSearchTitles";
+import { TitleType } from "@/types/supabase-helpers";
 
 export type DiaryStatus = "want_to_watch" | "watching" | "watched" | "dropped";
 

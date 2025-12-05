@@ -41,7 +41,7 @@ type CatalogSyncBatchResult = {
 
 type TitleRow = Pick<
   Database["public"]["Tables"]["titles"]["Row"],
-  | "id"
+  | "title_id"
   | "primary_title"
   | "original_title"
   | "release_year"
@@ -53,7 +53,7 @@ type TitleRow = Pick<
   | "omdb_imdb_id"
   | "tmdb_id"
   | "imdb_rating"
-  | "omdb_rt_rating_pct"
+  | "rt_tomato_pct"
 >;
 
 const throwIfAborted = (signal?: AbortSignal) => {
@@ -66,7 +66,7 @@ const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
   const posterUrl = row.poster_url ?? row.backdrop_url ?? null;
 
   return {
-    id: row.id,
+    id: row.title_id,
     title: row.primary_title ?? row.original_title ?? "Untitled",
     year: row.release_year,
     type: row.content_type,
@@ -75,7 +75,7 @@ const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
     originalLanguage: row.language,
     ageRating: row.omdb_rated,
     imdbRating: row.imdb_rating,
-    rtTomatoMeter: row.omdb_rt_rating_pct,
+    rtTomatoMeter: row.rt_tomato_pct,
     imdbId: row.omdb_imdb_id,
     tmdbId: row.tmdb_id,
   };
@@ -93,7 +93,7 @@ const searchSupabaseTitles = async (
   throwIfAborted(signal);
 
   const columns = `
-    id:title_id,
+    title_id,
     primary_title,
     original_title,
     release_year,
@@ -105,7 +105,7 @@ const searchSupabaseTitles = async (
     omdb_imdb_id,
     tmdb_id,
     imdb_rating,
-    omdb_rt_rating_pct
+    rt_tomato_pct
   `;
 
   const selectColumns = filters?.genreIds?.length
@@ -116,7 +116,7 @@ const searchSupabaseTitles = async (
 
   let builder = supabase
     .from("titles")
-    .select(selectColumns, { distinct: true, count: "exact" })
+    .select(selectColumns, { count: "exact" })
     .order("release_year", { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 

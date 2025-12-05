@@ -85,7 +85,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       filters,
     });
 
-  const results = data?.pages.flatMap((page) => page.results) ?? [];
+  const results = data?.results ?? [];
   const totalResults = results.length;
 
   const activeFilterLabels: string[] = [];
@@ -290,9 +290,11 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         }}
         computeItemKey={(_, item) => item.id}
         components={{
-          List: React.forwardRef<HTMLUListElement, React.HTMLAttributes<HTMLUListElement>>((props, ref) => (
-            <ul ref={ref} className="space-y-2" {...props} />
-          )),
+          List: React.forwardRef<HTMLUListElement, React.HTMLAttributes<HTMLUListElement>>(
+            function List(props, ref) {
+              return <ul ref={ref} className="space-y-2" {...props} />;
+            },
+          ),
           Footer: () =>
             hasNextPage ? (
               <div className="flex justify-center py-3">

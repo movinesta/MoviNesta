@@ -128,7 +128,6 @@ const SwipeForYouTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
-        title: card.title,
       });
 
       setLastSwipe({
@@ -258,7 +257,6 @@ const SwipeForYouTab: React.FC = () => {
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
-        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,

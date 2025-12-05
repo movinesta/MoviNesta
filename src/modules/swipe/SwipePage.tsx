@@ -341,7 +341,6 @@ const SwipePage: React.FC = () => {
       rating: activeCard.initialRating ?? null,
       inWatchlist: activeCard.initiallyInWatchlist ?? undefined,
       sourceOverride: activeCard.source,
-      title: activeCard.title,
     });
 
     // SKIP → drop + fade
