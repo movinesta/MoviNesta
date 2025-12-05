@@ -466,7 +466,7 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     typeof details.runtime === "number" && details.runtime > 0
       ? details.runtime
       : Array.isArray(details.episode_run_time) &&
-          typeof details.episode_run_time[0] === "number"
+        typeof details.episode_run_time[0] === "number"
         ? details.episode_run_time[0]
         : null;
 
@@ -520,7 +520,7 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     tmdb_first_air_date: details.first_air_date ?? null,
     tmdb_vote_average: voteAverage,
     tmdb_vote_count: voteCount,
-    tmdb_popularity,
+    tmdb_popularity: tmdbPopularity,
     tmdb_adult: details.adult ?? null,
     tmdb_original_language: details.original_language ?? null,
     tmdb_media_type: type,
