@@ -470,12 +470,17 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
         ? details.episode_run_time[0]
         : null;
 
-  const releaseDate =
-    typeof details.release_date === "string"
+  const tmdbReleaseDate =
+    typeof details.release_date === "string" && details.release_date.trim().length
       ? details.release_date
-      : typeof details.first_air_date === "string"
-        ? details.first_air_date
-        : null;
+      : null;
+
+  const tmdbFirstAirDate =
+    typeof details.first_air_date === "string" && details.first_air_date.trim().length
+      ? details.first_air_date
+      : null;
+
+  const releaseDate = tmdbReleaseDate ?? tmdbFirstAirDate ?? null;
 
   const releaseYear =
     releaseDate && releaseDate.length >= 4
@@ -516,8 +521,8 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     tmdb_backdrop_path: backdropPath,
     tmdb_genre_ids: genreIds.length ? genreIds : null,
     tmdb_genre_names: genresArray.length ? genresArray : null,
-    tmdb_release_date: details.release_date ?? null,
-    tmdb_first_air_date: details.first_air_date ?? null,
+    tmdb_release_date: tmdbReleaseDate,
+    tmdb_first_air_date: tmdbFirstAirDate,
     tmdb_vote_average: voteAverage,
     tmdb_vote_count: voteCount,
     tmdb_popularity: tmdbPopularity,
