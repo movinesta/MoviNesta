@@ -1,19 +1,21 @@
 // supabase/functions/swipe-from-friends/index.ts
 //
 // Returns a "From Friends" swipe deck.
-// "Friends" here is approximated as "other users on the service" by looking
-// at recent activity_events from *other* user_ids. You can later wire this up
-// to a real friends/follow graph by restricting which user_ids are considered.
-//
-// Also triggers `catalog-sync` for up to 3 cards per call.
+// In the absence of an explicit friends graph, this approximates
+// "friends" as the wider community, focusing on titles that other users
+// have rated highly, then softly personalizing using the caller's
+// preference profile.
+// - Aggregates community ratings per title (excluding the current user).
+// - Scores by rating strength + rating count + tmdb_popularity.
+// - Boosts titles that match the user's favorite genres / content types.
+// - Filters out titles the user has already interacted with.
+// - Applies genre diversity caps and triggers catalog-sync.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
 import {
-  corsHeaders,
   handleOptions,
   jsonError,
   jsonResponse,
@@ -21,7 +23,6 @@ import {
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 type SwipeCard = {
@@ -37,30 +38,16 @@ type SwipeCard = {
   contentType: "movie" | "series" | null;
 };
 
-type EnvConfigError = Response | null;
+const MAX_DECK_SIZE = 30;
+const MAX_RATING_ROWS = 5000;
+const MAX_TITLE_ROWS = 400;
+const MAX_PER_GENRE = 5;
 
-function jsonOk(body: unknown, status = 200): Response {
-  return jsonResponse(body, status);
-}
-
-/**
- * Validate basic environment configuration for this edge function.
- */
-function validateConfig(): EnvConfigError {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error(
-      "[swipe-from-friends] Missing SUPABASE_URL or SERVICE_ROLE_KEY env vars",
-    );
-    return jsonError("Server not configured", 500, "CONFIG_ERROR");
-  }
-
-  return null;
-}
-
+// ------------------------------------------------------------
 // Main handler
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------
 
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -68,10 +55,9 @@ serve(async (req) => {
     const configError = validateConfig();
     if (configError) return configError;
 
-    const supabase = getAdminClient(req);
+    const supabaseAdmin = getAdminClient(req);
     const supabaseAuth = getUserClient(req);
 
-    // Require authenticated user
     const {
       data: { user },
       error: authError,
@@ -81,153 +67,119 @@ serve(async (req) => {
       console.error("[swipe-from-friends] auth error:", authError.message);
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
-
     if (!user) {
-      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED_NO_USER");
     }
 
-    // Titles this user has already interacted with (ratings, library entries, swipes)
-    // and a richer preference profile built from ratings, library, and activity events.
-    const [seenTitleIds, profile] = await Promise.all([
-      loadSeenTitleIdsForUser(supabase, user.id),
-      computeUserProfile(supabase, user.id),
-    ]);
+    const userId = user.id as string;
+    console.log("[swipe-from-friends] request", { userId });
 
-    // Prefer titles that friends have recently interacted with, and that also line up
-    // reasonably well with this user's own taste profile.
-    let allCards = await loadSwipeCardsFromFriends(supabase, user.id, profile);
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, userId);
+    const profile = await safeComputeUserProfile(supabaseAdmin, userId);
 
-    // If we don't have enough friend-based cards, fall back to a generic deck.
-    if (!allCards.length) {
-      allCards = await loadSwipeCards(supabase);
+    const cards = await buildFromFriendsDeck(
+      supabaseAdmin,
+      userId,
+      seenTitleIds,
+      profile,
+    );
 
-      if (!allCards.length) {
-        // If the titles table is empty (fresh database), kick off a background
-        // catalog backfill so future swipe requests have data to work with.
-        triggerCatalogBackfill("swipe-from-friends:titles-empty");
-      }
+    // Fire-and-forget catalog sync for a few cards
+    const toSync = cards.slice(0, 3);
+    for (const card of toSync) {
+      triggerCatalogSyncForTitle(req, {
+        tmdbId: card.tmdbId,
+        imdbId: card.imdbId ?? undefined,
+        contentType: card.contentType,
+      }).catch((err) =>
+        console.warn("[swipe-from-friends] catalog-sync error:", err),
+      );
     }
 
-    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
-
-    // Fire-and-forget: trigger catalog sync for a few of the cards.
-    const syncCandidates = cards.slice(0, 3);
-    Promise.allSettled(
-      syncCandidates.map((card) =>
-        triggerCatalogSyncForTitle(
-          req,
-          {
-            tmdbId: card.tmdbId,
-            imdbId: card.imdbId,
-            contentType: card.contentType ?? undefined,
-          },
-          { prefix: "[swipe-from-friends]" },
-        )
-      ),
-    ).catch((err) => {
-      console.warn("[swipe-from-friends] catalog-sync error", err);
-    });
-
-    return jsonOk({ ok: true, cards });
-  } catch (error) {
-    console.error("[swipe-from-friends] unexpected error", error);
-    return jsonError("Unexpected error", 500, "UNEXPECTED_ERROR");
+    return jsonResponse({ ok: true, cards });
+  } catch (err) {
+    console.error("[swipe-from-friends] unexpected error:", err);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function triggerCatalogBackfill(reason: string) {
+function validateConfig(): Response | null {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn(
-      "[swipe-from-friends] Cannot trigger catalog-backfill; missing env vars",
+    console.error(
+      "[swipe-from-friends] Missing SUPABASE_URL or SUPABASE_ANON_KEY",
     );
-    return;
+    return jsonError("Server not configured", 500, "CONFIG_ERROR");
   }
+  return null;
+}
 
+async function safeComputeUserProfile(
+  supabase: ReturnType<typeof getAdminClient>,
+  userId: string,
+): Promise<UserProfile | null> {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ reason }),
-    });
-
-    const text = await res.text().catch(() => "");
-    console.log(
-      "[swipe-from-friends] catalog-backfill status=",
-      res.status,
-      "body=",
-      text,
-    );
+    return await computeUserProfile(supabase, userId);
   } catch (err) {
-    console.warn("[swipe-from-friends] catalog-backfill request error:", err);
+    console.warn("[swipe-from-friends] computeUserProfile failed:", err);
+    return null;
   }
 }
 
-/**
- * Friend-based deck: score titles based on recent activity from other users,
- * then adjust by this user's own taste profile.
- */
-async function loadSwipeCardsFromFriends(
+// ------------------------------------------------------------
+// Deck building
+// ------------------------------------------------------------
+
+async function buildFromFriendsDeck(
   supabase: ReturnType<typeof getAdminClient>,
   userId: string,
+  seenTitleIds: Set<string>,
   profile: UserProfile | null,
 ): Promise<SwipeCard[]> {
-  // 1) Load recent activity events from "friends" (approximated as "everyone except userId").
-  const {
-    data: events,
-    error: eventsError,
-  } = await supabase
-    .from("activity_events")
-    .select("title_id, event_type, created_at, payload, user_id")
+  // Step 1: sample community ratings (excluding the current user)
+  const { data: rows, error } = await supabase
+    .from("ratings")
+    .select("title_id, rating")
     .neq("user_id", userId)
-    .not("title_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1000);
+    .gte("rating", 6)
+    .limit(MAX_RATING_ROWS);
 
-  if (eventsError) {
-    console.error(
-      "[swipe-from-friends] activity_events error:",
-      eventsError.message,
-    );
-    throw new Error("Failed to load friend activity");
-  }
-
-  type TitleScore = {
-    baseScore: number;
-  };
-
-  const now = Date.now();
-  const perTitle = new Map<string, TitleScore>();
-
-  for (const ev of events ?? []) {
-    const titleId = (ev as any).title_id as string | null;
-    if (!titleId) continue;
-
-    const createdAtStr = (ev as any).created_at as string | null;
-    let recencyFactor = 1;
-    if (createdAtStr) {
-      const createdAt = new Date(createdAtStr).getTime();
-      const days = Math.max(0, (now - createdAt) / (1000 * 60 * 60 * 24));
-      recencyFactor = 1 / (1 + days / 7); // half-life ~1 week
-    }
-
-    const prev = perTitle.get(titleId) ?? { baseScore: 0 };
-    prev.baseScore += 1 * recencyFactor;
-    perTitle.set(titleId, prev);
-  }
-
-  if (!perTitle.size) {
+  if (error) {
+    console.error("[swipe-from-friends] ratings query error:", error.message);
     return [];
   }
 
-  const candidateTitleIds = Array.from(perTitle.keys());
+  if (!rows || !rows.length) {
+    return [];
+  }
 
-  // 2) Fetch metadata for these titles.
+  // Aggregate rating count & average per title
+  type Agg = { count: number; sum: number };
+  const agg = new Map<string, Agg>();
+
+  for (const row of rows) {
+    const titleId = (row as any).title_id as string | null;
+    const rating = (row as any).rating as number | null;
+    if (!titleId || rating == null) continue;
+
+    let entry = agg.get(titleId);
+    if (!entry) {
+      entry = { count: 0, sum: 0 };
+      agg.set(titleId, entry);
+    }
+    entry.count += 1;
+    entry.sum += rating;
+  }
+
+  if (!agg.size) {
+    return [];
+  }
+
+  const entries = Array.from(agg.entries());
+  const sortedByCount = entries.sort((a, b) => b[1].count - a[1].count);
+  const topEntries = sortedByCount.slice(0, MAX_TITLE_ROWS);
+  const titleIds = topEntries.map(([titleId]) => titleId);
+
+  // Step 2: load title metadata
   const { data: titleRows, error: titleError } = await supabase
     .from("titles")
     .select(
@@ -245,87 +197,78 @@ async function loadSwipeCardsFromFriends(
         "deleted_at",
         "tmdb_popularity",
         "genres",
-        "omdb_genre_names",
-        "tmdb_genre_names",
       ].join(","),
     )
-    .in("title_id", candidateTitleIds)
+    .in("title_id", titleIds)
     .is("deleted_at", null);
 
   if (titleError) {
-    console.error(
+    console.warn(
       "[swipe-from-friends] titles query error:",
       titleError.message,
     );
-    throw new Error("Failed to load titles");
+    return [];
   }
 
-  const favSet = new Set(
-    (profile?.favoriteGenres ?? [])
-      .map((g) => g.trim().toLowerCase())
-      .filter(Boolean),
-  );
-  const dislikedSet = new Set(
-    (profile?.dislikedGenres ?? [])
-      .map((g) => g.trim().toLowerCase())
-      .filter(Boolean),
-  );
-  const ctWeights = profile?.contentTypeWeights ?? {};
-  const currentYear = new Date().getFullYear();
+  const byId = new Map<string, any>();
+  for (const row of titleRows ?? []) {
+    byId.set(String((row as any).title_id), row);
+  }
+
+  const favoriteGenres = profile?.favoriteGenres ?? [];
+  const dislikedGenres = profile?.dislikedGenres ?? [];
+  const contentTypeWeights = profile?.contentTypeWeights ?? {};
+
+  const positiveGenreSet = new Set(favoriteGenres.map((g) => g.toLowerCase()));
+  const negativeGenreSet = new Set(dislikedGenres.map((g) => g.toLowerCase()));
 
   type Scored = { score: number; meta: any };
+
   const scored: Scored[] = [];
 
-  for (const meta of titleRows ?? []) {
-    const titleId = (meta as any).title_id as string | null;
-    if (!titleId) continue;
+  for (const [titleId, { count, sum }] of topEntries) {
+    const meta = byId.get(titleId);
+    if (!meta) continue;
 
-    const baseScore = perTitle.get(titleId)?.baseScore ?? 0;
-    if (baseScore <= 0) continue;
+    const id = String(meta.title_id);
+    if (seenTitleIds.has(id)) continue;
 
-    const rawGenres: unknown =
-      (meta as any).genres ??
-      (meta as any).omdb_genre_names ??
-      (meta as any).tmdb_genre_names ??
-      [];
-    const genres: string[] = Array.isArray(rawGenres)
-      ? rawGenres
-          .map((g) => String(g).trim().toLowerCase())
-          .filter(Boolean)
+    const avgRating = sum / Math.max(1, count);
+    const popularity = Number(meta.tmdb_popularity ?? 0);
+    const imdbRating = Number(meta.imdb_rating ?? 0);
+
+    // Base score: strong community consensus + volume
+    let score = 0;
+
+    score += avgRating * 1.2; // high average rating matters
+    score += Math.log10(1 + count) * 1.0; // number of ratings
+    score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
+    if (imdbRating > 0) {
+      score += imdbRating * 0.3;
+    }
+
+    // Personalization boosts
+    const genres: string[] = Array.isArray(meta.genres)
+      ? meta.genres
+      : typeof meta.genres === "string"
+      ? (meta.genres as string).split(",").map((g) => g.trim())
       : [];
 
-    const popularity = Number((meta as any).tmdb_popularity ?? 0);
-    const year = (meta as any).release_year as number | null;
-    const contentTypeRaw = (meta as any).content_type as string | null;
-    const contentType = contentTypeRaw ? contentTypeRaw.toLowerCase() : "";
-
-    let score = baseScore;
-
-    // Align with this user's own taste.
-    let favMatches = 0;
-    let badMatches = 0;
+    let genreBoost = 0;
     for (const g of genres) {
-      if (favSet.has(g)) favMatches += 1;
-      if (dislikedSet.has(g)) badMatches += 1;
+      const lg = g.toLowerCase();
+      if (positiveGenreSet.has(lg)) {
+        genreBoost += 1;
+      }
+      if (negativeGenreSet.has(lg)) {
+        genreBoost -= 1.5;
+      }
     }
+    score += genreBoost;
 
-    score += favMatches * 4;
-    score -= badMatches * 6;
-
-    if (contentType) {
-      const ctWeight = ctWeights[contentType] ?? 0;
-      score += ctWeight * 2;
-    }
-
-    // Add a bit of global popularity signal.
-    score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
-
-    // Very light recency bias on release year as well.
-    if (typeof year === "number" && Number.isFinite(year)) {
-      const age = Math.max(0, currentYear - year);
-      const recencyBoost = age < 10 ? (10 - age) * 0.2 : 0;
-      score += recencyBoost;
-    }
+    const ct = (meta.content_type ?? "").toString();
+    const ctWeight = contentTypeWeights[ct] ?? 0;
+    score *= 1 + ctWeight * 0.4;
 
     scored.push({ score, meta });
   }
@@ -336,57 +279,47 @@ async function loadSwipeCardsFromFriends(
 
   scored.sort((a, b) => b.score - a.score);
 
-  const top = scored.slice(0, 50);
+  // Apply genre diversity
+  const genreCounts = new Map<string, number>();
+  const final: SwipeCard[] = [];
 
-  return top.map(({ meta }) => ({
-    id: meta.title_id,
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null,
-  }));
-}
+  for (const { meta } of scored) {
+    if (final.length >= MAX_DECK_SIZE) break;
 
-/**
- * Generic popularity-based fallback deck.
- */
-async function loadSwipeCards(
-  supabase: ReturnType<typeof getAdminClient>,
-): Promise<SwipeCard[]> {
-  const { data: rows, error } = await supabase
-    .from("titles")
-    .select(
-      [
-        "title_id",
-        "content_type",
-        "tmdb_id",
-        "omdb_imdb_id",
-        "primary_title",
-        "release_year",
-        "poster_url",
-        "backdrop_url",
-        "imdb_rating",
-        "rt_tomato_pct",
-        "deleted_at",
-        "tmdb_popularity",
-      ].join(","),
-    )
-    .is("deleted_at", null)
-    .order("tmdb_popularity", { ascending: false })
-    .limit(200);
+    const id = String(meta.title_id);
+    if (seenTitleIds.has(id)) continue;
 
-  if (error) {
-    console.error("[swipe-from-friends] titles query error:", error.message);
-    throw new Error("Failed to load titles");
+    const genres: string[] = Array.isArray(meta.genres)
+      ? meta.genres
+      : typeof meta.genres === "string"
+      ? (meta.genres as string).split(",").map((g) => g.trim())
+      : [];
+
+    let skipForGenreCap = false;
+    for (const g of genres) {
+      const key = g.toLowerCase();
+      const current = genreCounts.get(key) ?? 0;
+      if (current >= MAX_PER_GENRE) {
+        skipForGenreCap = true;
+        break;
+      }
+    }
+    if (skipForGenreCap) continue;
+
+    final.push(mapMetaToCard(meta));
+
+    for (const g of genres) {
+      const key = g.toLowerCase();
+      genreCounts.set(key, (genreCounts.get(key) ?? 0) + 1);
+    }
   }
 
-  return (rows ?? []).map((meta: any) => ({
-    id: meta.title_id,
+  return final;
+}
+
+function mapMetaToCard(meta: any): SwipeCard {
+  return {
+    id: String(meta.title_id),
     title: meta.primary_title ?? null,
     year: meta.release_year ?? null,
     posterUrl: meta.poster_url ?? null,
@@ -396,5 +329,5 @@ async function loadSwipeCards(
     tmdbId: meta.tmdb_id ?? null,
     imdbId: meta.omdb_imdb_id ?? null,
     contentType: meta.content_type ?? null,
-  }));
+  };
 }
