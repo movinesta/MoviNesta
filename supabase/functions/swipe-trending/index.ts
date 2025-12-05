@@ -14,7 +14,7 @@ import {
   jsonError,
   jsonResponse,
 } from "../_shared/http.ts";
-import { getAdminClient } from "../_shared/supabase.ts";
+import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -68,13 +68,14 @@ serve(async (req) => {
     const configError = validateConfig();
     if (configError) return configError;
 
-    const supabase = getSupabaseAdminClient(req);
+    const supabase = getAdminClient(req);
+    const supabaseAuth = getUserClient(req);
 
     // Require authenticated user
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabaseAuth.auth.getUser();
 
     if (authError) {
       console.error("[swipe-trending] auth error:", authError.message);
