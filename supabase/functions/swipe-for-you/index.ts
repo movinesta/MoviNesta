@@ -1,15 +1,18 @@
 // supabase/functions/swipe-for-you/index.ts
 //
-// Returns a "For You" swipe deck for the current user.
-// Uses a UserProfile built from ratings, library, and activity events.
-// Also triggers `catalog-sync` for up to 3 cards per call.
+// Returns a strongly personalized "For You" swipe deck for the current user.
+// - Uses a UserProfile built from ratings, library, and activity events.
+// - Scores candidates based on genre matches, content type preference,
+//   and global popularity/ratings.
+// - Ensures the user does not see titles they've already interacted with.
+// - Applies genre diversity caps.
+// - Triggers `catalog-sync` for a few cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
 import {
-  corsHeaders,
   handleOptions,
   jsonError,
   jsonResponse,
@@ -18,7 +21,6 @@ import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 type SwipeCard = {
   id: string;
@@ -33,30 +35,15 @@ type SwipeCard = {
   contentType: "movie" | "series" | null;
 };
 
-type EnvConfigError = Response | null;
+const MAX_DECK_SIZE = 30;
+const MAX_CANDIDATES = 400;
+const MAX_PER_GENRE = 5;
 
-function jsonOk(body: unknown, status = 200): Response {
-  return jsonResponse(body, status);
-}
+// ------------------------------------------------------------
+// Main handler
+// ------------------------------------------------------------
 
-/**
- * Validate basic environment configuration for this edge function.
- */
-function validateConfig(): EnvConfigError {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error(
-      "[swipe-for-you] Missing SUPABASE_URL or SERVICE_ROLE_KEY env vars",
-    );
-    return jsonError("Server not configured", 500, "CONFIG_ERROR");
-  }
-
-  return null;
-}
-
-// Handler
-// ---------------------------------------------------------------------------
-
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -64,10 +51,9 @@ serve(async (req) => {
     const configError = validateConfig();
     if (configError) return configError;
 
-    const supabase = getAdminClient(req);
+    const supabaseAdmin = getAdminClient(req);
     const supabaseAuth = getUserClient(req);
 
-    // Require authenticated user
     const {
       data: { user },
       error: authError,
@@ -77,107 +63,220 @@ serve(async (req) => {
       console.error("[swipe-for-you] auth error:", authError.message);
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
-
     if (!user) {
-      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED_NO_USER");
     }
 
-    // Titles this user has already interacted with (ratings, library entries, swipes)
-    // and a richer preference profile built from ratings, library, and activity events.
-    const [seenTitleIds, profile] = await Promise.all([
-      loadSeenTitleIdsForUser(supabase, user.id),
-      computeUserProfile(supabase, user.id),
-    ]);
+    const userId = user.id as string;
+    console.log("[swipe-for-you] request", { userId });
 
-    // Load a personalized deck using the richer profile; if profile is missing we still
-    // fall back to a popularity-based deck inside the helper.
-    let allCards = await loadPersonalizedSwipeCardsV2(supabase, profile);
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, userId);
+    const profile = await safeComputeUserProfile(supabaseAdmin, userId);
 
-    // If that returns nothing (e.g. empty titles table), fall back to generic.
-    if (!allCards.length) {
-      allCards = await loadSwipeCards(supabase);
+    const cards = await buildForYouDeck(supabaseAdmin, seenTitleIds, profile);
 
-      if (!allCards.length) {
-        // If the titles table is empty (fresh database), kick off a background
-        // catalog backfill so future swipe requests have data to work with.
-        triggerCatalogBackfill("swipe-for-you:titles-empty");
-        return jsonOk({ ok: true, cards: [] });
-      }
+    // Fire-and-forget catalog sync for a few cards
+    const toSync = cards.slice(0, 3);
+    for (const card of toSync) {
+      triggerCatalogSyncForTitle(req, {
+        tmdbId: card.tmdbId,
+        imdbId: card.imdbId ?? undefined,
+        contentType: card.contentType,
+      }).catch((err) =>
+        console.warn("[swipe-for-you] catalog-sync error:", err),
+      );
     }
 
-    // Filter out titles that the user has already seen in any way.
-    const cards = allCards.filter((card) => !seenTitleIds.has(card.id));
-
-    // Fire-and-forget: trigger catalog sync for a few of the cards.
-    const syncCandidates = cards.slice(0, 3);
-    Promise.allSettled(
-      syncCandidates.map((card) =>
-        triggerCatalogSyncForTitle(
-          req,
-          {
-            tmdbId: card.tmdbId,
-            imdbId: card.imdbId,
-            contentType: card.contentType ?? undefined,
-          },
-          { prefix: "[swipe-for-you]" },
-        )
-      ),
-    ).catch((err) => {
-      console.warn("[swipe-for-you] catalog-sync error", err);
-    });
-
-    return jsonOk({ ok: true, cards });
-  } catch (error) {
-    console.error("[swipe-for-you] unexpected error", error);
-    return jsonError("Unexpected error", 500, "UNEXPECTED_ERROR");
+    return jsonResponse({ ok: true, cards });
+  } catch (err) {
+    console.error("[swipe-for-you] unexpected error:", err);
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function triggerCatalogBackfill(reason: string) {
+function validateConfig(): Response | null {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn(
-      "[swipe-for-you] cannot trigger catalog-backfill, missing URL or ANON key",
-    );
-    return;
+    console.error("[swipe-for-you] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return jsonError("Server not configured", 500, "CONFIG_ERROR");
   }
+  return null;
+}
 
+async function safeComputeUserProfile(
+  supabase: ReturnType<typeof getAdminClient>,
+  userId: string,
+): Promise<UserProfile | null> {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-backfill`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ reason }),
-    });
-
-    const text = await res.text().catch(() => "");
-    console.log(
-      "[swipe-for-you] catalog-backfill status=",
-      res.status,
-      "body=",
-      text,
-    );
+    return await computeUserProfile(supabase, userId);
   } catch (err) {
-    console.warn("[swipe-for-you] catalog-backfill request error:", err);
+    console.warn("[swipe-for-you] computeUserProfile failed:", err);
+    return null;
   }
 }
 
-// NEW V2 personalized loader using full UserProfile
-async function loadPersonalizedSwipeCardsV2(
+// ------------------------------------------------------------
+// Deck building
+// ------------------------------------------------------------
+
+async function buildForYouDeck(
   supabase: ReturnType<typeof getAdminClient>,
+  seenTitleIds: Set<string>,
   profile: UserProfile | null,
 ): Promise<SwipeCard[]> {
-  // If we have no preferences yet, just fall back to the generic query.
-  if (!profile || !profile.favoriteGenres.length) {
-    return loadSwipeCards(supabase);
+  // If no profile, fall back to a popularity-based personalized-ish deck:
+  // newer and popular titles the user hasn't seen.
+  if (!profile) {
+    return await buildFallbackDeck(supabase, seenTitleIds);
   }
 
-  const { favoriteGenres, dislikedGenres, contentTypeWeights } = profile;
+  const favoriteGenres = profile.favoriteGenres ?? [];
+  const dislikedGenres = profile.dislikedGenres ?? [];
+  const contentTypeWeights = profile.contentTypeWeights ?? {};
 
+  // Choose the best content type (if any) as a soft preference.
+  const preferredContentType = getPreferredContentType(contentTypeWeights);
+
+  let query = supabase
+    .from("titles")
+    .select(
+      [
+        "title_id",
+        "content_type",
+        "tmdb_id",
+        "omdb_imdb_id",
+        "primary_title",
+        "release_year",
+        "poster_url",
+        "backdrop_url",
+        "imdb_rating",
+        "rt_tomato_pct",
+        "deleted_at",
+        "tmdb_popularity",
+        "genres",
+      ].join(","),
+    )
+    .is("deleted_at", null)
+    .order("tmdb_popularity", { ascending: false })
+    .order("imdb_rating", { ascending: false })
+    .limit(MAX_CANDIDATES);
+
+  if (favoriteGenres.length) {
+    // Bias towards the user's top genres
+    query = query.overlaps("genres", favoriteGenres.slice(0, 5));
+  }
+
+  if (preferredContentType) {
+    // Bias towards the preferred content type (movies vs series)
+    query = query.eq("content_type", preferredContentType);
+  }
+
+  const { data: rows, error } = await query;
+
+  if (error) {
+    console.error("[swipe-for-you] titles query error:", error.message);
+    return [];
+  }
+
+  type Scored = { score: number; meta: any };
+
+  const positiveGenreSet = new Set(
+    favoriteGenres.map((g) => g.toLowerCase()),
+  );
+  const negativeGenreSet = new Set(
+    dislikedGenres.map((g) => g.toLowerCase()),
+  );
+
+  const scored: Scored[] = [];
+
+  for (const meta of rows ?? []) {
+    const id = String(meta.title_id);
+    if (seenTitleIds.has(id)) continue;
+
+    const genres: string[] = Array.isArray(meta.genres)
+      ? meta.genres
+      : typeof meta.genres === "string"
+      ? (meta.genres as string).split(",").map((g) => g.trim())
+      : [];
+
+    const ct = (meta.content_type ?? "").toString();
+    const ctWeight = contentTypeWeights[ct] ?? 0;
+
+    const popularity = Number(meta.tmdb_popularity ?? 0);
+    const rating = Number(meta.imdb_rating ?? 0);
+
+    // Base score from popularity + rating (favor strong rating more)
+    let score = Math.log10(1 + Math.max(0, popularity)) * 0.7;
+    if (rating > 0) {
+      score += rating * 0.8;
+    }
+
+    // Genre boosts / penalties
+    let genreBoost = 0;
+    for (const g of genres) {
+      const lg = g.toLowerCase();
+      if (positiveGenreSet.has(lg)) {
+        genreBoost += 1;
+      }
+      if (negativeGenreSet.has(lg)) {
+        genreBoost -= 1.5;
+      }
+    }
+    score += genreBoost;
+
+    // Content type preference
+    score *= 1 + ctWeight * 0.4;
+
+    scored.push({ score, meta });
+  }
+
+  if (!scored.length) {
+    return [];
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Genre diversity + final cap
+  const genreCounts = new Map<string, number>();
+  const final: SwipeCard[] = [];
+
+  for (const { meta } of scored) {
+    if (final.length >= MAX_DECK_SIZE) break;
+
+    const id = String(meta.title_id);
+    if (seenTitleIds.has(id)) continue;
+
+    const genres: string[] = Array.isArray(meta.genres)
+      ? meta.genres
+      : typeof meta.genres === "string"
+      ? (meta.genres as string).split(",").map((g) => g.trim())
+      : [];
+
+    let skipForGenreCap = false;
+    for (const g of genres) {
+      const key = g.toLowerCase();
+      const current = genreCounts.get(key) ?? 0;
+      if (current >= MAX_PER_GENRE) {
+        skipForGenreCap = true;
+        break;
+      }
+    }
+    if (skipForGenreCap) continue;
+
+    final.push(mapMetaToCard(meta));
+
+    for (const g of genres) {
+      const key = g.toLowerCase();
+      genreCounts.set(key, (genreCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  return final;
+}
+
+async function buildFallbackDeck(
+  supabase: ReturnType<typeof getAdminClient>,
+  seenTitleIds: Set<string>,
+): Promise<SwipeCard[]> {
   const { data: rows, error } = await supabase
     .from("titles")
     .select(
@@ -195,139 +294,45 @@ async function loadPersonalizedSwipeCardsV2(
         "deleted_at",
         "tmdb_popularity",
         "genres",
-        "omdb_genre_names",
-        "tmdb_genre_names",
       ].join(","),
     )
     .is("deleted_at", null)
     .order("tmdb_popularity", { ascending: false })
-    .limit(200);
+    .order("imdb_rating", { ascending: false })
+    .limit(MAX_CANDIDATES);
 
   if (error) {
-    console.error(
-      "[swipe-for-you] personalized titles query error:",
-      error.message,
-    );
-    throw new Error("Failed to load titles");
+    console.error("[swipe-for-you] fallback titles query error:", error.message);
+    return [];
   }
 
-  type Scored = { score: number; meta: any };
-
-  const favSet = new Set(
-    favoriteGenres.map((g) => g.trim().toLowerCase()).filter(Boolean),
-  );
-  const dislikedSet = new Set(
-    (dislikedGenres ?? [])
-      .map((g) => g.trim().toLowerCase())
-      .filter(Boolean),
-  );
-
-  const scored: Scored[] = [];
-  const currentYear = new Date().getFullYear();
+  const cards: SwipeCard[] = [];
 
   for (const meta of rows ?? []) {
-    const rawGenres: unknown =
-      (meta as any).genres ??
-      (meta as any).omdb_genre_names ??
-      (meta as any).tmdb_genre_names ??
-      [];
-
-    const genres: string[] = Array.isArray(rawGenres)
-      ? rawGenres
-          .map((g) => String(g).trim().toLowerCase())
-          .filter(Boolean)
-      : [];
-
-    const popularity = Number((meta as any).tmdb_popularity ?? 0);
-    const year = (meta as any).release_year as number | null;
-    const contentTypeRaw = (meta as any).content_type as string | null;
-    const contentType = contentTypeRaw ? contentTypeRaw.toLowerCase() : "";
-
-    let score = 0;
-
-    // Genre match / mismatch
-    let favMatches = 0;
-    let badMatches = 0;
-    for (const g of genres) {
-      if (favSet.has(g)) favMatches += 1;
-      if (dislikedSet.has(g)) badMatches += 1;
-    }
-
-    score += favMatches * 8;  // reward liked genres
-    score -= badMatches * 10; // strongly penalize disliked genres
-
-    // Content type preference (movie vs series)
-    if (contentType) {
-      const ctWeight = contentTypeWeights[contentType] ?? 0;
-      score += ctWeight * 3;
-    }
-
-    // Popularity with diminishing returns
-    score += Math.log10(1 + Math.max(0, popularity));
-
-    // Recency boost for titles from roughly last 5 years
-    if (typeof year === "number" && Number.isFinite(year)) {
-      const age = Math.max(0, currentYear - year);
-      const recencyBoost = age < 5 ? 5 - age : 0;
-      score += recencyBoost * 1.5;
-    }
-
-    // Light exploration noise to avoid deterministic ordering for ties
-    score += (Math.random() - 0.5) * 0.5;
-
-    scored.push({ score, meta });
+    if (cards.length >= MAX_DECK_SIZE) break;
+    const id = String(meta.title_id);
+    if (seenTitleIds.has(id)) continue;
+    cards.push(mapMetaToCard(meta));
   }
 
-  scored.sort((a, b) => b.score - a.score);
-
-  const top = scored.slice(0, 50);
-
-  return top.map((meta: any) => ({
-    id: meta.title_id,
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null,
-  }));
+  return cards;
 }
 
-async function loadSwipeCards(
-  supabase: ReturnType<typeof getAdminClient>,
-): Promise<SwipeCard[]> {
-  const { data: rows, error } = await supabase
-    .from("titles")
-    .select(
-      [
-        "title_id",
-        "content_type",
-        "tmdb_id",
-        "omdb_imdb_id",
-        "primary_title",
-        "release_year",
-        "poster_url",
-        "backdrop_url",
-        "imdb_rating",
-        "rt_tomato_pct",
-        "deleted_at",
-        "tmdb_popularity",
-      ].join(","),
-    )
-    .is("deleted_at", null)
-    .order("tmdb_popularity", { ascending: false })
-    .limit(200);
+function getPreferredContentType(
+  contentTypeWeights: Record<string, number>,
+): string | null {
+  const entries = Object.entries(contentTypeWeights);
+  if (!entries.length) return null;
 
-  if (error) {
-    console.error("[swipe-for-you] titles query error:", error.message);
-    throw new Error("Failed to load titles");
-  }
+  entries.sort((a, b) => b[1] - a[1]);
+  const [bestType, bestScore] = entries[0];
+  if (bestScore <= 0) return null;
+  return bestType;
+}
 
-  return (rows ?? []).map((meta: any) => ({
-    id: meta.title_id,
+function mapMetaToCard(meta: any): SwipeCard {
+  return {
+    id: String(meta.title_id),
     title: meta.primary_title ?? null,
     year: meta.release_year ?? null,
     posterUrl: meta.poster_url ?? null,
@@ -337,5 +342,5 @@ async function loadSwipeCards(
     tmdbId: meta.tmdb_id ?? null,
     imdbId: meta.omdb_imdb_id ?? null,
     contentType: meta.content_type ?? null,
-  }));
+  };
 }
