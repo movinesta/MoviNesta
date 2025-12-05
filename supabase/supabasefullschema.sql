@@ -491,7 +491,6 @@ create table public.titles (
   metascore smallint null,
   omdb_rated text null,
   omdb_released text null,
-  omdb_runtime text null,
   omdb_director text null,
   omdb_writer text null,
   omdb_actors text null,
@@ -542,6 +541,16 @@ create table public.titles (
   last_synced_at timestamp with time zone null,
   rt_tomato_pct smallint null,
   omdb_year integer null,
+  omdb_poster_url text null,
+  tmdb_backdrop_path text null,
+  omdb_plot text null,
+  omdb_imdb_rating numeric null,
+  omdb_imdb_votes integer null,
+  omdb_metacritic_score smallint null,
+  omdb_runtime_minutes smallint null,
+  tmdb_title text null,
+  omdb_title text null,
+  omdb_genre_names text null,
   constraint titles_pkey primary key (title_id),
   constraint titles_tmdb_id_key unique (tmdb_id),
   constraint titles_metascore_check check (
@@ -573,6 +582,17 @@ create table public.titles (
   constraint titles_tmdb_vote_count_check check ((tmdb_vote_count >= 0)),
   constraint titles_imdb_votes_check check ((imdb_votes >= 0))
 ) TABLESPACE pg_default;
+
+create index IF not exists titles_content_type_idx on public.titles using btree (content_type) TABLESPACE pg_default;
+
+create index IF not exists titles_primary_title_trgm_idx on public.titles using gin (primary_title extensions.gin_trgm_ops) TABLESPACE pg_default;
+
+create index IF not exists titles_release_date_idx on public.titles using btree (release_date) TABLESPACE pg_default;
+
+create trigger set_titles_updated_at BEFORE
+update on titles for EACH row
+execute FUNCTION set_updated_at ();
+
 
 create index IF not exists titles_content_type_idx on public.titles using btree (content_type) TABLESPACE pg_default;
 
