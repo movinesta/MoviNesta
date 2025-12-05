@@ -2,6 +2,9 @@
 //
 // User preference profiling for swipe decks.
 // Builds a small profile from ratings, library, and swipe activity.
+//
+// This implementation is designed to be robust and cheap enough to run
+// inside edge functions.
 
 export type UserProfile = {
   favoriteGenres: string[];
@@ -14,15 +17,25 @@ const MAX_TITLE_ROWS = 300;
 const FAVORITE_GENRE_LIMIT = 10;
 const DISLIKED_GENRE_LIMIT = 6;
 
+/**
+ * Compute a lightweight preference profile for the given user.
+ *
+ * It looks at:
+ *  - ratings: strong positive / negative signals
+ *  - library entries: positive signals
+ *  - activity_events: extra signals from swipes, rating events, etc.
+ *
+ * The result is:
+ *  - favoriteGenres: top positively weighted genres
+ *  - dislikedGenres: top negatively weighted genres
+ *  - contentTypeWeights: score per content_type ("movie", "series", etc.)
+ */
 export async function computeUserProfile(
   supabase: any,
   userId: string,
 ): Promise<UserProfile | null> {
-  const [
-    { data: ratings, error: ratingsError },
-    { data: libraryRows, error: libraryError },
-    { data: events, error: eventsError },
-  ] = await Promise.all([
+  // Load ratings, library entries, and activity for this user.
+  const [ratingsRes, libraryRes, activityRes] = await Promise.all([
     supabase
       .from("ratings")
       .select("title_id, rating")
@@ -30,56 +43,67 @@ export async function computeUserProfile(
       .limit(MAX_SOURCE_ROWS),
     supabase
       .from("library_entries")
-      .select("title_id, status")
+      .select("title_id")
       .eq("user_id", userId)
       .limit(MAX_SOURCE_ROWS),
     supabase
       .from("activity_events")
-      .select("title_id, event_type, created_at, payload")
+      .select("title_id, event_type")
       .eq("user_id", userId)
-      .in("event_type", ["rating_created", "swipe_skipped"])
-      .order("created_at", { ascending: false })
       .limit(MAX_SOURCE_ROWS),
   ]);
 
-  if (ratingsError) {
-    console.warn("[preferences] ratings error:", ratingsError.message);
-  }
-  if (libraryError) {
-    console.warn("[preferences] library_entries error:", libraryError.message);
-  }
-  if (eventsError) {
-    console.warn("[preferences] activity_events error:", eventsError.message);
+  const ratings = ratingsRes.error ? [] : ratingsRes.data ?? [];
+  const libraryEntries = libraryRes.error ? [] : libraryRes.data ?? [];
+  const activity = activityRes.error ? [] : activityRes.data ?? [];
+
+  // If the user has no data at all, return null so callers can fall back
+  // to non-personalized behaviour.
+  if (!ratings.length && !libraryEntries.length && !activity.length) {
+    return null;
   }
 
+  // Aggregate weights per title_id.
   const titleWeights = new Map<string, number>();
 
   // Ratings → positive/negative signal
-  for (const row of ratings ?? []) {
+  for (const row of ratings) {
     const titleId = (row as any).title_id as string | null;
     const rating = (row as any).rating as number | null;
     if (!titleId || rating == null) continue;
 
     let w = 0;
-    if (rating >= 8) w = 3;
-    else if (rating >= 6) w = 1.5;
+    if (rating >= 9) w = 4;
+    else if (rating >= 8) w = 3;
+    else if (rating >= 7) w = 1.5;
     else if (rating <= 4) w = -3;
+    else if (rating <= 5) w = -1;
 
     if (!w) continue;
     titleWeights.set(titleId, (titleWeights.get(titleId) ?? 0) + w);
   }
 
-  // Library → soft preference
-  for (const row of libraryRows ?? []) {
+  // Library entries → mild positive signal
+  for (const row of libraryEntries) {
     const titleId = (row as any).title_id as string | null;
-    const status = ((row as any).status as string | null) ?? "";
+    if (!titleId) continue;
+    titleWeights.set(titleId, (titleWeights.get(titleId) ?? 0) + 0.75);
+  }
+
+  // Activity events → extra signal
+  for (const row of activity) {
+    const titleId = (row as any).title_id as string | null;
+    const eventType = (row as any).event_type as string | null;
     if (!titleId) continue;
 
     let w = 0;
-    const normalized = status.toLowerCase();
-    if (normalized === "want_to_watch" || normalized === "watching") {
+    if (eventType === "rating_created" || eventType === "rating_updated") {
       w = 1;
-    } else if (normalized === "dropped") {
+    } else if (eventType === "library_added") {
+      w = 0.75;
+    } else if (eventType === "swipe_like") {
+      w = 1;
+    } else if (eventType === "swipe_dislike") {
       w = -1;
     }
 
@@ -87,133 +111,114 @@ export async function computeUserProfile(
     titleWeights.set(titleId, (titleWeights.get(titleId) ?? 0) + w);
   }
 
-  // Activity events → recency-weighted signal
-  const now = Date.now();
-  for (const row of events ?? []) {
-    const titleId = (row as any).title_id as string | null;
-    if (!titleId) continue;
-
-    const eventType = (row as any).event_type as string | null;
-    const payload = (row as any).payload as any | null;
-    const createdAtStr = (row as any).created_at as string | null;
-
-    const direction = (payload?.direction as string | null) ?? null;
-
-    let base = 0;
-    if (eventType === "rating_created") {
-      if (direction === "like") base = 2.5;
-      else if (direction === "dislike") base = -2;
-      else base = 1.5;
-    } else if (eventType === "swipe_skipped") {
-      base = 0;
-    }
-
-    if (!base) continue;
-
-    let recencyFactor = 1;
-    if (createdAtStr) {
-      const createdAt = new Date(createdAtStr).getTime();
-      const days = Math.max(0, (now - createdAt) / (1000 * 60 * 60 * 24));
-      recencyFactor = 1 / (1 + days / 30);
-    }
-
-    const w = base * recencyFactor;
-    titleWeights.set(titleId, (titleWeights.get(titleId) ?? 0) + w);
-  }
-
   if (!titleWeights.size) {
     return null;
   }
 
-  const titleIds = Array.from(titleWeights.keys()).slice(0, MAX_TITLE_ROWS);
+  // Pick the top titles by absolute weight to inspect.
+  const sortedTitles = Array.from(titleWeights.entries())
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, MAX_TITLE_ROWS);
+
+  const titleIds = sortedTitles.map(([titleId]) => titleId);
+
   const { data: titleRows, error: titleError } = await supabase
     .from("titles")
-    .select(
-      [
-        "title_id",
-        "genres",
-        "omdb_genre_names",
-        "tmdb_genre_names",
-        "content_type",
-      ].join(","),
-    )
-    .in("title_id", titleIds);
+    .select("title_id, genres, content_type")
+    .in("title_id", titleIds)
+    .is("deleted_at", null);
 
   if (titleError) {
-    console.warn("[preferences] titles query error:", titleError.message);
+    console.warn(
+      "[preferences] titles query error in computeUserProfile:",
+      titleError.message,
+    );
     return null;
   }
 
-  const genreWeights = new Map<string, number>();
-  const contentTypeWeights = new Map<string, number>();
+  const genreScores = new Map<string, number>();
+  const negativeGenreScores = new Map<string, number>();
+  const contentTypeScores = new Map<string, number>();
+
+  const weightByTitle = new Map<string, number>(sortedTitles);
 
   for (const row of titleRows ?? []) {
-    const titleId = (row as any).title_id as string | null;
-    if (!titleId) continue;
+    const titleId = String((row as any).title_id);
+    const weight = weightByTitle.get(titleId);
+    if (weight == null) continue;
 
-    const base = titleWeights.get(titleId);
-    if (base == null || base === 0) continue;
-
-    const genres = normalizeGenres(
-      (row as any).genres ??
-        (row as any).omdb_genre_names ??
-        (row as any).tmdb_genre_names ??
-        [],
-    );
-    const ctRaw = (row as any).content_type as string | null;
-    const ct = ctRaw ? ctRaw.toLowerCase() : null;
+    const genres = normalizeGenres((row as any).genres);
+    const contentType = ((row as any).content_type ?? "").toString();
 
     for (const g of genres) {
-      genreWeights.set(g, (genreWeights.get(g) ?? 0) + base);
+      if (weight > 0) {
+        genreScores.set(g, (genreScores.get(g) ?? 0) + weight);
+      } else if (weight < 0) {
+        negativeGenreScores.set(g, (negativeGenreScores.get(g) ?? 0) + weight);
+      }
     }
 
-    if (ct) {
-      contentTypeWeights.set(ct, (contentTypeWeights.get(ct) ?? 0) + base);
+    if (contentType) {
+      if (weight > 0) {
+        contentTypeScores.set(
+          contentType,
+          (contentTypeScores.get(contentType) ?? 0) + weight,
+        );
+      }
     }
   }
 
-  if (!genreWeights.size) {
-    return null;
-  }
+  const favoriteGenres = Array.from(genreScores.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, FAVORITE_GENRE_LIMIT)
+    .map(([genre]) => genre);
 
-  const sortedGenres = Array.from(genreWeights.entries()).sort(
-    (a, b) => b[1] - a[1],
+  const dislikedGenres = Array.from(negativeGenreScores.entries())
+    .sort((a, b) => a[1] - b[1]) // more negative first
+    .slice(0, DISLIKED_GENRE_LIMIT)
+    .map(([genre]) => genre);
+
+  // Normalize contentTypeScores to [0, 1] range (max -> 1).
+  const ctEntries = Array.from(contentTypeScores.entries());
+  const ctMax = ctEntries.reduce(
+    (max, [, v]) => (v > max ? v : max),
+    0,
   );
 
-  const favoriteGenres = sortedGenres
-    .filter(([, w]) => w > 0)
-    .slice(0, FAVORITE_GENRE_LIMIT)
-    .map(([name]) => name);
+  const contentTypeWeights: Record<string, number> = {};
 
-  const dislikedGenres = sortedGenres
-    .filter(([, w]) => w < 0)
-    .sort((a, b) => a[1] - b[1])
-    .slice(0, DISLIKED_GENRE_LIMIT)
-    .map(([name]) => name);
-
-  if (!favoriteGenres.length) {
-    return null;
-  }
-
-  const ctObj: Record<string, number> = {};
-  for (const [ct, w] of contentTypeWeights.entries()) {
-    ctObj[ct] = w;
+  if (ctMax > 0) {
+    for (const [ct, score] of ctEntries) {
+      contentTypeWeights[ct] = score / ctMax;
+    }
   }
 
   return {
     favoriteGenres,
     dislikedGenres,
-    contentTypeWeights: ctObj,
+    contentTypeWeights,
   };
 }
 
 function normalizeGenres(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const out: string[] = [];
-  for (const v of raw) {
-    const s = String(v).trim().toLowerCase();
-    if (!s) continue;
-    out.push(s);
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    const out: string[] = [];
+    for (const v of raw) {
+      const s = String(v).trim().toLowerCase();
+      if (!s) continue;
+      out.push(s);
+    }
+    return out;
   }
-  return out;
+
+  // Support comma-separated strings
+  if (typeof raw === "string") {
+    return raw
+      .split(",")
+      .map((g) => g.trim().toLowerCase())
+      .filter((g) => g.length > 0);
+  }
+
+  return [];
 }
