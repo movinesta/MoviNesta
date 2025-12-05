@@ -20,28 +20,30 @@ import {
 } from "../_shared/http.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 
-const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
+const TMDB_API_READ_ACCESS_TOKEN =
+  Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY") ?? "";
-
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const OMDB_BASE = "https://www.omdbapi.com/";
 
-type TitleModePayload = {
+type TitleModeBody = {
   external?: {
-    tmdbId?: number;
-    imdbId?: string;
-    // TMDb media_type
-    type?: "movie" | "tv";
+    tmdbId?: number | null;
+    imdbId?: string | null;
+    type?: "movie" | "tv" | null;
   };
+  tmdbId?: number | null;
+  imdbId?: string | null;
+  contentType?: "movie" | "series" | null;
   options?: {
     syncOmdb?: boolean;
     forceRefresh?: boolean;
   };
-  // flat fields allowed as fallback
-  tmdbId?: number;
-  imdbId?: string;
-  type?: "movie" | "tv";
 };
+
+type CatalogSyncBody = {
+  mode?: "title";
+} & TitleModeBody;
 
 serve(async (req) => {
   const optionsResponse = handleOptions(req);
@@ -51,86 +53,179 @@ serve(async (req) => {
     return jsonError("Method not allowed", 405);
   }
 
-  const validation = await validateRequest<TitleModePayload>(req, (raw) =>
-    raw as TitleModePayload,
+  const { data, errorResponse } = await validateRequest<CatalogSyncBody>(
+    req,
+    (raw) => raw as CatalogSyncBody,
+    { logPrefix: "[catalog-sync]" },
   );
+  if (errorResponse) return errorResponse;
 
-  if (validation.errorResponse) return validation.errorResponse;
+  const body = data ?? {};
+  const mode = body.mode ?? "title";
 
-  const body = validation.data;
-
-  let supabase;
-  try {
-    supabase = getAdminClient(req);
-  } catch (error) {
-    console.error("[catalog-sync] Supabase configuration error", error);
-    return jsonError("Server misconfigured", 500);
+  // For now we only support "title" mode (sync single title).
+  if (mode === "title") {
+    return handleTitleMode(req, body);
   }
 
-  try {
-    return await handleTitleMode(supabase, body);
-  } catch (err) {
-    console.error("[catalog-sync] unhandled error:", err);
-    return jsonError("Internal server error", 500);
-  }
+  return jsonError("Unsupported mode", 400, "CATALOG_SYNC_UNSUPPORTED_MODE");
 });
 
-// ============================================================================
-// Main handler
-// ============================================================================
+// -----------------------------------------------------------------------------
+// Title mode: sync a single movie/series into public.titles
+// -----------------------------------------------------------------------------
 
 async function handleTitleMode(
-  supabase: ReturnType<typeof getAdminClient>,
-  payload: TitleModePayload,
+  req: Request,
+  body: TitleModeBody,
 ): Promise<Response> {
-  if (!TMDB_TOKEN) {
-    console.error("[catalog-sync:title] Missing TMDB_API_READ_ACCESS_TOKEN");
-    return jsonError("TMDb not configured", 500);
-  }
+  const supabase = getAdminClient(req);
+  const external = body.external ?? {};
+  const options = body.options ?? {};
 
-  const external = payload.external ?? {
-    tmdbId: payload.tmdbId,
-    imdbId: payload.imdbId,
-    type: payload.type,
-  };
-  const options = payload.options;
+  // Input can come from `external` or top-level fields for backwards compat.
+  let tmdbId: number | null =
+    external.tmdbId ??
+    body.tmdbId ??
+    null;
+  let imdbId: string | null =
+    external.imdbId ??
+    body.imdbId ??
+    null;
+  let contentType: "movie" | "series" | null = body.contentType ?? null;
 
-  const { tmdbId: tmdbIdRaw, imdbId: imdbIdRaw, type: typeRaw } = external ?? {};
+  console.log("[catalog-sync:title] incoming body:", JSON.stringify(body));
 
-  if (!tmdbIdRaw && !imdbIdRaw) {
+  // We must have at least one external ID.
+  if (!tmdbId && !imdbId) {
     return jsonError(
-      "Either external.tmdbId or external.imdbId is required",
+      "Missing tmdbId or imdbId",
       400,
+      "CATALOG_SYNC_MISSING_EXTERNAL",
     );
   }
 
-  let tmdbMediaType: "movie" | "tv" = typeRaw ?? "movie";
-  let tmdbId: number | null = tmdbIdRaw ?? null;
-  const rawImdbId: string | null = imdbIdRaw ?? null;
-  let imdbId: string | null = normalizeImdbId(rawImdbId);
+  // ---------------------------------------------------------------------------
+  // Try to resolve TMDb metadata
+  // ---------------------------------------------------------------------------
 
-  // If only IMDb ID is provided, resolve TMDb via /find
+  let tmdbMediaType: "movie" | "tv" | null = external.type ?? null;
+
+  // If we only have IMDb ID, try to look up TMDb ID via /find.
   if (!tmdbId && imdbId) {
-    const resolved = await tmdbFindByImdbId(imdbId);
+    const resolved = await tmdbFindByImdb(imdbId);
     if (!resolved) {
-      return jsonError("Could not resolve TMDb id from IMDb id", 502);
+      console.warn(
+        "[catalog-sync:title] TMDb /find could not resolve IMDb ID",
+        imdbId,
+      );
+    } else {
+      tmdbId = resolved.id;
+      tmdbMediaType = resolved.media_type === "tv" ? "tv" : "movie";
+      console.log(
+        "[catalog-sync:title] resolved TMDb from IMDb",
+        imdbId,
+        "→",
+        tmdbId,
+        tmdbMediaType,
+      );
     }
-    tmdbId = resolved.id;
-    tmdbMediaType = resolved.media_type; // "movie" | "tv"
   }
+
+  // If we still don't know TMDb media type, infer from contentType or default.
+  if (!tmdbMediaType && contentType === "series") tmdbMediaType = "tv";
+  if (!tmdbMediaType && contentType === "movie") tmdbMediaType = "movie";
+  if (!tmdbMediaType) tmdbMediaType = "movie"; // safe default
+
+  // Normalize contentType to match DB enum.
+  contentType = tmdbMediaType === "tv" ? "series" : "movie";
 
   if (!tmdbId) {
-    return jsonError("Could not determine TMDb id", 500);
+    console.warn(
+      "[catalog-sync:title] still no tmdbId after /find; proceeding with OMDb only",
+    );
   }
 
-  // --- TMDb details ---
-  const tmdbDetails = await tmdbGetDetails(tmdbId, tmdbMediaType);
-  if (!tmdbDetails) {
-    return jsonError("TMDb details fetch failed", 502);
+  // ---------------------------------------------------------------------------
+  // Look up or provision a title_id
+  // ---------------------------------------------------------------------------
+
+  let titleId: string | null = null;
+  let existing = false;
+
+  if (tmdbId) {
+    // Prefer match via tmdb_id
+    const { data: existingByTmdb, error: existingByTmdbError } = await supabase
+      .from("titles")
+      .select("title_id")
+      .eq("tmdb_id", tmdbId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingByTmdbError) {
+      console.warn(
+        "[catalog-sync:title] lookup existing by tmdb_id error",
+        existingByTmdbError,
+      );
+    }
+
+    if (existingByTmdb?.title_id) {
+      titleId = existingByTmdb.title_id;
+      existing = true;
+      console.log(
+        "[catalog-sync:title] found existing title by tmdb_id:",
+        titleId,
+      );
+    }
   }
 
-  // Resolve IMDb ID from TMDb, including external_ids for TV
-  if (!imdbId) {
+  if (!titleId && imdbId) {
+    // Then try match via omdb_imdb_id
+    const { data: existingByImdb, error: existingByImdbError } = await supabase
+      .from("titles")
+      .select("title_id")
+      .eq("omdb_imdb_id", imdbId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingByImdbError) {
+      console.warn(
+        "[catalog-sync:title] lookup existing by omdb_imdb_id error",
+        existingByImdbError,
+      );
+    }
+
+    if (existingByImdb?.title_id) {
+      titleId = existingByImdb.title_id;
+      existing = true;
+      console.log(
+        "[catalog-sync:title] found existing title by omdb_imdb_id:",
+        titleId,
+      );
+    }
+  }
+
+  if (!titleId) {
+    titleId = crypto.randomUUID();
+    existing = false;
+    console.log("[catalog-sync:title] creating new title_id:", titleId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // TMDb details
+  // ---------------------------------------------------------------------------
+
+  let tmdbDetails: any | null = null;
+
+  if (tmdbId) {
+    tmdbDetails = await tmdbGetDetails(tmdbId, tmdbMediaType);
+    if (!tmdbDetails) {
+      console.warn("[catalog-sync:title] TMDb details fetch failed");
+    }
+  }
+
+  // If we have TMDb details, use them to resolve IMDb ID for TV as well.
+  if (tmdbDetails && !imdbId) {
     const imdbFromMovie = tmdbDetails.imdb_id;
     const imdbFromExternal =
       tmdbDetails.external_ids?.imdb_id ??
@@ -148,139 +243,38 @@ async function handleTitleMode(
 
   const tmdbBlock = buildTmdbBlock(tmdbDetails, tmdbMediaType);
 
-  // --- OMDb ---
+  // ---------------------------------------------------------------------------
+  // OMDb enrichment (optional)
+  // ---------------------------------------------------------------------------
+
   let omdbBlock: OmdbBlock | null = null;
   if ((options?.syncOmdb ?? true) && OMDB_API_KEY && imdbId) {
     omdbBlock = await fetchOmdbBlock(imdbId);
-  } else if ((options?.syncOmdb ?? true) && OMDB_API_KEY && rawImdbId && !imdbId) {
-    console.warn(
-      "[catalog-sync:title] Skipping OMDb sync due to invalid IMDb ID format:",
-      rawImdbId,
-    );
-  }
-
-  // Map TMDb media_type -> DB enum content_type ("movie" | "series")
-  const dbContentType: "movie" | "series" =
-    tmdbMediaType === "movie" ? "movie" : "series";
-
-  // Existing row?
-  const { data: existing, error: existingError } = await supabase
-    .from("titles")
-    .select(
-      "title_id, tmdb_id, omdb_imdb_id, omdb_last_synced_at, last_synced_at",
-    )
-    .or(
-      [
-        tmdbId ? `tmdb_id.eq.${tmdbId}` : "",
-        imdbId ? `omdb_imdb_id.eq.${imdbId}` : "",
-      ]
-        .filter(Boolean)
-        .join(","),
-    )
-    .limit(1)
-    .maybeSingle();
-
-  if (existingError) {
-    console.error(
-      "[catalog-sync:title] select existing error:",
-      existingError.message,
-    );
-    return jsonError("Database error", 500);
-  }
-
-  // Skip fresh rows unless forceRefresh
-  if (existing && !options?.forceRefresh) {
-    const lastSyncedRaw = (existing as any).last_synced_at as
-      | string
-      | null
-      | undefined;
-    if (lastSyncedRaw) {
-      const lastSyncedTime = Date.parse(lastSyncedRaw);
-      if (!Number.isNaN(lastSyncedTime)) {
-        const nowMs = Date.now();
-        const ageMs = nowMs - lastSyncedTime;
-        const twentyFourHoursMs = 24 * 60 * 60 * 1000;
-        if (ageMs >= 0 && ageMs < twentyFourHoursMs) {
-          console.log(
-            "[catalog-sync:title] skipping refresh for",
-            (existing as any).title_id,
-            "last_synced_at=",
-            lastSyncedRaw,
-          );
-          return jsonOk(
-            {
-              ok: true,
-              titleId: (existing as any).title_id,
-              tmdbId,
-              imdbId,
-              skipped: true,
-              reason: "recently_synced",
-            },
-            200,
-          );
-        }
-      }
+    if (!omdbBlock) {
+      console.warn("[catalog-sync:title] OMDb fetch returned null");
     }
   }
 
-  const now = new Date().toISOString();
-  const titleId = existing?.title_id ?? crypto.randomUUID();
+  // ---------------------------------------------------------------------------
+  // Canonical fields (OMDb → TMDb → null)
+  // ---------------------------------------------------------------------------
 
-  // Canonical fields (OMDb → TMDb)
-  const normalized = buildNormalizedFields({
-    mediaType: tmdbMediaType,
-    tmdb: tmdbBlock,
-    omdb: omdbBlock,
+  const canonical = buildCanonicalBlock(tmdbBlock, omdbBlock, {
+    contentType,
   });
 
-  const baseRow: Record<string, any> = {
+  const baseRow = {
     title_id: titleId,
-    content_type: dbContentType,
-
-    // canonical
-    ...normalized,
-
-    // provider-specific
+    content_type: contentType,
     ...tmdbBlock,
     ...omdbBlock,
-
-    // bookkeeping
-    tmdb_last_synced_at: now,
-    omdb_last_synced_at: omdbBlock
-      ? now
-      : existing?.omdb_last_synced_at ?? null,
-    last_synced_at: now,
-    updated_at: now,
-
-    data_source: omdbBlock ? "omdb" : "tmdb",
-    source_priority: omdbBlock ? 1 : 2,
-    raw_payload: {
-      tmdb: tmdbBlock.tmdb_raw ?? null,
-      omdb: omdbBlock?.omdb_raw ?? null,
-    },
+    ...canonical,
+    deleted_at: null,
   };
 
-  async function upsertDetailTables(
-    supabase: ReturnType<typeof getSupabaseAdminClient>,
-    contentType: "movie" | "series",
-    titleId: string,
-  ): Promise<void> {
-    try {
-      if (contentType === "movie") {
-        await supabase.from("movies").upsert(
-          { title_id: titleId },
-          { onConflict: "title_id" },
-        );
-      } else if (contentType === "series") {
-        await supabase.from("series").upsert(
-          { title_id: titleId },
-          { onConflict: "title_id" },
-        );
-      }
-    } catch (err) {
-      console.warn("[catalog-sync:title] upsertDetailTables error:", err);
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // Upsert into public.titles
+  // ---------------------------------------------------------------------------
 
   let mutationError: any = null;
   let finalTitleId: string = titleId;
@@ -297,92 +291,107 @@ async function handleTitleMode(
   }
 
   // Duplicate tmdb_id → update existing row
-  if (mutationError) {
-    const code = (mutationError as any).code;
-    const msg = (mutationError as any).message ?? "";
+  if (mutationError && mutationError.code === "23505" && tmdbId) {
+    console.warn(
+      "[catalog-sync:title] duplicate tmdb_id; attempting update existing row",
+    );
+    const { data, error: lookupError } = await supabase
+      .from("titles")
+      .select("title_id")
+      .eq("tmdb_id", tmdbId)
+      .limit(1)
+      .maybeSingle();
 
-    if (code === "23505" && msg.includes("titles_tmdb_id_key") &&
-      tmdbBlock.tmdb_id != null) {
-      console.warn(
-        "[catalog-sync:title] duplicate tmdb_id detected, updating existing row instead",
-      );
-
-      const { data: conflictRow, error: conflictSelectError } = await supabase
-        .from("titles")
-        .select("title_id")
-        .eq("tmdb_id", tmdbBlock.tmdb_id)
-        .maybeSingle();
-
-      if (!conflictSelectError && conflictRow?.title_id) {
-        finalTitleId = conflictRow.title_id;
-
-        const { error: updateError } = await supabase
-          .from("titles")
-          .update({
-            ...baseRow,
-            title_id: conflictRow.title_id,
-          })
-          .eq("title_id", conflictRow.title_id);
-
-        if (!updateError) {
-          await upsertDetailTables(supabase, dbContentType, conflictRow.title_id);
-
-          return jsonOk(
-            {
-              ok: true,
-              titleId: conflictRow.title_id,
-              tmdbId,
-              imdbId,
-            },
-            200,
-          );
-        }
-
-        console.error(
-          "[catalog-sync:title] conflict update error:",
-          updateError.message,
-        );
-        return jsonError("Failed to update existing title", 500);
-      }
-
+    if (lookupError) {
       console.error(
-        "[catalog-sync:title] conflict select error:",
-        conflictSelectError?.message,
+        "[catalog-sync:title] lookup existing by tmdb_id failed",
+        lookupError,
       );
-      return jsonError("Failed to resolve duplicate tmdb_id", 500);
+      return jsonError("Failed to sync title", 500);
     }
 
-    console.error("[catalog-sync:title] mutation error:", mutationError.message);
-    return jsonError("Failed to upsert title", 500);
+    if (!data?.title_id) {
+      console.error(
+        "[catalog-sync:title] duplicate tmdb_id but no existing row found",
+      );
+      return jsonError("Failed to sync title", 500);
+    }
+
+    finalTitleId = data.title_id;
+
+    const { error: updateExistingError } = await supabase
+      .from("titles")
+      .update(baseRow)
+      .eq("title_id", finalTitleId);
+
+    if (updateExistingError) {
+      console.error(
+        "[catalog-sync:title] update existing row by tmdb_id failed",
+        updateExistingError,
+      );
+      return jsonError("Failed to sync title", 500);
+    }
+  } else if (mutationError) {
+    console.error("[catalog-sync:title] upsert error", mutationError);
+    return jsonError("Failed to sync title", 500);
   }
 
-  await upsertDetailTables(supabase, dbContentType, finalTitleId);
+  // Ensure detail tables (movies/series) exist
+  if (finalTitleId && contentType) {
+    try {
+      if (contentType === "movie") {
+        await supabase.from("movies").upsert(
+          { title_id: finalTitleId },
+          { onConflict: "title_id" },
+        );
+      } else if (contentType === "series") {
+        await supabase.from("series").upsert(
+          { title_id: finalTitleId },
+          { onConflict: "title_id" },
+        );
+      }
+    } catch (err) {
+      console.warn("[catalog-sync:title] upsertDetailTables error:", err);
+    }
+  }
 
-  return jsonOk(
-    {
-      ok: true,
-      titleId: finalTitleId,
-      tmdbId,
-      imdbId,
-    },
-    200,
-  );
+  return jsonResponse({
+    ok: true,
+    mode: "title",
+    title_id: finalTitleId,
+    tmdb_id: tmdbId,
+    imdb_id: imdbId,
+    content_type: contentType,
+  });
 }
 
-// ============================================================================
-// TMDb helpers → tmdb_*
-// ============================================================================
+// -----------------------------------------------------------------------------
+// TMDb helpers
+// -----------------------------------------------------------------------------
 
-async function tmdbRequest(path: string, params: Record<string, string> = {}) {
+async function tmdbRequest(
+  path: string,
+  params?: Record<string, string>,
+): Promise<any | null> {
+  if (!TMDB_API_READ_ACCESS_TOKEN) {
+    console.error(
+      "[TMDb] TMDB_API_READ_ACCESS_TOKEN is not set; cannot fetch from TMDb",
+    );
+    return null;
+  }
+
   const url = new URL(TMDB_BASE + path);
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
   }
 
   const res = await fetch(url.toString(), {
+    method: "GET",
     headers: {
-      Authorization: `Bearer ${TMDB_TOKEN}`,
-      Accept: "application/json",
+      accept: "application/json",
+      Authorization: `Bearer ${TMDB_API_READ_ACCESS_TOKEN}`,
     },
   });
 
@@ -390,27 +399,35 @@ async function tmdbRequest(path: string, params: Record<string, string> = {}) {
     console.error("[TMDb] request failed", res.status, await res.text());
     return null;
   }
+
   return await res.json();
 }
 
-async function tmdbFindByImdbId(imdbId: string): Promise<
-  | {
-      id: number;
-      media_type: "movie" | "tv";
-    }
-  | null
-> {
-  const data = await tmdbRequest(`/find/${encodeURIComponent(imdbId)}`, {
+async function tmdbFindByImdb(imdbId: string): Promise<any | null> {
+  const normalized = normalizeImdbId(imdbId);
+  if (!normalized) {
+    console.warn("[TMDb] invalid IMDb ID for /find", imdbId);
+    return null;
+  }
+
+  const data = await tmdbRequest(`/find/${normalized}`, {
     external_source: "imdb_id",
   });
+
   if (!data) return null;
 
-  if (Array.isArray(data.movie_results) && data.movie_results.length > 0) {
-    return { id: data.movie_results[0].id, media_type: "movie" };
+  const movie = Array.isArray(data.movie_results)
+    ? data.movie_results[0]
+    : null;
+  const tv = Array.isArray(data.tv_results) ? data.tv_results[0] : null;
+
+  if (movie?.id) {
+    return { ...movie, media_type: "movie" };
   }
-  if (Array.isArray(data.tv_results) && data.tv_results.length > 0) {
-    return { id: data.tv_results[0].id, media_type: "tv" };
+  if (tv?.id) {
+    return { ...tv, media_type: "tv" };
   }
+
   return null;
 }
 
@@ -445,37 +462,81 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
         .filter((x: any) => x !== null)
       : [];
 
-  const releaseDate = safeDateOrNull(details.release_date);
-  const firstAirDate = safeDateOrNull(details.first_air_date);
+  const runtimeMinutes =
+    typeof details.runtime === "number" && details.runtime > 0
+      ? details.runtime
+      : Array.isArray(details.episode_run_time) &&
+          typeof details.episode_run_time[0] === "number"
+        ? details.episode_run_time[0]
+        : null;
+
+  const releaseDate =
+    typeof details.release_date === "string"
+      ? details.release_date
+      : typeof details.first_air_date === "string"
+        ? details.first_air_date
+        : null;
+
+  const releaseYear =
+    releaseDate && releaseDate.length >= 4
+      ? parseIntSafe(releaseDate.slice(0, 4))
+      : null;
+
+  const voteAverage =
+    typeof details.vote_average === "number" ? details.vote_average : null;
+  const voteCount =
+    typeof details.vote_count === "number" ? details.vote_count : null;
+
+  const tmdbPopularity =
+    typeof details.popularity === "number" ? details.popularity : null;
+
+  // Some useful movie/TV-specific fields
+  const title = type === "tv" ? details.name : details.title;
+  const originalTitle =
+    type === "tv" ? details.original_name : details.original_title;
+
+  const productionCountries = Array.isArray(details.production_countries)
+    ? details.production_countries
+      .map((c: any) => (typeof c.iso_3166_1 === "string" ? c.iso_3166_1 : null))
+      .filter((c: any) => c !== null)
+    : [];
+
+  const spokenLanguages = Array.isArray(details.spoken_languages)
+    ? details.spoken_languages
+      .map((l: any) => (typeof l.iso_639_1 === "string" ? l.iso_639_1 : null))
+      .filter((c: any) => c !== null)
+    : [];
 
   return {
     tmdb_id: details.id ?? null,
-    tmdb_media_type: type,
-    tmdb_adult: details.adult ?? null,
-    tmdb_video: details.video ?? null,
-    tmdb_genre_ids: genreIds.length ? genreIds : null,
-    tmdb_original_language: details.original_language ?? null,
-    tmdb_original_title:
-      details.original_title ?? details.original_name ?? null,
-    tmdb_title: details.title ?? details.name ?? null,
+    tmdb_title: title ?? null,
+    tmdb_original_title: originalTitle ?? null,
     tmdb_overview: details.overview ?? null,
-    tmdb_popularity: details.popularity ?? null,
-    tmdb_vote_average: details.vote_average ?? null,
-    tmdb_vote_count: details.vote_count ?? null,
-    tmdb_release_date: releaseDate,
-    tmdb_first_air_date: firstAirDate,
-    tmdb_runtime: details.runtime ?? null,
-    tmdb_episode_run_time: details.episode_run_time ?? null,
     tmdb_poster_path: posterPath,
     tmdb_backdrop_path: backdropPath,
-    tmdb_genre_names: genresArray,
+    tmdb_genre_ids: genreIds.length ? genreIds : null,
+    tmdb_genre_names: genresArray.length ? genresArray : null,
+    tmdb_release_date: details.release_date ?? null,
+    tmdb_first_air_date: details.first_air_date ?? null,
+    tmdb_vote_average: voteAverage,
+    tmdb_vote_count: voteCount,
+    tmdb_popularity,
+    tmdb_adult: details.adult ?? null,
+    tmdb_original_language: details.original_language ?? null,
+    tmdb_media_type: type,
+    tmdb_runtime_minutes: runtimeMinutes,
+    tmdb_production_countries: productionCountries.length
+      ? productionCountries
+      : null,
+    tmdb_spoken_languages: spokenLanguages.length ? spokenLanguages : null,
+
     tmdb_raw: details,
   };
 }
 
-// ============================================================================
-// OMDb helpers → omdb_*
-// ============================================================================
+// -----------------------------------------------------------------------------
+// OMDb helpers
+// -----------------------------------------------------------------------------
 
 type OmdbBlock = Record<string, any>;
 
@@ -493,14 +554,17 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
     return null;
   }
   const data = await res.json();
-  if (data.Response === "False") {
-    console.warn("[OMDb] Response false for imdbId", imdbId, ":", data.Error);
+
+  if (!data || data.Response === "False") {
+    console.warn("[OMDb] Response was False or missing", data);
     return null;
   }
 
   const imdbRating = parseFloatSafe(data.imdbRating);
-  const imdbVotes = parseIntSafe(data.imdbVotes);
-  const rtPct = extractRottenTomatoesPct(data.Ratings);
+  const imdbVotes =
+    typeof data.imdbVotes === "string"
+      ? parseIntSafe(data.imdbVotes.replace(/,/g, ""))
+      : null;
   const metascore = parseIntSafe(data.Metascore);
 
   const runtimeMinutes = parseIntSafe(
@@ -513,6 +577,8 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
       : [];
 
   const boxOfficeNumeric = parseCurrency(data.BoxOffice);
+
+  const rtPct = extractRottenTomatoesPct(data.Ratings);
 
   return {
     omdb_imdb_id: data.imdbID ?? imdbId,
@@ -557,208 +623,131 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
 
 function extractRottenTomatoesPct(ratings: any): number | null {
   if (!Array.isArray(ratings)) return null;
-  const rt = ratings.find(
-    (r: any) => r.Source === "Rotten Tomatoes" && typeof r.Value === "string",
-  );
-  if (!rt) return null;
-  const match = (rt.Value as string).match(/(\d+)%/);
-  return match ? parseIntSafe(match[1]) : null;
+
+  const rt = ratings.find((r: any) => r.Source === "Rotten Tomatoes");
+  if (!rt || typeof rt.Value !== "string") return null;
+
+  const match = rt.Value.match(/^(\d+)%$/);
+  if (!match) return null;
+
+  const pct = parseIntSafe(match[1]);
+  return pct ?? null;
 }
 
-// ============================================================================
-// Canonical columns: OMDb → TMDb → null
-// ============================================================================
+// -----------------------------------------------------------------------------
+// Canonical block builder (OMDb → TMDb → null)
+// -----------------------------------------------------------------------------
 
-function buildNormalizedFields({
-  mediaType,
-  tmdb,
-  omdb,
-}: {
-  mediaType: "movie" | "tv";
-  tmdb: TmdbBlock;
-  omdb: OmdbBlock | null;
-}) {
-  const tmdbRaw = tmdb.tmdb_raw ?? {};
+function buildCanonicalBlock(
+  tmdb: TmdbBlock,
+  omdb: OmdbBlock | null,
+  options: { contentType: "movie" | "series" | null },
+) {
+  const contentType = options.contentType;
 
-  const primary_title =
-    omdb?.omdb_title ??
-    tmdb.tmdb_title ??
-    tmdb.tmdb_original_title ??
+  const tmdbTitle = tmdb.tmdb_title ?? null;
+  const tmdbOriginalTitle = tmdb.tmdb_original_title ?? null;
+  const tmdbReleaseDate =
+    tmdb.tmdb_release_date ?? tmdb.tmdb_first_air_date ?? null;
+  const tmdbReleaseYear =
+    tmdbReleaseDate && tmdbReleaseDate.length >= 4
+      ? parseIntSafe(tmdbReleaseDate.slice(0, 4))
+      : null;
+
+  const tmdbGenres =
+    Array.isArray(tmdb.tmdb_genre_names) && tmdb.tmdb_genre_names.length
+      ? tmdb.tmdb_genre_names
+      : null;
+
+  const tmdbRuntimeMinutes = tmdb.tmdb_runtime_minutes ?? null;
+  const tmdbPosterUrl = buildTmdbImageUrl(tmdb.tmdb_poster_path, "w500");
+  const tmdbBackdropUrl = buildTmdbImageUrl(tmdb.tmdb_backdrop_path, "w780");
+
+  const omdbTitle = omdb?.omdb_title ?? null;
+  const omdbYear = omdb?.omdb_year ?? null;
+  const omdbGenres =
+    Array.isArray(omdb?.omdb_genre_names) && omdb.omdb_genre_names.length
+      ? omdb.omdb_genre_names
+      : null;
+  const omdbRuntimeMinutes = omdb?.omdb_runtime_minutes ?? null;
+  const omdbPosterUrl = omdb?.omdb_poster_url ?? null;
+  const omdbPlot = omdb?.omdb_plot ?? null;
+
+  const primaryTitle = omdbTitle ?? tmdbTitle ?? null;
+  const originalTitle =
+    tmdbOriginalTitle ??
+    tmdbTitle ??
+    omdbTitle ??
     null;
 
-  const original_title =
-    tmdb.tmdb_original_title ??
-    omdb?.omdb_title ??
+  const releaseYear = omdbYear ?? tmdbReleaseYear ?? null;
+
+  const runtimeMinutes =
+    omdbRuntimeMinutes ??
+    tmdbRuntimeMinutes ??
     null;
 
-  const sort_title = primary_title ? buildSortTitle(primary_title) : null;
-
-  const omdbReleaseIso = omdb?.omdb_released
-    ? parseOmdbDateToISO(omdb.omdb_released)
-    : null;
-
-  const release_date =
-    omdbReleaseIso ??
-    tmdb.tmdb_release_date ??
-    (mediaType === "tv" ? tmdb.tmdb_first_air_date : null) ??
+  const genres =
+    omdbGenres ??
+    tmdbGenres ??
     null;
 
-  const release_year =
-    omdb?.omdb_year ??
-    extractYear(
-      release_date ??
-        tmdb.tmdb_release_date ??
-        (mediaType === "tv" ? tmdb.tmdb_first_air_date : null),
-    );
+  const posterUrl = omdbPosterUrl ?? tmdbPosterUrl ?? null;
+  const backdropUrl = tmdbBackdropUrl ?? null;
 
-  const runtime_minutes =
-    omdb?.omdb_runtime_minutes ??
-    (typeof tmdb.tmdb_runtime === "number"
-      ? tmdb.tmdb_runtime
-      : Array.isArray(tmdb.tmdb_episode_run_time) &&
-        tmdb.tmdb_episode_run_time.length
-      ? tmdb.tmdb_episode_run_time[0]
-      : null);
+  const imdbRating =
+    omdb?.omdb_imdb_rating ?? null;
+
+  const sortTitle = buildSortTitle(primaryTitle);
 
   const plot =
-    omdb?.omdb_plot ??
+    omdbPlot ??
     tmdb.tmdb_overview ??
     null;
 
-  const tagline = tmdbRaw?.tagline ?? null;
-
-  const poster_url =
-    omdb?.omdb_poster_url ??
-    (tmdb.tmdb_poster_path
-      ? `https://image.tmdb.org/t/p/w500${tmdb.tmdb_poster_path}`
-      : null);
-
-  const backdrop_url =
-    tmdb.tmdb_backdrop_path
-      ? `https://image.tmdb.org/t/p/w780${tmdb.tmdb_backdrop_path}`
-      : null;
-
-  const tmdbSpoken =
-    Array.isArray(tmdbRaw.spoken_languages) ? tmdbRaw.spoken_languages : [];
-  const tmdbLangName =
-    tmdbSpoken.length > 0
-      ? tmdbSpoken[0].english_name ?? tmdbSpoken[0].name ?? null
-      : null;
-
-  const tmdbCountries =
-    Array.isArray(tmdbRaw.production_countries)
-      ? tmdbRaw.production_countries
-      : [];
-  const tmdbCountryName =
-    tmdbCountries.length > 0
-      ? tmdbCountries[0].name ?? tmdbCountries[0].iso_3166_1 ?? null
-      : null;
-
-  const language =
-    (omdb?.omdb_language
-      ? omdb.omdb_language.split(",")[0].trim()
-      : null) ??
-    tmdbLangName ??
-    tmdb.tmdb_original_language ??
-    null;
-
-  const country =
-    (omdb?.omdb_country
-      ? omdb.omdb_country.split(",")[0].trim()
-      : null) ??
-    tmdbCountryName ??
-    null;
-
-  const imdb_rating =
-    omdb?.omdb_imdb_rating ??
-    (typeof tmdb.tmdb_vote_average === "number"
-      ? Math.round(tmdb.tmdb_vote_average * 10) / 10
-      : null);
-
-  const imdb_votes =
-    omdb?.omdb_imdb_votes ??
-    (typeof tmdb.tmdb_vote_count === "number"
-      ? tmdb.tmdb_vote_count
-      : null);
-
-  const rt_tomato_pct =
-    omdb?.omdb_rt_rating_pct ??
-    null;
-
-  const metascore =
-    omdb?.omdb_metacritic_score ??
-    null;
-
-  const genresSet = new Set<string>();
-  if (Array.isArray(omdb?.omdb_genre_names)) {
-    for (const g of omdb!.omdb_genre_names) {
-      if (g) genresSet.add(g);
-    }
-  }
-  if (Array.isArray(tmdb.tmdb_genre_names)) {
-    for (const g of tmdb.tmdb_genre_names) {
-      if (g) genresSet.add(g);
-    }
-  }
-  const genres = genresSet.size ? Array.from(genresSet) : null;
-
-  const is_adult = tmdb.tmdb_adult ?? false;
-
   return {
-    primary_title,
-    original_title,
-    sort_title,
-    release_year,
-    release_date,
-    runtime_minutes,
-    is_adult,
-    plot,
-    tagline,
-    poster_url,
-    backdrop_url,
+    primary_title: primaryTitle,
+    original_title: originalTitle,
+    sort_title: sortTitle,
+    release_year: releaseYear,
+    runtime_minutes: runtimeMinutes,
+    poster_url: posterUrl,
+    backdrop_url: backdropUrl,
+    imdb_rating: imdbRating,
+    rt_tomato_pct: omdb?.omdb_rt_rating_pct ?? null,
     genres,
-    language,
-    country,
-    imdb_rating,
-    imdb_votes,
-    rt_tomato_pct,
-    metascore,
+    plot,
   };
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
+function buildTmdbImageUrl(path: string | null | undefined, size: string) {
+  if (!path) return null;
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+}
 
-function safeDateOrNull(value: any): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
-  return trimmed;
+function buildSortTitle(title: string | null): string | null {
+  if (!title) return null;
+  const lower = title.toLowerCase().trim();
+  if (lower.startsWith("the ")) return lower.slice(4);
+  if (lower.startsWith("a ")) return lower.slice(2);
+  if (lower.startsWith("an ")) return lower.slice(3);
+  return lower;
+}
+
+// -----------------------------------------------------------------------------
+// Small utils
+// -----------------------------------------------------------------------------
+
+function parseIntSafe(value: any): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 function parseFloatSafe(value: any): number | null {
-  const n = parseFloat(String(value).replace(",", ""));
+  if (value === null || value === undefined || value === "") return null;
+  const n = parseFloat(String(value));
   return Number.isFinite(n) ? n : null;
-}
-
-function parseIntSafe(value: any): number | null {
-  const n = parseInt(String(value).replace(/,/g, ""), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function extractYear(dateStr: string | null | undefined): number | null {
-  if (!dateStr) return null;
-  const match = dateStr.match(/^(\d{4})/);
-  return match ? parseIntSafe(match[1]) : null;
-}
-
-function nullIfEmpty(value: any): string | null {
-  if (value === undefined || value === null) return null;
-  const s = String(value).trim();
-  if (!s || s === "N/A") return null;
-  return s;
 }
 
 function parseCurrency(value: any): number | null {
@@ -776,28 +765,8 @@ function normalizeImdbId(raw: string | null | undefined): string | null {
   return trimmed;
 }
 
-function parseOmdbDateToISO(value: string): string | null {
-  const v = value?.trim();
-  if (!v || v === "N/A") return null;
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return null;
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function buildSortTitle(title: string): string {
-  const lower = title.trim().toLowerCase();
-  const articles = ["the ", "a ", "an "];
-  for (const art of articles) {
-    if (lower.startsWith(art)) {
-      return lower.slice(art.length);
-    }
-  }
-  return lower;
-}
-
-function jsonOk(body: unknown, status: number): Response {
-  return jsonResponse(body, status);
+function nullIfEmpty(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s.length ? s : null;
 }
