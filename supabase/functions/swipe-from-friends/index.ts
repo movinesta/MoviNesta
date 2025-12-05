@@ -1,15 +1,18 @@
 // supabase/functions/swipe-from-friends/index.ts
 //
 // Returns a "From Friends" swipe deck.
-// In the absence of an explicit friends graph, this approximates
-// "friends" as the wider community, focusing on titles that other users
-// have rated highly, then softly personalizing using the caller's
-// preference profile.
-// - Aggregates community ratings per title (excluding the current user).
-// - Scores by rating strength + rating count + tmdb_popularity.
-// - Boosts titles that match the user's favorite genres / content types.
-// - Filters out titles the user has already interacted with.
-// - Applies genre diversity caps and triggers catalog-sync.
+// Here "friends" means: people the current user follows (follows.follower_id = auth user).
+// The deck is built from titles those followed users have rated highly, with
+// a bit of personalization based on the current user's own profile.
+//
+// Behaviour:
+// - If the user follows nobody, this returns an empty deck.
+// - Aggregates community ratings from followed users only.
+// - Scores by avg rating, rating count, tmdb_popularity, imdb_rating.
+// - Boosts titles that match the caller's genres / content-type preferences.
+// - Filters out titles the caller has already interacted with.
+// - Enforces genre diversity caps.
+// - Triggers catalog-sync for a few cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
@@ -77,9 +80,18 @@ serve(async (req: Request): Promise<Response> => {
     const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, userId);
     const profile = await safeComputeUserProfile(supabaseAdmin, userId);
 
+    // Load the set of user_ids this user follows.
+    const followedIds = await loadFollowedUserIds(supabaseAdmin, userId);
+
+    // If the user follows nobody, the "From Friends" feed should be empty.
+    if (!followedIds.length) {
+      console.log("[swipe-from-friends] user has no follows; empty deck");
+      return jsonResponse({ ok: true, cards: [] });
+    }
+
     const cards = await buildFromFriendsDeck(
       supabaseAdmin,
-      userId,
+      followedIds,
       seenTitleIds,
       profile,
     );
@@ -126,20 +138,51 @@ async function safeComputeUserProfile(
 }
 
 // ------------------------------------------------------------
+// Helpers
+// ------------------------------------------------------------
+
+/**
+ * Returns the list of user_ids the caller follows.
+ * Uses the `follows` table: follower_id -> followed_id.
+ */
+async function loadFollowedUserIds(
+  supabase: ReturnType<typeof getAdminClient>,
+  userId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("follows")
+    .select("followed_id")
+    .eq("follower_id", userId)
+    .limit(1000);
+
+  if (error) {
+    console.warn("[swipe-from-friends] follows query error:", error.message);
+    return [];
+  }
+
+  const ids: string[] = [];
+  for (const row of data ?? []) {
+    const id = (row as any).followed_id as string | null;
+    if (id) ids.push(id);
+  }
+  return Array.from(new Set(ids));
+}
+
+// ------------------------------------------------------------
 // Deck building
 // ------------------------------------------------------------
 
 async function buildFromFriendsDeck(
   supabase: ReturnType<typeof getAdminClient>,
-  userId: string,
+  followedIds: string[],
   seenTitleIds: Set<string>,
   profile: UserProfile | null,
 ): Promise<SwipeCard[]> {
-  // Step 1: sample community ratings (excluding the current user)
+  // Step 1: sample ratings from followed users only
   const { data: rows, error } = await supabase
     .from("ratings")
-    .select("title_id, rating")
-    .neq("user_id", userId)
+    .select("title_id, rating, user_id")
+    .in("user_id", followedIds)
     .gte("rating", 6)
     .limit(MAX_RATING_ROWS);
 
@@ -237,17 +280,16 @@ async function buildFromFriendsDeck(
     const popularity = Number(meta.tmdb_popularity ?? 0);
     const imdbRating = Number(meta.imdb_rating ?? 0);
 
-    // Base score: strong community consensus + volume
+    // Base score: strong friends consensus + volume
     let score = 0;
-
-    score += avgRating * 1.2; // high average rating matters
-    score += Math.log10(1 + count) * 1.0; // number of ratings
+    score += avgRating * 1.2;
+    score += Math.log10(1 + count) * 1.0;
     score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
     if (imdbRating > 0) {
       score += imdbRating * 0.3;
     }
 
-    // Personalization boosts
+    // Personalization boosts based on caller's profile
     const genres: string[] = Array.isArray(meta.genres)
       ? meta.genres
       : typeof meta.genres === "string"
