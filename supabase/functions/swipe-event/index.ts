@@ -288,12 +288,11 @@ async function updateTitleStats(
     }
 
     // For watch_count we approximate "has some non-want_to_watch entry"
-    const { data: watchAgg, error: watchAggError } = await supabase
+    const { count: watchCount, error: watchAggError } = await supabase
       .from("library_entries")
-      .select("count(*)::int as watch_count")
+      .select("*", { count: "exact", head: true })
       .eq("title_id", titleId)
-      .neq("status", "want_to_watch")
-      .single();
+      .neq("status", "want_to_watch");
 
     if (watchAggError) {
       console.warn("[swipe-event] updateTitleStats watch agg error:", watchAggError.message);
@@ -304,7 +303,7 @@ async function updateTitleStats(
     const avgRating = (ratingAgg as any)?.avg_rating ?? null;
     const ratingsCount = (ratingAgg as any)?.ratings_count ?? 0;
     const reviewsCount = (reviewAgg as any)?.reviews_count ?? 0;
-    const watchCount = (watchAgg as any)?.watch_count ?? 0;
+    const watchCount = watchCount ?? 0;
 
     await supabase
       .from("title_stats")
@@ -373,21 +372,19 @@ async function updateUserStats(
       console.warn("[swipe-event] updateUserStats comments agg error:", commentsAggError.message);
     }
 
-    const { data: listsAgg, error: listsAggError } = await supabase
+    const { count: listsCountRaw, error: listsAggError } = await supabase
       .from("lists")
-      .select("count(*)::int as lists_count")
-      .eq("user_id", userId)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
 
     if (listsAggError) {
       console.warn("[swipe-event] updateUserStats lists agg error:", listsAggError.message);
     }
 
-    const { data: messagesAgg, error: messagesAggError } = await supabase
+    const { count: messagesSentCountRaw, error: messagesAggError } = await supabase
       .from("messages")
-      .select("count(*)::int as messages_sent_count")
-      .eq("user_id", userId)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
 
     if (messagesAggError) {
       console.warn("[swipe-event] updateUserStats messages agg error:", messagesAggError.message);
@@ -397,8 +394,8 @@ async function updateUserStats(
     const reviewsCount = (reviewsAgg as any)?.reviews_count ?? 0;
     const watchlistCount = (watchlistAgg as any)?.watchlist_count ?? 0;
     const commentsCount = (commentsAgg as any)?.comments_count ?? 0;
-    const listsCount = (listsAgg as any)?.lists_count ?? 0;
-    const messagesSentCount = (messagesAgg as any)?.messages_sent_count ?? 0;
+    const listsCount = (listsAgg as any)?.count ?? 0;
+    const messagesSentCount = (messagesAgg as any)?.count ?? 0;
 
     await supabase
       .from("user_stats")
