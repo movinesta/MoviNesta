@@ -50,7 +50,9 @@ const UserRow: React.FC<{ item: HomeFeedItem }> = ({ item }) => (
         {item.user.avatarInitials}
       </div>
       <div className="min-w-0">
-        <p className="truncate text-[12px] font-semibold text-mn-text-primary">{item.user.displayName}</p>
+        <p className="truncate text-[12px] font-semibold text-mn-text-primary">
+          {item.user.displayName}
+        </p>
         <p className="text-[10px] text-mn-text-muted">{item.createdAtLabel}</p>
       </div>
     </div>
@@ -79,7 +81,9 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
           <p className="text-[11px] text-mn-text-secondary">
             Rated {item.rating.toFixed(1)} {item.emoji ?? "⭐️"}
           </p>
-          {item.reviewSnippet && <p className="text-[11px] text-mn-text-muted">“{item.reviewSnippet}”</p>}
+          {item.reviewSnippet && (
+            <p className="text-[11px] text-mn-text-muted">“{item.reviewSnippet}”</p>
+          )}
         </CardShell>
       );
     case "friend-review":
@@ -90,7 +94,9 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
           {item.rating && (
             <p className="text-[11px] text-mn-text-secondary">Rated {item.rating.toFixed(1)}</p>
           )}
-          {item.reviewSnippet && <p className="text-[11px] text-mn-text-muted">“{item.reviewSnippet}”</p>}
+          {item.reviewSnippet && (
+            <p className="text-[11px] text-mn-text-muted">“{item.reviewSnippet}”</p>
+          )}
         </CardShell>
       );
     case "watchlist-add":

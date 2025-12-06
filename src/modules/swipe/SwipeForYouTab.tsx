@@ -128,7 +128,6 @@ const SwipeForYouTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
-        title: card.title,
       });
 
       setLastSwipe({
@@ -258,7 +257,6 @@ const SwipeForYouTab: React.FC = () => {
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
-        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,
@@ -298,7 +296,7 @@ const SwipeForYouTab: React.FC = () => {
     );
   }
 
-  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes);
+  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes ?? undefined);
   const dragProgress = clamp(dragX / 120, -1, 1);
   const rotation = dragProgress * MAX_ROTATION_DEG;
 

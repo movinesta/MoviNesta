@@ -1,5 +1,14 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { BookmarkPlus, Clock, Film, Star, ThumbsDown, ThumbsUp, Users } from "lucide-react";
+import {
+  BookmarkPlus,
+  Clock,
+  Film,
+  Sparkles,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  Users,
+} from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
 import SwipeSyncBanner from "./SwipeSyncBanner";
 
@@ -58,6 +67,7 @@ const SwipeFromFriendsTab: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastSwipe, setLastSwipe] = useState<LastSwipe | null>(null);
 
+  // Local, optimistic state mirrored to Supabase via the swipe-event edge function
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [watchlist, setWatchlist] = useState<Record<string, boolean>>({});
 
@@ -118,7 +128,6 @@ const SwipeFromFriendsTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
-        title: card.title,
       });
 
       setLastSwipe({
@@ -218,14 +227,11 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: next,
       };
 
-      const cardTitle = cards.find((card) => card.id === cardId)?.title;
-
       swipeAsync({
         cardId,
         direction: next === 0 ? "skip" : "like",
         rating: next === 0 ? null : next,
         inWatchlist: watchlist[cardId] ?? undefined,
-        title: cardTitle,
       }).catch(() => {
         setRatings((currentState) => ({
           ...currentState,
@@ -246,14 +252,11 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: nextValue,
       };
 
-      const cardTitle = cards.find((card) => card.id === cardId)?.title;
-
       swipeAsync({
         cardId,
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
-        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,
@@ -269,14 +272,14 @@ const SwipeFromFriendsTab: React.FC = () => {
     return (
       <div className="flex h-full flex-col items-center justify-center px-3 text-center">
         <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-mn-primary/15">
-          <Users className="h-5 w-5 text-mn-primary" aria-hidden={true} />
+          <Sparkles className="h-5 w-5 text-mn-primary" aria-hidden={true} />
         </div>
         <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-          You&apos;re all caught up on friends&apos; picks
+          You&apos;re all caught up
         </h2>
         <p className="mt-1 max-w-xs text-[11px] text-mn-text-secondary">
-          You&apos;ve swiped through all of your friends&apos; latest picks. As they log new titles
-          and update their diaries, new cards will show up here.
+          You&apos;ve swiped through all your current recommendations. As you rate, log, and add
+          titles to your watchlist, this screen will refill with more picks.
         </p>
         {lastSwipe && (
           <div className="mt-3 rounded-lg border border-mn-border-subtle/60 bg-mn-surface-elevated/80 px-3 py-2 text-[11px] text-mn-text-secondary">
@@ -293,7 +296,7 @@ const SwipeFromFriendsTab: React.FC = () => {
     );
   }
 
-  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes);
+  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes ?? undefined);
   const dragProgress = clamp(dragX / 120, -1, 1);
   const rotation = dragProgress * MAX_ROTATION_DEG;
 
@@ -315,18 +318,33 @@ const SwipeFromFriendsTab: React.FC = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-2 px-1 pb-1">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-mn-primary-soft">
+      <header className="flex items-center justify-between gap-3 px-1 pb-1">
+        <div className="space-y-0.5">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-mn-primary-soft">
             From Friends · Swipe deck
           </p>
-          <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-            What your friends are watching
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+              Picks your friends love
+            </h2>
+            <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary">
+              <Sparkles className="h-3 w-3 text-mn-primary" aria-hidden={true} />
+              <span>
+                Card {currentIndex + 1} of {deck.length}
+              </span>
+            </span>
+          </div>
+          <p className="text-[10px] text-mn-text-muted">
+            Swipe to quickly teach MoviNesta what you love (and what to skip).
+          </p>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-mn-text-muted">
-          <Clock className="h-3.5 w-3.5" aria-hidden={true} />
-          <span>Swipe through friends&apos; picks</span>
+
+        <div className="hidden flex-col items-end gap-1 text-[10px] text-mn-text-muted sm:flex">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-mn-bg-elevated/70 px-2 py-1">
+            <Clock className="h-3.5 w-3.5" aria-hidden={true} />
+            <span>Right = like · Left = skip</span>
+          </div>
+          <span className="text-[9px]">Prefer tapping? Use the controls below.</span>
         </div>
       </header>
 
@@ -386,6 +404,7 @@ const SwipeFromFriendsTab: React.FC = () => {
 
             <div className="flex h-full flex-col">
               <div className="flex-1 px-4 pb-3 pt-6">
+                {/* Top section: poster + basic metadata */}
                 <div className="flex items-start gap-3">
                   <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-2xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
                     {currentCard.posterUrl ? (
@@ -405,9 +424,10 @@ const SwipeFromFriendsTab: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Textual details */}
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-mn-primary-soft">
-                      From your friends
+                      Tonight&apos;s pick
                     </p>
                     <h3 className="mt-0.5 line-clamp-2 text-lg font-heading font-semibold leading-snug text-mn-text-primary">
                       {currentCard.title}
@@ -417,6 +437,27 @@ const SwipeFromFriendsTab: React.FC = () => {
                       {currentCard.type ? ` · ${currentCard.type}` : null}
                       {runtimeLabel ? ` · ${runtimeLabel}` : null}
                     </p>
+                    {(typeof currentCard.imdbRating === "number" ||
+                      typeof currentCard.rtTomatoMeter === "number") && (
+                      <p className="mt-0.5 text-[10px] text-mn-text-muted">
+                        {typeof currentCard.imdbRating === "number" &&
+                          !Number.isNaN(currentCard.imdbRating) &&
+                          currentCard.imdbRating > 0 && (
+                            <span className="mr-2">
+                              <span className="font-semibold">IMDb Rating</span>{" "}
+                              {currentCard.imdbRating.toFixed(1)}
+                            </span>
+                          )}
+                        {typeof currentCard.rtTomatoMeter === "number" &&
+                          !Number.isNaN(currentCard.rtTomatoMeter) &&
+                          currentCard.rtTomatoMeter > 0 && (
+                            <span>
+                              <span className="font-semibold">Tomatometer</span>{" "}
+                              {currentCard.rtTomatoMeter}%
+                            </span>
+                          )}
+                      </p>
+                    )}
                     {currentCard.mood && (
                       <p className="mt-0.5 text-[10px] text-mn-text-muted">{currentCard.mood}</p>
                     )}
@@ -428,6 +469,7 @@ const SwipeFromFriendsTab: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Tagline */}
                 {currentCard.tagline && (
                   <p className="mt-3 text-[11px] text-mn-text-secondary line-clamp-3">
                     {currentCard.tagline}
@@ -443,7 +485,7 @@ const SwipeFromFriendsTab: React.FC = () => {
                     </div>
                     {currentCard.topFriendName && (
                       <span className="text-mn-text-muted">
-                        Most similar taste:{" "}
+                        Best match:{" "}
                         <span className="font-medium text-mn-text-primary">
                           {currentCard.topFriendName}
                         </span>
@@ -459,7 +501,7 @@ const SwipeFromFriendsTab: React.FC = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[10px] font-medium text-mn-primary-soft uppercase tracking-wide">
-                          {currentCard.topFriendName}&apos;s review
+                          {currentCard.topFriendName}&apos;s take
                         </p>
                         <p className="mt-0.5 line-clamp-2 italic">
                           “{currentCard.topFriendReviewSnippet}”
@@ -569,7 +611,7 @@ const SwipeFromFriendsTab: React.FC = () => {
                 <span className="truncate text-mn-text-primary">{lastSwipe.title}</span>
               </div>
               <span className="hidden text-[9px] text-mn-text-muted sm:inline">
-                Swipe to keep tuning your friends feed
+                Swipe to keep tuning your For You picks
               </span>
             </div>
           </div>

@@ -42,7 +42,9 @@ export function MessageList<T>({
 
   if (!items.length) {
     return (
-      <div className="flex flex-1 items-center justify-center px-4 py-4 text-sm">{emptyContent}</div>
+      <div className="flex flex-1 items-center justify-center px-4 py-4 text-sm">
+        {emptyContent}
+      </div>
     );
   }
 
@@ -62,7 +64,9 @@ export function MessageList<T>({
         components={
           footer
             ? {
-                Footer: () => <div className="px-1 pb-2 pt-1 text-[11px] text-mn-text-muted">{footer}</div>,
+                Footer: () => (
+                  <div className="px-1 pb-2 pt-1 text-[11px] text-mn-text-muted">{footer}</div>
+                ),
               }
             : undefined
         }

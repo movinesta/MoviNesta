@@ -41,13 +41,13 @@ const HOME_TABS: Record<HomeTabKey, HomeTabConfig> = {
 
 const HOME_TABS_LIST = Object.values(HOME_TABS);
 
-const QUICK_FILTER_OPTIONS = [
+const QUICK_FILTER_OPTIONS: { key: QuickFilterKey; label: string }[] = [
   { key: "all", label: "All" },
   { key: "follows", label: "Friends" },
   { key: "reviews", label: "Reviews" },
-] as const;
+];
 
-type QuickFilterKey = (typeof QUICK_FILTER_OPTIONS)[number]["key"];
+type QuickFilterKey = "all" | "follows" | "reviews";
 
 interface HomeTabPillProps {
   icon: LucideIcon;
@@ -89,8 +89,8 @@ const HomePage = () => {
 
   const activeTabConfig = HOME_TABS[activeTab];
 
-  const handleQuickFilterChange = (key: string) => {
-    setQuickFilter(key as QuickFilterKey);
+  const handleQuickFilterChange = (key: QuickFilterKey) => {
+    setQuickFilter(key);
   };
 
   // Reset quick filter when leaving Feed
@@ -116,7 +116,7 @@ const HomePage = () => {
                 label: tab.label,
               }))}
               active={activeTab}
-              onChange={setActiveTab}
+              onChange={(key) => setActiveTab(key as HomeTabKey)}
             />
           </div>
         </div>
@@ -126,7 +126,11 @@ const HomePage = () => {
             <ChipRow
               options={QUICK_FILTER_OPTIONS}
               active={quickFilter}
-              onChange={handleQuickFilterChange}
+              onChange={(key) => {
+                if (QUICK_FILTER_OPTIONS.some((option) => option.key === key)) {
+                  handleQuickFilterChange(key as QuickFilterKey);
+                }
+              }}
             />
           </div>
         )}

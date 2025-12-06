@@ -93,10 +93,7 @@ export const fetchConversationSummaries = async (
     } else {
       const primaryOther = others[0] ?? participants[0];
       title =
-        primaryOther?.displayName ??
-        primaryOther?.username ??
-        summary.title ??
-        "Direct message";
+        primaryOther?.displayName ?? primaryOther?.username ?? summary.title ?? "Direct message";
       subtitle =
         primaryOther?.username != null
           ? `@${primaryOther.username}`
@@ -109,7 +106,8 @@ export const fetchConversationSummaries = async (
       ? getMessagePreview(summary.last_message_body)
       : null;
 
-    const lastMessageAt = summary.last_message_created_at ?? summary.updated_at ?? summary.created_at ?? null;
+    const lastMessageAt =
+      summary.last_message_created_at ?? summary.updated_at ?? summary.created_at ?? null;
     const lastMessageAtLabel = formatTimeAgo(lastMessageAt);
 
     const selfLastReadAt = summary.self_last_read_at ?? null;
@@ -117,10 +115,11 @@ export const fetchConversationSummaries = async (
 
     const hasUnread =
       !!summary.last_message_id &&
-      ((selfLastReadMessageId && selfLastReadMessageId !== summary.last_message_id) ||
+      !!((selfLastReadMessageId && selfLastReadMessageId !== summary.last_message_id) ||
         (!selfLastReadMessageId &&
           lastMessageAt &&
-          (!selfLastReadAt || new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime())));
+          (!selfLastReadAt ||
+            new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime())));
 
     const lastMessageIsFromSelf = summary.last_message_user_id === userId;
 

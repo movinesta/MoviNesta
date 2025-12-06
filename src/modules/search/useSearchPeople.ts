@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import { Database } from "@/types/supabase";
 
 export interface PeopleSearchResult {
   id: string;
@@ -13,23 +14,9 @@ export interface PeopleSearchResult {
   isFollowing: boolean;
 }
 
-interface ProfileRow {
-  id: string;
-  username: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-}
-
-interface UserStatsRow {
-  user_id: string;
-  followers_count: number | null;
-  following_count: number | null;
-}
-
-interface FollowRow {
-  followed_id: string;
-}
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
+type FollowRow = Database["public"]["Tables"]["follows"]["Row"];
 
 /**
  * useSearchPeople
@@ -51,7 +38,6 @@ export const useSearchPeople = (query: string) => {
       const profilesResult = await supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, bio")
-        .returns<ProfileRow[]>()
         .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
         .limit(20);
 
@@ -59,9 +45,9 @@ export const useSearchPeople = (query: string) => {
         throw new Error(profilesResult.error.message);
       }
 
-      const profiles = profilesResult.data ?? [];
+      const profiles = (profilesResult.data as ProfileRow[]) ?? [];
 
-      const profileIds = profiles.map((row) => row.id as string);
+      const profileIds = profiles.map((row) => row.id);
 
       // 2) Load basic stats (followers/following counts) for these profiles.
       let statsByUserId = new Map<string, { followersCount: number; followingCount: number }>();
@@ -70,7 +56,6 @@ export const useSearchPeople = (query: string) => {
         const statsResult = await supabase
           .from("user_stats")
           .select("user_id, followers_count, following_count")
-          .returns<UserStatsRow[]>()
           .in("user_id", profileIds);
 
         if (statsResult.error) {
@@ -78,7 +63,7 @@ export const useSearchPeople = (query: string) => {
           console.warn("[useSearchPeople] Failed to load user_stats", statsResult.error.message);
         } else {
           statsByUserId = new Map(
-            (statsResult.data ?? []).map((row) => [
+            ((statsResult.data as UserStatsRow[]) ?? []).map((row) => [
               row.user_id,
               {
                 followersCount: row.followers_count ?? 0,
@@ -92,13 +77,13 @@ export const useSearchPeople = (query: string) => {
       // 3) If we don't have a logged-in user, we can't compute follow status.
       if (!user?.id) {
         return profiles.map((row) => {
-          const stats = statsByUserId.get(row.id as string);
+          const stats = statsByUserId.get(row.id);
           return {
-            id: row.id as string,
-            username: row.username as string | null,
-            displayName: row.display_name as string | null,
-            avatarUrl: row.avatar_url as string | null,
-            bio: row.bio as string | null,
+            id: row.id,
+            username: row.username,
+            displayName: row.display_name,
+            avatarUrl: row.avatar_url,
+            bio: row.bio,
             followersCount: stats?.followersCount ?? null,
             followingCount: stats?.followingCount ?? null,
             isFollowing: false,
@@ -110,7 +95,6 @@ export const useSearchPeople = (query: string) => {
       const followsResult = await supabase
         .from("follows")
         .select("followed_id")
-        .returns<FollowRow[]>()
         .eq("follower_id", user.id);
 
       if (followsResult.error) {
@@ -121,19 +105,21 @@ export const useSearchPeople = (query: string) => {
         );
       }
 
-      const followedIds = new Set<string>((followsResult.data ?? []).map((row) => row.followed_id));
+      const followedIds = new Set<string>(
+        ((followsResult.data as FollowRow[]) ?? []).map((row) => row.followed_id),
+      );
 
       return profiles.map((row) => {
-        const stats = statsByUserId.get(row.id as string);
+        const stats = statsByUserId.get(row.id);
         return {
-          id: row.id as string,
-          username: row.username as string | null,
-          displayName: row.display_name as string | null,
-          avatarUrl: row.avatar_url as string | null,
-          bio: row.bio as string | null,
+          id: row.id,
+          username: row.username,
+          displayName: row.display_name,
+          avatarUrl: row.avatar_url,
+          bio: row.bio,
           followersCount: stats?.followersCount ?? null,
           followingCount: stats?.followingCount ?? null,
-          isFollowing: followedIds.has(row.id as string),
+          isFollowing: followedIds.has(row.id),
         };
       });
     },

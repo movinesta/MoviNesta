@@ -116,9 +116,11 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
         data={items}
         computeItemKey={(_, item) => item.id}
         components={{
-          List: React.forwardRef<HTMLOListElement, React.HTMLAttributes<HTMLOListElement>>((props, ref) => (
-            <ol ref={ref} className="space-y-3" {...props} />
-          )),
+          List: React.forwardRef<HTMLOListElement, React.HTMLAttributes<HTMLOListElement>>(
+            function List(props, ref) {
+              return <ol ref={ref} className="space-y-3" {...props} />;
+            },
+          ) as any,
         }}
         itemContent={(index, item) => {
           const Icon = eventIcon(item.kind);
@@ -176,7 +178,9 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
                   </div>
 
                   {item.reviewSnippet && (
-                    <p className="line-clamp-2 text-[11px] text-mn-text-secondary">“{item.reviewSnippet}”</p>
+                    <p className="line-clamp-2 text-[11px] text-mn-text-secondary">
+                      “{item.reviewSnippet}”
+                    </p>
                   )}
 
                   {item.extra && <p className="text-[10px] text-mn-text-muted">{item.extra}</p>}
