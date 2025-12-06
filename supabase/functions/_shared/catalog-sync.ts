@@ -1,5 +1,4 @@
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+import { getConfig } from "./config.ts";
 
 export type CatalogSyncTitle = {
   tmdbId?: number | null;
@@ -12,11 +11,12 @@ export async function triggerCatalogSyncForTitle(
   title: CatalogSyncTitle,
   opts?: { prefix?: string },
 ) {
+  const { supabaseUrl, supabaseAnonKey } = getConfig();
   const prefix = opts?.prefix ?? "[catalog-sync]";
   const hasExternalId = Boolean(title.tmdbId || title.imdbId);
   const authHeader = req.headers.get("Authorization") ?? "";
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.error(
       `${prefix} missing SUPABASE_URL or SUPABASE_ANON_KEY; cannot call catalog-sync`,
     );
@@ -50,11 +50,11 @@ export async function triggerCatalogSyncForTitle(
   console.log(`${prefix} calling catalog-sync for`, payload.external);
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-sync`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/catalog-sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
+        apikey: supabaseAnonKey,
         Authorization: authHeader,
       },
       body: JSON.stringify(payload),

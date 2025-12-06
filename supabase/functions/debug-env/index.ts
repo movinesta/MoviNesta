@@ -9,7 +9,7 @@ import { log } from "../_shared/logger.ts";
 
 const FN_NAME = "debug-env";
 
-serve((req: Request) => {
+export function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -40,4 +40,6 @@ serve((req: Request) => {
   };
 
   return jsonResponse(body);
-});
+}
+
+serve(handler);

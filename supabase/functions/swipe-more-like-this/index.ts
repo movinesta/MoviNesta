@@ -59,7 +59,7 @@ const RequestQuerySchema = z.object({
 // Main Request Handler
 // ============================================================================
 
-serve(async (req: Request) => {
+export async function handler(req: Request){
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -106,7 +106,9 @@ serve(async (req: Request) => {
     log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-});
+}
+
+serve(handler);
 
 // ============================================================================
 // Data Fetching

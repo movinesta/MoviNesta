@@ -5,11 +5,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
+import { getConfig } from "../_shared/config.ts";
 
 const FN_NAME = "catalog-sync-batch";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 // ============================================================================
 // Type Definitions
@@ -41,7 +39,7 @@ interface SyncBatchResult {
 // Request Handler
 // ============================================================================
 
-serve(async (req) => {
+export async function handler(req: Request){
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -51,7 +49,8 @@ serve(async (req) => {
     return jsonError("Method not allowed", 405);
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const { supabaseUrl, supabaseAnonKey } = getConfig();
+  if (!supabaseUrl || !supabaseAnonKey) {
     log(logCtx, "Server is missing SUPABASE_URL or SUPABASE_ANON_KEY");
     return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
@@ -93,7 +92,9 @@ serve(async (req) => {
   });
 
   return jsonResponse({ ok: true, results });
-});
+}
+
+serve(handler);
 
 // ============================================================================
 // Helper Functions
@@ -140,6 +141,7 @@ async function triggerSingleSync(
   options: SyncBatchRequest["options"],
   authHeader: string,
 ): Promise<{ titleId: string | null }> {
+  const { supabaseUrl, supabaseAnonKey } = getConfig();
   const payload = {
     tmdbId: item.tmdbId,
     imdbId: item.imdbId,
@@ -147,11 +149,11 @@ async function triggerSingleSync(
     options,
   };
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/catalog-sync`, {
+  const res = await fetch(`${supabaseUrl}/functions/v1/catalog-sync`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": SUPABASE_ANON_KEY,
+      "apikey": supabaseAnonKey,
       "Authorization": authHeader,
     },
     body: JSON.stringify(payload),

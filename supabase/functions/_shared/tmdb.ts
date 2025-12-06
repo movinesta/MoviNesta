@@ -7,13 +7,10 @@
 //   TMDB_API_READ_ACCESS_TOKEN
 //
 
-const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
+import { getConfig } from "./config.ts";
+
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p";
-
-if (!TMDB_TOKEN) {
-  console.warn("[tmdb] TMDB_API_READ_ACCESS_TOKEN is not set – TMDb helpers will fail if called.");
-}
 
 export type TmdbMediaType = "movie" | "tv";
 
@@ -28,7 +25,8 @@ export interface TmdbTitleData {
  * Low-level TMDb fetch with bearer auth.
  */
 async function tmdbFetch(path: string, params: Record<string, string> = {}): Promise<any> {
-  if (!TMDB_TOKEN) {
+  const { tmdbApiReadAccessToken } = getConfig();
+  if (!tmdbApiReadAccessToken) {
     throw new Error("TMDB_API_READ_ACCESS_TOKEN is not configured");
   }
 
@@ -41,7 +39,7 @@ async function tmdbFetch(path: string, params: Record<string, string> = {}): Pro
     method: "GET",
     headers: {
       accept: "application/json",
-      Authorization: `Bearer ${TMDB_TOKEN}`,
+      Authorization: `Bearer ${tmdbApiReadAccessToken}`,
     },
   });
 

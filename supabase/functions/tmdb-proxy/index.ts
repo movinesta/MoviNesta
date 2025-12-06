@@ -8,10 +8,10 @@ import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
+import { getConfig } from "../_shared/config.ts";
 
 const FN_NAME = "tmdb-proxy";
 
-const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 // ============================================================================
@@ -44,13 +44,14 @@ const TrendingParamsSchema = z.object({
 // Main Request Handler
 // ============================================================================
 
-serve(async (req) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
   const logCtx = { fn: FN_NAME };
 
-  if (!TMDB_TOKEN) {
+  const { tmdbApiReadAccessToken } = getConfig();
+  if (!tmdbApiReadAccessToken) {
     log(logCtx, "TMDB_API_READ_ACCESS_TOKEN is not configured");
     return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
@@ -77,7 +78,9 @@ serve(async (req) => {
     log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-});
+}
+
+serve(handler);
 
 // ============================================================================
 // Helper Functions
@@ -102,10 +105,11 @@ function buildTmdbUrl(path: string, params: Record<string, any>): URL {
 }
 
 async function fetchFromTmdb(url: URL) {
+  const { tmdbApiReadAccessToken } = getConfig();
   const res = await fetch(url.toString(), {
     headers: {
       accept: "application/json",
-      Authorization: `Bearer ${TMDB_TOKEN}`,
+      Authorization: `Bearer ${tmdbApiReadAccessToken}`,
     },
   });
 
