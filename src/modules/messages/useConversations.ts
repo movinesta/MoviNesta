@@ -115,7 +115,7 @@ export const fetchConversationSummaries = async (
 
     const hasUnread =
       !!summary.last_message_id &&
-      ((selfLastReadMessageId && selfLastReadMessageId !== summary.last_message_id) ||
+      !!((selfLastReadMessageId && selfLastReadMessageId !== summary.last_message_id) ||
         (!selfLastReadMessageId &&
           lastMessageAt &&
           (!selfLastReadAt ||

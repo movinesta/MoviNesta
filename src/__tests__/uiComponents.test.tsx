@@ -13,7 +13,6 @@ import type { ConversationListItem } from "../modules/messages/useConversations"
 import type { TitleSearchResult } from "../modules/search/useSearchTitles";
 import type { SwipeCardData } from "../modules/swipe/useSwipeDeck";
 
-expect.extend(matchers);
 
 const routerFuture = {
   v7_startTransition: true,
@@ -28,6 +27,9 @@ const baseConversation: ConversationListItem = {
   lastMessagePreview: "See you soon",
   hasUnread: false,
   isGroup: false,
+  subtitle: "Subtitle",
+  lastMessageIsFromSelf: false,
+  lastMessageSeenByOthers: false,
   participants: [
     {
       id: "user-1",

@@ -2,8 +2,7 @@ import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { searchExternalTitles } from "./externalMovieSearch";
-
-export type TitleType = "movie" | "series" | "anime";
+import { TitleType } from "@/types/supabase-helpers";
 
 export interface TitleSearchFilters {
   type?: TitleType | "all";
@@ -108,17 +107,17 @@ const searchSupabaseTitles = async (
     rt_tomato_pct
   `;
 
-  const selectColumns = filters?.genreIds?.length
-    ? `${columns}, title_genres!inner(genre_id, genres(id, name))`
-    : columns;
-
   const offset = (page - 1) * PAGE_SIZE;
 
-  let builder = supabase
-    .from("titles")
-    .select(selectColumns, { count: "exact" })
-    .order("release_year", { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+  let builder = supabase.from("titles").select(columns, { count: "exact" });
+
+  if (filters?.genreIds?.length) {
+    builder = builder.select(
+      `${columns}, title_genres!inner(genre_id, genres(id, name))`,
+    );
+  }
+
+  builder = builder.order("release_year", { ascending: false }).range(offset, offset + PAGE_SIZE - 1);
 
   if (signal) {
     builder = builder.abortSignal(signal);
@@ -149,7 +148,7 @@ const searchSupabaseTitles = async (
     builder = builder.in("title_genres.genre_id", filters.genreIds);
   }
 
-  const { data, error, count } = await builder.returns<TitleRow[]>();
+  const { data, error, count } = await builder;
 
   if (error) {
     throw new Error(error.message);
@@ -157,7 +156,7 @@ const searchSupabaseTitles = async (
 
   throwIfAborted(signal);
 
-  const rows = data ?? [];
+  const rows = (data as TitleRow[]) ?? [];
   const totalCount = typeof count === "number" ? count : undefined;
   const hasMore = totalCount ? offset + rows.length < totalCount : rows.length === PAGE_SIZE;
 
@@ -249,7 +248,7 @@ export const searchTitles = async (params: {
 
       if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return null;
 
-      const type: TitleType = item.type === "tv" ? "series" : "movie";
+      const type: TitleType | null = item.type === "tv" ? "series" : "movie";
       const titleId =
         item.tmdbId && syncedTitleIdsByTmdb.get(item.tmdbId)
           ? syncedTitleIdsByTmdb.get(item.tmdbId)!
@@ -275,7 +274,7 @@ export const searchTitles = async (params: {
 
   const combined = [
     ...supabaseResults,
-    ...hydratedExternal.filter((item): item is TitleSearchResult => Boolean(item)),
+    ...hydratedExternal.filter((item) => !!item),
   ];
 
   return {

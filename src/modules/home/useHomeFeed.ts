@@ -7,8 +7,14 @@ import type { AvatarColorKey, FeedTitle, FeedUser, HomeFeedItem } from "./homeFe
 
 type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
 type HomeFeedRow = Database["public"]["Functions"]["get_home_feed"]["Returns"][number];
-type TitleRow = Database["public"]["Tables"]["titles"]["Row"];
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type PartialTitleRow = Pick<
+  Database["public"]["Tables"]["titles"]["Row"],
+  "title_id" | "primary_title" | "release_year" | "poster_url" | "backdrop_url"
+>;
+type PartialProfileRow = Pick<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "id" | "display_name" | "username" | "avatar_url"
+>;
 
 const FEED_PAGE_SIZE = 40;
 
@@ -117,8 +123,8 @@ const normalizeActivityPayload = (payload: ActivityPayload): NormalizedActivityP
 
 const mapEventToFeedItem = (
   row: ActivityEventRow,
-  profilesById: Map<string, ProfileRow>,
-  titlesById: Map<string, TitleRow>,
+  profilesById: Map<string, PartialProfileRow>,
+  titlesById: Map<string, PartialTitleRow>,
 ): HomeFeedItem | null => {
   const profile = profilesById.get(row.user_id);
   if (!profile) return null;
@@ -139,6 +145,7 @@ const mapEventToFeedItem = (
     id: profile.id,
     displayName: profile.display_name ?? profile.username ?? "Someone",
     username: profile.username ?? profile.display_name ?? "",
+    avatarUrl: profile.avatar_url ?? undefined,
     avatarInitials: buildAvatarInitials(profile.display_name, profile.username),
     avatarColor: pickAvatarColor(profile.id),
   };
@@ -228,13 +235,13 @@ export const fetchHomeFeedPage = async (
           .from("titles")
           .select("title_id, primary_title, release_year, poster_url, backdrop_url")
           .in("title_id", titleIds)
-      : Promise.resolve({ data: [] as TitleRow[], error: null }),
+      : Promise.resolve({ data: [] as PartialTitleRow[], error: null }),
     actorUserIds.length
       ? supabase
           .from("profiles")
           .select("id, display_name, username, avatar_url")
           .in("id", actorUserIds)
-      : Promise.resolve({ data: [] as ProfileRow[], error: null }),
+      : Promise.resolve({ data: [] as PartialProfileRow[], error: null }),
   ]);
 
   if (titlesResult.error) {
@@ -245,13 +252,13 @@ export const fetchHomeFeedPage = async (
     console.warn("[useHomeFeed] Failed to load profiles for feed", profilesResult.error.message);
   }
 
-  const titlesById = new Map<string, TitleRow>();
-  (titlesResult.data ?? []).forEach((row) => {
+  const titlesById = new Map<string, PartialTitleRow>();
+  ((titlesResult.data as PartialTitleRow[]) ?? []).forEach((row) => {
     titlesById.set(row.title_id, row);
   });
 
-  const profilesById = new Map<string, ProfileRow>();
-  (profilesResult.data ?? []).forEach((row) => {
+  const profilesById = new Map<string, PartialProfileRow>();
+  ((profilesResult.data as PartialProfileRow[]) ?? []).forEach((row) => {
     profilesById.set(row.id, row);
   });
 

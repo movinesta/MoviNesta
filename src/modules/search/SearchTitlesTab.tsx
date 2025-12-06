@@ -40,7 +40,7 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
   };
 
   return (
-    <li>
+    <div>
       <Link
         to={`/title/${item.id}`}
         className="flex gap-3 rounded-mn-card border border-mn-border-subtle bg-mn-bg/60 p-2 hover:bg-mn-bg-elevated/80"
@@ -72,7 +72,7 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
           )}
         </div>
       </Link>
-    </li>
+    </div>
   );
 };
 
@@ -290,9 +290,9 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
         }}
         computeItemKey={(_, item) => item.id}
         components={{
-          List: React.forwardRef<HTMLUListElement, React.HTMLAttributes<HTMLUListElement>>(
+          List: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
             function List(props, ref) {
-              return <ul ref={ref} className="space-y-2" {...props} />;
+              return <div ref={ref} className="space-y-2" {...props} />;
             },
           ),
           Footer: () =>

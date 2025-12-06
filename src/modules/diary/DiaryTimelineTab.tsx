@@ -120,7 +120,7 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
             function List(props, ref) {
               return <ol ref={ref} className="space-y-3" {...props} />;
             },
-          ),
+          ) as any,
         }}
         itemContent={(index, item) => {
           const Icon = eventIcon(item.kind);
