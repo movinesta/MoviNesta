@@ -45,7 +45,7 @@ const QUICK_FILTER_OPTIONS = [
   { key: "all", label: "All" },
   { key: "follows", label: "Friends" },
   { key: "reviews", label: "Reviews" },
-];
+] as const;
 
 type QuickFilterKey = (typeof QUICK_FILTER_OPTIONS)[number]["key"];
 
@@ -89,8 +89,8 @@ const HomePage = () => {
 
   const activeTabConfig = HOME_TABS[activeTab];
 
-  const handleQuickFilterChange = (key: QuickFilterKey) => {
-    setQuickFilter(key);
+  const handleQuickFilterChange = (key: string) => {
+    setQuickFilter(key as QuickFilterKey);
   };
 
   // Reset quick filter when leaving Feed
