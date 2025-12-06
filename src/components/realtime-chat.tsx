@@ -107,7 +107,7 @@ export const RealtimeChat = ({
         <div className="space-y-1">
           {allMessages.map((message, index) => {
             const prevMessage = index > 0 ? allMessages[index - 1] : null;
-            const showHeader = !prevMessage || prevMessage.user.name !== message.user.name;
+            const showHeader = !prevMessage || prevMessage.user_id !== message.user_id;
 
             return (
               <div
@@ -116,7 +116,7 @@ export const RealtimeChat = ({
               >
                 <ChatMessageItem
                   message={message}
-                  isOwnMessage={message.user.name === username}
+                  isOwnMessage={message.user_id === username}
                   showHeader={showHeader}
                 />
               </div>

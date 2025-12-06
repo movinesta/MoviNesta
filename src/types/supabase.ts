@@ -46,7 +46,7 @@ export interface Database {
       titles: {
         Row: {
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           omdb_imdb_id: string | null;
           tmdb_id: number | null;
           primary_title: string | null;
@@ -111,7 +111,7 @@ export interface Database {
         };
         Insert: {
           title_id?: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           omdb_imdb_id?: string | null;
           tmdb_id?: number | null;
           primary_title?: string | null;
@@ -176,7 +176,7 @@ export interface Database {
         };
         Update: {
           title_id?: string;
-          content_type?: "movie" | "series" | "anime";
+          content_type?: "movie" | "series";
           omdb_imdb_id?: string | null;
           tmdb_id?: number | null;
           primary_title?: string | null;
@@ -464,7 +464,7 @@ export interface Database {
           id: string;
           user_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           rating: number;
           comment: string | null;
           created_at: string;
@@ -474,7 +474,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           rating: number;
           comment?: string | null;
           created_at?: string;
@@ -484,7 +484,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           title_id?: string;
-          content_type?: "movie" | "series" | "anime";
+          content_type?: "movie" | "series";
           rating?: number;
           comment?: string | null;
           created_at?: string;
@@ -510,7 +510,7 @@ export interface Database {
           id: string;
           user_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           status: "want_to_watch" | "watching" | "watched" | "dropped";
           notes: string | null;
           started_at: string | null;
@@ -522,7 +522,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           status?: "want_to_watch" | "watching" | "watched" | "dropped";
           notes?: string | null;
           started_at?: string | null;
@@ -534,7 +534,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           title_id?: string;
-          content_type?: "movie" | "series" | "anime";
+          content_type?: "movie" | "series";
           status?: "want_to_watch" | "watching" | "watched" | "dropped";
           notes?: string | null;
           started_at?: string | null;
@@ -562,7 +562,7 @@ export interface Database {
           id: string;
           user_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           rating: number | null;
           headline: string | null;
           body: string | null;
@@ -574,7 +574,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           rating?: number | null;
           headline?: string | null;
           body?: string | null;
@@ -586,7 +586,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           title_id?: string;
-          content_type?: "movie" | "series" | "anime";
+          content_type?: "movie" | "series";
           rating?: number | null;
           headline?: string | null;
           body?: string | null;
@@ -700,7 +700,7 @@ export interface Database {
           id: string;
           list_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           position: number;
           note: string | null;
           created_at: string;
@@ -710,7 +710,7 @@ export interface Database {
           id?: string;
           list_id: string;
           title_id: string;
-          content_type: "movie" | "series" | "anime";
+          content_type: "movie" | "series";
           position?: number;
           note?: string | null;
           created_at?: string;
@@ -720,7 +720,7 @@ export interface Database {
           id?: string;
           list_id?: string;
           title_id?: string;
-          content_type?: "movie" | "series" | "anime";
+          content_type?: "movie" | "series";
           position?: number;
           note?: string | null;
           created_at?: string;
@@ -1667,7 +1667,7 @@ export interface Database {
       };
     };
     Enums: {
-      content_type: "movie" | "series" | "anime";
+      content_type: "movie" | "series";
       episode_status: "watched" | "skipped";
       library_status: "want_to_watch" | "watching" | "watched" | "dropped";
       participant_role: "member" | "admin" | "owner";
