@@ -1,3 +1,17 @@
+CREATE SEQUENCE IF NOT EXISTS public.genres_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.people_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.title_credits_id_seq;
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 CREATE TABLE public.activity_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -54,7 +68,7 @@ CREATE TABLE public.comments (
 CREATE TABLE public.conversation_participants (
   conversation_id uuid NOT NULL,
   user_id uuid NOT NULL,
-  role USER-DEFINED NOT NULL DEFAULT 'member'::participant_role,
+  role participant_role NOT NULL DEFAULT 'member'::participant_role,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT conversation_participants_pkey PRIMARY KEY (conversation_id, user_id),
   CONSTRAINT conversation_participants_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.conversations(id),
@@ -86,7 +100,7 @@ CREATE UNIQUE INDEX conversations_direct_pair_unique
 CREATE TABLE public.episode_progress (
   user_id uuid NOT NULL,
   episode_id uuid NOT NULL,
-  status USER-DEFINED NOT NULL DEFAULT 'watched'::episode_status,
+  status episode_status NOT NULL DEFAULT 'watched'::episode_status,
   watched_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT episode_progress_pkey PRIMARY KEY (user_id, episode_id),
   CONSTRAINT episode_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
@@ -126,8 +140,8 @@ CREATE TABLE public.library_entries (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
-  status USER-DEFINED NOT NULL DEFAULT 'want_to_watch'::library_status,
+  content_type public.content_type NOT NULL,
+  status library_status NOT NULL DEFAULT 'want_to_watch'::library_status,
   notes text,
   started_at timestamp with time zone,
   completed_at timestamp with time zone,
@@ -141,7 +155,7 @@ CREATE TABLE public.list_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   list_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
+  content_type public.content_type NOT NULL,
   position integer NOT NULL DEFAULT 0,
   note text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -367,7 +381,7 @@ CREATE TABLE public.ratings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
+  content_type public.content_type NOT NULL,
   rating numeric NOT NULL CHECK (rating >= 0::numeric AND rating <= 10::numeric AND (rating * 2::numeric % 1::numeric) = 0::numeric),
   comment text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -382,7 +396,7 @@ CREATE TABLE public.reports (
   target_type text NOT NULL,
   target_id text NOT NULL,
   reason text,
-  status USER-DEFINED NOT NULL DEFAULT 'open'::report_status,
+  status report_status NOT NULL DEFAULT 'open'::report_status,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   resolved_at timestamp with time zone,
   resolved_by uuid,
@@ -405,7 +419,7 @@ CREATE TABLE public.reviews (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
+  content_type public.content_type NOT NULL,
   rating numeric CHECK (rating >= 0::numeric AND rating <= 10::numeric AND (rating * 2::numeric % 1::numeric) = 0::numeric),
   headline text,
   body text,
@@ -582,17 +596,15 @@ create index IF not exists titles_primary_title_trgm_idx on public.titles using 
 
 create index IF not exists titles_release_date_idx on public.titles using btree (release_date) TABLESPACE pg_default;
 
-create trigger set_titles_updated_at BEFORE
-update on titles for EACH row
-execute FUNCTION set_updated_at ();
+
 
 CREATE TABLE public.user_settings (
   user_id uuid NOT NULL,
   email_notifications boolean NOT NULL DEFAULT true,
   push_notifications boolean NOT NULL DEFAULT true,
-  privacy_profile USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
-  privacy_activity USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
-  privacy_lists USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
+  privacy_profile privacy_level NOT NULL DEFAULT 'public'::privacy_level,
+  privacy_activity privacy_level NOT NULL DEFAULT 'public'::privacy_level,
+  privacy_lists privacy_level NOT NULL DEFAULT 'public'::privacy_level,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT user_settings_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
@@ -995,3 +1007,122 @@ CREATE INDEX IF NOT EXISTS library_entries_user_status_updated_idx
 
 CREATE INDEX IF NOT EXISTS title_genres_title_id_idx
   ON public.title_genres USING btree (title_id);
+
+
+------------------------------------------------------------
+-- Final polish: indexes, helper functions, minimal extra RLS
+------------------------------------------------------------
+
+-- 1) High-value indexes
+
+CREATE INDEX IF NOT EXISTS comments_review_id_created_at_idx
+  ON public.comments (review_id, created_at);
+
+CREATE INDEX IF NOT EXISTS comments_parent_comment_id_created_at_idx
+  ON public.comments (parent_comment_id, created_at);
+
+CREATE INDEX IF NOT EXISTS comment_likes_comment_id_idx
+  ON public.comment_likes (comment_id);
+
+CREATE INDEX IF NOT EXISTS reviews_title_id_created_at_idx
+  ON public.reviews (title_id, created_at);
+
+CREATE INDEX IF NOT EXISTS ratings_title_id_idx
+  ON public.ratings (title_id);
+
+CREATE INDEX IF NOT EXISTS lists_user_id_created_at_idx
+  ON public.lists (user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS list_items_list_id_position_idx
+  ON public.list_items (list_id, position);
+
+CREATE INDEX IF NOT EXISTS episodes_season_episode_idx
+  ON public.episodes (season_id, episode_number);
+
+CREATE INDEX IF NOT EXISTS notifications_user_unread_created_at_idx
+  ON public.notifications (user_id, created_at DESC)
+  WHERE is_read = false;
+
+
+-- 2) Small helper functions (RPCs)
+
+CREATE OR REPLACE FUNCTION public.toggle_follow(p_target_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.follows
+    WHERE follower_id = auth.uid()
+      AND followed_id = p_target_user_id
+  ) THEN
+    DELETE FROM public.follows
+    WHERE follower_id = auth.uid()
+      AND followed_id = p_target_user_id;
+  ELSE
+    INSERT INTO public.follows (follower_id, followed_id)
+    VALUES (auth.uid(), p_target_user_id);
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mark_conversation_read(
+  p_conversation_id uuid,
+  p_last_message_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  INSERT INTO public.message_read_receipts (
+    conversation_id, user_id, last_read_message_id, last_read_at
+  )
+  VALUES (p_conversation_id, auth.uid(), p_last_message_id, now())
+  ON CONFLICT (conversation_id, user_id)
+  DO UPDATE SET
+    last_read_message_id = EXCLUDED.last_read_message_id,
+    last_read_at = EXCLUDED.last_read_at;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mark_notifications_read()
+RETURNS void
+LANGUAGE sql
+AS $$
+  UPDATE public.notifications
+  SET is_read = true
+  WHERE user_id = auth.uid()
+    AND is_read = false;
+$$;
+
+
+-- 3) Minimal extra RLS (comments + comment_likes)
+
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY comments_read_all ON public.comments
+  FOR SELECT
+  USING (true);
+
+CREATE POLICY comments_insert_self ON public.comments
+  FOR INSERT
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY comments_owner_update_delete ON public.comments
+  FOR UPDATE, DELETE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+
+ALTER TABLE public.comment_likes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY comment_likes_read_all ON public.comment_likes
+  FOR SELECT
+  USING (true);
+
+CREATE POLICY comment_likes_owner_only ON public.comment_likes
+  FOR ALL
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
