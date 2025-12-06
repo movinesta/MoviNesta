@@ -16,11 +16,11 @@ import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
 import { getUserClient } from "../_shared/supabase.ts";
+import { getConfig } from "../_shared/config.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "catalog-search";
 
-const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
 // Define types for better code quality and maintenance.
@@ -61,7 +61,7 @@ interface TmdbSearchResponse {
 // Main request handler
 // ============================================================================
 
-serve(async (req) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -72,7 +72,8 @@ serve(async (req) => {
   }
 
   try {
-    if (!TMDB_TOKEN) {
+    const { tmdbApiReadAccessToken } = getConfig();
+    if (!tmdbApiReadAccessToken) {
       log(logCtx, "TMDB_API_READ_ACCESS_TOKEN is not configured");
       return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
     }
@@ -90,7 +91,9 @@ serve(async (req) => {
     log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-});
+}
+
+serve(handler);
 
 function parseRequestBody(body: unknown): SearchRequest {
   if (typeof body !== "object" || body === null) {
@@ -225,6 +228,7 @@ async function tmdbSearch(
   page: number,
   type: SearchType,
 ): Promise<TmdbSearchResponse | null> {
+  const { tmdbApiReadAccessToken } = getConfig();
   const path = `/search/${type}`;
   const url = new URL(TMDB_BASE + path);
   url.searchParams.set("query", query);
@@ -235,7 +239,7 @@ async function tmdbSearch(
   try {
     const res = await fetch(url.toString(), {
       headers: {
-        Authorization: `Bearer ${TMDB_TOKEN}`,
+        Authorization: `Bearer ${tmdbApiReadAccessToken}`,
         Accept: "application/json",
       },
     });

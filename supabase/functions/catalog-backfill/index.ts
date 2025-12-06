@@ -65,7 +65,7 @@ function parseRequestBody(body: unknown): BackfillRequestBody {
   return { reason, mediaTypes, pagesPerType, maxPerType };
 }
 
-serve(async (req) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -173,4 +173,6 @@ serve(async (req) => {
       "CATALOG_BACKFILL_ERROR",
     );
   }
-});
+}
+
+serve(handler);

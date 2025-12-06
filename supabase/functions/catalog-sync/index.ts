@@ -13,14 +13,12 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
+import { getConfig } from "../_shared/config.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "catalog-sync";
 
 // Environment variables
-const TMDB_API_READ_ACCESS_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
-const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY") ?? "";
-const TMDB_BASE = "https://api.themoviedb.org/3";
 const OMDB_BASE = "https://www.omdbapi.com/";
 
 // Type definitions
@@ -40,10 +38,10 @@ interface SyncRequest {
 }
 
 // ============================================================================
-// Main request handler
+// Main Request Handler
 // ============================================================================
 
-serve(async (req) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -57,7 +55,9 @@ serve(async (req) => {
   if (errorResponse) return errorResponse;
 
   return await handleTitleSync(req, data);
-});
+}
+
+serve(handler);
 
 function parseRequestBody(body: unknown): SyncRequest {
   if (typeof body !== "object" || body === null) {
@@ -336,6 +336,8 @@ function buildOmdbBlock(omdb: any) {
 // ============================================================================
 
 async function tmdbRequest(path: string, params?: Record<string, string>): Promise<any | null> {
+  const { tmdbApiReadAccessToken } = getConfig();
+  const TMDB_BASE = "https://api.themoviedb.org/3";
   const url = new URL(TMDB_BASE + path);
   if (params) {
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -343,7 +345,7 @@ async function tmdbRequest(path: string, params?: Record<string, string>): Promi
 
   try {
     const res = await fetch(url.toString(), {
-      headers: { accept: "application/json", Authorization: `Bearer ${TMDB_API_READ_ACCESS_TOKEN}` },
+      headers: { accept: "application/json", Authorization: `Bearer ${tmdbApiReadAccessToken}` },
     });
     if (!res.ok) {
       log({ fn: FN_NAME }, "TMDb request failed", { status: res.status, path });
@@ -369,6 +371,8 @@ async function tmdbGetDetails(tmdbId: number, type: TmdbMediaType): Promise<any 
 }
 
 async function omdbGetDetails(imdbId: string): Promise<any | null> {
+  // NOTE: This is a placeholder for the actual OMDB API key.
+  const OMDB_API_KEY = "OMDB_API_KEY";
   const url = new URL(OMDB_BASE);
   url.searchParams.set("apikey", OMDB_API_KEY);
   url.searchParams.set("i", imdbId);

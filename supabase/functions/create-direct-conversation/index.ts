@@ -30,7 +30,7 @@ type RequestPayload = z.infer<typeof RequestPayloadSchema>;
 // Main Request Handler
 // ============================================================================
 
-serve(async (req) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -84,7 +84,9 @@ serve(async (req) => {
     log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-});
+}
+
+serve(handler);
 
 // ============================================================================
 // Helper Functions
