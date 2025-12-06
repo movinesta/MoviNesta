@@ -1,6 +1,5 @@
 import React from "react";
 import { describe, it, expect } from "vitest";
-import * as matchers from "@testing-library/jest-dom/matchers";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ConversationListRow } from "../modules/messages/MessagesPage";
@@ -12,7 +11,6 @@ import { CardMetadata, LoadingSwipeCard, PosterFallback } from "../modules/swipe
 import type { ConversationListItem } from "../modules/messages/useConversations";
 import type { TitleSearchResult } from "../modules/search/useSearchTitles";
 import type { SwipeCardData } from "../modules/swipe/useSwipeDeck";
-
 
 const routerFuture = {
   v7_startTransition: true,

@@ -97,9 +97,7 @@ const ExternalRatingsChips: React.FC<RatingsProps> = ({
   const hasImdbRating =
     typeof imdb_rating === "number" && !Number.isNaN(imdb_rating) && imdb_rating > 0;
   const hasTomatometer =
-    typeof rt_tomato_pct === "number" &&
-    !Number.isNaN(rt_tomato_pct) &&
-    rt_tomato_pct > 0;
+    typeof rt_tomato_pct === "number" && !Number.isNaN(rt_tomato_pct) && rt_tomato_pct > 0;
   const hasMetacriticScore =
     typeof metascore === "number" && !Number.isNaN(metascore) && metascore > 0;
 
@@ -428,8 +426,7 @@ const TitleDetailPage: React.FC = () => {
     );
   }
 
-  const displayTitle =
-    data.primary_title ?? data.original_title ?? "Untitled";
+  const displayTitle = data.primary_title ?? data.original_title ?? "Untitled";
 
   const derivedYear =
     data.release_year ?? (data.release_date ? new Date(data.release_date).getFullYear() : null);

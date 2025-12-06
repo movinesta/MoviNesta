@@ -112,12 +112,12 @@ const searchSupabaseTitles = async (
   let builder = supabase.from("titles").select(columns, { count: "exact" });
 
   if (filters?.genreIds?.length) {
-    builder = builder.select(
-      `${columns}, title_genres!inner(genre_id, genres(id, name))`,
-    );
+    builder = builder.select(`${columns}, title_genres!inner(genre_id, genres(id, name))`);
   }
 
-  builder = builder.order("release_year", { ascending: false }).range(offset, offset + PAGE_SIZE - 1);
+  builder = builder
+    .order("release_year", { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
 
   if (signal) {
     builder = builder.abortSignal(signal);
@@ -272,10 +272,7 @@ export const searchTitles = async (params: {
     }),
   );
 
-  const combined = [
-    ...supabaseResults,
-    ...hydratedExternal.filter((item) => !!item),
-  ];
+  const combined = [...supabaseResults, ...hydratedExternal.filter((item) => !!item)];
 
   return {
     results: combined,

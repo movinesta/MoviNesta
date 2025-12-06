@@ -60,9 +60,7 @@ const SettingsProfilePage: React.FC = () => {
 
         const uploadedPath = uploadData?.path ?? filePath;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("avatars")
-          .getPublicUrl(uploadedPath);
+        const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(uploadedPath);
 
         avatarUrl = publicUrlData.publicUrl ?? avatarUrl;
       }

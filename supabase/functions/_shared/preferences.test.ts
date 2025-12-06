@@ -19,8 +19,11 @@ const createMockSupabase = (responses: Partial<Record<TableName, QueryResponse>>
       select: () => builder,
       eq: () => builder,
       order: () => builder,
-      in: () => (table === "titles" ? Promise.resolve(response) : builder),
-      limit: () => Promise.resolve(response),
+      in: () => builder,
+      filter: () => builder,
+      is: () => builder,
+      limit: () => builder,
+      then: (onfulfilled) => onfulfilled(response),
     };
     return builder;
   };
@@ -75,8 +78,8 @@ describe("computeUserProfile", () => {
         data: [
           { title_id: "t1", genres: ["Action", "Drama"], content_type: "Movie" },
           { title_id: "t2", genres: ["Horror"], content_type: "Movie" },
-          { title_id: "t3", tmdb_genre_names: ["Comedy"], content_type: "Show" },
-          { title_id: "t4", omdb_genre_names: ["Action", "Sci-Fi"], content_type: "Movie" },
+          { title_id: "t3", genres: ["Comedy"], content_type: "Show" },
+          { title_id: "t4", genres: ["Action", "Sci-Fi"], content_type: "Movie" },
         ],
         error: null,
       },
@@ -87,7 +90,7 @@ describe("computeUserProfile", () => {
     expect(profile).toEqual({
       favoriteGenres: ["action", "drama", "sci-fi", "comedy"],
       dislikedGenres: ["horror"],
-      contentTypeWeights: { movie: -0.5, show: 1 },
+      contentTypeWeights: { movie: 1, show: 0.1875 },
     });
   });
 
