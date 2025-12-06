@@ -4,104 +4,104 @@
 // restricts requests to a small set of allowed paths/params to avoid abuse.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
-import {
-  corsHeaders,
-  handleOptions,
-  jsonError,
-  jsonResponse,
-} from "../_shared/http.ts";
+import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
+import { log } from "../_shared/logger.ts";
+
+const FN_NAME = "tmdb-proxy";
 
 const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN");
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
-const allowedParams: Record<string, Set<string>> = {
-  "/search/multi": new Set(["query", "page", "include_adult", "language", "region"]),
-  "/trending/all/week": new Set(["page", "language"]),
-};
+// ============================================================================
+// Type and Schema Definitions
+// ============================================================================
 
-const defaultLanguage = "en-US";
+const ALLOWED_PATHS = ["/search/multi", "/trending/all/week"] as const;
 
-type ProxyPayload = {
-  path: string;
-  params?: Record<string, unknown>;
-};
+const ProxyPayloadSchema = z.object({
+  path: z.enum(ALLOWED_PATHS),
+  params: z.record(z.unknown()).optional(),
+});
 
-type NormalizedPayload = {
-  path: string;
-  params: Record<string, string>;
-};
+type ProxyPayload = z.infer<typeof ProxyPayloadSchema>;
 
-function normalizePath(path: string | null | undefined): string | null {
-  if (!path || typeof path !== "string") return null;
-  const trimmed = path.trim();
-  if (!trimmed.startsWith("/")) return null;
-  return trimmed;
+const SearchParamsSchema = z.object({
+  query: z.string().min(1, "Query is required").max(200),
+  page: z.number().int().min(1).max(1000).optional(),
+  include_adult: z.boolean().optional(),
+  language: z.string().optional(),
+  region: z.string().optional(),
+});
+
+const TrendingParamsSchema = z.object({
+  page: z.number().int().min(1).max(1000).optional(),
+  language: z.string().optional(),
+});
+
+// ============================================================================
+// Main Request Handler
+// ============================================================================
+
+serve(async (req) => {
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
+  const logCtx = { fn: FN_NAME };
+
+  if (!TMDB_TOKEN) {
+    log(logCtx, "TMDB_API_READ_ACCESS_TOKEN is not configured");
+    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
+  }
+
+  if (req.method !== "POST") {
+    return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
+  }
+
+  try {
+    const { data: payload, errorResponse } = await validateRequest(req, (raw) =>
+      ProxyPayloadSchema.parse(raw)
+    );
+    if (errorResponse) return errorResponse;
+
+    const validatedParams = validateParams(payload.path, payload.params);
+    const url = buildTmdbUrl(payload.path, validatedParams);
+
+    const tmdbResponse = await fetchFromTmdb(url);
+    return jsonResponse({ ok: true, data: tmdbResponse });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return jsonError("Invalid request body", 400, "BAD_REQUEST");
+    }
+    log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
+  }
+});
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+function validateParams(path: typeof ALLOWED_PATHS[number], params: Record<string, unknown> = {}) {
+  const schema = path === "/search/multi" ? SearchParamsSchema : TrendingParamsSchema;
+  return schema.parse(params);
 }
 
-function validateAndNormalize(body: unknown): NormalizedPayload | Response {
-  const payload = body as ProxyPayload;
-  const path = normalizePath(payload?.path);
-  if (!path || !(path in allowedParams)) {
-    return jsonError("Unsupported TMDb path", 400, "BAD_REQUEST_UNSUPPORTED_PATH");
-  }
-
-  const params: Record<string, string> = {};
-  const rawParams = payload?.params ?? {};
-  const allowedKeys = allowedParams[path];
-
-  if (typeof rawParams !== "object" || Array.isArray(rawParams)) {
-    return jsonError("params must be an object", 400, "BAD_REQUEST_INVALID_PARAMS");
-  }
-
-  for (const [key, value] of Object.entries(rawParams)) {
-    if (!allowedKeys.has(key)) continue;
-    if (value === undefined || value === null) continue;
-
-    if (key === "query") {
-      if (typeof value !== "string" || !value.trim()) {
-        return jsonError("query is required", 400, "BAD_REQUEST_MISSING_QUERY");
-      }
-      params[key] = value.slice(0, 200);
-      continue;
-    }
-
-    if (key === "page") {
-      const page = Number(value);
-      if (!Number.isFinite(page) || page < 1 || page > 1000) {
-        return jsonError("page must be between 1 and 1000", 400, "BAD_REQUEST_INVALID_PAGE");
-      }
-      params[key] = String(Math.floor(page));
-      continue;
-    }
-
-    if (key === "include_adult") {
-      params[key] = String(value === true || value === "true");
-      continue;
-    }
-
-    params[key] = String(value);
-  }
-
-  if (path === "/search/multi" && !params.query) {
-    return jsonError("query is required", 400, "BAD_REQUEST_MISSING_QUERY");
-  }
-
-  if (!params.language) {
-    params.language = defaultLanguage;
-  }
-
-  return { path, params };
-}
-
-async function fetchFromTmdb(payload: NormalizedPayload): Promise<Response> {
-  const { path, params } = payload;
+function buildTmdbUrl(path: string, params: Record<string, any>): URL {
   const url = new URL(`${TMDB_BASE_URL}${path}`);
-
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  if (!url.searchParams.has("language")) {
+    url.searchParams.set("language", "en-US");
   }
+  return url;
+}
 
+async function fetchFromTmdb(url: URL) {
   const res = await fetch(url.toString(), {
     headers: {
       accept: "application/json",
@@ -110,37 +110,9 @@ async function fetchFromTmdb(payload: NormalizedPayload): Promise<Response> {
   });
 
   if (!res.ok) {
-    console.error(`[tmdb-proxy] TMDb request failed ${res.status} ${res.statusText}`);
-    return jsonError("TMDb request failed", res.status, "TMDB_REQUEST_FAILED");
+    log({ fn: FN_NAME }, "TMDb request failed", { status: res.status, url: url.toString() });
+    throw new Error(`TMDb request failed with status ${res.status}`);
   }
 
-  const data = await res.json();
-  return jsonResponse({ ok: true, data });
+  return await res.json();
 }
-
-serve(async (req) => {
-  const optionsResponse = handleOptions(req);
-  if (optionsResponse) return optionsResponse;
-
-  if (!TMDB_TOKEN) {
-    console.error("[tmdb-proxy] Missing TMDB_API_READ_ACCESS_TOKEN");
-    return jsonError("TMDb not configured", 500, "TMDB_NOT_CONFIGURED");
-  }
-
-  if (req.method !== "POST") {
-    return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
-  }
-
-  try {
-    const body = (await req.json().catch(() => null)) as ProxyPayload | null;
-    const normalized = validateAndNormalize(body);
-    if (normalized instanceof Response) {
-      return normalized;
-    }
-
-    return await fetchFromTmdb(normalized);
-  } catch (err) {
-    console.error("[tmdb-proxy] Unhandled error", err);
-    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
-  }
-});

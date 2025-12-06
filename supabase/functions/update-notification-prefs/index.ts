@@ -6,143 +6,140 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
-import {
-  corsHeaders,
-  handleOptions,
-  jsonError,
-  jsonResponse,
-  validateRequest,
-} from "../_shared/http.ts";
+import type { SupabaseClient, User } from "https://esm.sh/@supabase/supabase-js@2";
+
+import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
+import { log } from "../_shared/logger.ts";
 import { getUserClient } from "../_shared/supabase.ts";
+import type { Database } from "../../../src/types/supabase.ts";
 
-const DEFAULT_PREFERENCES = {
-  emailActivity: true,
-  emailRecommendations: true,
-  inAppSocial: true,
-  inAppSystem: true,
-} as const;
+const FN_NAME = "update-notification-prefs";
 
-const PreferencesSchema = z.object({
-  emailActivity: z.boolean(),
-  emailRecommendations: z.boolean(),
-  inAppSocial: z.boolean(),
-  inAppSystem: z.boolean(),
-});
+// ============================================================================
+// Type and Schema Definitions
+// ============================================================================
 
-const logPrefix = "[update-notification-prefs]";
+type NotificationPreferences = Database["public"]["Tables"]["notification_preferences"]["Row"];
 
-type PreferencesPayload = z.infer<typeof PreferencesSchema>;
-
-type PreferencesResponse = PreferencesPayload & { updatedAt: string };
-
-type NotificationPreferencesRow = {
-  user_id: string;
-  email_activity: boolean;
-  email_recommendations: boolean;
-  in_app_social: boolean;
-  in_app_system: boolean;
-  updated_at: string;
+const DEFAULT_PREFERENCES: Omit<NotificationPreferences, "user_id" | "updated_at"> = {
+  email_activity: true,
+  email_recommendations: true,
+  in_app_social: true,
+  in_app_system: true,
 };
 
-function mapRowToResponse(row: NotificationPreferencesRow): PreferencesResponse {
-  return {
-    emailActivity: row.email_activity,
-    emailRecommendations: row.email_recommendations,
-    inAppSocial: row.in_app_social,
-    inAppSystem: row.in_app_system,
-    updatedAt: row.updated_at,
-  };
-}
+const PreferencesUpdateSchema = z.object({
+  emailActivity: z.boolean().optional(),
+  emailRecommendations: z.boolean().optional(),
+  inAppSocial: z.boolean().optional(),
+  inAppSystem: z.boolean().optional(),
+});
+
+type PreferencesUpdatePayload = z.infer<typeof PreferencesUpdateSchema>;
+
+// ============================================================================
+// Main Request Handler
+// ============================================================================
 
 serve(async (req) => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  let supabase;
+  const logCtx = { fn: FN_NAME };
+
   try {
-    supabase = getUserClient(req);
-  } catch (error) {
-    console.error(`${logPrefix} Supabase configuration error`, error);
-    return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
-  }
+    const supabase = getUserClient(req);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error(`${logPrefix} auth error`, authError);
-    return jsonError("Unauthorized", 401, "UNAUTHORIZED");
-  }
-
-  if (!user) {
-    console.error(`${logPrefix} no user in auth context`);
-    return jsonError("Unauthorized", 401, "UNAUTHORIZED");
-  }
-
-  if (req.method === "GET") {
-    const { data, error } = await supabase
-      .from("notification_preferences")
-      .select(
-        "user_id, email_activity, email_recommendations, in_app_social, in_app_system, updated_at",
-      )
-      .eq("user_id", user.id)
-      .maybeSingle<NotificationPreferencesRow>();
-
-    if (error) {
-      console.error(`${logPrefix} error reading preferences`, error);
-      return jsonError("Failed to load preferences", 500, "PREFERENCES_LOAD_FAILED");
+    if (authError || !user) {
+      log(logCtx, "Auth error", { error: authError?.message });
+      return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const preferences = data
-      ? mapRowToResponse(data)
-      : { ...DEFAULT_PREFERENCES, updatedAt: new Date().toISOString() };
+    if (req.method === "GET") {
+      return await handleGet(supabase, user);
+    }
+    if (req.method === "POST") {
+      return await handlePost(req, supabase, user);
+    }
 
-    return jsonResponse({ ok: true, preferences });
+    return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
+  } catch (err) {
+    log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
+    return jsonError("Internal server error", 500, "INTERNAL_ERROR");
+  }
+});
+
+// ============================================================================
+// Method Handlers
+// ============================================================================
+
+async function handleGet(supabase: SupabaseClient<Database>, user: User): Promise<Response> {
+  const { data, error } = await supabase
+    .from("notification_preferences")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    log({ fn: FN_NAME }, "Failed to load preferences", { userId: user.id, error: error.message });
+    return jsonError("Failed to load preferences", 500, "PREFERENCES_LOAD_FAILED");
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse(
-      { ok: false, error: "Method not allowed", code: "METHOD_NOT_ALLOWED" },
-      405,
-      { headers: corsHeaders },
-    );
-  }
+  const preferences = data ?? {
+    ...DEFAULT_PREFERENCES,
+    user_id: user.id,
+    updated_at: new Date().toISOString(),
+  };
 
-  const validation = await validateRequest<PreferencesPayload>(
-    req,
-    (body) => PreferencesSchema.parse(body),
-    { logPrefix },
+  return jsonResponse({ ok: true, preferences });
+}
+
+async function handlePost(req: Request, supabase: SupabaseClient<Database>, user: User): Promise<Response> {
+  const { data: payload, errorResponse } = await validateRequest(req, (raw) =>
+    PreferencesUpdateSchema.parse(raw)
   );
+  if (errorResponse) return errorResponse;
 
-  if (validation.errorResponse) return validation.errorResponse;
+  const { data: existing } = await supabase
+    .from("notification_preferences")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  const payload = validation.data;
-  const now = new Date().toISOString();
+  const update: Partial<NotificationPreferences> = {
+    email_activity: payload.emailActivity,
+    email_recommendations: payload.emailRecommendations,
+    in_app_social: payload.inAppSocial,
+    in_app_system: payload.inAppSystem,
+  };
+
+  // Filter out any undefined values so we only update what's provided.
+  const finalUpdate = Object.fromEntries(Object.entries(update).filter(([, v]) => v !== undefined));
+
+  if (Object.keys(finalUpdate).length === 0) {
+    return jsonResponse({ ok: true, preferences: existing ?? DEFAULT_PREFERENCES });
+  }
 
   const { data, error } = await supabase
     .from("notification_preferences")
     .upsert(
       {
         user_id: user.id,
-        email_activity: payload.emailActivity,
-        email_recommendations: payload.emailRecommendations,
-        in_app_social: payload.inAppSocial,
-        in_app_system: payload.inAppSystem,
-        updated_at: now,
+        ...DEFAULT_PREFERENCES,
+        ...(existing ?? {}),
+        ...finalUpdate,
+        updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
     )
-    .select(
-      "user_id, email_activity, email_recommendations, in_app_social, in_app_system, updated_at",
-    )
-    .single<NotificationPreferencesRow>();
+    .select()
+    .single();
 
   if (error || !data) {
-    console.error(`${logPrefix} error saving preferences`, error);
+    log({ fn: FN_NAME }, "Failed to save preferences", { userId: user.id, error: error?.message });
     return jsonError("Failed to save preferences", 500, "PREFERENCES_SAVE_FAILED");
   }
 
-  return jsonResponse({ ok: true, preferences: mapRowToResponse(data) }, 200);
-});
+  return jsonResponse({ ok: true, preferences: data });
+}
