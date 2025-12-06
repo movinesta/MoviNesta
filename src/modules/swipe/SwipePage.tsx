@@ -75,7 +75,7 @@ export const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
     !Number.isNaN(card.rtTomatoMeter) &&
     card.rtTomatoMeter > 0;
 
-  const metaPieces: (string | null)[] = [];
+  const metaPieces: string[] = [];
 
   if (card.year) metaPieces.push(String(card.year));
   if (card.type) metaPieces.push(card.type);
@@ -505,7 +505,7 @@ const SwipePage: React.FC = () => {
                   }}
                 >
                   <div className="relative h-full w-full overflow-hidden rounded-[30px] border border-mn-border-subtle/40 shadow-mn-card">
-                    {showNextPoster && nextCard.posterUrl ? (
+                    {showNextPoster ? (
                       <>
                         <img
                           src={nextCard.posterUrl}
@@ -538,7 +538,7 @@ const SwipePage: React.FC = () => {
                 style={{ touchAction: "pan-y" }}
               >
                 <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
-                  {showActivePoster && activeCard.posterUrl ? (
+                  {showActivePoster ? (
                     <img
                       src={activeCard.posterUrl}
                       alt={buildSwipeCardLabel(activeCard) ?? `${activeCard.title} poster`}

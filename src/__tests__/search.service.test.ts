@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
 }));
 
 const mockInvoke = vi.hoisted(() =>
-  vi.fn(async () => ({ data: { results: state.invokeResponses } })),
+  vi.fn(async () => ({ data: state.invokeResponses.shift() ?? {} })),
 );
 
 vi.mock("../lib/supabase", () => {
@@ -24,14 +24,10 @@ vi.mock("../lib/supabase", () => {
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
-      then: (onfulfilled: (value: any) => any) => {
-        const result = {
-          data: state.supabaseRows,
-          error: null,
-          count: state.supabaseRows.length,
-        };
-        return Promise.resolve(result).then(onfulfilled);
-      },
+      returns: vi.fn().mockImplementation(async () => ({
+        data: state.supabaseRows,
+        error: null,
+      })),
     } satisfies Record<string, unknown>;
   };
 
@@ -51,7 +47,7 @@ vi.mock("../modules/search/externalMovieSearch", () => ({
 import { searchTitles } from "../modules/search/search.service";
 
 const makeTitleRow = (overrides: Partial<any> = {}) => ({
-  title_id: "local-1",
+  id: "local-1",
   primary_title: "Local Title",
   original_title: null,
   release_year: 2020,
@@ -88,8 +84,8 @@ describe("searchTitles merge logic", () => {
 
   it("dedupes Supabase and TMDb results on tmdbId while preserving library entries", async () => {
     state.supabaseRows = [
-      makeTitleRow({ title_id: "library-1", primary_title: "Library Hit", tmdb_id: 111 }),
-      makeTitleRow({ title_id: "library-2", primary_title: "Already Synced", tmdb_id: 222 }),
+      makeTitleRow({ id: "library-1", primary_title: "Library Hit", tmdb_id: 111 }),
+      makeTitleRow({ id: "library-2", primary_title: "Already Synced", tmdb_id: 222 }),
     ];
 
     state.externalResults = [
@@ -111,7 +107,7 @@ describe("searchTitles merge logic", () => {
 
   it("places library results first, then synced external titles, then external-only entries", async () => {
     state.supabaseRows = [
-      makeTitleRow({ title_id: "library-1", primary_title: "Library", tmdb_id: 111 }),
+      makeTitleRow({ id: "library-1", primary_title: "Library", tmdb_id: 111 }),
     ];
 
     state.externalResults = [
@@ -119,10 +115,12 @@ describe("searchTitles merge logic", () => {
       makeExternal({ tmdbId: 333, title: "External Only" }),
     ];
 
-    state.invokeResponses.push(
-      { tmdbId: 222, titleId: "synced-222" },
-      { tmdbId: 333, titleId: undefined },
-    );
+    state.invokeResponses.push({
+      results: [
+        { tmdbId: 222, titleId: "synced-222" },
+        { tmdbId: 333, titleId: null },
+      ],
+    });
 
     const page = await searchTitles({ query: "test" });
     const results = page.results;

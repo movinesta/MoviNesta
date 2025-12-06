@@ -13,11 +13,6 @@ type TmdbMultiResult = {
   poster_path?: string | null;
 };
 
-type TmdbMultiSearchResponse = {
-  results: TmdbMultiResult[];
-  total_pages: number;
-};
-
 export type ExternalTitleResult = {
   tmdbId: number;
   imdbId: string | null;
@@ -43,7 +38,7 @@ export async function searchExternalTitles(
 
   throwIfAborted(signal);
 
-  const body = (await fetchTmdbJson(
+  const body = await fetchTmdbJson(
     "/search/multi",
     {
       query: trimmed,
@@ -51,7 +46,7 @@ export async function searchExternalTitles(
       page,
     },
     signal,
-  )) as TmdbMultiSearchResponse;
+  );
 
   throwIfAborted(signal);
 

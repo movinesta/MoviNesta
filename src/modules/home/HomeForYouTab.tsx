@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
-import { TitleType } from "@/types/supabase-helpers";
 
 type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue";
 
@@ -88,7 +87,7 @@ interface TitleBasicRow {
   title: string | null;
   year: number | null;
   runtime_minutes: number | null;
-  type?: TitleType | null;
+  type?: string | null;
   poster_url?: string | null;
   backdrop_url?: string | null;
   imdb_rating?: number | null;
@@ -213,7 +212,7 @@ const fetchHomeRecommendations = async (
   const animeResult = await supabase
     .from("titles")
     .select(
-      "id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, rt_tomato_pct",
+      "id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct",
     )
     .eq("content_type", "anime")
     .order("release_year", { ascending: false })
@@ -244,7 +243,7 @@ const fetchHomeRecommendations = async (
   const titlesResult = await supabase
     .from("titles")
     .select(
-      `id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, rt_tomato_pct`,
+      `id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, omdb_rt_rating_pct`,
     )
     .in("title_id", allTitleIds);
 
@@ -534,12 +533,12 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
     <section className="rounded-mn-card border border-mn-border-subtle bg-mn-bg-elevated/95 p-4 text-[11px] text-mn-text-secondary shadow-mn-card">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="inline-flex items-center gap-1 rounded-full bg-mn-primary/15 px-2.5 py-0.5 text-[10px] font-medium text-mn-primary">
-          <Sparkles className="h-3.5 w-3.5" aria-hidden={true} />
+          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Tonight&apos;s pick for you</span>
         </div>
         {pick.runtimeMinutes ? (
           <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-0.5 text-[10px] text-mn-text-muted">
-            <Clock className="h-3 w-3" aria-hidden={true} />
+            <Clock className="h-3 w-3" aria-hidden="true" />
             <span>{pick.runtimeMinutes} min</span>
           </div>
         ) : null}
@@ -557,7 +556,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
             </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-mn-surface-elevated/80 via-mn-bg to-mn-primary/70 text-[10px] text-mn-text-muted">
-              <Film className="h-4 w-4 text-mn-primary" aria-hidden={true} />
+              <Film className="h-4 w-4 text-mn-primary" aria-hidden="true" />
               <span>No poster yet</span>
             </div>
           )}
@@ -585,14 +584,14 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
               type="button"
               className="inline-flex items-center gap-1.5 rounded-full bg-mn-primary px-3 py-1.5 text-[11px] font-medium text-mn-bg shadow-mn-soft hover:bg-mn-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
             >
-              <Play className="h-3.5 w-3.5" aria-hidden={true} />
+              <Play className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Add to Watchlist</span>
             </button>
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-full border border-mn-border-subtle bg-mn-bg/80 px-3 py-1.5 text-[11px] text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg"
             >
-              <ListChecks className="h-3.5 w-3.5" aria-hidden={true} />
+              <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Why this pick?</span>
             </button>
           </div>
@@ -600,7 +599,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
           <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-mn-text-muted">
             {pick.friendsWatchingCount ? (
               <span className="inline-flex items-center gap-1">
-                <Users className="h-3 w-3" aria-hidden={true} />
+                <Users className="h-3 w-3" aria-hidden="true" />
                 <span>Watched by {pick.friendsWatchingCount} friend(s)</span>
               </span>
             ) : null}
@@ -682,10 +681,10 @@ const SECTION_KIND_META: Record<
   RecommendationSectionKind,
   { icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>; label: string }
 > = {
-  "friends-trending": { icon: Users as any, label: "Friends" },
-  "because-you-liked": { icon: Film as any, label: "Match" },
-  anime: { icon: Sparkles as any, label: "Anime" },
-  continue: { icon: Clock as any, label: "Continue" },
+  "friends-trending": { icon: Users, label: "Friends" },
+  "because-you-liked": { icon: Film, label: "Match" },
+  anime: { icon: Sparkles, label: "Anime" },
+  continue: { icon: Clock, label: "Continue" },
 };
 
 interface RecommendationCardProps {
@@ -736,7 +735,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
           </>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-mn-surface-elevated/80 via-mn-bg to-mn-primary/70 text-[10px] text-mn-text-muted">
-            <Film className="h-4 w-4 text-mn-primary" aria-hidden={true} />
+            <Film className="h-4 w-4 text-mn-primary" aria-hidden="true" />
             <span>Poster missing</span>
           </div>
         )}
@@ -759,7 +758,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
 
         <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
           <span className="inline-flex items-center gap-1 text-mn-text-muted">
-            <SectionIcon className="h-3 w-3" aria-hidden={true} />
+            <SectionIcon className="h-3 w-3" aria-hidden="true" />
             <span>{sectionMeta.label}</span>
           </span>
 
@@ -823,7 +822,7 @@ const EmptyTonightPickState: React.FC = () => {
     <section className="rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/95 px-4 py-5 text-[11px] text-mn-text-secondary shadow-mn-card">
       <div className="mx-auto flex max-w-md flex-col items-center text-center">
         <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-mn-primary/15">
-          <Sparkles className="h-4 w-4 text-mn-primary" aria-hidden={true} />
+          <Sparkles className="h-4 w-4 text-mn-primary" aria-hidden="true" />
         </div>
         <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
           Smart picks arrive as you watch
@@ -847,7 +846,7 @@ const EmptyForYouState: React.FC = () => {
     <section className="rounded-mn-card border border-mn-border-subtle/80 bg-mn-bg-elevated/95 px-4 py-4 text-[11px] text-mn-text-secondary shadow-mn-card">
       <div className="flex items-center gap-3">
         <div className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-mn-primary/15">
-          <Film className="h-4 w-4 text-mn-primary" aria-hidden={true} />
+          <Film className="h-4 w-4 text-mn-primary" aria-hidden="true" />
         </div>
         <div className="space-y-1">
           <h3 className="text-sm font-heading font-semibold text-mn-text-primary">

@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { ChatImage } from "./ConversationPage";
 
+expect.extend(matchers);
 
 const createSignedUrl = vi.fn();
 

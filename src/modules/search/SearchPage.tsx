@@ -94,7 +94,7 @@ const SearchPage: React.FC = () => {
     }
 
     if (activeTab === "titles" && query.trim()) {
-      params.set("type", titleFilters.type ?? "all");
+      params.set("type", titleFilters.type);
       if (titleFilters.minYear) {
         params.set("minYear", String(titleFilters.minYear));
       } else {
@@ -176,7 +176,7 @@ const SearchPage: React.FC = () => {
   const activeFilterChips = useMemo(() => {
     const chips: { label: string; onRemove: () => void }[] = [];
 
-    if (titleFilters.type && titleFilters.type !== "all") {
+    if (titleFilters.type !== "all") {
       chips.push({
         label: `Type: ${titleFilters.type.charAt(0).toUpperCase()}${titleFilters.type.slice(1)}`,
         onRemove: () => updateFilters({ type: "all" }),

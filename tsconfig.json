@@ -28,9 +28,6 @@
   },
   "include": [
     "src",
-    "src/__tests__/setup.ts"
-  ],
-  "exclude": [
     "supabase"
   ],
   "references": [

@@ -298,7 +298,7 @@ const SwipeForYouTab: React.FC = () => {
     );
   }
 
-  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes ?? undefined);
+  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes);
   const dragProgress = clamp(dragX / 120, -1, 1);
   const rotation = dragProgress * MAX_ROTATION_DEG;
 

@@ -13,22 +13,22 @@ const messageSelect = "id, conversation_id, user_id, body, attachment_url, creat
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 const mergeMessages = (
-  existing: ConversationMessage[] | undefined,
+  existing: MessageRow[] | undefined,
   incoming: MessageRow | MessageRow[],
-): ConversationMessage[] => {
+): MessageRow[] => {
   const incomingArray = Array.isArray(incoming) ? incoming : [incoming];
-  const map = new Map<string, ConversationMessage>();
+  const map = new Map<string, MessageRow>();
 
   for (const row of existing ?? []) {
     map.set(row.id, row);
   }
 
   for (const row of incomingArray) {
-    map.set(row.id, mapMessageRowToConversationMessage(row));
+    map.set(row.id, row);
   }
 
   return Array.from(map.values()).sort(
-    (a, b) => new Date(a.createdAt ?? "").getTime() - new Date(b.createdAt ?? "").getTime(),
+    (a, b) => new Date(a.created_at ?? "").getTime() - new Date(b.created_at ?? "").getTime(),
   );
 };
 
@@ -55,7 +55,7 @@ export const useConversationMessages = (conversationId: string | null) => {
         throw new Error(error.message);
       }
 
-      const rows: MessageRow[] = data ?? [];
+      const rows: MessageRow[] = mergeMessages([], data ?? []);
       return rows.map(mapMessageRowToConversationMessage);
     },
   });
@@ -66,12 +66,26 @@ export const useConversationMessages = (conversationId: string | null) => {
     const channel = supabase.channel(`conversation-messages-${conversationId}`);
 
     const upsertFromPayload = (payload: RealtimePostgresChangesPayload<MessageRow>) => {
-      const row = payload.new as MessageRow;
-      if (!row || !row.id || row.conversation_id !== conversationId) return;
+      const row = payload.new;
+      if (!row || row.conversation_id !== conversationId) return;
 
       queryClient.setQueryData<ConversationMessage[]>(
         ["conversation", conversationId, "messages"],
-        (existing) => mergeMessages(existing, row),
+        (existing) => {
+          const merged = mergeMessages(
+            existing?.map((m) => ({
+              id: m.id,
+              conversation_id: m.conversationId,
+              user_id: m.senderId,
+              body: m.body,
+              attachment_url: m.attachmentUrl,
+              created_at: m.createdAt,
+            })) ?? [],
+            row,
+          );
+
+          return merged.map(mapMessageRowToConversationMessage);
+        },
       );
     };
 
