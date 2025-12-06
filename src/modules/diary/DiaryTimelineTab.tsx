@@ -178,9 +178,7 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
                   </div>
 
                   {item.reviewSnippet && (
-                    <p className="line-clamp-2 text-[11px] text-mn-text-secondary">
-                      “{item.reviewSnippet}”
-                    </p>
+                    <p className="line-clamp-2 text-[11px] text-mn-text-secondary">“{item.reviewSnippet}”</p>
                   )}
 
                   {item.extra && <p className="text-[10px] text-mn-text-muted">{item.extra}</p>}

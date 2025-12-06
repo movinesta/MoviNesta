@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
+import {
+  Bell,
+  Inbox,
+  ThumbsUp,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Loader2,
+} from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TopBar from "../../components/shared/TopBar";
 import { useAuth } from "../auth/AuthProvider";
@@ -7,7 +15,8 @@ import { supabase } from "@/lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import type { Database } from "@/types/supabase";
 
-type NotificationPreferencesRow = Database["public"]["Tables"]["notification_preferences"]["Row"];
+type NotificationPreferencesRow =
+  Database["public"]["Tables"]["notification_preferences"]["Row"];
 
 type NotificationPrefs = {
   emailActivity: boolean;
@@ -103,14 +112,17 @@ const SettingsNotificationsPage: React.FC = () => {
     },
     onSuccess: (updated) => {
       setStatus("saved");
-      queryClient.setQueryData<NotificationPreferencesRow>(notificationPreferencesQueryKey, {
-        user_id: user?.id ?? "",
-        email_activity: updated.emailActivity,
-        email_recommendations: updated.emailRecommendations,
-        in_app_social: updated.inAppSocial,
-        in_app_system: updated.inAppSystem,
-        updated_at: updated.updatedAt,
-      });
+      queryClient.setQueryData<NotificationPreferencesRow>(
+        notificationPreferencesQueryKey,
+        {
+          user_id: user?.id ?? "",
+          email_activity: updated.emailActivity,
+          email_recommendations: updated.emailRecommendations,
+          in_app_social: updated.inAppSocial,
+          in_app_system: updated.inAppSystem,
+          updated_at: updated.updatedAt,
+        },
+      );
     },
     onError: (err) => {
       console.error("Failed to save notification preferences", err);

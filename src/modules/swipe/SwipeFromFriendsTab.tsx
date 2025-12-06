@@ -128,6 +128,7 @@ const SwipeFromFriendsTab: React.FC = () => {
         direction,
         rating: ratingForCard,
         inWatchlist: watchlistForCard,
+        title: card.title,
       });
 
       setLastSwipe({
@@ -227,11 +228,14 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: next,
       };
 
+      const cardTitle = cards.find((card) => card.id === cardId)?.title;
+
       swipeAsync({
         cardId,
         direction: next === 0 ? "skip" : "like",
         rating: next === 0 ? null : next,
         inWatchlist: watchlist[cardId] ?? undefined,
+        title: cardTitle,
       }).catch(() => {
         setRatings((currentState) => ({
           ...currentState,
@@ -252,11 +256,14 @@ const SwipeFromFriendsTab: React.FC = () => {
         [cardId]: nextValue,
       };
 
+      const cardTitle = cards.find((card) => card.id === cardId)?.title;
+
       swipeAsync({
         cardId,
         direction: "skip",
         rating: ratings[cardId] ?? null,
         inWatchlist: nextValue,
+        title: cardTitle,
       }).catch(() => {
         setWatchlist((currentState) => ({
           ...currentState,

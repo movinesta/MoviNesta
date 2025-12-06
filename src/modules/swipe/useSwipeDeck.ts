@@ -184,9 +184,9 @@ export async function fetchSwipeBatch(
     const collectedFlat = collected.flat();
     if (collectedFlat.length < plannedTotal) {
       const deficit = plannedTotal - collectedFlat.length;
-      const prioritizedSource = Object.entries(appliedWeights).sort(
-        (a, b) => b[1] - a[1],
-      )[0]?.[0] as SwipeDeckKind | undefined;
+      const prioritizedSource = Object.entries(appliedWeights).sort((a, b) => b[1] - a[1])[0]?.[0] as
+        | SwipeDeckKind
+        | undefined;
       const fallback = await fetchSwipeCardsFromSource(prioritizedSource ?? "for-you", deficit + 6);
       collected = [...collected, fallback];
     }

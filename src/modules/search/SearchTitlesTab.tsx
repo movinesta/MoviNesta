@@ -85,7 +85,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       filters,
     });
 
-  const results = data?.results ?? [];
+  const results = data?.pages.flatMap((page) => page.results) ?? [];
   const totalResults = results.length;
 
   const activeFilterLabels: string[] = [];

@@ -186,12 +186,14 @@ const mapEventToFeedItem = (
         title,
         note: payload.extra ?? payload.headline,
       };
-    case "watchlist_removed":
+    case "recommendation_created":
       return {
         ...base,
-        kind: "watchlist-add",
+        kind: "recommendation",
         user,
         title,
+        reason: payload.reason ?? payload.headline ?? payload.extra,
+        score: payload.score,
       };
     default:
       return null;
@@ -289,25 +291,24 @@ export const useHomeFeed = (): UseHomeFeedResult => {
   const { user } = useAuth();
 
   const { data, isLoading, isFetching, error, fetchNextPage, isFetchingNextPage, hasNextPage } =
-    useInfiniteQuery<{ items: HomeFeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>(
-      {
-        queryKey: qk.homeFeed(user?.id ?? null),
-        enabled: Boolean(user?.id),
-        initialPageParam: undefined,
-        staleTime: 1000 * 30,
-        refetchOnWindowFocus: true,
-        refetchOnReconnect: true,
-        queryFn: async ({ pageParam }) => {
-          if (!user?.id) {
-            return { items: [], nextCursor: null, hasMore: false };
-          }
-          return fetchHomeFeedPage(user.id, pageParam as string | null);
-        },
-        getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
+    useInfiniteQuery<{ items: HomeFeedItem[]; nextCursor: string | null; hasMore: boolean }, Error>({
+      queryKey: qk.homeFeed(user?.id ?? null),
+      enabled: Boolean(user?.id),
+      initialPageParam: null as string | null,
+      staleTime: 1000 * 30,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      keepPreviousData: true,
+      queryFn: async ({ pageParam }) => {
+        if (!user?.id) {
+          return { items: [], nextCursor: null, hasMore: false };
+        }
+        return fetchHomeFeedPage(user.id, pageParam);
       },
-    );
+      getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : null),
+    });
 
-  const items = (data?.pages ?? []).flatMap((page) => page.items ?? []);
+  const items = (data?.pages ?? []).flatMap((page) => page.items);
 
   const friendlyError = error
     ? "We couldn’t load your feed right now. Check your connection or try signing in again."
