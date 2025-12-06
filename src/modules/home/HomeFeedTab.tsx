@@ -15,11 +15,7 @@ const FEED_FILTERS = [
 
 type FeedFilterKey = (typeof FEED_FILTERS)[number]["key"];
 
-const filterMatchesItem = (
-  item: HomeFeedItem,
-  filter: FeedFilterKey,
-  quickFilter: QuickFilter,
-): boolean => {
+const filterMatchesItem = (item: HomeFeedItem, filter: FeedFilterKey, quickFilter: QuickFilter): boolean => {
   const matchesFeedFilter = (() => {
     switch (filter) {
       case "ratings":
@@ -43,11 +39,7 @@ const filterMatchesItem = (
   }
 
   if (quickFilter === "follows") {
-    return (
-      item.kind === "friend-rating" ||
-      item.kind === "friend-review" ||
-      item.kind === "watchlist-add"
-    );
+    return item.kind === "friend-rating" || item.kind === "friend-review" || item.kind === "watchlist-add";
   }
 
   return true;
@@ -148,11 +140,9 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({ quickFilter }) => {
           computeItemKey={(_, item) => item.id}
           endReached={handleLoadMore}
           components={{
-            List: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-              function List(props, ref) {
-                return <div ref={ref} className="space-y-3" {...props} />;
-              },
-            ),
+            List: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => (
+              <div ref={ref} className="space-y-3" {...props} />
+            )),
             Footer: () => (
               <div className="pt-1">
                 {hasMore ? (
@@ -165,9 +155,7 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({ quickFilter }) => {
                     {isLoadingMore ? "Loading more..." : "Load more"}
                   </button>
                 ) : (
-                  <p className="py-2 text-center text-[11px] text-mn-text-muted">
-                    You&apos;re all caught up.
-                  </p>
+                  <p className="py-2 text-center text-[11px] text-mn-text-muted">You&apos;re all caught up.</p>
                 )}
               </div>
             ),

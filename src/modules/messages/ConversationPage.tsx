@@ -7,6 +7,7 @@ import {
   CheckCheck,
   Edit3,
   Image as ImageIcon,
+  Info,
   Loader2,
   Send,
   Smile,
@@ -1239,6 +1240,23 @@ const ConversationPage: React.FC = () => {
     attemptSend(lastFailedPayload);
   };
 
+  const handleRetryMessage = (messageId: string) => {
+    const payload = failedMessages[messageId];
+    if (!payload || !conversationId) return;
+    setSendError(null);
+    setFailedMessages((prev) => {
+      if (!(messageId in prev)) return prev;
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
+    });
+    queryClient.setQueryData<ConversationMessage[]>(
+      ["conversation", conversationId, "messages"],
+      (existing) => (existing ?? []).filter((m) => m.id !== messageId),
+    );
+    attemptSend(payload);
+  };
+
   const handleCameraClick = () => {
     if (!conversationId || !user?.id) return;
     if (isBlocked || blockedYou) return;
@@ -1422,9 +1440,7 @@ const ConversationPage: React.FC = () => {
                   <div className="mb-3 rounded-md border border-mn-border-subtle bg-mn-bg/90 px-3 py-2 text-[12px] text-mn-error">
                     <p className="font-medium">We couldn&apos;t load this conversation.</p>
                     {messagesError instanceof Error && (
-                      <p className="mt-1 text-[11px] text-mn-text-secondary">
-                        {messagesError.message}
-                      </p>
+                      <p className="mt-1 text-[11px] text-mn-text-secondary">{messagesError.message}</p>
                     )}
                   </div>
                 ) : undefined
@@ -1481,9 +1497,7 @@ const ConversationPage: React.FC = () => {
 
                 const previous = index > 0 ? (visibleMessages[index - 1]?.message ?? null) : null;
                 const next =
-                  index < visibleMessages.length - 1
-                    ? (visibleMessages[index + 1]?.message ?? null)
-                    : null;
+                  index < visibleMessages.length - 1 ? (visibleMessages[index + 1]?.message ?? null) : null;
 
                 const previousSameSender =
                   previous != null && previous.senderId === message.senderId;

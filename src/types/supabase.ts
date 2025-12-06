@@ -68,12 +68,17 @@ export interface Database {
           metascore: number | null;
           omdb_rated: string | null;
           omdb_released: string | null;
+          omdb_runtime: string | null;
+          omdb_genre: string | null;
           omdb_director: string | null;
           omdb_writer: string | null;
           omdb_actors: string | null;
+          omdb_plot: string | null;
           omdb_language: string | null;
           omdb_country: string | null;
           omdb_awards: string | null;
+          omdb_poster: string | null;
+          omdb_type: string | null;
           omdb_dvd: string | null;
           omdb_box_office_str: string | null;
           omdb_production: string | null;
@@ -86,12 +91,15 @@ export interface Database {
           tmdb_video: boolean | null;
           tmdb_genre_ids: number[] | null;
           tmdb_original_language: string | null;
+          tmdb_original_title: string | null;
+          tmdb_title: string | null;
           tmdb_overview: string | null;
           tmdb_popularity: number | null;
           tmdb_vote_average: number | null;
           tmdb_vote_count: number | null;
           tmdb_release_date: string | null;
           tmdb_poster_path: string | null;
+          tmdb_backdrop_path: string | null;
           data_source: "omdb" | "tmdb";
           source_priority: number;
           raw_payload: Json | null;
@@ -102,6 +110,8 @@ export interface Database {
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
+          omdb_runtime_minutes: number | null;
+          omdb_genre_names: string[] | null;
           omdb_raw: Json | null;
           tmdb_media_type: string | null;
           tmdb_first_air_date: string | null;
@@ -117,6 +127,11 @@ export interface Database {
           youtube_last_synced_at: string | null;
           last_synced_at: string | null;
           rt_tomato_pct: number | null;
+          omdb_imdb_rating: number | null;
+          omdb_imdb_votes: number | null;
+          omdb_metacritic_score: number | null;
+          omdb_poster_url: string | null;
+          omdb_title: string | null;
           omdb_year: number | null;
         };
         Insert: {
@@ -143,12 +158,17 @@ export interface Database {
           metascore?: number | null;
           omdb_rated?: string | null;
           omdb_released?: string | null;
+          omdb_runtime?: string | null;
+          omdb_genre?: string | null;
           omdb_director?: string | null;
           omdb_writer?: string | null;
           omdb_actors?: string | null;
+          omdb_plot?: string | null;
           omdb_language?: string | null;
           omdb_country?: string | null;
           omdb_awards?: string | null;
+          omdb_poster?: string | null;
+          omdb_type?: string | null;
           omdb_dvd?: string | null;
           omdb_box_office_str?: string | null;
           omdb_production?: string | null;
@@ -161,12 +181,15 @@ export interface Database {
           tmdb_video?: boolean | null;
           tmdb_genre_ids?: number[] | null;
           tmdb_original_language?: string | null;
+          tmdb_original_title?: string | null;
+          tmdb_title?: string | null;
           tmdb_overview?: string | null;
           tmdb_popularity?: number | null;
           tmdb_vote_average?: number | null;
           tmdb_vote_count?: number | null;
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
+          tmdb_backdrop_path?: string | null;
           data_source?: "omdb" | "tmdb";
           source_priority?: number;
           raw_payload?: Json | null;
@@ -177,6 +200,8 @@ export interface Database {
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          omdb_runtime_minutes?: number | null;
+          omdb_genre_names?: string[] | null;
           omdb_raw?: Json | null;
           tmdb_media_type?: string | null;
           tmdb_first_air_date?: string | null;
@@ -192,6 +217,11 @@ export interface Database {
           youtube_last_synced_at?: string | null;
           last_synced_at?: string | null;
           rt_tomato_pct?: number | null;
+          omdb_imdb_rating?: number | null;
+          omdb_imdb_votes?: number | null;
+          omdb_metacritic_score?: number | null;
+          omdb_poster_url?: string | null;
+          omdb_title?: string | null;
           omdb_year?: number | null;
         };
         Update: {
@@ -218,12 +248,17 @@ export interface Database {
           metascore?: number | null;
           omdb_rated?: string | null;
           omdb_released?: string | null;
+          omdb_runtime?: string | null;
+          omdb_genre?: string | null;
           omdb_director?: string | null;
           omdb_writer?: string | null;
           omdb_actors?: string | null;
+          omdb_plot?: string | null;
           omdb_language?: string | null;
           omdb_country?: string | null;
           omdb_awards?: string | null;
+          omdb_poster?: string | null;
+          omdb_type?: string | null;
           omdb_dvd?: string | null;
           omdb_box_office_str?: string | null;
           omdb_production?: string | null;
@@ -236,12 +271,15 @@ export interface Database {
           tmdb_video?: boolean | null;
           tmdb_genre_ids?: number[] | null;
           tmdb_original_language?: string | null;
+          tmdb_original_title?: string | null;
+          tmdb_title?: string | null;
           tmdb_overview?: string | null;
           tmdb_popularity?: number | null;
           tmdb_vote_average?: number | null;
           tmdb_vote_count?: number | null;
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
+          tmdb_backdrop_path?: string | null;
           data_source?: "omdb" | "tmdb";
           source_priority?: number;
           raw_payload?: Json | null;
@@ -252,6 +290,8 @@ export interface Database {
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          omdb_runtime_minutes?: number | null;
+          omdb_genre_names?: string[] | null;
           omdb_raw?: Json | null;
           tmdb_media_type?: string | null;
           tmdb_first_air_date?: string | null;
@@ -267,6 +307,11 @@ export interface Database {
           youtube_last_synced_at?: string | null;
           last_synced_at?: string | null;
           rt_tomato_pct?: number | null;
+          omdb_imdb_rating?: number | null;
+          omdb_imdb_votes?: number | null;
+          omdb_metacritic_score?: number | null;
+          omdb_poster_url?: string | null;
+          omdb_title?: string | null;
           omdb_year?: number | null;
         };
         Relationships: [];
@@ -1745,6 +1790,7 @@ export interface Database {
         | "list_created"
         | "list_item_added"
         | "message_sent";
+      title_type: "movie" | "series" | "anime" | "short";
       episode_status: "watching" | "watched" | "skipped";
       library_status: "want_to_watch" | "watching" | "watched" | "dropped";
       privacy_level: "public" | "followers_only" | "private";

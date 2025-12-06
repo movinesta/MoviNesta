@@ -15,27 +15,31 @@ import TopBar from "../../components/shared/TopBar";
 import { supabase } from "../../lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { tmdbImageUrl } from "@/lib/tmdb";
-import { TitleType } from "@/types/supabase-helpers";
+import type { TitleType } from "../search/useSearchTitles";
 
 interface TitleRow {
-  title_id: string;
+  id: string;
 
   // Core identity
   content_type: string | null;
   primary_title: string | null;
   original_title: string | null;
   sort_title: string | null;
+  omdb_title: string | null;
+  tmdb_title: string | null;
 
   // Dates & runtime
   release_year: number | null;
   release_date: string | null;
   runtime_minutes: number | null;
+  omdb_runtime_minutes: number | null;
   tmdb_runtime: number | null;
   tmdb_episode_run_time: number[] | null;
 
   // Story / description
   plot: string | null;
   tmdb_overview: string | null;
+  omdb_plot: string | null;
   tagline: string | null;
 
   // People
@@ -44,6 +48,7 @@ interface TitleRow {
 
   // Genres & locale
   genres: string[] | null;
+  omdb_genre_names: string[] | null;
   tmdb_genre_names: string[] | null;
   language: string | null;
   omdb_language: string | null;
@@ -53,12 +58,17 @@ interface TitleRow {
 
   // Ratings
   imdb_rating: number | null;
+  omdb_imdb_rating: number | null;
   imdb_votes: number | null;
+  omdb_imdb_votes: number | null;
   metascore: number | null;
+  omdb_metacritic_score: number | null;
+  omdb_rt_rating_pct: number | null;
   rt_tomato_pct: number | null;
 
   // Artwork
   poster_url: string | null;
+  omdb_poster_url: string | null;
   tmdb_poster_path: string | null;
   backdrop_url: string | null;
   tmdb_backdrop_path: string | null;
@@ -78,18 +88,18 @@ interface CreateDirectConversationResponse {
 
 type RatingsProps = {
   imdb_rating: number | null;
-  rt_tomato_pct: number | null;
+  omdb_rt_rating_pct: number | null;
   metascore: number | null;
 };
 
 const ExternalRatingsChips: React.FC<RatingsProps> = ({
   imdb_rating,
-  rt_tomato_pct,
+  omdb_rt_rating_pct,
   metascore,
 }) => {
   const hasAnyRating =
     (typeof imdb_rating === "number" && imdb_rating > 0) ||
-    (typeof rt_tomato_pct === "number" && rt_tomato_pct > 0) ||
+    (typeof omdb_rt_rating_pct === "number" && omdb_rt_rating_pct > 0) ||
     (typeof metascore === "number" && metascore > 0);
 
   if (!hasAnyRating) return null;
@@ -97,9 +107,9 @@ const ExternalRatingsChips: React.FC<RatingsProps> = ({
   const hasImdbRating =
     typeof imdb_rating === "number" && !Number.isNaN(imdb_rating) && imdb_rating > 0;
   const hasTomatometer =
-    typeof rt_tomato_pct === "number" &&
-    !Number.isNaN(rt_tomato_pct) &&
-    rt_tomato_pct > 0;
+    typeof omdb_rt_rating_pct === "number" &&
+    !Number.isNaN(omdb_rt_rating_pct) &&
+    omdb_rt_rating_pct > 0;
   const hasMetacriticScore =
     typeof metascore === "number" && !Number.isNaN(metascore) && metascore > 0;
 
@@ -115,7 +125,7 @@ const ExternalRatingsChips: React.FC<RatingsProps> = ({
       {hasTomatometer && (
         <span className="inline-flex items-center rounded-full border border-mn-border-subtle px-2 py-0.5">
           <span className="mr-1 font-semibold">Tomatometer</span>
-          {rt_tomato_pct}%
+          {omdb_rt_rating_pct}%
         </span>
       )}
 
@@ -197,22 +207,27 @@ const TitleDetailPage: React.FC = () => {
         .from("titles")
         .select(
           `
-          title_id,
+          id:title_id,
           content_type,
           primary_title,
           original_title,
           sort_title,
+          omdb_title,
+          tmdb_title,
           release_year,
           release_date,
           runtime_minutes,
+          omdb_runtime_minutes,
           tmdb_runtime,
           tmdb_episode_run_time,
           plot,
           tmdb_overview,
+          omdb_plot,
           tagline,
           omdb_director,
           omdb_actors,
           genres,
+          omdb_genre_names,
           tmdb_genre_names,
           language,
           omdb_language,
@@ -220,10 +235,15 @@ const TitleDetailPage: React.FC = () => {
           country,
           omdb_country,
           imdb_rating,
+          omdb_imdb_rating,
           imdb_votes,
+          omdb_imdb_votes,
           metascore,
+          omdb_metacritic_score,
+          omdb_rt_rating_pct,
           rt_tomato_pct,
           poster_url,
+          omdb_poster_url,
           tmdb_poster_path,
           backdrop_url,
           tmdb_backdrop_path,
@@ -349,7 +369,7 @@ const TitleDetailPage: React.FC = () => {
   });
 
   const posterImage = data
-    ? (data.poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
+    ? (data.poster_url ?? data.omdb_poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
     : null;
 
   const backdropImage = data
@@ -429,13 +449,14 @@ const TitleDetailPage: React.FC = () => {
   }
 
   const displayTitle =
-    data.primary_title ?? data.original_title ?? "Untitled";
+    data.primary_title ?? data.omdb_title ?? data.tmdb_title ?? data.original_title ?? "Untitled";
 
   const derivedYear =
     data.release_year ?? (data.release_date ? new Date(data.release_date).getFullYear() : null);
 
   const runtimeMinutes =
     data.runtime_minutes ??
+    data.omdb_runtime_minutes ??
     data.tmdb_runtime ??
     (Array.isArray(data.tmdb_episode_run_time) && data.tmdb_episode_run_time.length > 0
       ? data.tmdb_episode_run_time[0]
@@ -449,7 +470,7 @@ const TitleDetailPage: React.FC = () => {
   const displayContentType =
     data.content_type === "movie"
       ? "Movie"
-      : data.content_type === "series"
+      : data.content_type === "tv"
         ? "TV Series"
         : (data.content_type ?? null);
 
@@ -461,9 +482,10 @@ const TitleDetailPage: React.FC = () => {
   const genres =
     (data.genres && data.genres.length > 0 && data.genres) ||
     (data.tmdb_genre_names && data.tmdb_genre_names.length > 0 && data.tmdb_genre_names) ||
+    (data.omdb_genre_names && data.omdb_genre_names.length > 0 && data.omdb_genre_names) ||
     [];
 
-  const overview = data.plot ?? data.tmdb_overview ?? null;
+  const overview = data.plot ?? data.tmdb_overview ?? data.omdb_plot ?? null;
 
   const metaPieces: string[] = [];
   if (derivedYear) metaPieces.push(String(derivedYear));
@@ -472,12 +494,12 @@ const TitleDetailPage: React.FC = () => {
   if (primaryCountry) metaPieces.push(primaryCountry);
   if (primaryLanguage) metaPieces.push(primaryLanguage);
 
-  const externalImdbRating = data.imdb_rating;
-  const externalMetascore = data.metascore;
-  const externalTomato = data.rt_tomato_pct;
+  const externalImdbRating = data.imdb_rating ?? data.omdb_imdb_rating;
+  const externalMetascore = data.metascore ?? data.omdb_metacritic_score;
+  const externalTomato = data.omdb_rt_rating_pct ?? data.rt_tomato_pct;
 
   const normalizedContentType: TitleType | null =
-    data.content_type === "movie" || data.content_type === "series" ? data.content_type : null;
+    data.content_type === "movie" || data.content_type === "tv" ? data.content_type : null;
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -490,14 +512,14 @@ const TitleDetailPage: React.FC = () => {
   const setDiaryStatus = (status: DiaryStatus) => {
     if (!ensureSignedIn() || updateStatus.isPending) return;
 
-    updateStatus.mutate({ titleId: data.title_id, status, type: normalizedContentType });
+    updateStatus.mutate({ titleId: data.id, status, type: normalizedContentType });
   };
 
   const setDiaryRating = (nextRating: number | null) => {
     if (!ensureSignedIn() || updateRating.isPending) return;
 
     updateRating.mutate({
-      titleId: data.title_id,
+      titleId: data.id,
       rating: nextRating,
       type: normalizedContentType,
     });
@@ -558,7 +580,7 @@ const TitleDetailPage: React.FC = () => {
 
             <ExternalRatingsChips
               imdb_rating={externalImdbRating}
-              rt_tomato_pct={externalTomato}
+              omdb_rt_rating_pct={externalTomato}
               metascore={externalMetascore}
             />
 
