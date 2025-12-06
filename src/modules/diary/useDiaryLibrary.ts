@@ -48,12 +48,13 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         .from("library_entries")
         .select(
           `
-            id, title_id, status, updated_at,
+            id, title_id, status, updated_at, content_type,
             titles!inner (
               title_id, primary_title, release_year, content_type, poster_url, backdrop_url
             )
           `,
         )
+        .returns<LibraryRowWithTitle[]>()
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(500);
@@ -62,7 +63,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         throw new Error(error.message);
       }
 
-      const rows = (data as LibraryRowWithTitle[]) ?? [];
+      const rows = data ?? [];
 
       if (!rows.length) return [];
 
@@ -76,13 +77,12 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         const { data: ratings, error: ratingsError } = await supabase
           .from("ratings")
           .select("title_id, rating")
+          .returns<RatingRow[]>()
           .eq("user_id", userId)
           .in("title_id", titleIds);
 
         if (!ratingsError && ratings) {
-          ratingsByTitleId = new Map(
-            (ratings as RatingRow[]).map((row) => [row.title_id, row.rating]),
-          );
+          ratingsByTitleId = new Map(ratings.map((row) => [row.title_id, row.rating]));
         } else if (ratingsError) {
           console.warn(
             "[useDiaryLibrary] Failed to load ratings for library entries",
@@ -148,12 +148,14 @@ export const useTitleDiaryEntry = (titleId: string | null | undefined) => {
           supabase
             .from("library_entries")
             .select("status")
+            .returns<TitleDiaryRow | null>()
             .eq("user_id", userId)
             .eq("title_id", titleId)
             .maybeSingle(),
           supabase
             .from("ratings")
             .select("rating")
+            .returns<TitleDiaryRatingRow | null>()
             .eq("user_id", userId)
             .eq("title_id", titleId)
             .maybeSingle(),
@@ -167,8 +169,8 @@ export const useTitleDiaryEntry = (titleId: string | null | undefined) => {
       }
 
       return {
-        status: (libraryRow as TitleDiaryRow)?.status ?? null,
-        rating: (ratingRow as TitleDiaryRatingRow)?.rating ?? null,
+        status: libraryRow?.status ?? null,
+        rating: ratingRow?.rating ?? null,
       };
     },
   });
@@ -194,15 +196,34 @@ export const useDiaryLibraryMutations = () => {
   const updateStatus = useMutation({
     mutationFn: async ({ titleId, status, type }: UpdateStatusArgs) => {
       if (!userId) throw new Error("Not authenticated");
-      if (!type) throw new Error("Content type is required");
+
+      let contentType = type ?? null;
+
+      if (!contentType) {
+        const { data: titleRow, error: titleError } = await supabase
+          .from("titles")
+          .select("content_type")
+          .eq("title_id", titleId)
+          .maybeSingle();
+
+        if (titleError) {
+          throw new Error(titleError.message);
+        }
+
+        contentType = titleRow?.content_type ?? null;
+      }
+
+      if (!contentType) {
+        throw new Error("Unable to determine title type for library entry");
+      }
 
       const { error } = await supabase.from("library_entries").upsert(
         {
           user_id: userId,
           title_id: titleId,
           status,
+          content_type: contentType,
           updated_at: new Date().toISOString(),
-          content_type: type,
         },
         {
           onConflict: "user_id,title_id",
@@ -228,7 +249,6 @@ export const useDiaryLibraryMutations = () => {
   const updateRating = useMutation({
     mutationFn: async ({ titleId, rating, type }: UpdateRatingArgs) => {
       if (!userId) throw new Error("Not authenticated");
-      if (!type) throw new Error("Content type is required");
 
       if (rating == null) {
         const { error } = await supabase
@@ -242,13 +262,33 @@ export const useDiaryLibraryMutations = () => {
         return { titleId, rating: null };
       }
 
+      let contentType = type ?? null;
+
+      if (!contentType) {
+        const { data: titleRow, error: titleError } = await supabase
+          .from("titles")
+          .select("content_type")
+          .eq("title_id", titleId)
+          .maybeSingle();
+
+        if (titleError) {
+          throw new Error(titleError.message);
+        }
+
+        contentType = titleRow?.content_type ?? null;
+      }
+
+      if (!contentType) {
+        throw new Error("Unable to determine title type for rating");
+      }
+
       const { error } = await supabase.from("ratings").upsert(
         {
           user_id: userId,
           title_id: titleId,
+          content_type: contentType,
           rating,
           updated_at: new Date().toISOString(),
-          content_type: type,
         },
         {
           onConflict: "user_id,title_id",

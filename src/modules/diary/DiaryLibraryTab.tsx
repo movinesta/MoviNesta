@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Film, ListFilter, Star } from "lucide-react";
-import { TitleType } from "@/types/supabase-helpers";
+import type { TitleType } from "../search/useSearchTitles";
 import { useDiaryLibrary, useDiaryLibraryMutations, type DiaryStatus } from "./useDiaryLibrary";
 import { diaryStatusLabel, diaryStatusPillClasses } from "./diaryStatus";
 

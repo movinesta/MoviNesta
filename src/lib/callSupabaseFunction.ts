@@ -7,7 +7,7 @@ interface CallSupabaseFunctionOptions {
 
 export async function callSupabaseFunction<T>(
   name: string,
-  body: any,
+  body: unknown,
   opts?: CallSupabaseFunctionOptions,
 ): Promise<T> {
   if (opts?.signal?.aborted) {

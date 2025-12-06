@@ -15,10 +15,6 @@ type TmdbTitleResult = {
   vote_average?: number;
 };
 
-type TmdbTrendingResponse = {
-  results: TmdbTitleResult[];
-};
-
 export async function fetchTmdbJson(
   path: string,
   params?: Record<string, string | number | boolean | undefined>,
@@ -61,14 +57,14 @@ export type TmdbTitle = {
 };
 
 export async function fetchTrendingTitles(limit = 20, signal?: AbortSignal): Promise<TmdbTitle[]> {
-  const body = (await fetchTmdbJson(
+  const body = await fetchTmdbJson(
     "/trending/all/week",
     {
       include_adult: "false",
       page: 1,
     },
     signal,
-  )) as TmdbTrendingResponse;
+  );
 
   const results = Array.isArray(body?.results) ? (body.results as TmdbTitleResult[]) : [];
 

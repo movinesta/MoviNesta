@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useSwipeDeck } from "./useSwipeDeck";
+import { formatNumber } from "@/utils/format";
 import SwipeSyncBanner from "./SwipeSyncBanner";
 
 type SwipeDirection = "like" | "dislike" | "skip";
@@ -67,7 +68,6 @@ const SwipeTrendingTab: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastSwipe, setLastSwipe] = useState<LastSwipe | null>(null);
 
-  // Local, optimistic state mirrored to Supabase via the swipe-event edge function
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [watchlist, setWatchlist] = useState<Record<string, boolean>>({});
 
@@ -282,11 +282,11 @@ const SwipeTrendingTab: React.FC = () => {
           <Sparkles className="h-5 w-5 text-mn-primary" aria-hidden={true} />
         </div>
         <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-          You&apos;re all caught up
+          You&apos;ve seen the trending stack
         </h2>
         <p className="mt-1 max-w-xs text-[11px] text-mn-text-secondary">
-          You&apos;ve swiped through all your current recommendations. As you rate, log, and add
-          titles to your watchlist, this screen will refill with more picks.
+          You&apos;re up to date with what&apos;s hot right now. Trending will keep refreshing as
+          MoviNesta sees new titles gaining momentum.
         </p>
         {lastSwipe && (
           <div className="mt-3 rounded-lg border border-mn-border-subtle/60 bg-mn-surface-elevated/80 px-3 py-2 text-[11px] text-mn-text-secondary">
@@ -303,7 +303,7 @@ const SwipeTrendingTab: React.FC = () => {
     );
   }
 
-  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes ?? undefined);
+  const runtimeLabel = formatRuntime(currentCard.runtimeMinutes);
   const dragProgress = clamp(dragX / 120, -1, 1);
   const rotation = dragProgress * MAX_ROTATION_DEG;
 
@@ -315,43 +315,26 @@ const SwipeTrendingTab: React.FC = () => {
 
   const ratingLabel = currentRating === 0 ? "Not rated yet" : `${currentRating.toFixed(1)}★`;
 
-  const friendLikes = currentCard.friendLikesCount ?? 0;
-  const friendLikesLabel =
-    friendLikes === 0
-      ? "No friends have rated this yet"
-      : friendLikes === 1
-        ? "1 friend liked this"
-        : `${friendLikes} friends liked this`;
+  const watchers = currentCard.friendLikesCount ?? 0;
+  const socialProofLabel =
+    watchers === 0
+      ? "Not many people have logged this yet"
+      : `${formatNumber(watchers, { notation: "compact" })} people logged this`;
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-3 px-1 pb-1">
-        <div className="space-y-0.5">
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-mn-primary-soft">
+      <header className="flex items-center justify-between gap-2 px-1 pb-1">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-mn-primary-soft">
             Trending · Swipe deck
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
-              What&apos;s popular now
-            </h2>
-            <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary">
-              <Sparkles className="h-3 w-3 text-mn-primary" aria-hidden={true} />
-              <span>
-                Card {currentIndex + 1} of {deck.length}
-              </span>
-            </span>
-          </div>
-          <p className="text-[10px] text-mn-text-muted">
-            Swipe to quickly teach MoviNesta what you love (and what to skip).
-          </p>
+          <h2 className="text-sm font-heading font-semibold text-mn-text-primary">
+            What everyone&apos;s watching
+          </h2>
         </div>
-
-        <div className="hidden flex-col items-end gap-1 text-[10px] text-mn-text-muted sm:flex">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-mn-bg-elevated/70 px-2 py-1">
-            <Clock className="h-3.5 w-3.5" aria-hidden={true} />
-            <span>Right = like · Left = skip</span>
-          </div>
-          <span className="text-[9px]">Prefer tapping? Use the controls below.</span>
+        <div className="flex items-center gap-1.5 text-[10px] text-mn-text-muted">
+          <Clock className="h-3.5 w-3.5" aria-hidden={true} />
+          <span>Swipe the hottest titles</span>
         </div>
       </header>
 
@@ -411,7 +394,6 @@ const SwipeTrendingTab: React.FC = () => {
 
             <div className="flex h-full flex-col">
               <div className="flex-1 px-4 pb-3 pt-6">
-                {/* Top section: poster + basic metadata */}
                 <div className="flex items-start gap-3">
                   <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-2xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80">
                     {currentCard.posterUrl ? (
@@ -431,10 +413,9 @@ const SwipeTrendingTab: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Textual details */}
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-mn-primary-soft">
-                      Tonight&apos;s pick
+                      Currently trending
                     </p>
                     <h3 className="mt-0.5 line-clamp-2 text-lg font-heading font-semibold leading-snug text-mn-text-primary">
                       {currentCard.title}
@@ -444,27 +425,24 @@ const SwipeTrendingTab: React.FC = () => {
                       {currentCard.type ? ` · ${currentCard.type}` : null}
                       {runtimeLabel ? ` · ${runtimeLabel}` : null}
                     </p>
-                    {(typeof currentCard.imdbRating === "number" ||
-                      typeof currentCard.rtTomatoMeter === "number") && (
-                      <p className="mt-0.5 text-[10px] text-mn-text-muted">
-                        {typeof currentCard.imdbRating === "number" &&
-                          !Number.isNaN(currentCard.imdbRating) &&
-                          currentCard.imdbRating > 0 && (
-                            <span className="mr-2">
-                              <span className="font-semibold">IMDb Rating</span>{" "}
-                              {currentCard.imdbRating.toFixed(1)}
-                            </span>
-                          )}
-                        {typeof currentCard.rtTomatoMeter === "number" &&
-                          !Number.isNaN(currentCard.rtTomatoMeter) &&
-                          currentCard.rtTomatoMeter > 0 && (
-                            <span>
-                              <span className="font-semibold">Tomatometer</span>{" "}
-                              {currentCard.rtTomatoMeter}%
-                            </span>
-                          )}
-                      </p>
-                    )}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+                      {typeof currentCard.imdbRating === "number" &&
+                        !Number.isNaN(currentCard.imdbRating) &&
+                        currentCard.imdbRating > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/60 bg-mn-surface-elevated/60 px-2 py-0.5">
+                            <span className="font-semibold">IMDb Rating</span>
+                            {currentCard.imdbRating.toFixed(1)}
+                          </span>
+                        )}
+                      {typeof currentCard.rtTomatoMeter === "number" &&
+                        !Number.isNaN(currentCard.rtTomatoMeter) &&
+                        currentCard.rtTomatoMeter > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/60 bg-mn-surface-elevated/60 px-2 py-0.5">
+                            <span className="font-semibold">Tomatometer</span>
+                            {currentCard.rtTomatoMeter}%
+                          </span>
+                        )}
+                    </div>
                     {currentCard.mood && (
                       <p className="mt-0.5 text-[10px] text-mn-text-muted">{currentCard.mood}</p>
                     )}
@@ -476,23 +454,22 @@ const SwipeTrendingTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Tagline */}
                 {currentCard.tagline && (
                   <p className="mt-3 text-[11px] text-mn-text-secondary line-clamp-3">
                     {currentCard.tagline}
                   </p>
                 )}
 
-                {/* Friends who liked it + best friend review snippet */}
+                {/* Social proof + friend review snippet (if available) */}
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center gap-2 text-[10px] text-mn-text-secondary">
                     <div className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-0.5">
                       <Users className="h-3.5 w-3.5 text-mn-primary" aria-hidden={true} />
-                      <span>{friendLikesLabel}</span>
+                      <span>{socialProofLabel}</span>
                     </div>
                     {currentCard.topFriendName && (
                       <span className="text-mn-text-muted">
-                        Best match:{" "}
+                        Friends also into this:{" "}
                         <span className="font-medium text-mn-text-primary">
                           {currentCard.topFriendName}
                         </span>
@@ -618,7 +595,7 @@ const SwipeTrendingTab: React.FC = () => {
                 <span className="truncate text-mn-text-primary">{lastSwipe.title}</span>
               </div>
               <span className="hidden text-[9px] text-mn-text-muted sm:inline">
-                Swipe to keep tuning your For You picks
+                Swipe to keep tuning what Trending shows you
               </span>
             </div>
           </div>

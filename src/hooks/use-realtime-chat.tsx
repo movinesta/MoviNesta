@@ -85,13 +85,13 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
       // Update local state immediately for the sender
       setMessages((current) => [...current, message].sort(compareMessagesByCreatedAt));
 
-      try {
-        await channel.send({
-          type: "broadcast",
-          event: EVENT_MESSAGE_TYPE,
-          payload: message,
-        });
-      } catch (error) {
+      const { error } = await channel.send({
+        type: "broadcast",
+        event: EVENT_MESSAGE_TYPE,
+        payload: message,
+      });
+
+      if (error) {
         console.error("Failed to send chat message", error);
         setMessages((current) => current.filter((entry) => entry.id !== message.id));
       }

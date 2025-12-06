@@ -60,9 +60,13 @@ const SettingsProfilePage: React.FC = () => {
 
         const uploadedPath = uploadData?.path ?? filePath;
 
-        const { data: publicUrlData } = supabase.storage
+        const { data: publicUrlData, error: publicUrlError } = supabase.storage
           .from("avatars")
           .getPublicUrl(uploadedPath);
+
+        if (publicUrlError) {
+          throw publicUrlError;
+        }
 
         avatarUrl = publicUrlData.publicUrl ?? avatarUrl;
       }

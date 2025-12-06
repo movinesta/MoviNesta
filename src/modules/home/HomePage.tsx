@@ -41,13 +41,13 @@ const HOME_TABS: Record<HomeTabKey, HomeTabConfig> = {
 
 const HOME_TABS_LIST = Object.values(HOME_TABS);
 
-const QUICK_FILTER_OPTIONS: { key: QuickFilterKey; label: string }[] = [
+const QUICK_FILTER_OPTIONS = [
   { key: "all", label: "All" },
   { key: "follows", label: "Friends" },
   { key: "reviews", label: "Reviews" },
 ] as const;
 
-type QuickFilterKey = "all" | "follows" | "reviews";
+type QuickFilterKey = (typeof QUICK_FILTER_OPTIONS)[number]["key"];
 
 interface HomeTabPillProps {
   icon: LucideIcon;
@@ -116,7 +116,7 @@ const HomePage = () => {
                 label: tab.label,
               }))}
               active={activeTab}
-              onChange={(key) => setActiveTab(key as HomeTabKey)}
+              onChange={setActiveTab}
             />
           </div>
         </div>
@@ -126,11 +126,7 @@ const HomePage = () => {
             <ChipRow
               options={QUICK_FILTER_OPTIONS}
               active={quickFilter}
-              onChange={(key) => {
-                if (QUICK_FILTER_OPTIONS.some((option) => option.key === key)) {
-                  handleQuickFilterChange(key as QuickFilterKey);
-                }
-              }}
+              onChange={handleQuickFilterChange}
             />
           </div>
         )}
