@@ -12,11 +12,11 @@ BEGIN
 END;
 $$;
 
-CREATE TABLE public.activity_events (
+CREATE TABLE IF NOT EXISTS public.activity_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   user_id uuid NOT NULL,
-  event_type USER-DEFINED NOT NULL,
+  event_type text NOT NULL,
   title_id text,
   related_user_id uuid,
   payload jsonb,
@@ -24,7 +24,7 @@ CREATE TABLE public.activity_events (
   CONSTRAINT activity_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT activity_events_related_user_id_fkey FOREIGN KEY (related_user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.anime (
+CREATE TABLE IF NOT EXISTS public.anime (
   title_id uuid NOT NULL,
   season_count integer,
   episode_count integer,
@@ -36,7 +36,7 @@ CREATE TABLE public.anime (
   CONSTRAINT anime_pkey PRIMARY KEY (title_id),
   CONSTRAINT anime_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.blocked_users (
+CREATE TABLE IF NOT EXISTS public.blocked_users (
   blocker_id uuid NOT NULL,
   blocked_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -44,7 +44,7 @@ CREATE TABLE public.blocked_users (
   CONSTRAINT blocked_users_blocker_id_fkey FOREIGN KEY (blocker_id) REFERENCES auth.users(id),
   CONSTRAINT blocked_users_blocked_id_fkey FOREIGN KEY (blocked_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.comment_likes (
+CREATE TABLE IF NOT EXISTS public.comment_likes (
   comment_id uuid NOT NULL,
   user_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -52,7 +52,7 @@ CREATE TABLE public.comment_likes (
   CONSTRAINT comment_likes_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id),
   CONSTRAINT comment_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.comments (
+CREATE TABLE IF NOT EXISTS public.comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   review_id uuid,
@@ -65,7 +65,7 @@ CREATE TABLE public.comments (
   CONSTRAINT comments_review_id_fkey FOREIGN KEY (review_id) REFERENCES public.reviews(id),
   CONSTRAINT comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.comments(id)
 );
-CREATE TABLE public.conversation_participants (
+CREATE TABLE IF NOT EXISTS public.conversation_participants (
   conversation_id uuid NOT NULL,
   user_id uuid NOT NULL,
   role participant_role NOT NULL DEFAULT 'member'::participant_role,
@@ -76,7 +76,7 @@ CREATE TABLE public.conversation_participants (
 );
 CREATE INDEX IF NOT EXISTS conversation_participants_user_id_idx
   ON public.conversation_participants USING btree (user_id);
-CREATE TABLE public.conversations (
+CREATE TABLE IF NOT EXISTS public.conversations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   is_group boolean NOT NULL DEFAULT false,
@@ -94,10 +94,10 @@ CREATE TABLE public.conversations (
     )
   )
 );
-CREATE UNIQUE INDEX conversations_direct_pair_unique
+CREATE UNIQUE INDEX IF NOT EXISTS conversations_direct_pair_unique
   ON public.conversations USING btree (direct_participant_ids)
   WHERE (NOT is_group);
-CREATE TABLE public.episode_progress (
+CREATE TABLE IF NOT EXISTS public.episode_progress (
   user_id uuid NOT NULL,
   episode_id uuid NOT NULL,
   status episode_status NOT NULL DEFAULT 'watched'::episode_status,
@@ -106,7 +106,7 @@ CREATE TABLE public.episode_progress (
   CONSTRAINT episode_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT episode_progress_episode_id_fkey FOREIGN KEY (episode_id) REFERENCES public.episodes(id)
 );
-CREATE TABLE public.episodes (
+CREATE TABLE IF NOT EXISTS public.episodes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title_id uuid NOT NULL,
   season_id uuid,
@@ -122,7 +122,7 @@ CREATE TABLE public.episodes (
   CONSTRAINT episodes_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id),
   CONSTRAINT episodes_season_id_fkey FOREIGN KEY (season_id) REFERENCES public.seasons(id)
 );
-CREATE TABLE public.follows (
+CREATE TABLE IF NOT EXISTS public.follows (
   follower_id uuid NOT NULL,
   followed_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -130,13 +130,13 @@ CREATE TABLE public.follows (
   CONSTRAINT follows_follower_id_fkey FOREIGN KEY (follower_id) REFERENCES auth.users(id),
   CONSTRAINT follows_followed_id_fkey FOREIGN KEY (followed_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.genres (
+CREATE TABLE IF NOT EXISTS public.genres (
   id bigint NOT NULL DEFAULT nextval('genres_id_seq'::regclass),
   name text NOT NULL UNIQUE,
   slug text NOT NULL UNIQUE,
   CONSTRAINT genres_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.library_entries (
+CREATE TABLE IF NOT EXISTS public.library_entries (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
@@ -151,7 +151,7 @@ CREATE TABLE public.library_entries (
   CONSTRAINT library_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT library_entries_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.list_items (
+CREATE TABLE IF NOT EXISTS public.list_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   list_id uuid NOT NULL,
   title_id uuid NOT NULL,
@@ -164,7 +164,7 @@ CREATE TABLE public.list_items (
   CONSTRAINT list_items_list_id_fkey FOREIGN KEY (list_id) REFERENCES public.lists(id),
   CONSTRAINT list_items_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.lists (
+CREATE TABLE IF NOT EXISTS public.lists (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
@@ -175,7 +175,7 @@ CREATE TABLE public.lists (
   CONSTRAINT lists_pkey PRIMARY KEY (id),
   CONSTRAINT lists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.message_delivery_receipts (
+CREATE TABLE IF NOT EXISTS public.message_delivery_receipts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   conversation_id uuid NOT NULL,
@@ -187,7 +187,7 @@ CREATE TABLE public.message_delivery_receipts (
   CONSTRAINT message_delivery_receipts_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id),
   CONSTRAINT message_delivery_receipts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.message_reactions (
+CREATE TABLE IF NOT EXISTS public.message_reactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   conversation_id uuid NOT NULL,
@@ -199,7 +199,7 @@ CREATE TABLE public.message_reactions (
   CONSTRAINT message_reactions_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id),
   CONSTRAINT message_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.message_read_receipts (
+CREATE TABLE IF NOT EXISTS public.message_read_receipts (
   conversation_id uuid NOT NULL,
   user_id uuid NOT NULL,
   last_read_message_id uuid,
@@ -209,7 +209,7 @@ CREATE TABLE public.message_read_receipts (
   CONSTRAINT message_read_receipts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT message_read_receipts_last_read_message_id_fkey FOREIGN KEY (last_read_message_id) REFERENCES public.messages(id)
 );
-CREATE TABLE public.messages (
+CREATE TABLE IF NOT EXISTS public.messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   conversation_id uuid NOT NULL,
@@ -284,7 +284,7 @@ participants AS (
 receipt_summaries AS (
   SELECT
     r.conversation_id,
-    MAX(CASE WHEN r.user_id = p_user_id THEN r.last_read_message_id END) AS self_last_read_message_id,
+    MAX(CASE WHEN r.user_id = p_user_id THEN r.last_read_message_id::text END)::uuid AS self_last_read_message_id,
     MAX(CASE WHEN r.user_id = p_user_id THEN r.last_read_at END) AS self_last_read_at,
     jsonb_agg(
       jsonb_build_object(
@@ -326,7 +326,7 @@ LEFT JOIN participants p ON p.conversation_id = uc.id
 LEFT JOIN receipt_summaries rs ON rs.conversation_id = uc.id
 ORDER BY COALESCE(lm.created_at, uc.updated_at, uc.created_at) DESC;
 $$;
-CREATE TABLE public.movies (
+CREATE TABLE IF NOT EXISTS public.movies (
   title_id uuid NOT NULL,
   box_office numeric,
   budget numeric,
@@ -338,7 +338,7 @@ CREATE TABLE public.movies (
   CONSTRAINT movies_pkey PRIMARY KEY (title_id),
   CONSTRAINT movies_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   user_id uuid NOT NULL,
@@ -348,7 +348,7 @@ CREATE TABLE public.notifications (
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.notification_preferences (
+CREATE TABLE IF NOT EXISTS public.notification_preferences (
   user_id uuid NOT NULL,
   email_activity boolean NOT NULL DEFAULT true,
   email_recommendations boolean NOT NULL DEFAULT true,
@@ -358,14 +358,14 @@ CREATE TABLE public.notification_preferences (
   CONSTRAINT notification_preferences_pkey PRIMARY KEY (user_id),
   CONSTRAINT notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.people (
+CREATE TABLE IF NOT EXISTS public.people (
   id bigint NOT NULL DEFAULT nextval('people_id_seq'::regclass),
   name text NOT NULL,
   tmdb_id integer,
   imdb_id text,
   CONSTRAINT people_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -377,7 +377,7 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.ratings (
+CREATE TABLE IF NOT EXISTS public.ratings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
@@ -390,7 +390,7 @@ CREATE TABLE public.ratings (
   CONSTRAINT ratings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT ratings_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.reports (
+CREATE TABLE IF NOT EXISTS public.reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   reporter_id uuid NOT NULL,
   target_type text NOT NULL,
@@ -405,7 +405,7 @@ CREATE TABLE public.reports (
   CONSTRAINT reports_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES auth.users(id),
   CONSTRAINT reports_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES auth.users(id)
 );
-CREATE TABLE public.review_reactions (
+CREATE TABLE IF NOT EXISTS public.review_reactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   review_id uuid NOT NULL,
@@ -415,7 +415,7 @@ CREATE TABLE public.review_reactions (
   CONSTRAINT review_reactions_review_id_fkey FOREIGN KEY (review_id) REFERENCES public.reviews(id),
   CONSTRAINT review_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.reviews (
+CREATE TABLE IF NOT EXISTS public.reviews (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
@@ -430,7 +430,7 @@ CREATE TABLE public.reviews (
   CONSTRAINT reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT reviews_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.seasons (
+CREATE TABLE IF NOT EXISTS public.seasons (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title_id uuid NOT NULL,
   season_number integer NOT NULL,
@@ -443,7 +443,7 @@ CREATE TABLE public.seasons (
   CONSTRAINT seasons_pkey PRIMARY KEY (id),
   CONSTRAINT seasons_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.series (
+CREATE TABLE IF NOT EXISTS public.series (
   title_id uuid NOT NULL,
   total_seasons integer,
   total_episodes integer,
@@ -455,25 +455,25 @@ CREATE TABLE public.series (
   CONSTRAINT series_pkey PRIMARY KEY (title_id),
   CONSTRAINT series_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.title_credits (
+CREATE TABLE IF NOT EXISTS public.title_credits (
   id bigint NOT NULL DEFAULT nextval('title_credits_id_seq'::regclass),
   title_id uuid NOT NULL,
   person_id bigint NOT NULL,
   job text,
   character text,
-  order integer,
+  credit_order integer,
   CONSTRAINT title_credits_pkey PRIMARY KEY (id),
   CONSTRAINT title_credits_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.people(id),
   CONSTRAINT title_credits_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.title_genres (
+CREATE TABLE IF NOT EXISTS public.title_genres (
   title_id uuid NOT NULL,
   genre_id bigint NOT NULL,
   CONSTRAINT title_genres_pkey PRIMARY KEY (title_id, genre_id),
   CONSTRAINT title_genres_genre_id_fkey FOREIGN KEY (genre_id) REFERENCES public.genres(id),
   CONSTRAINT title_genres_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-CREATE TABLE public.title_stats (
+CREATE TABLE IF NOT EXISTS public.title_stats (
   title_id uuid NOT NULL,
   avg_rating numeric,
   ratings_count integer,
@@ -483,7 +483,7 @@ CREATE TABLE public.title_stats (
   CONSTRAINT title_stats_pkey PRIMARY KEY (title_id),
   CONSTRAINT title_stats_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.titles(title_id)
 );
-create table public.titles (
+CREATE TABLE IF NOT EXISTS public.titles (
   title_id uuid not null default gen_random_uuid (),
   content_type public.content_type not null,
   omdb_imdb_id text null,
@@ -585,6 +585,7 @@ create index IF not exists titles_primary_title_trgm_idx on public.titles using 
 
 create index IF not exists titles_release_date_idx on public.titles using btree (release_date) TABLESPACE pg_default;
 
+DROP TRIGGER IF EXISTS set_titles_updated_at ON titles;
 create trigger set_titles_updated_at BEFORE
 update on titles for EACH row
 execute FUNCTION set_updated_at ();
@@ -598,7 +599,7 @@ create index IF not exists titles_release_date_idx on public.titles using btree 
 
 
 
-CREATE TABLE public.user_settings (
+CREATE TABLE IF NOT EXISTS public.user_settings (
   user_id uuid NOT NULL,
   email_notifications boolean NOT NULL DEFAULT true,
   push_notifications boolean NOT NULL DEFAULT true,
@@ -609,7 +610,7 @@ CREATE TABLE public.user_settings (
   CONSTRAINT user_settings_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.user_stats (
+CREATE TABLE IF NOT EXISTS public.user_stats (
   user_id uuid NOT NULL,
   followers_count integer DEFAULT 0,
   following_count integer DEFAULT 0,
@@ -623,7 +624,7 @@ CREATE TABLE public.user_stats (
   CONSTRAINT user_stats_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.user_tags (
+CREATE TABLE IF NOT EXISTS public.user_tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
@@ -632,7 +633,7 @@ CREATE TABLE public.user_tags (
   CONSTRAINT user_tags_pkey PRIMARY KEY (id),
   CONSTRAINT user_tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.user_title_tags (
+CREATE TABLE IF NOT EXISTS public.user_title_tags (
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
   tag_id uuid NOT NULL,
@@ -648,50 +649,90 @@ CREATE TABLE public.user_title_tags (
 -- ---------------------------------------------
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS profiles_select_self ON public.profiles;
 CREATE POLICY profiles_select_self ON public.profiles
   FOR SELECT USING (id = auth.uid());
+
+
+DROP POLICY IF EXISTS profiles_insert_self ON public.profiles;
 CREATE POLICY profiles_insert_self ON public.profiles
   FOR INSERT WITH CHECK (id = auth.uid());
+
+
+DROP POLICY IF EXISTS profiles_update_self ON public.profiles;
 CREATE POLICY profiles_update_self ON public.profiles
   FOR UPDATE USING (id = auth.uid());
 
+
+
 ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ratings_owner_only ON public.ratings;
 CREATE POLICY ratings_owner_only ON public.ratings
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reviews_owner_only ON public.reviews;
 CREATE POLICY reviews_owner_only ON public.reviews
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.review_reactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS review_reactions_participant_only ON public.review_reactions;
 CREATE POLICY review_reactions_participant_only ON public.review_reactions
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.library_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS library_entries_owner_only ON public.library_entries;
 CREATE POLICY library_entries_owner_only ON public.library_entries
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.episode_progress ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS episode_progress_owner_only ON public.episode_progress;
 CREATE POLICY episode_progress_owner_only ON public.episode_progress
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.activity_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS activity_events_owner_only ON public.activity_events;
 CREATE POLICY activity_events_owner_only ON public.activity_events
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS follows_self_visibility ON public.follows;
 CREATE POLICY follows_self_visibility ON public.follows
   FOR SELECT USING (auth.uid() IN (follower_id, followed_id));
+
+
+DROP POLICY IF EXISTS follows_manage_own ON public.follows;
 CREATE POLICY follows_manage_own ON public.follows
   FOR ALL USING (follower_id = auth.uid()) WITH CHECK (follower_id = auth.uid());
 
+
+
 ALTER TABLE public.blocked_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS blocked_users_view_related ON public.blocked_users;
 CREATE POLICY blocked_users_view_related ON public.blocked_users
   FOR SELECT USING (auth.uid() IN (blocker_id, blocked_id));
+
+
+DROP POLICY IF EXISTS blocked_users_manage_self ON public.blocked_users;
 CREATE POLICY blocked_users_manage_self ON public.blocked_users
   FOR ALL USING (blocker_id = auth.uid()) WITH CHECK (blocker_id = auth.uid());
 
+
+
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS conversations_member_access ON public.conversations;
 CREATE POLICY conversations_member_access ON public.conversations
   FOR SELECT USING (
     EXISTS (
@@ -699,6 +740,9 @@ CREATE POLICY conversations_member_access ON public.conversations
       WHERE cp.conversation_id = id AND cp.user_id = auth.uid()
     )
   );
+
+
+DROP POLICY IF EXISTS conversations_member_manage ON public.conversations;
 CREATE POLICY conversations_member_manage ON public.conversations
   FOR ALL USING (
     EXISTS (
@@ -712,11 +756,17 @@ CREATE POLICY conversations_member_manage ON public.conversations
     )
   );
 
+
+
 ALTER TABLE public.conversation_participants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS conversation_participants_self ON public.conversation_participants;
 CREATE POLICY conversation_participants_self ON public.conversation_participants
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS messages_member_read ON public.messages;
 CREATE POLICY messages_member_read ON public.messages
   FOR SELECT USING (
     EXISTS (
@@ -724,6 +774,9 @@ CREATE POLICY messages_member_read ON public.messages
       WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
     )
   );
+
+
+DROP POLICY IF EXISTS messages_member_write ON public.messages;
 CREATE POLICY messages_member_write ON public.messages
   FOR ALL USING (
     user_id = auth.uid() AND EXISTS (
@@ -737,7 +790,10 @@ CREATE POLICY messages_member_write ON public.messages
     )
   );
 
+
+
 ALTER TABLE public.message_read_receipts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS message_read_receipts_member ON public.message_read_receipts;
 CREATE POLICY message_read_receipts_member ON public.message_read_receipts
   FOR ALL USING (
     user_id = auth.uid() AND EXISTS (
@@ -751,7 +807,10 @@ CREATE POLICY message_read_receipts_member ON public.message_read_receipts
     )
   );
 
+
+
 ALTER TABLE public.message_delivery_receipts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS message_delivery_receipts_member ON public.message_delivery_receipts;
 CREATE POLICY message_delivery_receipts_member ON public.message_delivery_receipts
   FOR ALL USING (
     user_id = auth.uid() AND EXISTS (
@@ -765,8 +824,11 @@ CREATE POLICY message_delivery_receipts_member ON public.message_delivery_receip
     )
   );
 
+
+
 ALTER TABLE public.message_reactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS message_reactions_member ON public.message_reactions;
+DROP POLICY IF EXISTS message_reactions_select ON public.message_reactions;
 CREATE POLICY message_reactions_select ON public.message_reactions
   FOR SELECT USING (
     EXISTS (
@@ -774,6 +836,9 @@ CREATE POLICY message_reactions_select ON public.message_reactions
       WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
     )
   );
+
+
+DROP POLICY IF EXISTS message_reactions_write ON public.message_reactions;
 CREATE POLICY message_reactions_write ON public.message_reactions
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -782,6 +847,9 @@ CREATE POLICY message_reactions_write ON public.message_reactions
       WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
     )
   );
+
+
+DROP POLICY IF EXISTS message_reactions_owner_only ON public.message_reactions;
 CREATE POLICY message_reactions_owner_only ON public.message_reactions
   FOR UPDATE USING (
     user_id = auth.uid() AND EXISTS (
@@ -794,6 +862,9 @@ CREATE POLICY message_reactions_owner_only ON public.message_reactions
       WHERE cp.conversation_id = conversation_id AND cp.user_id = auth.uid()
     )
   );
+
+
+DROP POLICY IF EXISTS message_reactions_delete ON public.message_reactions;
 CREATE POLICY message_reactions_delete ON public.message_reactions
   FOR DELETE USING (
     user_id = auth.uid() AND EXISTS (
@@ -802,29 +873,49 @@ CREATE POLICY message_reactions_delete ON public.message_reactions
     )
   );
 
+
+
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS notifications_owner_only ON public.notifications;
 CREATE POLICY notifications_owner_only ON public.notifications
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS notification_preferences_owner_only ON public.notification_preferences;
 CREATE POLICY notification_preferences_owner_only ON public.notification_preferences
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reports_owner_only ON public.reports;
 CREATE POLICY reports_owner_only ON public.reports
   FOR ALL USING (reporter_id = auth.uid()) WITH CHECK (reporter_id = auth.uid());
 
+
+
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_settings_owner_only ON public.user_settings;
 CREATE POLICY user_settings_owner_only ON public.user_settings
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.user_tags ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_tags_owner_only ON public.user_tags;
 CREATE POLICY user_tags_owner_only ON public.user_tags
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+
+
 ALTER TABLE public.user_title_tags ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_title_tags_owner_only ON public.user_title_tags;
 CREATE POLICY user_title_tags_owner_only ON public.user_title_tags
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+
 
 -- ---------------------------------------------
 -- Performance indexes for frequent access paths
@@ -989,11 +1080,17 @@ $$;
 COMMENT ON FUNCTION public.get_diary_stats IS
   'Aggregates diary statistics for the authenticated user with rating buckets, top genres, and watch counts.';
 
+DROP POLICY IF EXISTS get_diary_stats_owner_only ON public.ratings;
 CREATE POLICY get_diary_stats_owner_only ON public.ratings
   FOR SELECT USING (auth.uid() = user_id);
 
+
+
+DROP POLICY IF EXISTS get_diary_stats_library_owner_only ON public.library_entries;
 CREATE POLICY get_diary_stats_library_owner_only ON public.library_entries
   FOR SELECT USING (auth.uid() = user_id);
+
+
 
 -- ---------------------------------------------
 -- Diary stats performance indexes
@@ -1101,28 +1198,48 @@ $$;
 
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS comments_read_all ON public.comments;
 CREATE POLICY comments_read_all ON public.comments
   FOR SELECT
   USING (true);
 
+
+
+DROP POLICY IF EXISTS comments_insert_self ON public.comments;
 CREATE POLICY comments_insert_self ON public.comments
   FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY comments_owner_update_delete ON public.comments
-  FOR UPDATE, DELETE
+
+
+DROP POLICY IF EXISTS comments_owner_update ON public.comments;
+CREATE POLICY comments_owner_update ON public.comments
+  FOR UPDATE
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
+
+
+
+DROP POLICY IF EXISTS comments_owner_delete ON public.comments;
+CREATE POLICY comments_owner_delete ON public.comments
+  FOR DELETE
+  USING (user_id = auth.uid());
+
 
 
 ALTER TABLE public.comment_likes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS comment_likes_read_all ON public.comment_likes;
 CREATE POLICY comment_likes_read_all ON public.comment_likes
   FOR SELECT
   USING (true);
 
+
+
+DROP POLICY IF EXISTS comment_likes_owner_only ON public.comment_likes;
 CREATE POLICY comment_likes_owner_only ON public.comment_likes
   FOR ALL
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
+
 
