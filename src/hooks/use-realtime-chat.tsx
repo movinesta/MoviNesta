@@ -12,9 +12,7 @@ interface UseRealtimeChatProps {
 export interface ChatMessage {
   id: string;
   content: string;
-  user: {
-    name: string;
-  };
+  user_id: string;
   createdAt: string;
 }
 
@@ -76,9 +74,7 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
       const message: ChatMessage = {
         id: crypto.randomUUID(),
         content,
-        user: {
-          name: username,
-        },
+        user_id: username,
         createdAt: new Date().toISOString(),
       };
 

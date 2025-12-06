@@ -514,7 +514,6 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
 
   return {
     tmdb_id: details.id ?? null,
-    tmdb_title: title ?? null,
     tmdb_original_title: originalTitle ?? null,
     tmdb_overview: details.overview ?? null,
     tmdb_poster_path: posterPath,
@@ -528,7 +527,6 @@ function buildTmdbBlock(details: any, type: "movie" | "tv"): TmdbBlock {
     tmdb_popularity: tmdbPopularity,
     tmdb_adult: details.adult ?? null,
     tmdb_original_language: details.original_language ?? null,
-    tmdb_media_type: type,
     tmdb_runtime: runtimeMinutes,
     tmdb_episode_run_time: Array.isArray(details.episode_run_time) ? details.episode_run_time : null,
     tmdb_genre_names: genresArray.length ? genresArray : null,
@@ -585,16 +583,9 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
 
   return {
     omdb_imdb_id: data.imdbID ?? imdbId,
-    omdb_title: data.Title ?? null,
-    omdb_year: parseIntSafe(
-      typeof data.Year === "string" ? data.Year.split(/–/)[0] : data.Year,
-    ),
-
     omdb_rated: nullIfEmpty(data.Rated),
     omdb_released: nullIfEmpty(data.Released),
-    omdb_runtime: nullIfEmpty(data.Runtime),
     omdb_runtime_minutes: runtimeMinutes,
-    omdb_genre: nullIfEmpty(data.Genre),
     omdb_genre_names: genresArray,
     omdb_director: nullIfEmpty(data.Director),
     omdb_writer: nullIfEmpty(data.Writer),
@@ -603,10 +594,8 @@ async function fetchOmdbBlock(imdbId: string): Promise<OmdbBlock | null> {
     omdb_language: nullIfEmpty(data.Language),
     omdb_country: nullIfEmpty(data.Country),
     omdb_awards: nullIfEmpty(data.Awards),
-    omdb_poster: nullIfEmpty(data.Poster),
     omdb_poster_url:
       data.Poster && data.Poster !== "N/A" ? data.Poster : null,
-    omdb_type: nullIfEmpty(data.Type),
     omdb_dvd: nullIfEmpty(data.DVD),
     omdb_box_office_str: nullIfEmpty(data.BoxOffice),
     omdb_box_office: boxOfficeNumeric,
@@ -648,7 +637,6 @@ function buildCanonicalBlock(
 ) {
   const contentType = options.contentType;
 
-  const tmdbTitle = tmdb.tmdb_title ?? null;
   const tmdbOriginalTitle = tmdb.tmdb_original_title ?? null;
   const tmdbReleaseDate =
     tmdb.tmdb_release_date ?? tmdb.tmdb_first_air_date ?? null;
@@ -666,8 +654,6 @@ function buildCanonicalBlock(
   const tmdbPosterUrl = buildTmdbImageUrl(tmdb.tmdb_poster_path, "w500");
   const tmdbBackdropUrl = buildTmdbImageUrl(tmdb.tmdb_backdrop_path, "w780");
 
-  const omdbTitle = omdb?.omdb_title ?? null;
-  const omdbYear = omdb?.omdb_year ?? null;
   const omdbGenres =
     Array.isArray(omdb?.omdb_genre_names) && omdb.omdb_genre_names.length
       ? omdb.omdb_genre_names
@@ -676,14 +662,13 @@ function buildCanonicalBlock(
   const omdbPosterUrl = omdb?.omdb_poster_url ?? null;
   const omdbPlot = omdb?.omdb_plot ?? null;
 
-  const primaryTitle = omdbTitle ?? tmdbTitle ?? null;
+  const primaryTitle = tmdb.tmdb_title ?? null;
   const originalTitle =
     tmdbOriginalTitle ??
-    tmdbTitle ??
-    omdbTitle ??
+    tmdb.tmdb_title ??
     null;
 
-  const releaseYear = omdbYear ?? tmdbReleaseYear ?? null;
+  const releaseYear = tmdbReleaseYear ?? null;
 
   const runtimeMinutes =
     omdbRuntimeMinutes ??

@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/hooks/use-realtime-chat";
 import { formatTime } from "@/utils/format";
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -10,8 +12,33 @@ interface ChatMessageItemProps {
 }
 
 export const ChatMessageItem = ({ message, isOwnMessage, showHeader }: ChatMessageItemProps) => {
-  const profileHref = message.user.name ? `/u/${message.user.name}` : null;
-  const avatarInitial = message.user.name?.[0]?.toUpperCase() ?? "?";
+  // Fetch user profile based on user_id
+  // This is a placeholder, you'll need to implement the actual data fetching
+  const [userProfile, setUserProfile] = useState<{
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("id", message.user_id)
+        .single();
+      if (error) {
+        console.error("Error fetching user profile:", error);
+      } else {
+        setUserProfile(data);
+      }
+    };
+
+    fetchUserProfile();
+  }, [message.user_id]);
+
+  const displayName = userProfile?.display_name || "Anonymous";
+  const profileHref = `/u/${message.user_id}`;
+  const avatarInitial = displayName?.[0]?.toUpperCase() ?? "?";
 
   return (
     <div className={`flex mt-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
@@ -26,19 +53,15 @@ export const ChatMessageItem = ({ message, isOwnMessage, showHeader }: ChatMessa
               "justify-end flex-row-reverse": isOwnMessage,
             })}
           >
-            {profileHref ? (
-              <Link
-                to={profileHref}
-                className="group inline-flex items-center gap-2 rounded-full px-1.5 py-1 transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              >
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
-                  {avatarInitial}
-                </span>
-                <span className="font-medium group-hover:text-primary">@{message.user.name}</span>
-              </Link>
-            ) : (
-              <span className={"font-medium"}>{message.user.name}</span>
-            )}
+            <Link
+              to={profileHref}
+              className="group inline-flex items-center gap-2 rounded-full px-1.5 py-1 transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
+                {avatarInitial}
+              </span>
+              <span className="font-medium group-hover:text-primary">@{displayName}</span>
+            </Link>
             <span className="text-foreground/50 text-xs">
               {formatTime(message.createdAt, {
                 hour: "2-digit",

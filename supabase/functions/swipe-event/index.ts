@@ -132,7 +132,6 @@ Deno.serve(async (req) => {
       {
         tmdbId: titleRow.tmdb_id ?? undefined,
         imdbId: titleRow.omdb_imdb_id ?? undefined,
-        contentType,
       },
       { prefix: "[swipe-event]" },
     );
