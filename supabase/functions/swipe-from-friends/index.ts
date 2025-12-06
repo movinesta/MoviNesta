@@ -1,375 +1,243 @@
 // supabase/functions/swipe-from-friends/index.ts
 //
-// Returns a "From Friends" swipe deck.
-// Here "friends" means: people the current user follows (follows.follower_id = auth user).
-// The deck is built from titles those followed users have rated highly, with
-// a bit of personalization based on the current user's own profile.
-//
-// Behaviour:
-// - If the user follows nobody, this returns an empty deck.
-// - Aggregates community ratings from followed users only.
-// - Scores by avg rating, rating count, tmdb_popularity, imdb_rating.
-// - Boosts titles that match the caller's genres / content-type preferences.
-// - Filters out titles the caller has already interacted with.
-// - Enforces genre diversity caps.
-// - Triggers catalog-sync for a few cards per call.
+// Returns a "From Friends" swipe deck, built from titles that users the
+// current user follows have rated highly.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
+import { log } from "../_shared/logger.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
-import {
-  handleOptions,
-  jsonError,
-  jsonResponse,
-} from "../_shared/http.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
+import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import type { Database } from "../../../src/types/supabase.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const FN_NAME = "swipe-from-friends";
 
-type SwipeCard = {
-  id: string;
-  title: string | null;
-  year: number | null;
-  posterUrl: string | null;
-  backdropUrl: string | null;
-  imdbRating: number | null;
-  rtTomatoMeter: number | null;
-  tmdbId: number | null;
-  imdbId: string | null;
-  contentType: "movie" | "series" | null;
-};
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+type Title = Database["public"]["Tables"]["titles"]["Row"];
+type Rating = Database["public"]["Tables"]["ratings"]["Row"];
+type SwipeCard = Pick<
+  Title,
+  | "title_id"
+  | "primary_title"
+  | "release_year"
+  | "poster_url"
+  | "backdrop_url"
+  | "imdb_rating"
+  | "rt_tomato_pct"
+  | "tmdb_id"
+  | "omdb_imdb_id"
+  | "content_type"
+>;
 
 const MAX_DECK_SIZE = 30;
 const MAX_RATING_ROWS = 5000;
 const MAX_TITLE_ROWS = 400;
 const MAX_PER_GENRE = 5;
 
-// ------------------------------------------------------------
-// Main handler
-// ------------------------------------------------------------
+const CANDIDATE_COLUMNS = [
+  "title_id",
+  "content_type",
+  "tmdb_id",
+  "omdb_imdb_id",
+  "primary_title",
+  "release_year",
+  "poster_url",
+  "backdrop_url",
+  "imdb_rating",
+  "rt_tomato_pct",
+  "tmdb_popularity",
+  "genres",
+].join(",");
 
-serve(async (req: Request): Promise<Response> => {
+// ============================================================================
+// Main Request Handler
+// ============================================================================
+
+serve(async (req: Request) => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  try {
-    const configError = validateConfig();
-    if (configError) return configError;
+  const logCtx = { fn: FN_NAME };
 
-    const supabaseAdmin = getAdminClient(req);
+  try {
+    const supabaseAdmin = getAdminClient();
     const supabaseAuth = getUserClient(req);
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAuth.auth.getUser();
-
-    if (authError) {
-      console.error("[swipe-from-friends] auth error:", authError.message);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      log(logCtx, "Auth error", { error: authError?.message });
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
-    if (!user) {
-      return jsonError("Unauthorized", 401, "UNAUTHORIZED_NO_USER");
-    }
 
-    const userId = user.id as string;
-    console.log("[swipe-from-friends] request", { userId });
+    log(logCtx, "Request received", { userId: user.id });
 
-    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, userId);
-    const profile = await safeComputeUserProfile(supabaseAdmin, userId);
-
-    // Load the set of user_ids this user follows.
-    const followedIds = await loadFollowedUserIds(supabaseAdmin, userId);
-
-    // If the user follows nobody, the "From Friends" feed should be empty.
+    const followedIds = await loadFollowedUserIds(supabaseAdmin, user.id);
     if (!followedIds.length) {
-      console.log("[swipe-from-friends] user has no follows; empty deck");
+      log(logCtx, "User follows no one, returning empty deck", { userId: user.id });
       return jsonResponse({ ok: true, cards: [] });
     }
 
-    const cards = await buildFromFriendsDeck(
-      supabaseAdmin,
-      followedIds,
-      seenTitleIds,
-      profile,
-    );
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, user.id);
+    const profile = await computeUserProfile(supabaseAdmin, user.id).catch((err) => {
+      log(logCtx, "Failed to compute user profile", { userId: user.id, error: err.message });
+      return null;
+    });
 
-    // Fire-and-forget catalog sync for a few cards
-    const toSync = cards.slice(0, 3);
-    for (const card of toSync) {
-      triggerCatalogSyncForTitle(req, {
-        tmdbId: card.tmdbId,
-        imdbId: card.imdbId ?? undefined,
-        contentType: card.contentType,
-      }).catch((err) =>
-        console.warn("[swipe-from-friends] catalog-sync error:", err),
-      );
-    }
+    const cards = await buildDeck(supabaseAdmin, followedIds, seenTitleIds, profile);
+    triggerBackgroundSync(req, cards.slice(0, 3));
 
     return jsonResponse({ ok: true, cards });
   } catch (err) {
-    console.error("[swipe-from-friends] unexpected error:", err);
+    log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
-function validateConfig(): Response | null {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error(
-      "[swipe-from-friends] Missing SUPABASE_URL or SUPABASE_ANON_KEY",
-    );
-    return jsonError("Server not configured", 500, "CONFIG_ERROR");
-  }
-  return null;
+// ============================================================================
+// Deck Building Logic
+// ============================================================================
+
+async function buildDeck(
+  supabase: SupabaseClient<Database>,
+  followedIds: string[],
+  seenTitleIds: Set<string>,
+  profile: UserProfile | null,
+): Promise<SwipeCard[]> {
+  const friendsRatings = await fetchFriendsRatings(supabase, followedIds);
+  const aggregated = aggregateRatings(friendsRatings);
+  const candidates = await fetchCandidates(supabase, Array.from(aggregated.keys()));
+  const scored = scoreCandidates(candidates, aggregated, seenTitleIds, profile);
+  return applyDiversityAndCaps(scored, seenTitleIds);
 }
 
-async function safeComputeUserProfile(
-  supabase: ReturnType<typeof getAdminClient>,
-  userId: string,
-): Promise<UserProfile | null> {
-  try {
-    return await computeUserProfile(supabase, userId);
-  } catch (err) {
-    console.warn("[swipe-from-friends] computeUserProfile failed:", err);
-    return null;
-  }
-}
-
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
-
-/**
- * Returns the list of user_ids the caller follows.
- * Uses the `follows` table: follower_id -> followed_id.
- */
-async function loadFollowedUserIds(
-  supabase: ReturnType<typeof getAdminClient>,
-  userId: string,
-): Promise<string[]> {
+async function loadFollowedUserIds(supabase: SupabaseClient<Database>, userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from("follows")
     .select("followed_id")
     .eq("follower_id", userId)
     .limit(1000);
-
   if (error) {
-    console.warn("[swipe-from-friends] follows query error:", error.message);
+    log({ fn: FN_NAME }, "Failed to load followed user IDs", { userId, error: error.message });
     return [];
   }
-
-  const ids: string[] = [];
-  for (const row of data ?? []) {
-    const id = (row as any).followed_id as string | null;
-    if (id) ids.push(id);
-  }
-  return Array.from(new Set(ids));
+  return data.map((f) => f.followed_id);
 }
 
-// ------------------------------------------------------------
-// Deck building
-// ------------------------------------------------------------
-
-async function buildFromFriendsDeck(
-  supabase: ReturnType<typeof getAdminClient>,
+async function fetchFriendsRatings(
+  supabase: SupabaseClient<Database>,
   followedIds: string[],
-  seenTitleIds: Set<string>,
-  profile: UserProfile | null,
-): Promise<SwipeCard[]> {
-  // Step 1: sample ratings from followed users only
-  const { data: rows, error } = await supabase
+): Promise<Rating[]> {
+  const { data, error } = await supabase
     .from("ratings")
-    .select("title_id, rating, user_id")
+    .select("title_id, rating")
     .in("user_id", followedIds)
     .gte("rating", 6)
     .limit(MAX_RATING_ROWS);
-
   if (error) {
-    console.error("[swipe-from-friends] ratings query error:", error.message);
+    log({ fn: FN_NAME }, "Failed to fetch friends' ratings", { error: error.message });
     return [];
   }
-
-  if (!rows || !rows.length) {
-    return [];
-  }
-
-  // Aggregate rating count & average per title
-  type Agg = { count: number; sum: number };
-  const agg = new Map<string, Agg>();
-
-  for (const row of rows) {
-    const titleId = (row as any).title_id as string | null;
-    const rating = (row as any).rating as number | null;
-    if (!titleId || rating == null) continue;
-
-    let entry = agg.get(titleId);
-    if (!entry) {
-      entry = { count: 0, sum: 0 };
-      agg.set(titleId, entry);
-    }
-    entry.count += 1;
-    entry.sum += rating;
-  }
-
-  if (!agg.size) {
-    return [];
-  }
-
-  const entries = Array.from(agg.entries());
-  const sortedByCount = entries.sort((a, b) => b[1].count - a[1].count);
-  const topEntries = sortedByCount.slice(0, MAX_TITLE_ROWS);
-  const titleIds = topEntries.map(([titleId]) => titleId);
-
-  // Step 2: load title metadata
-  const { data: titleRows, error: titleError } = await supabase
-    .from("titles")
-    .select(
-      [
-        "title_id",
-        "content_type",
-        "tmdb_id",
-        "omdb_imdb_id",
-        "primary_title",
-        "release_year",
-        "poster_url",
-        "backdrop_url",
-        "imdb_rating",
-        "rt_tomato_pct",
-        "deleted_at",
-        "tmdb_popularity",
-        "genres",
-      ].join(","),
-    )
-    .in("title_id", titleIds)
-    .is("deleted_at", null);
-
-  if (titleError) {
-    console.warn(
-      "[swipe-from-friends] titles query error:",
-      titleError.message,
-    );
-    return [];
-  }
-
-  const byId = new Map<string, any>();
-  for (const row of titleRows ?? []) {
-    byId.set(String((row as any).title_id), row);
-  }
-
-  const favoriteGenres = profile?.favoriteGenres ?? [];
-  const dislikedGenres = profile?.dislikedGenres ?? [];
-  const contentTypeWeights = profile?.contentTypeWeights ?? {};
-
-  const positiveGenreSet = new Set(favoriteGenres.map((g) => g.toLowerCase()));
-  const negativeGenreSet = new Set(dislikedGenres.map((g) => g.toLowerCase()));
-
-  type Scored = { score: number; meta: any };
-
-  const scored: Scored[] = [];
-
-  for (const [titleId, { count, sum }] of topEntries) {
-    const meta = byId.get(titleId);
-    if (!meta) continue;
-
-    const id = String(meta.title_id);
-    if (seenTitleIds.has(id)) continue;
-
-    const avgRating = sum / Math.max(1, count);
-    const popularity = Number(meta.tmdb_popularity ?? 0);
-    const imdbRating = Number(meta.imdb_rating ?? 0);
-
-    // Base score: strong friends consensus + volume
-    let score = 0;
-    score += avgRating * 1.2;
-    score += Math.log10(1 + count) * 1.0;
-    score += Math.log10(1 + Math.max(0, popularity)) * 0.5;
-    if (imdbRating > 0) {
-      score += imdbRating * 0.3;
-    }
-
-    // Personalization boosts based on caller's profile
-    const genres: string[] = Array.isArray(meta.genres)
-      ? meta.genres
-      : typeof meta.genres === "string"
-      ? (meta.genres as string).split(",").map((g) => g.trim())
-      : [];
-
-    let genreBoost = 0;
-    for (const g of genres) {
-      const lg = g.toLowerCase();
-      if (positiveGenreSet.has(lg)) {
-        genreBoost += 1;
-      }
-      if (negativeGenreSet.has(lg)) {
-        genreBoost -= 1.5;
-      }
-    }
-    score += genreBoost;
-
-    const ct = (meta.content_type ?? "").toString();
-    const ctWeight = contentTypeWeights[ct] ?? 0;
-    score *= 1 + ctWeight * 0.4;
-
-    scored.push({ score, meta });
-  }
-
-  if (!scored.length) {
-    return [];
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-
-  // Apply genre diversity
-  const genreCounts = new Map<string, number>();
-  const final: SwipeCard[] = [];
-
-  for (const { meta } of scored) {
-    if (final.length >= MAX_DECK_SIZE) break;
-
-    const id = String(meta.title_id);
-    if (seenTitleIds.has(id)) continue;
-
-    const genres: string[] = Array.isArray(meta.genres)
-      ? meta.genres
-      : typeof meta.genres === "string"
-      ? (meta.genres as string).split(",").map((g) => g.trim())
-      : [];
-
-    let skipForGenreCap = false;
-    for (const g of genres) {
-      const key = g.toLowerCase();
-      const current = genreCounts.get(key) ?? 0;
-      if (current >= MAX_PER_GENRE) {
-        skipForGenreCap = true;
-        break;
-      }
-    }
-    if (skipForGenreCap) continue;
-
-    final.push(mapMetaToCard(meta));
-
-    for (const g of genres) {
-      const key = g.toLowerCase();
-      genreCounts.set(key, (genreCounts.get(key) ?? 0) + 1);
-    }
-  }
-
-  return final;
+  return data as Rating[];
 }
 
-function mapMetaToCard(meta: any): SwipeCard {
-  return {
-    id: String(meta.title_id),
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null,
-  };
+function aggregateRatings(ratings: Rating[]): Map<string, { count: number; sum: number }> {
+  return ratings.reduce((agg, { title_id, rating }) => {
+    const current = agg.get(title_id) ?? { count: 0, sum: 0 };
+    current.count++;
+    current.sum += rating;
+    agg.set(title_id, current);
+    return agg;
+  }, new Map());
+}
+
+async function fetchCandidates(supabase: SupabaseClient<Database>, titleIds: string[]): Promise<Title[]> {
+  if (titleIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("titles")
+    .select(CANDIDATE_COLUMNS)
+    .in("title_id", titleIds.slice(0, MAX_TITLE_ROWS))
+    .is("deleted_at", null);
+  if (error) {
+    log({ fn: FN_NAME }, "Failed to fetch candidate titles", { error: error.message });
+    return [];
+  }
+  return data as Title[];
+}
+
+function scoreCandidates(
+  candidates: Title[],
+  aggregated: Map<string, { count: number; sum: number }>,
+  seenTitleIds: Set<string>,
+  profile: UserProfile | null,
+): { score: number; candidate: Title }[] {
+  const positiveGenres = new Set(profile?.favoriteGenres?.map((g) => g.toLowerCase()));
+  const negativeGenres = new Set(profile?.dislikedGenres?.map((g) => g.toLowerCase()));
+
+  return candidates
+    .filter((c) => !seenTitleIds.has(c.title_id))
+    .map((candidate) => {
+      const { count, sum } = aggregated.get(candidate.title_id) ?? { count: 0, sum: 0 };
+      const avgRating = count > 0 ? sum / count : 0;
+      const pop = candidate.tmdb_popularity ?? 0;
+      const imdb = candidate.imdb_rating ?? 0;
+
+      let score = avgRating * 1.2 + Math.log10(1 + count) + Math.log10(1 + pop) * 0.5 + imdb * 0.3;
+
+      const genreBoost = (candidate.genres ?? []).reduce((boost, g) => {
+        const lg = g.toLowerCase();
+        if (positiveGenres.has(lg)) return boost + 1;
+        if (negativeGenres.has(lg)) return boost - 1.5;
+        return boost;
+      }, 0);
+      score += genreBoost;
+
+      const ctWeight = profile?.contentTypeWeights?.[candidate.content_type as keyof UserProfile["contentTypeWeights"]] ?? 0;
+      score *= 1 + ctWeight * 0.4;
+
+      return { score, candidate };
+    });
+}
+
+function applyDiversityAndCaps(
+  scored: { score: number; candidate: Title }[],
+  seenTitleIds: Set<string>,
+): SwipeCard[] {
+  scored.sort((a, b) => b.score - a.score);
+
+  const genreCounts = new Map<string, number>();
+  const deck: SwipeCard[] = [];
+
+  for (const { candidate } of scored) {
+    if (deck.length >= MAX_DECK_SIZE || seenTitleIds.has(candidate.title_id)) continue;
+    const genres = (candidate.genres ?? []).map((g) => g.toLowerCase());
+    if (genres.some((g) => (genreCounts.get(g) ?? 0) >= MAX_PER_GENRE)) continue;
+    deck.push(candidate);
+    genres.forEach((g) => genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1));
+  }
+  return deck;
+}
+
+// ============================================================================
+// Utils
+// ============================================================================
+
+function triggerBackgroundSync(req: Request, cards: SwipeCard[]) {
+  Promise.allSettled(
+    cards.map((card) =>
+      triggerCatalogSyncForTitle(req, {
+        tmdbId: card.tmdb_id,
+        imdbId: card.omdb_imdb_id,
+        contentType: card.content_type,
+      })
+    ),
+  ).catch((err) => {
+    log({ fn: FN_NAME }, "Background sync failed", { error: err.message });
+  });
 }

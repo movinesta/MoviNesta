@@ -10,199 +10,210 @@
 // - NO auth requirement (public read), safe because it's just metadata.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-import {
-  corsHeaders,
-  handleOptions,
-  jsonError,
-  jsonResponse,
-} from "../_shared/http.ts";
+import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
+import { log } from "../_shared/logger.ts";
 import { getUserClient } from "../_shared/supabase.ts";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
+import type { Database } from "../../../src/types/supabase.ts";
 
+const FN_NAME = "catalog-search";
+
+const TMDB_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? "";
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
-type SearchPayload = {
+// Define types for better code quality and maintenance.
+type Title = Database["public"]["Tables"]["titles"]["Row"];
+type SearchType = "movie" | "tv" | "multi";
+
+interface SearchRequest {
   query: string;
   page?: number;
-  type?: "movie" | "tv" | "multi";
-};
-
-function getSupabaseClient(req: Request) {
-  return getUserClient(req);
+  type?: SearchType;
 }
+
+interface TmdbSearchResultItem {
+  id: number;
+  media_type?: "movie" | "tv";
+  title?: string;
+  name?: string;
+  original_title?: string;
+  original_name?: string;
+  overview?: string;
+  release_date?: string;
+  first_air_date?: string;
+  poster_path?: string;
+  backdrop_path?: string;
+  popularity?: number;
+  vote_average?: number;
+  vote_count?: number;
+}
+
+interface TmdbSearchResponse {
+  page: number;
+  results: TmdbSearchResultItem[];
+  total_pages: number;
+  total_results: number;
+}
+
+// ============================================================================
+// Main request handler
+// ============================================================================
 
 serve(async (req) => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  console.log("[catalog-search] incoming request");
+  const logCtx = { fn: FN_NAME };
+
+  if (req.method !== "POST") {
+    return jsonError("Method not allowed", 405);
+  }
 
   try {
-    if (!SUPABASE_URL || !ANON_KEY) {
-      console.error("[catalog-search] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    if (!TMDB_TOKEN) {
+      log(logCtx, "TMDB_API_READ_ACCESS_TOKEN is not configured");
       return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
     }
-    if (!TMDB_TOKEN) {
-      console.error("[catalog-search] Missing TMDB_API_READ_ACCESS_TOKEN");
-      return jsonError("TMDb not configured", 500, "TMDB_NOT_CONFIGURED");
-    }
 
-    const supabase = getSupabaseClient(req);
+    const { data, errorResponse } = await validateRequest<SearchRequest>(req, parseRequestBody, {
+      logPrefix: `[${FN_NAME}]`,
+    });
+    if (errorResponse) return errorResponse;
 
-    const body = (await req.json().catch(() => ({}))) as SearchPayload;
-    const query = body.query?.trim();
-    if (!query) {
-      return jsonError("query is required", 400, "BAD_REQUEST_MISSING_QUERY");
-    }
-
-    const page = body.page && body.page > 0 ? body.page : 1;
-    const type = body.type ?? "multi";
+    const { query, page = 1, type = "multi" } = data;
+    const supabase = getUserClient(req);
 
     return await handleSearch(supabase, { query, page, type });
   } catch (err) {
-    console.error("[catalog-search] unhandled error:", err);
+    log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
+
+function parseRequestBody(body: unknown): SearchRequest {
+  if (typeof body !== "object" || body === null) {
+    throw new Error("Request body must be an object.");
+  }
+
+  const { query, page, type } = body as Record<string, unknown>;
+
+  if (typeof query !== "string" || !query.trim()) {
+    throw new Error("'query' is a required string.");
+  }
+  if (page !== undefined && (typeof page !== "number" || page < 1)) {
+    throw new Error("'page' must be a positive number.");
+  }
+  if (type !== undefined && !["movie", "tv", "multi"].includes(type as string)) {
+    throw new Error("'type' must be one of 'movie', 'tv', or 'multi'.");
+  }
+
+  return { query: query.trim(), page, type: type as SearchType };
+}
 
 // ============================================================================
 // Search logic
 // ============================================================================
 
+const LOCAL_TITLE_COLUMNS = [
+  "title_id",
+  "tmdb_id",
+  "primary_title",
+  "original_title",
+  "release_year",
+  "release_date",
+  "runtime_minutes",
+  "poster_url",
+  "backdrop_url",
+  "imdb_rating",
+  "imdb_votes",
+  "rt_tomato_pct",
+  "metascore",
+  "genres",
+  "omdb_imdb_id",
+].join(",");
+
 async function handleSearch(
-  supabase: ReturnType<typeof getSupabaseClient>,
-  args: { query: string; page: number; type: "movie" | "tv" | "multi" },
+  supabase: SupabaseClient<Database>,
+  args: Required<SearchRequest>,
 ): Promise<Response> {
   const { query, page, type } = args;
+  const logCtx = { fn: FN_NAME, query, page, type };
 
   // 1) Search TMDb
-  const tmdbResults = await tmdbSearch(query, page, type);
-  if (!tmdbResults) {
-    return jsonError("TMDb search failed", 502, "TMDB_SEARCH_FAILED");
-  }
-
-  let items = tmdbResults.results ?? [];
-  if (type === "multi") {
-    items = items.filter(
-      (item: any) => item.media_type === "movie" || item.media_type === "tv",
-    );
-  }
-
-  const tmdbIds = items
-    .map((r: any) => r.id)
-    .filter((id: any) => typeof id === "number");
+  const tmdbResponse = await tmdbSearch(query, page, type);
+  const tmdbItems = (tmdbResponse?.results ?? []).filter(
+    (item) => type !== "multi" || ["movie", "tv"].includes(item.media_type ?? ""),
+  );
+  const tmdbIds = tmdbItems.map((item) => item.id).filter((id): id is number => !!id);
 
   // 2) Load local titles by tmdb_id
-  const localMap = new Map<number, any>();
+  const localMap = new Map<number, Title>();
   if (tmdbIds.length > 0) {
-    const { data: localRows, error: localError } = await supabase
+    const { data, error } = await supabase
       .from("titles")
-      .select(
-        [
-          "title_id",
-          "tmdb_id",
-          "primary_title",
-          "original_title",
-          "release_year",
-          "release_date",
-          "runtime_minutes",
-          "poster_url",
-          "backdrop_url",
-          "imdb_rating",
-          "imdb_votes",
-          "rt_tomato_pct",
-          "metascore",
-          "genres",
-          "omdb_imdb_id",
-        ].join(","),
-      )
+      .select(LOCAL_TITLE_COLUMNS)
       .in("tmdb_id", tmdbIds);
 
-    if (localError) {
-      console.error("[catalog-search] local titles error:", localError.message);
-    } else if (localRows) {
-      for (const row of localRows) {
-        if (row.tmdb_id != null) {
-          localMap.set(row.tmdb_id, row);
+    if (error) {
+      log(logCtx, "Failed to fetch local titles", { error: error.message });
+      // Non-fatal, proceed with empty localMap
+    } else {
+      for (const row of data) {
+        if (row.tmdb_id) {
+          localMap.set(row.tmdb_id, row as Title);
         }
       }
     }
   }
 
-  // 3) Build merged results
-  const merged = items.map((item: any) => {
-    const mediaType: "movie" | "tv" =
-      item.media_type === "tv" ? "tv" : "movie";
+  // 3) Merge TMDB and local data
+  const mergedResults = tmdbItems.map((tmdbItem) => ({
+    tmdb: tmdbItem,
+    local: localMap.get(tmdbItem.id) ?? null,
+  }));
 
-    const tmdbData = {
-      id: item.id,
-      mediaType,
-      title: item.title ?? item.name ?? null,
-      originalTitle: item.original_title ?? item.original_name ?? null,
-      overview: item.overview ?? null,
-      releaseDate: item.release_date ?? item.first_air_date ?? null,
-      posterPath: item.poster_path ?? null,
-      backdropPath: item.backdrop_path ?? null,
-      popularity: item.popularity ?? null,
-      voteAverage: item.vote_average ?? null,
-      voteCount: item.vote_count ?? null,
-    };
+  // 4) Fire-and-forget sync for a few missing titles
+  triggerBackgroundSync(mergedResults.slice(0, 5));
 
-    const local = localMap.get(item.id) ?? null;
-
-    return {
-      tmdb: tmdbData,
-      local,
-    };
+  return jsonResponse({
+    ok: true,
+    query,
+    page: tmdbResponse?.page ?? 1,
+    total_pages: tmdbResponse?.total_pages ?? 0,
+    total_results: tmdbResponse?.total_results ?? 0,
+    results: mergedResults,
   });
+}
 
+function triggerBackgroundSync(
+  items: { tmdb: TmdbSearchResultItem; local: Title | null }[],
+) {
+  const syncCandidates = items.filter((item) => !item.local && item.tmdb?.id);
 
-  // Fire-and-forget catalog-sync for a small subset of TMDb results that are
-  // not yet present locally. This helps keep the `titles` table fresh based
-  // on what users actually search for, without blocking the search response.
-  try {
-    const syncCandidates = merged
-      .filter((item) => !item.local && item.tmdb && item.tmdb.id)
-      .slice(0, 5);
+  if (syncCandidates.length === 0) return;
 
-    for (const item of syncCandidates) {
-      const mediaType =
-        item.tmdb.media_type === "tv" ? "series" :
-        item.tmdb.media_type === "movie" ? "movie" :
-        item.tmdb.title ? "movie" : "series";
+  // Create a request with no auth headers to use the anon key.
+  const req = new Request("http://localhost/catalog-search-sync", { method: "POST" });
+  const logCtx = { fn: FN_NAME };
 
-      triggerCatalogSyncForTitle(
-        // We don't need auth for catalog-sync here, but we pass a fake Request
-        // that carries no Authorization header; the helper will fall back to
-        // the anon key.
-        new Request("http://localhost/catalog-search-sync", { method: "POST" }),
+  Promise.allSettled(
+    syncCandidates.map((item) => {
+      const contentType = (item.tmdb.media_type === "tv" || item.tmdb.name) ? "series" : "movie";
+      return triggerCatalogSyncForTitle(
+        req,
         {
           tmdbId: item.tmdb.id,
           imdbId: undefined,
-          contentType: mediaType as "movie" | "series",
+          contentType,
         },
-        { prefix: "[catalog-search]" },
+        { prefix: `[${FN_NAME}]` },
       );
-    }
-  } catch (err) {
-    console.warn("[catalog-search] background catalog-sync error:", err);
-  }
-
-  return jsonResponse(
-    {
-      ok: true,
-      query,
-      page: tmdbResults.page,
-      total_pages: tmdbResults.total_pages,
-      total_results: tmdbResults.total_results,
-      results: merged,
-    },
-    200,
-  );
+    }),
+  ).catch((err) => {
+    log(logCtx, "Background catalog-sync failed", { error: err.message });
+  });
 }
 
 // ============================================================================
@@ -212,36 +223,30 @@ async function handleSearch(
 async function tmdbSearch(
   query: string,
   page: number,
-  type: "movie" | "tv" | "multi",
-): Promise<any | null> {
-  let path: string;
-  switch (type) {
-    case "movie":
-      path = "/search/movie";
-      break;
-    case "tv":
-      path = "/search/tv";
-      break;
-    default:
-      path = "/search/multi";
-  }
-
+  type: SearchType,
+): Promise<TmdbSearchResponse | null> {
+  const path = `/search/${type}`;
   const url = new URL(TMDB_BASE + path);
   url.searchParams.set("query", query);
   url.searchParams.set("page", String(page));
   url.searchParams.set("include_adult", "false");
   url.searchParams.set("language", "en-US");
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${TMDB_TOKEN}`,
-      Accept: "application/json",
-    },
-  });
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${TMDB_TOKEN}`,
+        Accept: "application/json",
+      },
+    });
 
-  if (!res.ok) {
-    console.error("[TMDb] search failed", res.status, await res.text());
+    if (!res.ok) {
+      log({ fn: FN_NAME }, "TMDb search request failed", { status: res.status });
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    log({ fn: FN_NAME }, "TMDb fetch error", { error: err.message });
     return null;
   }
-  return await res.json();
 }

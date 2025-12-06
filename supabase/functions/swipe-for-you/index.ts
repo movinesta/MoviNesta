@@ -2,345 +2,229 @@
 //
 // Returns a strongly personalized "For You" swipe deck for the current user.
 // - Uses a UserProfile built from ratings, library, and activity events.
-// - Scores candidates based on genre matches, content type preference,
-//   and global popularity/ratings.
+// - Scores candidates based on genre matches, content type preference, etc.
 // - Ensures the user does not see titles they've already interacted with.
 // - Applies genre diversity caps.
-// - Triggers `catalog-sync` for a few cards per call.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
+import { log } from "../_shared/logger.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
-import {
-  handleOptions,
-  jsonError,
-  jsonResponse,
-} from "../_shared/http.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
+import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import type { Database } from "../../../src/types/supabase.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const FN_NAME = "swipe-for-you";
 
-type SwipeCard = {
-  id: string;
-  title: string | null;
-  year: number | null;
-  posterUrl: string | null;
-  backdropUrl: string | null;
-  imdbRating: number | null;
-  rtTomatoMeter: number | null;
-  tmdbId: number | null;
-  imdbId: string | null;
-  contentType: "movie" | "series" | null;
-};
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+type Title = Database["public"]["Tables"]["titles"]["Row"];
+type ContentType = Database["public"]["Enums"]["content_type"];
+type SwipeCard = Pick<
+  Title,
+  | "title_id"
+  | "primary_title"
+  | "release_year"
+  | "poster_url"
+  | "backdrop_url"
+  | "imdb_rating"
+  | "rt_tomato_pct"
+  | "tmdb_id"
+  | "omdb_imdb_id"
+  | "content_type"
+>;
 
 const MAX_DECK_SIZE = 30;
 const MAX_CANDIDATES = 400;
 const MAX_PER_GENRE = 5;
 
-// ------------------------------------------------------------
-// Main handler
-// ------------------------------------------------------------
+const CANDIDATE_COLUMNS = [
+  "title_id",
+  "content_type",
+  "tmdb_id",
+  "omdb_imdb_id",
+  "primary_title",
+  "release_year",
+  "poster_url",
+  "backdrop_url",
+  "imdb_rating",
+  "rt_tomato_pct",
+  "tmdb_popularity",
+  "genres",
+].join(",");
 
-serve(async (req: Request): Promise<Response> => {
+// ============================================================================
+// Main Request Handler
+// ============================================================================
+
+serve(async (req: Request) => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  try {
-    const configError = validateConfig();
-    if (configError) return configError;
+  const logCtx = { fn: FN_NAME };
 
-    const supabaseAdmin = getAdminClient(req);
+  try {
+    const supabaseAdmin = getAdminClient();
     const supabaseAuth = getUserClient(req);
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAuth.auth.getUser();
-
-    if (authError) {
-      console.error("[swipe-for-you] auth error:", authError.message);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      log(logCtx, "Auth error", { error: authError?.message });
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
-    if (!user) {
-      return jsonError("Unauthorized", 401, "UNAUTHORIZED_NO_USER");
-    }
 
-    const userId = user.id as string;
-    console.log("[swipe-for-you] request", { userId });
+    log(logCtx, "Request received", { userId: user.id });
 
-    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, userId);
-    const profile = await safeComputeUserProfile(supabaseAdmin, userId);
+    const seenTitleIds = await loadSeenTitleIdsForUser(supabaseAdmin, user.id);
+    const profile = await computeUserProfile(supabaseAdmin, user.id).catch((err) => {
+      log(logCtx, "Failed to compute user profile", { userId: user.id, error: err.message });
+      return null;
+    });
 
-    const cards = await buildForYouDeck(supabaseAdmin, seenTitleIds, profile);
+    const cards = await buildDeck(supabaseAdmin, seenTitleIds, profile);
 
-    // Fire-and-forget catalog sync for a few cards
-    const toSync = cards.slice(0, 3);
-    for (const card of toSync) {
-      triggerCatalogSyncForTitle(req, {
-        tmdbId: card.tmdbId,
-        imdbId: card.imdbId ?? undefined,
-        contentType: card.contentType,
-      }).catch((err) =>
-        console.warn("[swipe-for-you] catalog-sync error:", err),
-      );
-    }
+    // Trigger background sync for the top few cards to keep them fresh.
+    triggerBackgroundSync(req, cards.slice(0, 3));
 
     return jsonResponse({ ok: true, cards });
   } catch (err) {
-    console.error("[swipe-for-you] unexpected error:", err);
+    log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 });
 
-function validateConfig(): Response | null {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error("[swipe-for-you] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
-    return jsonError("Server not configured", 500, "CONFIG_ERROR");
-  }
-  return null;
-}
+// ============================================================================
+// Deck Building Logic
+// ============================================================================
 
-async function safeComputeUserProfile(
-  supabase: ReturnType<typeof getAdminClient>,
-  userId: string,
-): Promise<UserProfile | null> {
-  try {
-    return await computeUserProfile(supabase, userId);
-  } catch (err) {
-    console.warn("[swipe-for-you] computeUserProfile failed:", err);
-    return null;
-  }
-}
-
-// ------------------------------------------------------------
-// Deck building
-// ------------------------------------------------------------
-
-async function buildForYouDeck(
-  supabase: ReturnType<typeof getAdminClient>,
+async function buildDeck(
+  supabase: SupabaseClient<Database>,
   seenTitleIds: Set<string>,
   profile: UserProfile | null,
 ): Promise<SwipeCard[]> {
-  // If no profile, fall back to a popularity-based personalized-ish deck:
-  // newer and popular titles the user hasn't seen.
-  if (!profile) {
-    return await buildFallbackDeck(supabase, seenTitleIds);
-  }
+  const candidates = await fetchCandidates(supabase, profile);
+  const scored = scoreCandidates(candidates, seenTitleIds, profile);
+  const deck = applyDiversityAndCaps(scored, seenTitleIds);
+  return deck;
+}
 
-  const favoriteGenres = profile.favoriteGenres ?? [];
-  const dislikedGenres = profile.dislikedGenres ?? [];
-  const contentTypeWeights = profile.contentTypeWeights ?? {};
-
-  // Choose the best content type (if any) as a soft preference.
-  const preferredContentType = getPreferredContentType(contentTypeWeights);
-
+async function fetchCandidates(
+  supabase: SupabaseClient<Database>,
+  profile: UserProfile | null,
+): Promise<Title[]> {
   let query = supabase
     .from("titles")
-    .select(
-      [
-        "title_id",
-        "content_type",
-        "tmdb_id",
-        "omdb_imdb_id",
-        "primary_title",
-        "release_year",
-        "poster_url",
-        "backdrop_url",
-        "imdb_rating",
-        "rt_tomato_pct",
-        "deleted_at",
-        "tmdb_popularity",
-        "genres",
-      ].join(","),
-    )
+    .select(CANDIDATE_COLUMNS)
     .is("deleted_at", null)
     .order("tmdb_popularity", { ascending: false })
-    .order("imdb_rating", { ascending: false })
+    .order("imdb_rating", { ascending: false, nullsFirst: true })
     .limit(MAX_CANDIDATES);
 
-  if (favoriteGenres.length) {
-    // Bias towards the user's top genres
-    query = query.overlaps("genres", favoriteGenres.slice(0, 5));
+  if (profile?.favoriteGenres?.length) {
+    query = query.overlaps("genres", profile.favoriteGenres.slice(0, 5));
   }
-
+  const preferredContentType = getPreferredContentType(profile?.contentTypeWeights);
   if (preferredContentType) {
-    // Bias towards the preferred content type (movies vs series)
     query = query.eq("content_type", preferredContentType);
   }
 
-  const { data: rows, error } = await query;
-
+  const { data, error } = await query;
   if (error) {
-    console.error("[swipe-for-you] titles query error:", error.message);
+    log({ fn: FN_NAME }, "Failed to fetch candidates", { error: error.message });
     return [];
   }
+  return data as Title[];
+}
 
-  type Scored = { score: number; meta: any };
-
-  const positiveGenreSet = new Set(
-    favoriteGenres.map((g) => g.toLowerCase()),
-  );
-  const negativeGenreSet = new Set(
-    dislikedGenres.map((g) => g.toLowerCase()),
-  );
-
-  const scored: Scored[] = [];
-
-  for (const meta of rows ?? []) {
-    const id = String(meta.title_id);
-    if (seenTitleIds.has(id)) continue;
-
-    const genres: string[] = Array.isArray(meta.genres)
-      ? meta.genres
-      : typeof meta.genres === "string"
-      ? (meta.genres as string).split(",").map((g) => g.trim())
-      : [];
-
-    const ct = (meta.content_type ?? "").toString();
-    const ctWeight = contentTypeWeights[ct] ?? 0;
-
-    const popularity = Number(meta.tmdb_popularity ?? 0);
-    const rating = Number(meta.imdb_rating ?? 0);
-
-    // Base score from popularity + rating (favor strong rating more)
-    let score = Math.log10(1 + Math.max(0, popularity)) * 0.7;
-    if (rating > 0) {
-      score += rating * 0.8;
-    }
-
-    // Genre boosts / penalties
-    let genreBoost = 0;
-    for (const g of genres) {
-      const lg = g.toLowerCase();
-      if (positiveGenreSet.has(lg)) {
-        genreBoost += 1;
-      }
-      if (negativeGenreSet.has(lg)) {
-        genreBoost -= 1.5;
-      }
-    }
-    score += genreBoost;
-
-    // Content type preference
-    score *= 1 + ctWeight * 0.4;
-
-    scored.push({ score, meta });
+function scoreCandidates(
+  candidates: Title[],
+  seenTitleIds: Set<string>,
+  profile: UserProfile | null,
+): { score: number; candidate: Title }[] {
+  if (!profile) {
+    // Fallback for new users: just use popularity.
+    return candidates
+      .filter((c) => !seenTitleIds.has(c.title_id))
+      .map((candidate) => ({ score: candidate.tmdb_popularity ?? 0, candidate }));
   }
 
-  if (!scored.length) {
-    return [];
-  }
+  const positiveGenres = new Set(profile.favoriteGenres?.map((g) => g.toLowerCase()));
+  const negativeGenres = new Set(profile.dislikedGenres?.map((g) => g.toLowerCase()));
 
+  return candidates
+    .filter((c) => !seenTitleIds.has(c.title_id))
+    .map((candidate) => {
+      const pop = candidate.tmdb_popularity ?? 0;
+      const rating = candidate.imdb_rating ?? 0;
+      let score = Math.log10(1 + pop) + rating;
+
+      // Genre boosts/penalties
+      const genreBoost = (candidate.genres ?? []).reduce((boost, g) => {
+        const lg = g.toLowerCase();
+        if (positiveGenres.has(lg)) return boost + 1;
+        if (negativeGenres.has(lg)) return boost - 1.5;
+        return boost;
+      }, 0);
+      score += genreBoost;
+
+      // Content type preference
+      const ctWeight = profile.contentTypeWeights?.[candidate.content_type as ContentType] ?? 0;
+      score *= 1 + ctWeight * 0.4;
+
+      return { score, candidate };
+    });
+}
+
+function applyDiversityAndCaps(
+  scored: { score: number; candidate: Title }[],
+  seenTitleIds: Set<string>,
+): SwipeCard[] {
   scored.sort((a, b) => b.score - a.score);
 
-  // Genre diversity + final cap
   const genreCounts = new Map<string, number>();
-  const final: SwipeCard[] = [];
+  const deck: SwipeCard[] = [];
 
-  for (const { meta } of scored) {
-    if (final.length >= MAX_DECK_SIZE) break;
-
-    const id = String(meta.title_id);
-    if (seenTitleIds.has(id)) continue;
-
-    const genres: string[] = Array.isArray(meta.genres)
-      ? meta.genres
-      : typeof meta.genres === "string"
-      ? (meta.genres as string).split(",").map((g) => g.trim())
-      : [];
-
-    let skipForGenreCap = false;
-    for (const g of genres) {
-      const key = g.toLowerCase();
-      const current = genreCounts.get(key) ?? 0;
-      if (current >= MAX_PER_GENRE) {
-        skipForGenreCap = true;
-        break;
-      }
+  for (const { candidate } of scored) {
+    if (deck.length >= MAX_DECK_SIZE || seenTitleIds.has(candidate.title_id)) {
+      continue;
     }
-    if (skipForGenreCap) continue;
 
-    final.push(mapMetaToCard(meta));
-
-    for (const g of genres) {
-      const key = g.toLowerCase();
-      genreCounts.set(key, (genreCounts.get(key) ?? 0) + 1);
+    const genres = (candidate.genres ?? []).map((g) => g.toLowerCase());
+    if (genres.some((g) => (genreCounts.get(g) ?? 0) >= MAX_PER_GENRE)) {
+      continue;
     }
-  }
 
-  return final;
+    deck.push(candidate);
+    genres.forEach((g) => genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1));
+  }
+  return deck;
 }
 
-async function buildFallbackDeck(
-  supabase: ReturnType<typeof getAdminClient>,
-  seenTitleIds: Set<string>,
-): Promise<SwipeCard[]> {
-  const { data: rows, error } = await supabase
-    .from("titles")
-    .select(
-      [
-        "title_id",
-        "content_type",
-        "tmdb_id",
-        "omdb_imdb_id",
-        "primary_title",
-        "release_year",
-        "poster_url",
-        "backdrop_url",
-        "imdb_rating",
-        "rt_tomato_pct",
-        "deleted_at",
-        "tmdb_popularity",
-        "genres",
-      ].join(","),
-    )
-    .is("deleted_at", null)
-    .order("tmdb_popularity", { ascending: false })
-    .order("imdb_rating", { ascending: false })
-    .limit(MAX_CANDIDATES);
+// ============================================================================
+// Utils
+// ============================================================================
 
-  if (error) {
-    console.error("[swipe-for-you] fallback titles query error:", error.message);
-    return [];
-  }
-
-  const cards: SwipeCard[] = [];
-
-  for (const meta of rows ?? []) {
-    if (cards.length >= MAX_DECK_SIZE) break;
-    const id = String(meta.title_id);
-    if (seenTitleIds.has(id)) continue;
-    cards.push(mapMetaToCard(meta));
-  }
-
-  return cards;
+function getPreferredContentType(weights: UserProfile["contentTypeWeights"]): ContentType | null {
+  if (!weights) return null;
+  const [best, score] = Object.entries(weights).sort((a, b) => b[1] - a[1])[0] ?? [];
+  return score > 0 ? (best as ContentType) : null;
 }
 
-function getPreferredContentType(
-  contentTypeWeights: Record<string, number>,
-): string | null {
-  const entries = Object.entries(contentTypeWeights);
-  if (!entries.length) return null;
-
-  entries.sort((a, b) => b[1] - a[1]);
-  const [bestType, bestScore] = entries[0];
-  if (bestScore <= 0) return null;
-  return bestType;
-}
-
-function mapMetaToCard(meta: any): SwipeCard {
-  return {
-    id: String(meta.title_id),
-    title: meta.primary_title ?? null,
-    year: meta.release_year ?? null,
-    posterUrl: meta.poster_url ?? null,
-    backdropUrl: meta.backdrop_url ?? null,
-    imdbRating: meta.imdb_rating ?? null,
-    rtTomatoMeter: meta.rt_tomato_pct ?? null,
-    tmdbId: meta.tmdb_id ?? null,
-    imdbId: meta.omdb_imdb_id ?? null,
-    contentType: meta.content_type ?? null,
-  };
+function triggerBackgroundSync(req: Request, cards: SwipeCard[]) {
+  Promise.allSettled(
+    cards.map((card) =>
+      triggerCatalogSyncForTitle(req, {
+        tmdbId: card.tmdb_id,
+        imdbId: card.omdb_imdb_id,
+        contentType: card.content_type,
+      })
+    ),
+  ).catch((err) => {
+    log({ fn: FN_NAME }, "Background sync failed", { error: err.message });
+  });
 }
