@@ -77,7 +77,7 @@ const useConversationReadReceipts = (conversationId: string | null) => {
         .from("message_read_receipts")
         .select("user_id, conversation_id, last_read_at, last_read_message_id")
         .eq("conversation_id", conversationId)
-        .order("last_read_at", { ascending: false, nullsLast: true });
+        .order("last_read_at", { ascending: false });
 
       if (error) {
         console.error("[ConversationPage] Failed to load read receipts", error);
@@ -496,6 +496,23 @@ const ConversationPage: React.FC = () => {
     });
   };
 
+  const conversation: ConversationListItem | null = useMemo(() => {
+    if (!conversationId || !conversations) return null;
+    return conversations.find((c) => c.id === conversationId) ?? null;
+  }, [conversationId, conversations]);
+
+  const isGroupConversation = conversation?.isGroup ?? false;
+
+  const otherParticipant: ConversationParticipant | null = useMemo(() => {
+    if (!conversation) return null;
+    const others = conversation.participants.filter((p) => !p.isSelf);
+    if (others.length > 0) return others[0];
+    if (conversation.participants.length === 1) {
+      return conversation.participants[0];
+    }
+    return null;
+  }, [conversation]);
+
   const sendMessage = useSendMessage(conversationId, {
     onFailed: handleSendFailed,
     onRecovered: handleSendRecovered,
@@ -539,11 +556,6 @@ const ConversationPage: React.FC = () => {
     });
   }, [messages]);
 
-  const conversation: ConversationListItem | null = useMemo(() => {
-    if (!conversationId || !conversations) return null;
-    return conversations.find((c) => c.id === conversationId) ?? null;
-  }, [conversationId, conversations]);
-
   const participantsById = useMemo(() => {
     const map = new Map<string, ConversationParticipant>();
     if (!conversation) return map;
@@ -551,18 +563,6 @@ const ConversationPage: React.FC = () => {
       map.set(participant.id, participant);
     }
     return map;
-  }, [conversation]);
-
-  const isGroupConversation = conversation?.isGroup ?? false;
-
-  const otherParticipant: ConversationParticipant | null = useMemo(() => {
-    if (!conversation) return null;
-    const others = conversation.participants.filter((p) => !p.isSelf);
-    if (others.length > 0) return others[0];
-    if (conversation.participants.length === 1) {
-      return conversation.participants[0];
-    }
-    return null;
   }, [conversation]);
 
   const {
@@ -882,17 +882,19 @@ const ConversationPage: React.FC = () => {
                 message_id: row.id,
                 user_id: user.id,
               })
-              .then(({ error }) => {
-                if (error) {
-                  console.error("[ConversationPage] Failed to insert delivery receipt", error);
-                }
-              })
-              .catch((err) => {
-                console.error(
-                  "[ConversationPage] Unexpected error inserting delivery receipt",
-                  err,
-                );
-              });
+              .then(
+                ({ error }) => {
+                  if (error) {
+                    console.error("[ConversationPage] Failed to insert delivery receipt", error);
+                  }
+                },
+                (err: unknown) => {
+                  console.error(
+                    "[ConversationPage] Unexpected error inserting delivery receipt",
+                    err,
+                  );
+                },
+              );
           }
         },
       )
@@ -974,17 +976,19 @@ const ConversationPage: React.FC = () => {
         },
         { onConflict: "conversation_id,user_id" },
       )
-      .then(() => {
-        lastReadRef.current = {
-          conversationId,
-          messageId: last.id,
-          userId: user.id,
-        };
-        queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      })
-      .catch((error) => {
-        console.error("[ConversationPage] Failed to update read receipt", error);
-      });
+      .then(
+        () => {
+          lastReadRef.current = {
+            conversationId,
+            messageId: last.id,
+            userId: user.id,
+          };
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        },
+        (error: unknown) => {
+          console.error("[ConversationPage] Failed to update read receipt", error);
+        },
+      );
   }, [conversationId, messages, user?.id, queryClient]);
 
   // Realtime read-receipt updates
@@ -1390,6 +1394,14 @@ const ConversationPage: React.FC = () => {
     );
   }
 
+  const handleRetryMessage = (message: ConversationMessage) => {
+    const failedPayload = failedMessages[message.id];
+    if (failedPayload) {
+      setDraft(failedPayload.text);
+      setLastFailedPayload(failedPayload);
+    }
+  };
+
   return (
     <div className="relative flex min-h-screen w-full flex-col items-stretch bg-mn-bg">
       <div
@@ -1728,7 +1740,7 @@ const ConversationPage: React.FC = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveActionMessageId(null);
-                                    setMessageToDelete(message);
+                                    setDeleteDialog({ messageId: message.id });
                                   }}
                                   className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-mn-error hover:bg-mn-error/10"
                                 >
@@ -1754,13 +1766,7 @@ const ConversationPage: React.FC = () => {
                               <button
                                 type="button"
                                 className="text-mn-error underline"
-                                onClick={() => {
-                                  const failedPayload = failedMessages[message.id];
-                                  if (failedPayload) {
-                                    setDraft(failedPayload.text);
-                                    setLastFailedPayload(failedPayload);
-                                  }
-                                }}
+                                onClick={() => handleRetryMessage(message)}
                               >
                                 Retry
                               </button>

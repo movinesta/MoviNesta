@@ -12,6 +12,7 @@ export interface FeedUser {
   id: string;
   displayName: string;
   username: string;
+  avatarUrl?: string;
   avatarInitials: string;
   avatarColor: AvatarColorKey;
 }

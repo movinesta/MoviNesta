@@ -11,6 +11,7 @@ import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { tmdbImageUrl } from "@/lib/tmdb";
+import { TitleType } from "@/types/supabase-helpers";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
 
@@ -22,7 +23,7 @@ export type SwipeCardData = {
   tagline?: string | null;
   mood?: string | null;
   vibeTag?: string | null;
-  type?: string | null;
+  type?: TitleType | null;
   posterUrl?: string | null;
   tmdbPosterPath?: string | null;
   tmdbBackdropPath?: string | null;
@@ -366,7 +367,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
           // the "All caught up" message instead of an error state.
           setDeckStateWithCache((prev) => ({
             ...prev,
-            status: cardsRef.current.length ? "ready" : "exhausted",
+            status: cardsRef.current.length > 0 ? "ready" : "exhausted",
             index: prev.index,
             errorMessage: null,
           }));
@@ -410,7 +411,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     seenIdsRef.current = new Set();
     const cached = queryClient.getQueryData<SwipeDeckState>(deckCacheKey);
 
-    const initialState = cached
+    const initialState: SwipeDeckState = cached
       ? cached.status === "loading" && cached.cards.length
         ? { ...cached, status: "ready" }
         : cached

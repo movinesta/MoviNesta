@@ -66,10 +66,10 @@ describe("computeTopGenres", () => {
     ];
 
     const titleGenres: TitleGenreRow[] = [
-      { title_id: "a", genre_id: 10, created_at: "", id: 1 },
-      { title_id: "b", genre_id: 11, created_at: "", id: 2 },
-      { title_id: "c", genre_id: 12, created_at: "", id: 3 },
-      { title_id: "a", genre_id: 10, created_at: "", id: 4 },
+      { title_id: "a", genre_id: 10 },
+      { title_id: "b", genre_id: 11 },
+      { title_id: "c", genre_id: 12 },
+      { title_id: "a", genre_id: 10 },
     ];
 
     const genres: GenreLookupRow[] = [

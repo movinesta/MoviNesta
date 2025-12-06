@@ -21,12 +21,12 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
       retry: 1,
-      onError: (error) => {
+      onError: (error: Error) => {
         toast.error(getErrorMessage(error));
       },
     },
     mutations: {
-      onError: (error) => {
+      onError: (error: Error) => {
         toast.error(getErrorMessage(error));
       },
     },
