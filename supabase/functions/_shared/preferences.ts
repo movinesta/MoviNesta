@@ -126,7 +126,7 @@ export async function computeUserProfile(
     .from("titles")
     .select("title_id, genres, content_type")
     .in("title_id", titleIds)
-    .is("deleted_at", null);
+    .filter("deleted_at", "is", null);
 
   if (titleError) {
     console.warn(
@@ -148,7 +148,7 @@ export async function computeUserProfile(
     if (weight == null) continue;
 
     const genres = normalizeGenres((row as any).genres);
-    const contentType = ((row as any).content_type ?? "").toString();
+    const contentType = ((row as any).content_type ?? "").toString().toLowerCase();
 
     for (const g of genres) {
       if (weight > 0) {

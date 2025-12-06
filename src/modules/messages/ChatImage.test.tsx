@@ -1,9 +1,7 @@
 import React from "react";
 import { describe, it, beforeEach, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import * as matchers from "@testing-library/jest-dom/matchers";
 import { ChatImage } from "./ConversationPage";
-
 
 const createSignedUrl = vi.fn();
 

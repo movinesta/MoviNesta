@@ -8,7 +8,7 @@ export interface Database {
           id: string;
           username: string | null;
           display_name: string | null;
-          email: string;
+          email: string | null;
           avatar_url: string | null;
           bio: string | null;
           created_at: string;
@@ -18,7 +18,7 @@ export interface Database {
           id: string;
           username?: string | null;
           display_name?: string | null;
-          email: string;
+          email?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string;
@@ -28,7 +28,7 @@ export interface Database {
           id?: string;
           username?: string | null;
           display_name?: string | null;
-          email?: string;
+          email?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string;
@@ -92,32 +92,22 @@ export interface Database {
           tmdb_vote_count: number | null;
           tmdb_release_date: string | null;
           tmdb_poster_path: string | null;
-          data_source: "omdb" | "tmdb";
+          data_source: string;
           source_priority: number;
           raw_payload: Json | null;
-          youtube_trailer_video_id: string | null;
-          youtube_trailer_title: string | null;
-          youtube_trailer_published_at: string | null;
-          youtube_trailer_thumb_url: string | null;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
           omdb_raw: Json | null;
-          tmdb_media_type: string | null;
           tmdb_first_air_date: string | null;
           tmdb_runtime: number | null;
           tmdb_episode_run_time: number[] | null;
           tmdb_genre_names: string[] | null;
           tmdb_raw: Json | null;
-          youtube_trailer_url: string | null;
-          youtube_trailer_query: string | null;
-          youtube_raw: Json | null;
           tmdb_last_synced_at: string | null;
           omdb_last_synced_at: string | null;
-          youtube_last_synced_at: string | null;
           last_synced_at: string | null;
           rt_tomato_pct: number | null;
-          omdb_year: number | null;
         };
         Insert: {
           title_id?: string;
@@ -167,32 +157,22 @@ export interface Database {
           tmdb_vote_count?: number | null;
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
-          data_source?: "omdb" | "tmdb";
+          data_source?: string;
           source_priority?: number;
           raw_payload?: Json | null;
-          youtube_trailer_video_id?: string | null;
-          youtube_trailer_title?: string | null;
-          youtube_trailer_published_at?: string | null;
-          youtube_trailer_thumb_url?: string | null;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
           omdb_raw?: Json | null;
-          tmdb_media_type?: string | null;
           tmdb_first_air_date?: string | null;
           tmdb_runtime?: number | null;
           tmdb_episode_run_time?: number[] | null;
           tmdb_genre_names?: string[] | null;
           tmdb_raw?: Json | null;
-          youtube_trailer_url?: string | null;
-          youtube_trailer_query?: string | null;
-          youtube_raw?: Json | null;
           tmdb_last_synced_at?: string | null;
           omdb_last_synced_at?: string | null;
-          youtube_last_synced_at?: string | null;
           last_synced_at?: string | null;
           rt_tomato_pct?: number | null;
-          omdb_year?: number | null;
         };
         Update: {
           title_id?: string;
@@ -242,32 +222,22 @@ export interface Database {
           tmdb_vote_count?: number | null;
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
-          data_source?: "omdb" | "tmdb";
+          data_source?: string;
           source_priority?: number;
           raw_payload?: Json | null;
-          youtube_trailer_video_id?: string | null;
-          youtube_trailer_title?: string | null;
-          youtube_trailer_published_at?: string | null;
-          youtube_trailer_thumb_url?: string | null;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
           omdb_raw?: Json | null;
-          tmdb_media_type?: string | null;
           tmdb_first_air_date?: string | null;
           tmdb_runtime?: number | null;
           tmdb_episode_run_time?: number[] | null;
           tmdb_genre_names?: string[] | null;
           tmdb_raw?: Json | null;
-          youtube_trailer_url?: string | null;
-          youtube_trailer_query?: string | null;
-          youtube_raw?: Json | null;
           tmdb_last_synced_at?: string | null;
           omdb_last_synced_at?: string | null;
-          youtube_last_synced_at?: string | null;
           last_synced_at?: string | null;
           rt_tomato_pct?: number | null;
-          omdb_year?: number | null;
         };
         Relationships: [];
       };
@@ -875,17 +845,7 @@ export interface Database {
           id: string;
           created_at: string;
           user_id: string;
-          event_type:
-            | "rating_created"
-            | "review_created"
-            | "watchlist_added"
-            | "watchlist_removed"
-            | "follow_created"
-            | "comment_created"
-            | "reply_created"
-            | "list_created"
-            | "list_item_added"
-            | "message_sent";
+          event_type: string;
           title_id: string | null;
           related_user_id: string | null;
           payload: Json | null;
@@ -894,17 +854,7 @@ export interface Database {
           id?: string;
           created_at?: string;
           user_id: string;
-          event_type:
-            | "rating_created"
-            | "review_created"
-            | "watchlist_added"
-            | "watchlist_removed"
-            | "follow_created"
-            | "comment_created"
-            | "reply_created"
-            | "list_created"
-            | "list_item_added"
-            | "message_sent";
+          event_type: string;
           title_id?: string | null;
           related_user_id?: string | null;
           payload?: Json | null;
@@ -913,17 +863,7 @@ export interface Database {
           id?: string;
           created_at?: string;
           user_id?: string;
-          event_type?:
-            | "rating_created"
-            | "review_created"
-            | "watchlist_added"
-            | "watchlist_removed"
-            | "follow_created"
-            | "comment_created"
-            | "reply_created"
-            | "list_created"
-            | "list_item_added"
-            | "message_sent";
+          event_type?: string;
           title_id?: string | null;
           related_user_id?: string | null;
           payload?: Json | null;
@@ -1090,6 +1030,7 @@ export interface Database {
           user_id: string;
           body: string;
           attachment_url: string | null;
+          sender_id: string | null;
         };
         Insert: {
           id?: string;
@@ -1098,6 +1039,7 @@ export interface Database {
           user_id: string;
           body: string;
           attachment_url?: string | null;
+          sender_id?: string | null;
         };
         Update: {
           id?: string;
@@ -1106,6 +1048,7 @@ export interface Database {
           user_id?: string;
           body?: string;
           attachment_url?: string | null;
+          sender_id?: string | null;
         };
         Relationships: [
           {
@@ -1445,19 +1388,19 @@ export interface Database {
         Row: {
           user_id: string;
           episode_id: string;
-          status: "watching" | "watched" | "skipped";
+          status: "watched" | "skipped";
           watched_at: string;
         };
         Insert: {
           user_id: string;
           episode_id: string;
-          status?: "watching" | "watched" | "skipped";
+          status?: "watched" | "skipped";
           watched_at?: string;
         };
         Update: {
           user_id?: string;
           episode_id?: string;
-          status?: "watching" | "watched" | "skipped";
+          status?: "watched" | "skipped";
           watched_at?: string;
         };
         Relationships: [
@@ -1698,13 +1641,13 @@ export interface Database {
           p_user_id: string;
         };
         Returns: {
-          total_rated: number | null;
-          total_watched: number | null;
-          average_rating: number | null;
-          rating_distribution: Json | null;
-          top_genres: Json | null;
-          watch_count_by_month: Json | null;
-        }[];
+          total_rated: number;
+          total_watched: number;
+          average_rating: number;
+          rating_distribution: Json;
+          top_genres: Json;
+          watch_count_by_month: Json;
+        };
       };
       get_home_feed: {
         Args: {
@@ -1716,17 +1659,7 @@ export interface Database {
           id: string;
           created_at: string;
           user_id: string;
-          event_type:
-            | "rating_created"
-            | "review_created"
-            | "watchlist_added"
-            | "watchlist_removed"
-            | "follow_created"
-            | "comment_created"
-            | "reply_created"
-            | "list_created"
-            | "list_item_added"
-            | "message_sent";
+          event_type: string;
           title_id: string | null;
           related_user_id: string | null;
           payload: Json | null;
@@ -1734,22 +1667,11 @@ export interface Database {
       };
     };
     Enums: {
-      activity_event_type:
-        | "rating_created"
-        | "review_created"
-        | "watchlist_added"
-        | "watchlist_removed"
-        | "follow_created"
-        | "comment_created"
-        | "reply_created"
-        | "list_created"
-        | "list_item_added"
-        | "message_sent";
-      episode_status: "watching" | "watched" | "skipped";
-      library_status: "want_to_watch" | "watching" | "watched" | "dropped";
-      privacy_level: "public" | "followers_only" | "private";
       content_type: "movie" | "series" | "anime";
+      episode_status: "watched" | "skipped";
+      library_status: "want_to_watch" | "watching" | "watched" | "dropped";
       participant_role: "member" | "admin" | "owner";
+      privacy_level: "public" | "followers_only" | "private";
       report_status: "open" | "in_review" | "resolved" | "dismissed";
     };
     CompositeTypes: {
