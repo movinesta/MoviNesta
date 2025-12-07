@@ -60,11 +60,14 @@ export type TmdbTitle = {
   voteAverage: number | null;
 };
 
-export async function fetchTrendingTitles(limit = 20, signal?: AbortSignal): Promise<TmdbTitle[]> {
+export async function fetchTrendingTitles(
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<TmdbTitle[]> {
   const body = (await fetchTmdbJson(
     "/trending/all/week",
     {
-      include_adult: "false",
+      include_adult: false,
       page: 1,
     },
     signal,
