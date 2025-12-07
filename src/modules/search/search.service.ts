@@ -226,7 +226,8 @@ export const searchTitles = async (params: {
           items: batchCandidates.map((item) => ({
             tmdbId: item.tmdbId,
             imdbId: item.imdbId ?? undefined,
-            mediaType: item.type === "tv" ? "tv" : "movie",
+            // 🔧 FIX: edge function expects `contentType: "movie" | "series"`
+            contentType: item.type === "tv" ? "series" : "movie",
           })),
           options: {
             syncOmdb: true,
