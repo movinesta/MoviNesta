@@ -341,12 +341,7 @@ const TitleDetailPage: React.FC = () => {
     ? (data.poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
     : null;
 
-  const tmdb_backdrop_path = data?.tmdb_raw?.backdrop_path as string | undefined;
-  const backdropImage = data
-    ? (data.backdrop_url ??
-      tmdbImageUrl(tmdb_backdrop_path, "w1280") ??
-      tmdbImageUrl(tmdb_backdrop_path, "w780"))
-    : null;
+  const backdropImage = data ? data.backdrop_url : null;
 
   React.useEffect(() => {
     const urls = [posterImage, backdropImage].filter((url): url is string => Boolean(url));
