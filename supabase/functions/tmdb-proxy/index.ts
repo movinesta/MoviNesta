@@ -62,7 +62,7 @@ export async function handler(req: Request) {
 
   try {
     const { data: payload, errorResponse } = await validateRequest(req, (raw) =>
-      ProxyPayloadSchema.parse(raw)
+      ProxyPayloadSchema.parse(raw),
     );
     if (errorResponse) return errorResponse;
 
@@ -86,7 +86,10 @@ serve(handler);
 // Helper Functions
 // ============================================================================
 
-function validateParams(path: typeof ALLOWED_PATHS[number], params: Record<string, unknown> = {}) {
+function validateParams(
+  path: (typeof ALLOWED_PATHS)[number],
+  params: Record<string, unknown> = {},
+) {
   const schema = path === "/search/multi" ? SearchParamsSchema : TrendingParamsSchema;
   return schema.parse(params);
 }
