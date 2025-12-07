@@ -371,12 +371,40 @@ async function tmdbGetDetails(tmdbId: number, type: TmdbMediaType): Promise<any 
 }
 
 async function omdbGetDetails(imdbId: string): Promise<any | null> {
-  // NOTE: This is a placeholder for the actual OMDB API key.
-  const OMDB_API_KEY = "OMDB_API_KEY";
+  const OMDB_BASE = "https://www.omdbapi.com/";
+  const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
+
+  if (!OMDB_API_KEY) {
+    // Don’t break the whole sync if OMDb isn’t configured – just log & skip.
+    log({ fn: FN_NAME }, "OMDB_API_KEY missing, skipping OMDb enrichment", { imdbId });
+    return null;
+  }
+
   const url = new URL(OMDB_BASE);
   url.searchParams.set("apikey", OMDB_API_KEY);
   url.searchParams.set("i", imdbId);
   url.searchParams.set("plot", "full");
+
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      log({ fn: FN_NAME }, "OMDb request failed", { status: res.status, imdbId });
+      return null;
+    }
+
+    const data = await res.json();
+    if (data.Response === "False") {
+      log({ fn: FN_NAME }, "OMDb API returned an error", { imdbId, error: data.Error });
+      return null;
+    }
+
+    return data;
+  } catch (error: any) {
+    log({ fn: FN_NAME }, "OMDb fetch error", { error: error.message, imdbId });
+    return null;
+  }
+}
+
 
   try {
     const res = await fetch(url.toString());
