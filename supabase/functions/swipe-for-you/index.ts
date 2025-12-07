@@ -12,7 +12,11 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
-import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
+import {
+  computeUserProfile,
+  getPreferredContentType,
+  type UserProfile,
+} from "../_shared/preferences.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import type { Database } from "../../../src/types/supabase.ts";
@@ -208,12 +212,6 @@ function applyDiversityAndCaps(
 // ============================================================================
 // Utils
 // ============================================================================
-
-function getPreferredContentType(weights: UserProfile["contentTypeWeights"]): ContentType | null {
-  if (!weights) return null;
-  const [best, score] = Object.entries(weights).sort((a, b) => b[1] - a[1])[0] ?? [];
-  return score > 0 ? (best as ContentType) : null;
-}
 
 function triggerBackgroundSync(req: Request, cards: SwipeCard[]) {
   Promise.allSettled(

@@ -48,7 +48,7 @@ describe("catalog-search handler", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.results[0].tmdb.title).toBe("Test Movie");
+    expect(json.results[0].title).toBe("Test Movie");
     expect(triggerCatalogSyncForTitle).toHaveBeenCalledTimes(1);
   });
 });

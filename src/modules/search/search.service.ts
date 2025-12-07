@@ -112,7 +112,17 @@ const searchSupabaseTitles = async (
   let builder = supabase.from("titles").select(columns, { count: "exact" });
 
   if (filters?.genreIds?.length) {
-    builder = builder.select(`${columns}, title_genres!inner(genre_id, genres(id, name))`);
+    const { data: titleIds, error } = await supabase
+      .from("title_genres")
+      .select("title_id")
+      .in("genre_id", filters.genreIds);
+    if (error) {
+      throw new Error(error.message);
+    }
+    builder = builder.in(
+      "title_id",
+      titleIds.map((t) => t.title_id),
+    );
   }
 
   builder = builder
@@ -142,10 +152,6 @@ const searchSupabaseTitles = async (
 
   if (filters?.originalLanguage) {
     builder = builder.eq("language", filters.originalLanguage);
-  }
-
-  if (filters?.genreIds?.length) {
-    builder = builder.in("title_genres.genre_id", filters.genreIds);
   }
 
   const { data, error, count } = await builder;

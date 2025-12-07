@@ -13,7 +13,11 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
-import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
+import {
+  computeUserProfile,
+  getPreferredContentType,
+  type UserProfile,
+} from "../_shared/preferences.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
 import type { Database } from "../../../src/types/supabase.ts";
@@ -206,7 +210,7 @@ function computeUserBoost(candidate: Title, profile: UserProfile | null): number
   if (profile.favoriteGenres?.some((g) => candidate.genres?.includes(g))) {
     boost += 0.2;
   }
-  if (candidate.content_type === profile.preferredContentType) {
+  if (candidate.content_type === getPreferredContentType(profile.contentTypeWeights)) {
     boost += 0.1;
   }
   return boost;

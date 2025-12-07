@@ -16,6 +16,7 @@ vi.mock("../_shared/supabase.ts", () => ({
 
 vi.mock("../_shared/preferences.ts", () => ({
   computeUserProfile: vi.fn(),
+  getPreferredContentType: vi.fn(),
 }));
 
 vi.mock("../_shared/swipe.ts", () => ({

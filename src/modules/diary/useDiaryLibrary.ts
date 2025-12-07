@@ -46,14 +46,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
 
       const { data, error } = await supabase
         .from("library_entries")
-        .select(
-          `
-            id, title_id, status, updated_at,
-            titles!inner (
-              title_id, primary_title, release_year, content_type, poster_url, backdrop_url
-            )
-          `,
-        )
+        .select("id, title_id, status, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(500);
@@ -62,13 +55,26 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         throw new Error(error.message);
       }
 
-      const rows = (data as LibraryRowWithTitle[]) ?? [];
+      const rows = (data as LibraryRow[]) ?? [];
 
       if (!rows.length) return [];
 
       const titleIds = Array.from(
         new Set(rows.map((row) => row.title_id).filter((id): id is string => Boolean(id))),
       );
+
+      let titlesById = new Map<string, TitleRow>();
+      if (titleIds.length) {
+        const { data: titles, error: titlesError } = await supabase
+          .from("titles")
+          .select("title_id, primary_title, release_year, content_type, poster_url, backdrop_url")
+          .in("title_id", titleIds);
+        if (titlesError) {
+          console.warn("[useDiaryLibrary] Failed to load titles for library entries", titlesError.message);
+        } else {
+          titlesById = new Map(titles.map((row) => [row.title_id, row]));
+        }
+      }
 
       let ratingsByTitleId = new Map<string, number | null>();
 
@@ -92,7 +98,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
       }
 
       return rows.map((row) => {
-        const title = row.titles;
+        const title = titlesById.get(row.title_id);
         const rating = ratingsByTitleId.get(row.title_id) ?? null;
 
         return {

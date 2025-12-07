@@ -61,12 +61,7 @@ interface TitleRow {
   poster_url: string | null;
   tmdb_poster_path: string | null;
   backdrop_url: string | null;
-  tmdb_backdrop_path: string | null;
 
-  // Trailer
-  youtube_trailer_url: string | null;
-  youtube_trailer_video_id: string | null;
-  youtube_trailer_title: string | null;
 }
 
 interface CreateDirectConversationResponse {
@@ -223,11 +218,7 @@ const TitleDetailPage: React.FC = () => {
           rt_tomato_pct,
           poster_url,
           tmdb_poster_path,
-          backdrop_url,
-          tmdb_backdrop_path,
-          youtube_trailer_url,
-          youtube_trailer_video_id,
-          youtube_trailer_title
+          backdrop_url
         `,
         )
         .eq("title_id", titleId)
@@ -268,8 +259,8 @@ const TitleDetailPage: React.FC = () => {
       // 1) Find people the current user follows.
       const { data: follows, error: followsError } = await supabase
         .from("follows")
-        .select("followed_user_id")
-        .eq("follower_user_id", userId)
+        .select("followed_id")
+        .eq("follower_id", userId)
         .limit(80);
 
       if (followsError) {
@@ -277,7 +268,7 @@ const TitleDetailPage: React.FC = () => {
       }
 
       const friendIds = (follows ?? [])
-        .map((row: any) => row.followed_user_id as string)
+        .map((row: any) => row.followed_id as string)
         .filter(Boolean);
 
       if (!friendIds.length) return [];
@@ -350,10 +341,11 @@ const TitleDetailPage: React.FC = () => {
     ? (data.poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
     : null;
 
+  const tmdb_backdrop_path = data?.tmdb_raw?.backdrop_path as string | undefined;
   const backdropImage = data
     ? (data.backdrop_url ??
-      tmdbImageUrl(data.tmdb_backdrop_path, "w1280") ??
-      tmdbImageUrl(data.tmdb_backdrop_path, "w780"))
+      tmdbImageUrl(tmdb_backdrop_path, "w1280") ??
+      tmdbImageUrl(tmdb_backdrop_path, "w780"))
     : null;
 
   React.useEffect(() => {

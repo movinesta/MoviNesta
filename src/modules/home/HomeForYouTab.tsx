@@ -210,12 +210,23 @@ const fetchHomeRecommendations = async (
   });
 
   // Popular anime for now: just pull some recent anime titles.
+  const { data: animeTitleIdsData, error: animeError } = await supabase
+    .from("anime")
+    .select("title_id")
+    .limit(16);
+
+  if (animeError) {
+    hasPartialData = true;
+    console.warn("[HomeForYouTab] Failed to load anime titles", animeError.message);
+  }
+
+  const animeTitleIdsResult = (animeTitleIdsData ?? []).map((row) => row.title_id);
   const animeResult = await supabase
     .from("titles")
     .select(
       "id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, rt_tomato_pct",
     )
-    .eq("content_type", "anime")
+    .in("title_id", animeTitleIdsResult)
     .order("release_year", { ascending: false })
     .limit(16);
 
