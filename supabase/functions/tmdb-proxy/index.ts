@@ -1,50 +1,77 @@
 // supabase/functions/tmdb-proxy/index.ts
 //
 // TMDb proxy Edge Function that injects the server-side read token and
-// restricts requests to a small set of allowed paths/params to avoid abuse.
+// forwards requests from the frontend to TMDb.
+//
+// This version is intentionally more permissive:
+// - It accepts *any* TMDb path string starting with "/".
+// - It accepts any params object and just forwards it as query params.
+// - It still uses the server-side TMDB read access token from getConfig().
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
-import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
+import {
+  handleOptions,
+  jsonError,
+  jsonResponse,
+} from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
 import { getConfig } from "../_shared/config.ts";
 
 const FN_NAME = "tmdb-proxy";
-
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
-// ============================================================================
-// Type and Schema Definitions
-// ============================================================================
+interface ProxyPayload {
+  path: string;
+  params?: Record<string, unknown>;
+}
 
-const ALLOWED_PATHS = ["/search/multi", "/trending/all/week"] as const;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-const ProxyPayloadSchema = z.object({
-  path: z.enum(ALLOWED_PATHS),
-  params: z.record(z.unknown()).optional(),
-});
+function buildTmdbUrl(path: string, params: Record<string, unknown>): URL {
+  const url = new URL(TMDB_BASE_URL + path);
 
-type ProxyPayload = z.infer<typeof ProxyPayloadSchema>;
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    url.searchParams.set(key, String(value));
+  }
 
-const SearchParamsSchema = z.object({
-  query: z.string().min(1, "Query is required").max(200),
-  page: z.number().int().min(1).max(1000).optional(),
-  include_adult: z.boolean().optional(),
-  language: z.string().optional(),
-  region: z.string().optional(),
-});
+  // Default language if not provided by the client
+  if (!url.searchParams.has("language")) {
+    url.searchParams.set("language", "en-US");
+  }
 
-const TrendingParamsSchema = z.object({
-  page: z.number().int().min(1).max(1000).optional(),
-  language: z.string().optional(),
-});
+  return url;
+}
 
-// ============================================================================
-// Main Request Handler
-// ============================================================================
+async function fetchFromTmdb(url: URL) {
+  const { tmdbApiReadAccessToken } = getConfig();
 
-export async function handler(req: Request) {
+  const res = await fetch(url.toString(), {
+    headers: {
+      accept: "application/json",
+      Authorization: `Bearer ${tmdbApiReadAccessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    log({ fn: FN_NAME }, "TMDb request failed", {
+      status: res.status,
+      url: url.toString(),
+    });
+    throw new Error(`TMDb request failed with status ${res.status}`);
+  }
+
+  return await res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
+
+serve(async (req: Request) => {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -60,66 +87,30 @@ export async function handler(req: Request) {
     return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
   }
 
+  let payload: ProxyPayload;
   try {
-    const { data: payload, errorResponse } = await validateRequest(req, (raw) =>
-      ProxyPayloadSchema.parse(raw),
-    );
-    if (errorResponse) return errorResponse;
-
-    const validatedParams = validateParams(payload.path, payload.params);
-    const url = buildTmdbUrl(payload.path, validatedParams);
-
-    const tmdbResponse = await fetchFromTmdb(url);
-    return jsonResponse({ ok: true, data: tmdbResponse });
+    payload = (await req.json()) as ProxyPayload;
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return jsonError("Invalid request body", 400, "BAD_REQUEST");
-    }
-    log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
+    log(logCtx, "Invalid JSON body", { error: String(err) });
+    return jsonError("Invalid JSON body", 400, "BAD_REQUEST_INVALID_JSON");
+  }
+
+  if (!payload || typeof payload.path !== "string" || !payload.path.startsWith("/")) {
+    return jsonError("Invalid path", 400, "BAD_REQUEST_INVALID_PATH");
+  }
+
+  const rawParams = payload.params;
+  const params: Record<string, unknown> =
+    rawParams && typeof rawParams === "object" && !Array.isArray(rawParams)
+      ? (rawParams as Record<string, unknown>)
+      : {};
+
+  try {
+    const url = buildTmdbUrl(payload.path, params);
+    const data = await fetchFromTmdb(url);
+    return jsonResponse({ ok: true, data });
+  } catch (err) {
+    log(logCtx, "Unhandled error", { error: String(err) });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-}
-
-serve(handler);
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-function validateParams(
-  path: (typeof ALLOWED_PATHS)[number],
-  params: Record<string, unknown> = {},
-) {
-  const schema = path === "/search/multi" ? SearchParamsSchema : TrendingParamsSchema;
-  return schema.parse(params);
-}
-
-function buildTmdbUrl(path: string, params: Record<string, any>): URL {
-  const url = new URL(`${TMDB_BASE_URL}${path}`);
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      url.searchParams.set(key, String(value));
-    }
-  });
-  if (!url.searchParams.has("language")) {
-    url.searchParams.set("language", "en-US");
-  }
-  return url;
-}
-
-async function fetchFromTmdb(url: URL) {
-  const { tmdbApiReadAccessToken } = getConfig();
-  const res = await fetch(url.toString(), {
-    headers: {
-      accept: "application/json",
-      Authorization: `Bearer ${tmdbApiReadAccessToken}`,
-    },
-  });
-
-  if (!res.ok) {
-    log({ fn: FN_NAME }, "TMDb request failed", { status: res.status, url: url.toString() });
-    throw new Error(`TMDb request failed with status ${res.status}`);
-  }
-
-  return await res.json();
-}
+});
