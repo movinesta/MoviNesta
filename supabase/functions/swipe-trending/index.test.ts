@@ -16,6 +16,7 @@ vi.mock("../_shared/supabase.ts", () => ({
 
 vi.mock("../_shared/preferences.ts", () => ({
   computeUserProfile: vi.fn(),
+  getPreferredContentType: vi.fn(),
 }));
 
 vi.mock("../_shared/swipe.ts", () => ({
@@ -73,10 +74,8 @@ describe("swipe-trending handler", () => {
       if (table === "titles") {
         return {
           ...mockQueryBuilder,
-          is: vi.fn().mockResolvedValue({
-            data: [{ title_id: "1", genres: ["Action"], tmdb_popularity: 100 }],
-            error: null,
-          }),
+          is: vi.fn().mockReturnThis(),
+          then: (resolve: any) => resolve({ data: [{ title_id: "1", genres: ["Action"], tmdb_popularity: 100 }], error: null }),
         };
       }
       return mockQueryBuilder;

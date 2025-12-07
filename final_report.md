@@ -1,53 +1,70 @@
-# MoviNesta Supabase Edge Functions: Review and Fixes Report
+# Supabase Schema Consistency Audit Report
 
-This report summarizes the work done to review, fix, and test all Supabase Edge Functions in the `supabase/functions/` directory.
+This report details the inconsistencies found between the generated Supabase types file (`src/types/supabase.ts`) and the actual project code.
 
-## 1. Edge Functions Summary
+## Summary of Findings
 
-The following is a summary of each edge function, its purpose, and its basic request/response contract.
+The audit revealed several types of inconsistencies, including:
 
-| Function | Purpose | Request / Response |
-| :--- | :--- | :--- |
-| **`catalog-backfill`** | Seeds the `titles` table by discovering trending and popular content from TMDb and enqueuing it for a full metadata sync. | **POST**: `{ mediaTypes?, pagesPerType? }` -> **200**: `{ ok: true, results: { ... } }` |
-| **`catalog-search`** | A public, read-only endpoint to search for titles. It queries TMDb and merges the results with existing data from the local `titles` table. | **POST**: `{ query: string, page?: number }` -> **200**: `{ ok: true, results: [...] }` |
-| **`catalog-sync`** | The core data ingestion function. It fetches detailed metadata for a single title from TMDb and OMDb, transforms it, and upserts it into the `titles` table. | **POST**: `{ tmdbId?: number, imdbId?: string }` -> **200**: `{ ok: true, title_id: "..." }` |
-| **`catalog-sync-batch`**| A wrapper function that invokes `catalog-sync` for a batch of titles in parallel, improving throughput for bulk operations. | **POST**: `{ items: [{ tmdbId, ... }] }` -> **200**: `{ ok: true, results: [...] }` |
-| **`create-direct-conversation`** | Creates or reuses a one-on-one chat conversation between the current user and a target user, including a check for blocked users. | **POST**: `{ targetUserId: string }` -> **200**: `{ ok: true, conversationId: "..." }` |
-| **`debug-env`** | A simple, protected health-check endpoint to verify that all necessary environment variables are available in the runtime. | **GET**: (No body) -> **200**: `{ ok: true, env: { ... } }` |
-| **`swipe-event`** | Processes a user's swipe action (like, dislike, skip). It updates ratings, library status, and records an activity event for social feeds. | **POST**: `{ titleId, direction, ... }` -> **200**: `{ ok: true }` |
-| **`swipe-for-you`** | Generates a personalized "For You" recommendation deck based on the user's computed taste profile (genres, content types). | **POST**: (No body) -> **200**: `{ ok: true, cards: [...] }` |
-| **`swipe-from-friends`**| Generates a recommendation deck based on titles that have been highly rated by users the current user follows. | **POST**: (No body) -> **200**: `{ ok: true, cards: [...] }` |
-| **`swipe-more-like-this`**| Generates a recommendation deck of titles that are similar to a specified seed title, based on genre, release year, and popularity. | **GET**: `?title_id=...` -> **200**: `{ ok: true, cards: [...] }` |
-| **`swipe-trending`** | Generates a recommendation deck based on titles with the most recent user activity (ratings, library adds) across the platform. | **POST**: (No body) -> **200**: `{ ok: true, cards: [...] }` |
-| **`tmdb-proxy`** | A secure server-side proxy that allows the client to make a restricted set of TMDB API calls without exposing the API key. | **POST**: `{ path: string, params: { ... } }` -> **200**: `{ ok: true, data: { ... } }` |
-| **`update-notification-prefs`**| A CRUD endpoint for managing the authenticated user's notification settings (e.g., email and in-app toggles). | **GET/POST**: (No body / `{ emailActivity: boolean }`) -> **200**: `{ ok: true, preferences: { ... } }` |
+- **Missing Relationships:** Queries using joins on tables where the relationship is not defined in the `supabase.ts` types.
+- **Missing Columns:** Queries selecting or inserting data into columns that do not exist in the `supabase.ts` schema.
+- **Incorrect Column Names:** Queries using incorrect column names (typos).
+- **Inconsistent Enum Usage:** Code using enum values that are not defined in the `supabase.ts` schema.
+- **Incorrect Property Access:** Code accessing properties on a type that do not exist.
+- **Heavy `any` Casting:** Several files use `(row as any)` to bypass TypeScript's type checking, which can hide potential issues.
 
-## 2. Fixes Made
+## Detailed Findings
 
-The primary goal was to improve the robustness, correctness, and testability of all functions. The key changes are listed below.
+### 1. `src/modules/diary/useDiaryLibrary.ts`
 
-| File Path | Problems Found | Changes Made |
-| :--- | :--- | :--- |
-| **`supabase/functions/_shared/config.ts`** | **(New File)** Direct `Deno.env.get()` calls in every module made them untestable. | Created a centralized configuration module (`config.ts`) to manage all environment variables. This module reads from `Deno.env` in the Deno runtime but can be easily mocked during tests. |
-| **`supabase/functions/_shared/*.ts`** | All shared modules (`supabase.ts`, `tmdb.ts`, `catalog-sync.ts`) had hardcoded dependencies on environment variables. | Refactored all shared modules to import and use the new `getConfig()` function, removing all direct calls to `Deno.env`. |
-| **All `supabase/functions/*/index.ts`** | Functions were difficult to test due to logic being tightly coupled with the `serve` callback and reliance on untestable shared modules. | <ul><li>Updated all functions to use the refactored, testable shared modules.</li><li>Extracted the core logic of each function into an exported `handler` function. This allows the handler to be imported and tested directly, decoupling it from the Deno `serve` HTTP listener.</li><li>Standardized error handling and improved input validation in several functions.</li></ul> |
+- **Inconsistency:** A query uses an inner join from `library_entries` to `titles`, but this relationship is not defined in the `supabase.ts` types for the `library_entries` table.
+- **Query:** `supabase.from("library_entries").select('..., titles!inner(...)')`
+- **Impact:** This could lead to type errors and makes it difficult to understand the intended relationships between tables.
 
-## 3. Testing Summary
+### 2. `src/modules/home/HomeForYouTab.tsx`
 
-A comprehensive testing strategy was implemented to validate the logic of each function in isolation.
+- **Inconsistency:** A query filters the `titles` table for `content_type = 'anime'`, but the `content_type` enum in `supabase.ts` only allows `'movie'` or `'series'`.
+- **Query:** `supabase.from("titles")...eq("content_type", "anime")`
+- **Impact:** This query will likely return no data, and it indicates a misunderstanding of the schema.
 
-*   **Commands Run:** `npm install` to set up the environment and `npm test` to run the full Vitest test suite.
-*   **New Test Files:** A new test file was added for **every single edge function** and for the core shared modules (`http.test.ts`, `supabase.test.ts`, `tmdb.test.ts`).
-*   **Final Status & Known Issues:**
-    *   The test suite is **currently failing**. The failures are not due to bugs in the functions' business logic but rather stem from complexities in the test environment.
-    *   **Known Issue 1: ESM Loader Errors:** The primary blocker is an issue where Vitest (running in a Node.js environment) fails to correctly process some of the Deno/ESM-style `import` statements from remote URLs (e.g., `https://esm.sh/...`). This causes several test suites to fail during the initial module loading phase.
-    *   **Known Issue 2: Brittle Mocks:** The Supabase client's chained API (e.g., `supabase.from().select().eq()`) required complex and brittle mocks. While many were fixed, some tests still fail due to `TypeError` exceptions where a chained method is not found on a mock.
+### 3. `src/modules/search/search.service.ts`
 
-Despite these test environment challenges, the functions have been significantly improved and are now fully testable. The created test files correctly outline the logic to be validated and provide a clear path to a fully passing test suite once the environment issues are resolved.
+- **Inconsistency:** A query uses an inner join on `title_genres` from `titles`, but this relationship is not defined in the `supabase.ts` types for the `titles` table.
+- **Query:** `supabase.from("titles").select('..., title_genres!inner(genre_id, genres(id, name))')`
+- **Impact:** Similar to the issue in `useDiaryLibrary.ts`, this can cause type errors and confusion.
 
-## 4. Follow-up Recommendations
+### 4. `src/modules/title/TitleDetailPage.tsx`
 
-1.  **Robust Mocking Strategy:** Create a dedicated test utility for mocking the Supabase client. A mock factory could generate a fully chainable mock object, making tests for data-access logic much cleaner and more reliable.
-2.  **Resolve Test Environment Issues:** The highest priority is to configure Vitest to correctly handle the Deno-style ESM imports. This may involve using Vitest plugins, custom resolvers, or module aliasing to bridge the differences between the Deno and Node.js module systems.
-3.  **Adopt Zod for All Input Validation:** The `create-direct-conversation` function uses `zod` for schema validation, which is an excellent pattern. This should be adopted by all functions that accept a request body to ensure type safety and provide clear validation error messages.
-4.  **Enhance Structured Logging:** Standardize the logging format to include a consistent `level` (`info`, `warn`, `error`) and always include the `userId` in the log context when available. This will significantly improve observability and debugging in a production environment.
+- **Inconsistency 1 (Missing Columns):** The main query for `titles` selects `youtube_trailer_url`, `youtube_trailer_video_id`, and `youtube_trailer_title`. These columns do not exist in the `titles` table definition in `supabase.ts`.
+- **Inconsistency 2 (Incorrect Column Names):** A query on the `follows` table uses `followed_user_id` and `follower_user_id` instead of the correct `followed_id` and `follower_id`.
+- **Query:** `supabase.from("follows").select("followed_user_id").eq("follower_user_id", userId)`
+- **Impact:** The query with incorrect column names will fail. The query with missing columns will also fail.
+
+### 5. `supabase/functions/catalog-sync/index.ts`
+
+- **Inconsistency 1 (Missing Columns):** The `buildTmdbBlock` function populates `tmdb_poster_url` and `tmdb_backdrop_url`, but these columns are not defined in the `supabase.ts` schema for the `titles` table.
+- **Impact:** The insert/update operation will fail due to the missing columns.
+
+### 6. `supabase/functions/swipe-event/index.ts`
+
+- **Inconsistency (Missing Enum Value):** The `recordActivityEvent` function uses an `event_type` of `"swipe_skipped"`, which is not defined in the `activity_event_type` enum in `supabase.ts`.
+- **Impact:** While the `event_type` column is a `string` and won't cause a database error, this is inconsistent with the intended enum usage and can lead to unexpected behavior in downstream processing.
+
+### 7. `supabase/functions/swipe-trending/index.ts`
+
+- **Inconsistency (Incorrect Property Access):** The code accesses a non-existent `preferredContentType` property on the `UserProfile` type.
+- **Code:** `if (candidate.content_type === profile.preferredContentType)`
+- **Impact:** This will likely result in a runtime error.
+
+## Test Suite Status
+
+The test suite is currently failing. I attempted to fix the tests, but was unsuccessful. The errors seem to be related to incorrect mocks and missing environment variables. Further investigation is required to resolve these issues.
+
+## Recommendations
+
+1.  **Update Supabase Types:** Regenerate the `supabase.ts` file to ensure it accurately reflects the current database schema, including all relationships and correct column names.
+2.  **Fix Incorrect Queries:** Correct the queries in the identified files to use the proper column names, relationships, and enum values.
+3.  **Add Missing Columns:** If the missing columns (`youtube_trailer_*`, `tmdb_poster_url`, `tmdb_backdrop_url`) are required, add them to the `titles` table and then regenerate the types.
+4.  **Correct Type Definitions:** Update the `UserProfile` type to include the `preferredContentType` property if it's intended to be there, or update the code to derive it from `contentTypeWeights`.
+5.  **Reduce `any` Casting:** Refactor the code to avoid using `(row as any)` and instead rely on the generated Supabase types. This will improve type safety and make the code easier to maintain.
+6.  **Fix Test Suite:** Investigate and fix the failing tests. This will likely involve updating mocks and ensuring that environment variables are loaded correctly in the test environment.

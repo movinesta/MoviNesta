@@ -222,3 +222,12 @@ function normalizeGenres(raw: unknown): string[] {
 
   return [];
 }
+
+export function getPreferredContentType(weights: UserProfile["contentTypeWeights"]): "movie" | "series" | null {
+  if (!weights) return null;
+  const [best, score] = Object.entries(weights).sort((a, b) => b[1] - a[1])[0] ?? [];
+  if (score > 0 && (best === "movie" || best === "series")) {
+    return best;
+  }
+  return null;
+}
