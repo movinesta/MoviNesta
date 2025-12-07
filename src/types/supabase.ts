@@ -92,8 +92,8 @@ export interface Database {
           tmdb_vote_count: number | null;
           tmdb_release_date: string | null;
           tmdb_poster_path: string | null;
-          data_source: string;
-          source_priority: number;
+          data_source: string | null;
+          source_priority: number | null;
           raw_payload: Json | null;
           deleted_at: string | null;
           created_at: string;
@@ -157,8 +157,8 @@ export interface Database {
           tmdb_vote_count?: number | null;
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
-          data_source?: string;
-          source_priority?: number;
+          data_source?: string | null;
+          source_priority?: number | null;
           raw_payload?: Json | null;
           deleted_at?: string | null;
           created_at?: string;
@@ -222,8 +222,8 @@ export interface Database {
           tmdb_vote_count?: number | null;
           tmdb_release_date?: string | null;
           tmdb_poster_path?: string | null;
-          data_source?: string;
-          source_priority?: number;
+          data_source?: string | null;
+          source_priority?: number | null;
           raw_payload?: Json | null;
           deleted_at?: string | null;
           created_at?: string;
@@ -272,14 +272,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "movies_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
-        ];
+        Relationships: [];
       };
       series: {
         Row: {
@@ -312,14 +305,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "series_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
-        ];
+        Relationships: [];
       };
       anime: {
         Row: {
@@ -352,14 +338,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "anime_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
-        ];
+        Relationships: [];
       };
       seasons: {
         Row: {
@@ -395,14 +374,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "seasons_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
-        ];
+        Relationships: [];
       };
       episodes: {
         Row: {
@@ -446,12 +418,6 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "episodes_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
-          {
             foreignKeyName: "episodes_season_id_fkey";
             columns: ["season_id"];
             referencedRelation: "seasons";
@@ -491,12 +457,6 @@ export interface Database {
           updated_at?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "ratings_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
           {
             foreignKeyName: "ratings_user_id_fkey";
             columns: ["user_id"];
@@ -549,12 +509,6 @@ export interface Database {
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "library_entries_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
         ];
       };
       reviews: {
@@ -600,12 +554,6 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "reviews_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
           },
         ];
       };
@@ -732,12 +680,6 @@ export interface Database {
             columns: ["list_id"];
             referencedRelation: "lists";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "list_items_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
           },
         ];
       };
@@ -1063,6 +1005,12 @@ export interface Database {
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "messages_sender_id_fkey";
+            columns: ["sender_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
         ];
       };
       message_reactions: {
@@ -1222,14 +1170,7 @@ export interface Database {
           watch_count?: number | null;
           last_updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "title_stats_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
-        ];
+        Relationships: [];
       };
       user_stats: {
         Row: {
@@ -1315,12 +1256,6 @@ export interface Database {
             referencedRelation: "genres";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "title_genres_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
-          },
         ];
       };
       people: {
@@ -1375,12 +1310,6 @@ export interface Database {
             columns: ["person_id"];
             referencedRelation: "people";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "title_credits_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
           },
         ];
       };
@@ -1480,12 +1409,6 @@ export interface Database {
             columns: ["tag_id"];
             referencedRelation: "user_tags";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_title_tags_title_id_fkey";
-            columns: ["title_id"];
-            referencedRelation: "titles";
-            referencedColumns: ["title_id"];
           },
         ];
       };
