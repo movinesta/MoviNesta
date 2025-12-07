@@ -43,7 +43,7 @@ export async function fetchTmdbJson(
 
 export type TmdbImageSize = "w185" | "w342" | "w500" | "w780" | "w1280" | "original";
 
-export function tmdbImageUrl(path: string | null, size: TmdbImageSize = "w342"): string | null {
+export function tmdbImageUrl(path: string | null | undefined, size: TmdbImageSize = "w500") {
   if (!path) return null;
   return `https://image.tmdb.org/t/p/${size}${path}`;
 }
@@ -60,17 +60,20 @@ export type TmdbTitle = {
   voteAverage: number | null;
 };
 
-export async function fetchTrendingTitles(limit = 20, signal?: AbortSignal): Promise<TmdbTitle[]> {
+export async function fetchTrendingTitles(
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<TmdbTitle[]> {
   const body = (await fetchTmdbJson(
     "/trending/all/week",
     {
-      include_adult: false, // ✅ boolean
+      include_adult: false,
       page: 1,
     },
     signal,
-  )) as TmdbTrendingResponse | null;
+  )) as TmdbTrendingResponse;
 
-  const results = Array.isArray(body?.results) ? (body!.results as TmdbTitleResult[]) : [];
+  const results = Array.isArray(body?.results) ? (body.results as TmdbTitleResult[]) : [];
 
   return results
     .filter((item): item is TmdbTitleResult & { id: number; media_type: "movie" | "tv" } => {
