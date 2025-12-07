@@ -352,7 +352,7 @@ async function tmdbRequest(path: string, params?: Record<string, string>): Promi
       return null;
     }
     return await res.json();
-  } catch (error) {
+  } catch (error: any) {
     log({ fn: FN_NAME }, "TMDb fetch error", { error: error.message, path });
     return null;
   }
@@ -367,7 +367,9 @@ async function tmdbFindByImdb(imdbId: string): Promise<{ id: number; media_type:
 }
 
 async function tmdbGetDetails(tmdbId: number, type: TmdbMediaType): Promise<any | null> {
-  return await tmdbRequest(`/${type}/${tmdbId}`, { append_to_response: "credits,release_dates,external_ids" });
+  return await tmdbRequest(`/${type}/${tmdbId}`, {
+    append_to_response: "credits,release_dates,external_ids",
+  });
 }
 
 async function omdbGetDetails(imdbId: string): Promise<any | null> {
@@ -375,7 +377,6 @@ async function omdbGetDetails(imdbId: string): Promise<any | null> {
   const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 
   if (!OMDB_API_KEY) {
-    // Don’t break the whole sync if OMDb isn’t configured – just log & skip.
     log({ fn: FN_NAME }, "OMDB_API_KEY missing, skipping OMDb enrichment", { imdbId });
     return null;
   }
@@ -405,28 +406,10 @@ async function omdbGetDetails(imdbId: string): Promise<any | null> {
   }
 }
 
-
-  try {
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      log({ fn: FN_NAME }, "OMDb request failed", { status: res.status, imdbId });
-      return null;
-    }
-    const data = await res.json();
-    if (data.Response === "False") {
-      log({ fn: FN_NAME }, "OMDb API returned an error", { imdbId, error: data.Error });
-      return null;
-    }
-    return data;
-  } catch (error) {
-    log({ fn: FN_NAME }, "OMDb fetch error", { error: error.message, imdbId });
-    return null;
-  }
-}
-
 // ============================================================================
 // Utils
 // ============================================================================
+
 
 const buildSortTitle = (title: string | null): string | null => {
   if (!title) return null;
