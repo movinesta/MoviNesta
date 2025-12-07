@@ -297,7 +297,6 @@ function buildTmdbBlock(tmdb: any, contentType: ContentType) {
     tmdb_release_date: isMovie ? tmdb.release_date : null,
     tmdb_first_air_date: !isMovie ? tmdb.first_air_date : null,
     tmdb_poster_path: tmdb.poster_path,
-    tmdb_backdrop_path: tmdb.backdrop_path,
     tmdb_runtime: isMovie ? tmdb.runtime : tmdb.episode_run_time?.[0],
     tmdb_genre_names: (tmdb.genres ?? []).map((g: any) => g.name),
     tmdb_last_synced_at: new Date().toISOString(),
