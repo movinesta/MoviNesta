@@ -47,7 +47,7 @@ export async function searchExternalTitles(
     "/search/multi",
     {
       query: trimmed,
-      include_adult: "false",
+      include_adult: false,
       page,
     },
     signal,
@@ -62,13 +62,15 @@ export async function searchExternalTitles(
 
   return {
     results: results
-      .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
-        return Boolean(
-          item &&
-            typeof item.id === "number" &&
-            (item.media_type === "movie" || item.media_type === "tv"),
-        );
-      })
+      .filter(
+        (item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
+          return Boolean(
+            item &&
+              typeof item.id === "number" &&
+              (item.media_type === "movie" || item.media_type === "tv"),
+          );
+        },
+      )
       .slice(0, 20)
       .map((item) => {
         const mediaType: ExternalMediaType = item.media_type === "tv" ? "tv" : "movie";
