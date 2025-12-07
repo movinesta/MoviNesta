@@ -85,7 +85,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       filters,
     });
 
-  const results = data?.results ?? [];
+  // 🔥 FIX: flatten react-query infinite data
+  const results = data?.pages.flatMap((page) => page.results) ?? [];
   const totalResults = results.length;
 
   const activeFilterLabels: string[] = [];
@@ -109,7 +110,6 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     : "No filters applied";
 
   // Lazily trigger metadata sync (TMDb + OMDb) for titles that are missing external ratings.
-  // We only fire a few per search to avoid spamming the edge function.
   const syncedIdsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
@@ -119,17 +119,15 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     const toSync = results
       .filter((item) => {
         if (already.has(item.id)) return false;
-        // Only sync when we have an ID to work with and no external ratings yet.
         if (!item.imdbId && !item.tmdbId) return false;
         if (item.imdbRating || item.rtTomatoMeter) return false;
         return true;
       })
-      .slice(0, 3); // cap per render
+      .slice(0, 3);
 
     toSync.forEach((item) => {
       already.add(item.id);
 
-      // 🔄 NEW: call the universal catalog-sync function instead of sync-title-metadata
       supabase.functions
         .invoke("catalog-sync", {
           body: {
@@ -149,7 +147,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
           console.warn("[SearchTitlesTab] catalog-sync failed for", item.id, err);
         });
     });
-  }, [data]);
+  }, [results]);
 
   if (!trimmedQuery) {
     return (
@@ -263,7 +261,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
           type="button"
           variant="outline"
           size="sm"
-          className="h-auto rounded-full border-mn-border-subtle px-2 py-1 text-[10px] text-mn-text-muted hover:border-mn-border-strong hover:text-mn-text-primary"
+          className="h-auto rounded-full border-mn-border-subtle px-2 py-1 text-mn-text-muted hover:border-mn-border-strong hover:text-mn-text-primary"
           onClick={onResetFilters}
         >
           <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
@@ -288,7 +286,6 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
             fetchNextPage();
           }
         }}
-        computeItemKey={(_, item) => item.id}
         components={{
           List: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
             function List(props, ref) {
@@ -300,7 +297,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
               <div className="flex justify-center py-3">
                 <Button
                   type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-mn-primary px-4 py-2 text-[11px] font-medium text-white shadow-mn-soft transition hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex items-center justify-center rounded-full bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
                   onClick={() => fetchNextPage()}
                   disabled={isFetchingNextPage}
                 >
