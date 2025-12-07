@@ -495,7 +495,7 @@ _For each task or subtask below:_
   - [✔️] Medium term:
     DONE – 2025-12-04 11:26 – Synced notification preference storage through Supabase with secure policies and account-level saving from the settings UI.
     - [✔️] Create `notification_preferences` table keyed by user ID, matching the options in the UI.
-      DONE – 2025-12-04 11:26 – Added notification_preferences table with defaults and updated_at audit column in supabasefullschema.sql.
+      DONE – 2025-12-04 11:26 – Added notification_preferences table with defaults and updated_at audit column in schema.sql.
     - [✔️] Add RLS so users can only read/write their own preferences.
       DONE – 2025-12-04 11:26 – Enforced owner-only RLS policy on notification_preferences for auth.uid() scoped access.
     - [✔️] Implement an Edge Function `update-notification-prefs` to read and update preferences.
