@@ -34,6 +34,9 @@ interface BackfillResult {
   enqueued: number;
 }
 
+// How many pages of trending to fetch per media type
+const TRENDING_PAGES = 4;
+
 // Basic type validation for the request body.
 function parseRequestBody(body: unknown): BackfillRequestBody {
   if (typeof body !== "object" || body === null) {
@@ -103,15 +106,17 @@ export async function handler(req: Request) {
       const idSet = new Set<number>();
       const logCtx = { fn: FN_NAME, mediaType: mt };
 
-      // 1) Trending
+      // 1) Trending - fetch multiple pages (default 4)
       try {
-        const trending = await fetchTmdbTrending(mt, "day");
-        for (const item of trending.results ?? []) {
-          if (typeof item.id === "number") {
-            idSet.add(item.id);
+        for (let page = 1; page <= TRENDING_PAGES; page++) {
+          const trending = await fetchTmdbTrending(mt, "day", page);
+          for (const item of trending.results ?? []) {
+            if (typeof item.id === "number") {
+              idSet.add(item.id);
+            }
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         log(logCtx, "fetchTmdbTrending error", { error: err.message });
       }
 
@@ -124,7 +129,7 @@ export async function handler(req: Request) {
               idSet.add(item.id);
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           log(logCtx, "fetchTmdbDiscover error", { page, error: err.message });
           break; // Stop fetching pages for this type on error
         }
@@ -161,7 +166,7 @@ export async function handler(req: Request) {
       reason,
       results,
     });
-  } catch (err) {
+  } catch (err: any) {
     log({ fn: FN_NAME }, "Unexpected error during backfill", {
       error: err.message,
       stack: err.stack,
