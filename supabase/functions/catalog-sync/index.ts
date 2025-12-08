@@ -59,35 +59,78 @@ export async function handler(req: Request) {
 
 serve(handler);
 
+// ============================================================================
+// Request Body Parsing / Validation
+// ============================================================================
+
 function parseRequestBody(body: unknown): SyncRequest {
   if (typeof body !== "object" || body === null) {
     throw new Error("Request body must be an object");
   }
 
-  const { tmdbId, imdbId, contentType, options } = body as Record<string, unknown>;
+  const raw = body as Record<string, unknown>;
+  // Helpful for debugging what actually arrives:
+  console.log(`[${FN_NAME}] incoming body`, raw);
 
-  if (tmdbId !== undefined && (typeof tmdbId !== "number" || !Number.isInteger(tmdbId))) {
-    throw new Error("Invalid 'tmdbId': must be an integer");
+  // Support both camelCase and snake_case keys, and string/number IDs.
+  const tmdbSource = raw.tmdbId ?? raw.tmdb_id;
+  const imdbSource = raw.imdbId ?? raw.imdb_id;
+  const contentTypeSource = raw.contentType ?? raw.content_type;
+  const optionsSource = raw.options;
+
+  let tmdbId: number | null = null;
+  if (tmdbSource != null) {
+    const parsed =
+      typeof tmdbSource === "string" ? parseInt(tmdbSource, 10) : tmdbSource;
+
+    if (typeof parsed !== "number" || !Number.isInteger(parsed)) {
+      throw new Error("Invalid 'tmdbId': must be an integer");
+    }
+    tmdbId = parsed;
   }
-  if (imdbId !== undefined && (typeof imdbId !== "string" || !/^tt\d+$/.test(imdbId))) {
-    throw new Error("Invalid 'imdbId': must be a valid IMDb ID string (e.g., 'tt0123456')");
+
+  let imdbId: string | null = null;
+  if (imdbSource != null) {
+    if (typeof imdbSource !== "string" || !/^tt\d+$/.test(imdbSource)) {
+      throw new Error(
+        "Invalid 'imdbId': must be a valid IMDb ID string (e.g., 'tt0123456')",
+      );
+    }
+    imdbId = imdbSource;
   }
-  if (
-    contentType !== undefined &&
-    contentType !== null &&
-    !["movie", "series"].includes(contentType as string)
-  ) {
-    throw new Error("Invalid 'contentType': must be 'movie' or 'series'");
+
+  let contentType: ContentType | null = null;
+  if (contentTypeSource != null) {
+    if (contentTypeSource !== "movie" && contentTypeSource !== "series") {
+      throw new Error("Invalid 'contentType': must be 'movie' or 'series'");
+    }
+    contentType = contentTypeSource as ContentType;
   }
-  if (!tmdbId && !imdbId) {
+
+  // Only reject when both are truly null/undefined, not just falsy
+  if (tmdbId == null && imdbId == null) {
     throw new Error("Either 'tmdbId' or 'imdbId' must be provided");
   }
 
+  let options: SyncRequest["options"] | undefined;
+  if (optionsSource != null) {
+    if (typeof optionsSource !== "object") {
+      throw new Error("Invalid 'options': must be an object");
+    }
+    const o = optionsSource as Record<string, unknown>;
+    options = {
+      syncOmdb:
+        o.syncOmdb === undefined ? undefined : Boolean(o.syncOmdb),
+      forceRefresh:
+        o.forceRefresh === undefined ? undefined : Boolean(o.forceRefresh),
+    };
+  }
+
   return {
-    tmdbId: tmdbId ?? null,
-    imdbId: imdbId ?? null,
-    contentType: contentType as ContentType | null,
-    options: options as SyncRequest["options"],
+    tmdbId,
+    imdbId,
+    contentType,
+    options,
   };
 }
 
@@ -102,7 +145,7 @@ async function handleTitleSync(req: Request, body: SyncRequest): Promise<Respons
   log(logCtx, "Starting title sync", { body });
 
   // 1. Resolve IDs
-  const ids = await resolveIds(body.tmdbId, body.imdbId, body.contentType);
+  const ids = await resolveIds(body.tmdbId ?? null, body.imdbId ?? null, body.contentType ?? null);
   if (!ids.tmdbId && !ids.imdbId) {
     log(logCtx, "Could not resolve any valid external ID");
     return jsonError("Could not resolve external ID", 404, "ID_NOT_FOUND");
@@ -153,7 +196,11 @@ async function handleTitleSync(req: Request, body: SyncRequest): Promise<Respons
 // Helper Functions
 // ============================================================================
 
-async function resolveIds(tmdbId: number | null, imdbId: string | null, contentType: ContentType | null) {
+async function resolveIds(
+  tmdbId: number | null,
+  imdbId: string | null,
+  contentType: ContentType | null,
+) {
   let finalTmdbId = tmdbId;
   let finalImdbId = imdbId;
   let tmdbMediaType: TmdbMediaType = contentType === "series" ? "tv" : "movie";
@@ -226,7 +273,11 @@ async function upsertTitle(
   return { data, error };
 }
 
-async function ensureDetailTables(supabase: SupabaseClient<Database>, titleId: string, contentType: ContentType) {
+async function ensureDetailTables(
+  supabase: SupabaseClient<Database>,
+  titleId: string,
+  contentType: ContentType,
+) {
   const table = contentType === "movie" ? "movies" : "series";
   const { error } = await supabase.from(table).upsert({ title_id: titleId }, { onConflict: "title_id" });
   if (error) {
@@ -407,7 +458,6 @@ async function omdbGetDetails(imdbId: string): Promise<any | null> {
 // Utils
 // ============================================================================
 
-
 const buildSortTitle = (title: string | null): string | null => {
   if (!title) return null;
   const lower = title.toLowerCase().trim();
@@ -417,9 +467,18 @@ const buildSortTitle = (title: string | null): string | null => {
 const buildTmdbImageUrl = (path: string | null, size: string) =>
   path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 
-const parseIntSafe = (v: any) => (v === null || v === undefined || v === "" || isNaN(parseInt(v, 10))) ? null : parseInt(v, 10);
-const parseFloatSafe = (v: any) => (v === null || v === undefined || v === "" || isNaN(parseFloat(v))) ? null : parseFloat(v);
-const parseCurrency = (v: any) => v && v !== "N/A" ? parseFloatSafe(String(v).replace(/[^0-9.]/g, "")) : null;
+const parseIntSafe = (v: any) =>
+  v === null || v === undefined || v === "" || isNaN(parseInt(v, 10))
+    ? null
+    : parseInt(v, 10);
+
+const parseFloatSafe = (v: any) =>
+  v === null || v === undefined || v === "" || isNaN(parseFloat(v))
+    ? null
+    : parseFloat(v);
+
+const parseCurrency = (v: any) =>
+  v && v !== "N/A" ? parseFloatSafe(String(v).replace(/[^0-9.]/g, "")) : null;
 
 function extractRottenTomatoesPct(ratings: any[]): number | null {
   const rt = ratings?.find((r: any) => r.Source === "Rotten Tomatoes");
