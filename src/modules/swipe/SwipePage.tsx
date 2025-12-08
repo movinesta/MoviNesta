@@ -223,8 +223,8 @@ const SwipePage: React.FC = () => {
   const [dragIntent, setDragIntent] = useState<"like" | "dislike" | null>(null);
   const [nextParallaxX, setNextParallaxX] = useState(0);
 
-  // Card expanded detail state
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Detail mode: card layout changes but still swipable
+  const [isDetailMode, setIsDetailMode] = useState(false);
 
   // Undo UI (last action)
   const [lastAction, setLastAction] = useState<{
@@ -390,7 +390,7 @@ const SwipePage: React.FC = () => {
   useEffect(() => {
     setActivePosterFailed(false);
     setShowFullFriendReview(false);
-    setIsExpanded(false); // collapse detail when card changes
+    setIsDetailMode(false); // reset detail mode when card changes
   }, [activeCard?.id]);
 
   useEffect(() => {
@@ -518,9 +518,6 @@ const SwipePage: React.FC = () => {
       localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
     }
 
-    // Collapse detail on swipe
-    setIsExpanded(false);
-
     // Save last action for UI undo (before index moves)
     setUndo(activeCard, direction);
 
@@ -601,7 +598,6 @@ const SwipePage: React.FC = () => {
 
   const handlePointerDown = (x: number, pointerId: number) => {
     if (!activeCard) return;
-    if (isExpanded) return; // don’t start swipe when expanded
 
     setIsDragging(true);
     dragStartX.current = x;
@@ -616,7 +612,7 @@ const SwipePage: React.FC = () => {
     // Prepare AudioContext on a user gesture
     ensureAudioContext();
 
-    // Long press: expand detail
+    // Long press: toggle detail mode (shrink poster, more info)
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
     }
@@ -628,7 +624,7 @@ const SwipePage: React.FC = () => {
       resetCardPosition();
 
       safeVibrate(20);
-      setIsExpanded(true);
+      setIsDetailMode((prev) => !prev);
     }, 550);
 
     const node = cardRef.current;
@@ -898,12 +894,10 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* Active card with expandable detail */}
+              {/* Active card with detail mode toggle */}
               <article
                 ref={cardRef}
-                className={`relative z-10 mx-auto flex ${
-                  isExpanded ? "h-[82%] max-h-[620px]" : "h-[72%] max-h-[480px]"
-                } w-full max-w-md select-none flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform`}
+                className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform"
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
                   handlePointerDown(e.clientX, e.pointerId);
@@ -914,7 +908,11 @@ const SwipePage: React.FC = () => {
                 aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
               >
-                <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
+                <div
+                  className={`relative overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95 transition-all duration-300 ease-out ${
+                    isDetailMode ? "h-[42%]" : "h-[58%]"
+                  }`}
+                >
                   {showActivePoster && activeCard.posterUrl ? (
                     <img
                       src={activeCard.posterUrl}
@@ -923,13 +921,25 @@ const SwipePage: React.FC = () => {
                       draggable={false}
                       loading="lazy"
                       onError={() => setActivePosterFailed(true)}
+                      style={{
+                        transform: isDetailMode
+                          ? "scale(0.7) translateY(8%)"
+                          : "scale(1) translateY(0)",
+                        transformOrigin: "center center",
+                        transition: "transform 260ms cubic-bezier(0.22,0.61,0.36,1)",
+                        borderRadius: isDetailMode ? 18 : 0,
+                        boxShadow: isDetailMode
+                          ? "0 16px 40px rgba(0,0,0,0.5)"
+                          : "none",
+                      }}
                     />
                   ) : (
                     <PosterFallback title={activeCard.title} />
                   )}
+
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
 
-                  {/* New swipe overlays design */}
+                  {/* Swipe overlays */}
                   {dragIntent === "like" && (
                     <>
                       <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-start">
@@ -969,8 +979,15 @@ const SwipePage: React.FC = () => {
                 </div>
 
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div className={isExpanded ? "flex-1 overflow-y-auto pr-1" : ""}>
+                  <div className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}>
                     <CardMetadata card={activeCard} />
+
+                    {/* Extra info in detail mode */}
+                    {isDetailMode && activeCard.tagline && (
+                      <p className="mt-3 text-[11px] leading-relaxed text-mn-text-secondary">
+                        {activeCard.tagline}
+                      </p>
+                    )}
 
                     <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
                       {typeof activeCard.friendLikesCount === "number" &&
@@ -991,7 +1008,7 @@ const SwipePage: React.FC = () => {
                           <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
                           <span
                             className={
-                              showFullFriendReview || isExpanded
+                              showFullFriendReview || isDetailMode
                                 ? "text-[11px]"
                                 : "line-clamp-2 text-[11px]"
                             }
@@ -1001,30 +1018,13 @@ const SwipePage: React.FC = () => {
                         </button>
                       )}
                     </div>
-
-                    {isExpanded && (
-                      <div className="mt-4 space-y-2 text-[11px] text-mn-text-secondary">
-                        <p className="leading-relaxed">
-                          {/* If you later add a synopsis/overview field to SwipeCardData, swap this text */}
-                          More details coming from the full title page. For now, you can long-press
-                          to peek and swipe to file it into your picks or skip it.
-                        </p>
-                      </div>
-                    )}
                   </div>
 
-                  {isExpanded && (
+                  {isDetailMode && (
                     <div className="mt-3 flex items-center justify-between text-[11px]">
                       <span className="text-mn-text-secondary/80">
-                        Long-press opens this expanded view. Swipe again to rate.
+                        Long-press again to exit detail mode. You can still swipe in either mode.
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsExpanded(false)}
-                        className="rounded-md border border-mn-border-subtle/70 px-2 py-1 text-[11px] font-semibold text-mn-text-primary hover:bg-mn-bg-elevated/70"
-                      >
-                        Collapse
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1035,8 +1035,8 @@ const SwipePage: React.FC = () => {
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to skip or right to add to your picks. Long-press to see
-                      more details inside the card.
+                      Drag the card left to skip or right to add to your picks. Long-press to toggle
+                      detail mode inside the card.
                     </p>
                     <button
                       type="button"
