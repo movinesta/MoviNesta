@@ -978,56 +978,79 @@ const SwipePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}>
-                    <CardMetadata card={activeCard} />
+<div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
+  <div className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}>
+    <CardMetadata card={activeCard} />
 
-                    {/* Extra info in detail mode */}
-                    {isDetailMode && activeCard.tagline && (
-                      <p className="mt-3 text-[11px] leading-relaxed text-mn-text-secondary">
-                        {activeCard.tagline}
-                      </p>
-                    )}
+    {/* Detail-mode: richer text from TitleDetailPage fields */}
+    {isDetailMode && (
+      <div className="mt-3 space-y-2 text-[11px] text-mn-text-secondary">
+        {/* 1) Long description (plot / overview) */}
+        {activeCard.overview && (
+          <p className="leading-relaxed">
+            {activeCard.overview}
+          </p>
+        )}
 
-                    <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
-                      {typeof activeCard.friendLikesCount === "number" &&
-                        activeCard.friendLikesCount > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                            <Flame className="h-4 w-4 text-mn-primary/80" />
-                            {activeCard.friendLikesCount === 1
-                              ? "1 friend likes this"
-                              : `${activeCard.friendLikesCount} friends like this`}
-                          </span>
-                        )}
-                      {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
-                        <button
-                          type="button"
-                          onClick={() => setShowFullFriendReview((v) => !v)}
-                          className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
-                        >
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                          <span
-                            className={
-                              showFullFriendReview || isDetailMode
-                                ? "text-[11px]"
-                                : "line-clamp-2 text-[11px]"
-                            }
-                          >
-                            {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+        {/* 2) Secondary line: genres + locale, in plain text (no extra pills) */}
+        {(activeCard.genres?.length || activeCard.country || activeCard.language) && (
+          <p className="text-[10.5px] text-mn-text-secondary/80">
+            {[
+              activeCard.genres?.length
+                ? activeCard.genres.slice(0, 3).join(" · ")
+                : null,
+              activeCard.country,
+              activeCard.language,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
+      </div>
+    )}
 
-                  {isDetailMode && (
-                    <div className="mt-3 flex items-center justify-between text-[11px]">
-                      <span className="text-mn-text-secondary/80">
-                        Long-press again to exit detail mode. You can still swipe in either mode.
-                      </span>
-                    </div>
-                  )}
-                </div>
+    {/* Social / friends row (kept from before) */}
+    <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+      {typeof activeCard.friendLikesCount === "number" &&
+        activeCard.friendLikesCount > 0 && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+            <Flame className="h-4 w-4 text-mn-primary/80" />
+            {activeCard.friendLikesCount === 1
+              ? "1 friend likes this"
+              : `${activeCard.friendLikesCount} friends like this`}
+          </span>
+        )}
+
+      {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
+        <button
+          type="button"
+          onClick={() => setShowFullFriendReview((v) => !v)}
+          className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+          <span
+            className={
+              showFullFriendReview || isDetailMode
+                ? "text-[11px]"
+                : "line-clamp-2 text-[11px]"
+            }
+          >
+            {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
+          </span>
+        </button>
+      )}
+    </div>
+  </div>
+
+  {isDetailMode && (
+    <div className="mt-3 flex items-center justify-between text-[11px]">
+      <span className="text-mn-text-secondary/80">
+        Long-press again to exit detail mode. You can still swipe in either mode.
+      </span>
+    </div>
+  )}
+</div>
+
               </article>
 
               {showOnboarding && (
