@@ -9,6 +9,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import TopBar from "../../components/shared/TopBar";
 import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
 import { useSwipeDeck } from "./useSwipeDeck";
@@ -25,7 +26,8 @@ const ROTATION_FACTOR = 14;
 // For overlays (less than full swipe threshold so you see them earlier)
 const DRAG_INTENT_THRESHOLD = 32;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 const formatRuntime = (minutes?: number | null): string | null => {
   if (!minutes || minutes <= 0) return null;
@@ -191,6 +193,8 @@ export const LoadingSwipeCard: React.FC = () => {
 };
 
 const SwipePage: React.FC = () => {
+  const navigate = useNavigate();
+
   const {
     cards,
     isLoading,
@@ -230,6 +234,89 @@ const SwipePage: React.FC = () => {
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
 
+  // Long-press detection
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  // Haptic state for crossing thresholds
+  const lastHapticIntentRef = useRef<"like" | "dislike" | null>(null);
+
+  // Web Audio for swipe sounds
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const ensureAudioContext = () => {
+    if (typeof window === "undefined") return null;
+    if (audioContextRef.current) return audioContextRef.current;
+    const AC =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return null;
+    const ctx = new AC();
+    audioContextRef.current = ctx;
+    return ctx;
+  };
+
+  const playSwipeSound = (direction: SwipeDirection, intensity: number) => {
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+
+    // Try to resume if suspended (required on some browsers)
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {
+        // ignore
+      });
+    }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    let startFreq = 440;
+    let endFreq = 440;
+
+    if (direction === "like") {
+      startFreq = 420;
+      endFreq = 640;
+    } else if (direction === "dislike") {
+      startFreq = 260;
+      endFreq = 180;
+    } else if (direction === "skip") {
+      startFreq = 340;
+      endFreq = 300;
+    }
+
+    const now = ctx.currentTime;
+    const duration = 0.08 + intensity * 0.07; // 80–150ms
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
+
+    const startGain = 0.24 + intensity * 0.2; // 0.24–0.44
+    gain.gain.setValueAtTime(startGain, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  };
+
+  const playDirectionalHaptic = (intent: "like" | "dislike") => {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    const duration = intent === "like" ? 10 : 14;
+    navigator.vibrate(duration);
+  };
+
+  const playSwipeCommitHaptic = (direction: SwipeDirection, intensity: number) => {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+
+    const base = direction === "skip" ? 12 : 18;
+    const extra = Math.round(intensity * 50); // up to +50ms
+    const total = base + extra;
+
+    navigator.vibrate(total);
+  };
+
   useEffect(() => {
     const hasSeen =
       typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
@@ -266,6 +353,14 @@ const SwipePage: React.FC = () => {
   useEffect(
     () => () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {
+          // ignore
+        });
+      }
     },
     [],
   );
@@ -343,12 +438,7 @@ const SwipePage: React.FC = () => {
     velocityRef.current = 0;
     setDragIntent(null);
     setNextParallaxX(0);
-  };
-
-  const triggerHaptic = () => {
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate(8);
-    }
+    lastHapticIntentRef.current = null;
   };
 
   const performSwipe = (direction: SwipeDirection, velocity = 0) => {
@@ -371,6 +461,7 @@ const SwipePage: React.FC = () => {
     // Reset overlay intent immediately so it doesn't linger
     setDragIntent(null);
     setNextParallaxX(0);
+    lastHapticIntentRef.current = null;
 
     // SKIP → drop + fade
     if (direction === "skip") {
@@ -381,6 +472,11 @@ const SwipePage: React.FC = () => {
         node.style.transform = "translateX(0px) translateY(24px) scale(0.95)";
         node.style.opacity = "0";
       }
+
+      // Basic intensity based on vertical drop distance
+      const skipIntensity = 0.4;
+      playSwipeCommitHaptic(direction, skipIntensity);
+      playSwipeSound(direction, skipIntensity);
 
       window.setTimeout(() => {
         setCurrentIndex((prev) => Math.min(prev + 1, cards.length));
@@ -416,7 +512,12 @@ const SwipePage: React.FC = () => {
       `;
     }
 
-    triggerHaptic();
+    // Intensity based on how far the card needs to travel
+    const travelMagnitude = Math.abs(baseExit);
+    const intensity = Math.min(1, travelMagnitude / 520);
+
+    playSwipeCommitHaptic(direction, intensity);
+    playSwipeSound(direction, intensity);
 
     window.setTimeout(() => {
       setCurrentIndex((prev) => Math.min(prev + 1, cards.length));
@@ -434,6 +535,31 @@ const SwipePage: React.FC = () => {
     velocityRef.current = 0;
     setDragIntent(null);
     setNextParallaxX(0);
+    lastHapticIntentRef.current = null;
+
+    // Prepare AudioContext on a user gesture
+    ensureAudioContext();
+
+    // Long press: open title detail
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+    }
+    longPressTriggeredRef.current = false;
+
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setIsDragging(false);
+      resetCardPosition();
+
+      // Optional tiny haptic on long press
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(20);
+      }
+
+      if (activeCard?.id) {
+        navigate(`/titles/${activeCard.id}`);
+      }
+    }, 550);
 
     const node = cardRef.current;
     if (!node) return;
@@ -451,15 +577,31 @@ const SwipePage: React.FC = () => {
     const now = performance.now();
     const dx = x - dragStartX.current;
 
+    // If user is clearly dragging, cancel long-press
+    if (longPressTimeoutRef.current != null && Math.abs(dx) > 10 && !longPressTriggeredRef.current) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+
     setCardTransform(dx, { withTransition: false });
 
     // Update swipe intent overlays
+    let nextIntent: "like" | "dislike" | null = null;
     if (dx > DRAG_INTENT_THRESHOLD) {
-      setDragIntent("like");
+      nextIntent = "like";
     } else if (dx < -DRAG_INTENT_THRESHOLD) {
-      setDragIntent("dislike");
-    } else {
-      setDragIntent(null);
+      nextIntent = "dislike";
+    }
+
+    setDragIntent(nextIntent);
+
+    // Haptic when crossing into a new intent zone
+    if (nextIntent && nextIntent !== lastHapticIntentRef.current) {
+      playDirectionalHaptic(nextIntent);
+      lastHapticIntentRef.current = nextIntent;
+    }
+    if (!nextIntent) {
+      lastHapticIntentRef.current = null;
     }
 
     // Parallax on the next card (move slightly opposite the drag)
@@ -481,6 +623,22 @@ const SwipePage: React.FC = () => {
   };
 
   const finishDrag = () => {
+    // Always clear pending long-press
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+
+    // If the long press already triggered, don't treat this as a swipe
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      dragStartX.current = null;
+      lastMoveX.current = null;
+      lastMoveTime.current = null;
+      velocityRef.current = 0;
+      return;
+    }
+
     if (!isDragging) return;
     setIsDragging(false);
 
@@ -505,7 +663,7 @@ const SwipePage: React.FC = () => {
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
   const actionsDisabled = !activeCard || isLoading || isError;
 
-  // Keyboard shortcuts: ← dislike, → like, ↓ / Space skip
+  // Keyboard shortcuts: ← dislike, → like, ↓ / Space skip (hint text removed, behavior kept)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!activeCard || actionsDisabled || isDragging) return;
@@ -660,20 +818,32 @@ const SwipePage: React.FC = () => {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
 
-                  {/* Swipe overlays (rectangular, not capsule) */}
+                  {/* NEW swipe overlays design */}
                   {dragIntent === "like" && (
-                    <div className="pointer-events-none absolute left-4 top-4 rounded-md border border-emerald-400/80 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300 shadow-mn-soft rotate-[-4deg]">
-                      Like
-                    </div>
+                    <>
+                      <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-start">
+                        <div className="flex items-center gap-2 rounded-md border border-emerald-400/70 bg-emerald-500/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200 shadow-mn-soft backdrop-blur-sm">
+                          <ThumbsUp className="h-4 w-4 text-emerald-300" />
+                          <span>Add to picks</span>
+                        </div>
+                      </div>
+                      <div className="pointer-events-none absolute inset-y-8 right-2 w-1 rounded-full bg-gradient-to-b from-emerald-400/0 via-emerald-400/40 to-emerald-400/0" />
+                    </>
                   )}
                   {dragIntent === "dislike" && (
-                    <div className="pointer-events-none absolute right-4 top-4 rounded-md border border-rose-400/80 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-300 shadow-mn-soft rotate-[4deg]">
-                      Pass
-                    </div>
+                    <>
+                      <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-end">
+                        <div className="flex items-center gap-2 rounded-md border border-rose-400/70 bg-rose-500/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-200 shadow-mn-soft backdrop-blur-sm">
+                          <ThumbsDown className="h-4 w-4 text-rose-300" />
+                          <span>Skip this</span>
+                        </div>
+                      </div>
+                      <div className="pointer-events-none absolute inset-y-8 left-2 w-1 rounded-full bg-gradient-to-b from-rose-400/0 via-rose-400/40 to-rose-400/0" />
+                    </>
                   )}
 
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                    {/* Context badge: square-ish chip, not pill */}
+                    {/* Context badge: square-ish chip */}
                     <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-full bg-mn-primary" />
                       {overlaySourceLabel}
@@ -717,8 +887,8 @@ const SwipePage: React.FC = () => {
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to pass or right to like. You can also use the buttons
-                      below.
+                      Drag the card left to skip or right to add to your picks. Long-press to open
+                      details.
                     </p>
                     <button
                       type="button"
@@ -748,7 +918,7 @@ const SwipePage: React.FC = () => {
             aria-label="Dislike"
           >
             <ThumbsDown className="h-5 w-5" />
-            <span className="hidden sm:inline">Dislike</span>
+            <span className="hidden sm:inline">Pass</span>
           </button>
           <button
             type="button"
@@ -771,10 +941,6 @@ const SwipePage: React.FC = () => {
             <span className="hidden sm:inline">Like</span>
           </button>
         </div>
-
-        <p className="mt-2 text-center text-[11px] text-mn-text-secondary/70">
-          Keyboard: ← Dislike · ↓ / Space Skip · → Like
-        </p>
       </div>
     </div>
   );
