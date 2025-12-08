@@ -626,7 +626,7 @@ const SwipePage: React.FC = () => {
       safeVibrate(20);
 
       if (activeCard?.id) {
-        navigate(`/titles/${activeCard.id}`);
+        navigate(`/title/${activeCard.id}`);
       }
     }, 550);
 
