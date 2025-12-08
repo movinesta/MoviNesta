@@ -26,6 +26,12 @@ const ROTATION_FACTOR = 14;
 // For overlays (less than full swipe threshold so you see them earlier)
 const DRAG_INTENT_THRESHOLD = 32;
 
+// Haptic debounce
+const HAPTIC_MIN_INTERVAL_MS = 140;
+
+// Feature flag hook-in point for future settings
+const FEEDBACK_ENABLED = true;
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -41,11 +47,11 @@ const formatRuntime = (minutes?: number | null): string | null => {
 const getSourceLabel = (source?: string) => {
   switch (source) {
     case "from-friends":
-      return "From friends";
+      return "Friends’ picks";
     case "trending":
       return "Trending now";
     default:
-      return "For you";
+      return "Matched for you";
   }
 };
 
@@ -220,6 +226,17 @@ const SwipePage: React.FC = () => {
   const [dragIntent, setDragIntent] = useState<"like" | "dislike" | null>(null);
   const [nextParallaxX, setNextParallaxX] = useState(0);
 
+  // Undo UI (last action)
+  const [lastAction, setLastAction] = useState<{
+    card: SwipeCardData;
+    direction: SwipeDirection;
+  } | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const undoTimeoutRef = useRef<number | null>(null);
+
+  // Social quote expanded/collapsed
+  const [showFullFriendReview, setShowFullFriendReview] = useState(false);
+
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
 
@@ -240,11 +257,13 @@ const SwipePage: React.FC = () => {
 
   // Haptic state for crossing thresholds
   const lastHapticIntentRef = useRef<"like" | "dislike" | null>(null);
+  const lastHapticTimeRef = useRef<number>(0);
 
   // Web Audio for swipe sounds
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const ensureAudioContext = () => {
+    if (!FEEDBACK_ENABLED) return null;
     if (typeof window === "undefined") return null;
     if (audioContextRef.current) return audioContextRef.current;
     const AC =
@@ -256,10 +275,10 @@ const SwipePage: React.FC = () => {
   };
 
   const playSwipeSound = (direction: SwipeDirection, intensity: number) => {
+    if (!FEEDBACK_ENABLED) return;
     const ctx = ensureAudioContext();
     if (!ctx) return;
 
-    // Try to resume if suspended (required on some browsers)
     if (ctx.state === "suspended") {
       ctx.resume().catch(() => {
         // ignore
@@ -274,7 +293,7 @@ const SwipePage: React.FC = () => {
 
     if (direction === "like") {
       startFreq = 420;
-      endFreq = 640;
+      endFreq = 650;
     } else if (direction === "dislike") {
       startFreq = 260;
       endFreq = 180;
@@ -290,7 +309,7 @@ const SwipePage: React.FC = () => {
     osc.frequency.setValueAtTime(startFreq, now);
     osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
 
-    const startGain = 0.24 + intensity * 0.2; // 0.24–0.44
+    const startGain = 0.18 + intensity * 0.18; // 0.18–0.36
     gain.gain.setValueAtTime(startGain, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
@@ -301,20 +320,67 @@ const SwipePage: React.FC = () => {
     osc.stop(now + duration + 0.02);
   };
 
-  const playDirectionalHaptic = (intent: "like" | "dislike") => {
+  const safeVibrate = (pattern: number | number[]) => {
+    if (!FEEDBACK_ENABLED) return;
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    navigator.vibrate(pattern);
+  };
+
+  const playDirectionalHaptic = (intent: "like" | "dislike") => {
+    const now = performance.now();
+    if (now - lastHapticTimeRef.current < HAPTIC_MIN_INTERVAL_MS) return;
+
     const duration = intent === "like" ? 10 : 14;
-    navigator.vibrate(duration);
+    safeVibrate(duration);
+    lastHapticTimeRef.current = now;
   };
 
   const playSwipeCommitHaptic = (direction: SwipeDirection, intensity: number) => {
-    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
-
     const base = direction === "skip" ? 12 : 18;
     const extra = Math.round(intensity * 50); // up to +50ms
     const total = base + extra;
 
-    navigator.vibrate(total);
+    safeVibrate(total);
+  };
+
+  const setUndo = (card: SwipeCardData, direction: SwipeDirection) => {
+    setLastAction({ card, direction });
+    setShowUndo(true);
+
+    if (undoTimeoutRef.current != null) {
+      window.clearTimeout(undoTimeoutRef.current);
+    }
+    undoTimeoutRef.current = window.setTimeout(() => {
+      setShowUndo(false);
+    }, 2800);
+  };
+
+  const clearUndo = () => {
+    setShowUndo(false);
+    setLastAction(null);
+    if (undoTimeoutRef.current != null) {
+      window.clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  };
+
+  const handleUndo = () => {
+    if (!lastAction) return;
+    // UI-only undo: step index back if this card is exactly the previous one
+    setCurrentIndex((prev) => {
+      const candidate = prev - 1;
+      if (candidate < 0) return prev;
+      const previousCard = cards[candidate];
+      if (previousCard && previousCard.id === lastAction.card.id) {
+        return candidate;
+      }
+      return prev;
+    });
+
+    // TODO: wire this to a real “undo” endpoint or compensating swipe
+    // e.g. swipe({ cardId: lastAction.card.id, direction: "undo-like" })
+
+    clearUndo();
   };
 
   useEffect(() => {
@@ -325,6 +391,7 @@ const SwipePage: React.FC = () => {
 
   useEffect(() => {
     setActivePosterFailed(false);
+    setShowFullFriendReview(false);
   }, [activeCard?.id]);
 
   useEffect(() => {
@@ -355,6 +422,9 @@ const SwipePage: React.FC = () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
+      }
+      if (undoTimeoutRef.current != null) {
+        window.clearTimeout(undoTimeoutRef.current);
       }
       if (audioContextRef.current) {
         audioContextRef.current.close().catch(() => {
@@ -449,6 +519,9 @@ const SwipePage: React.FC = () => {
       localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
     }
 
+    // Save last action for UI undo (before index moves)
+    setUndo(activeCard, direction);
+
     // Always send the event
     swipe({
       cardId: activeCard.id,
@@ -473,7 +546,6 @@ const SwipePage: React.FC = () => {
         node.style.opacity = "0";
       }
 
-      // Basic intensity based on vertical drop distance
       const skipIntensity = 0.4;
       playSwipeCommitHaptic(direction, skipIntensity);
       playSwipeSound(direction, skipIntensity);
@@ -551,10 +623,7 @@ const SwipePage: React.FC = () => {
       setIsDragging(false);
       resetCardPosition();
 
-      // Optional tiny haptic on long press
-      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-        navigator.vibrate(20);
-      }
+      safeVibrate(20);
 
       if (activeCard?.id) {
         navigate(`/titles/${activeCard.id}`);
@@ -663,7 +732,7 @@ const SwipePage: React.FC = () => {
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
   const actionsDisabled = !activeCard || isLoading || isError;
 
-  // Keyboard shortcuts: ← dislike, → like, ↓ / Space skip (hint text removed, behavior kept)
+  // Keyboard shortcuts: ← dislike, → like, ↓ / Space skip (kept, but no visible hint)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!activeCard || actionsDisabled || isDragging) return;
@@ -692,7 +761,6 @@ const SwipePage: React.FC = () => {
     const maxDots = 8;
     const total = Math.min(cards.length, maxDots);
 
-    // Center window of dots around currentIndex when possible
     const half = Math.floor(total / 2);
     let start = Math.max(0, currentIndex - half);
     if (start + total > cards.length) {
@@ -714,6 +782,32 @@ const SwipePage: React.FC = () => {
               />
             );
           })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderUndoToast = () => {
+    if (!showUndo || !lastAction) return null;
+
+    const label =
+      lastAction.direction === "like"
+        ? "Added to picks"
+        : lastAction.direction === "dislike"
+        ? "Skipped from feed"
+        : "Skipped";
+
+    return (
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto">
+        <div className="pointer-events-auto inline-flex items-center gap-3 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[12px] text-mn-text-primary shadow-mn-card backdrop-blur">
+          <span>{label}</span>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mn-primary hover:text-mn-primary/80"
+          >
+            Undo
+          </button>
         </div>
       </div>
     );
@@ -742,7 +836,14 @@ const SwipePage: React.FC = () => {
           {isError && !isLoading && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center text-sm text-mn-text-secondary">
               <Info className="h-8 w-8 text-amber-400" />
-              <p>We couldn&apos;t load your swipe deck. Please retry from the menu.</p>
+              <p>We couldn&apos;t load your swipe deck.</p>
+              <button
+                type="button"
+                onClick={() => fetchMore(32)}
+                className="mt-1 rounded-md border border-mn-border-subtle/70 px-3 py-1.5 text-[12px] font-semibold text-mn-text-primary hover:bg-mn-bg-elevated/70"
+              >
+                Retry
+              </button>
             </div>
           )}
 
@@ -750,6 +851,13 @@ const SwipePage: React.FC = () => {
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center text-sm text-mn-text-secondary">
               <Sparkles className="h-8 w-8 text-mn-primary" />
               <p>All caught up. New cards will appear soon.</p>
+              <button
+                type="button"
+                onClick={() => fetchMore(36)}
+                className="mt-1 rounded-md border border-mn-border-subtle/70 px-3 py-1.5 text-[12px] font-semibold text-mn-text-primary hover:bg-mn-bg-elevated/70"
+              >
+                Refresh deck
+              </button>
             </div>
           )}
 
@@ -818,7 +926,7 @@ const SwipePage: React.FC = () => {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
 
-                  {/* NEW swipe overlays design */}
+                  {/* New swipe overlays design */}
                   {dragIntent === "like" && (
                     <>
                       <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-start">
@@ -843,7 +951,7 @@ const SwipePage: React.FC = () => {
                   )}
 
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                    {/* Context badge: square-ish chip */}
+                    {/* Context badge */}
                     <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-full bg-mn-primary" />
                       {overlaySourceLabel}
@@ -871,12 +979,20 @@ const SwipePage: React.FC = () => {
                         </span>
                       )}
                     {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
-                      <span className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft">
+                      <button
+                        type="button"
+                        onClick={() => setShowFullFriendReview((v) => !v)}
+                        className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+                      >
                         <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                        <span className="line-clamp-2">
+                        <span
+                          className={
+                            showFullFriendReview ? "text-[11px]" : "line-clamp-2 text-[11px]"
+                          }
+                        >
                           {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
                         </span>
-                      </span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -887,8 +1003,8 @@ const SwipePage: React.FC = () => {
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to skip or right to add to your picks. Long-press to open
-                      details.
+                      Drag the card left to skip or right to add to your picks. Long-press to see
+                      full details.
                     </p>
                     <button
                       type="button"
@@ -914,33 +1030,35 @@ const SwipePage: React.FC = () => {
             type="button"
             onClick={() => performSwipe("dislike")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
-            aria-label="Dislike"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            aria-label="Skip this"
           >
             <ThumbsDown className="h-5 w-5" />
-            <span className="hidden sm:inline">Pass</span>
+            <span className="hidden sm:inline">Skip this</span>
           </button>
           <button
             type="button"
             onClick={() => performSwipe("skip")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
-            aria-label="Skip"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            aria-label="Maybe later"
           >
             <SkipForward className="h-5 w-5" />
-            <span className="hidden sm:inline">Skip</span>
+            <span className="hidden sm:inline">Maybe later</span>
           </button>
           <button
             type="button"
             onClick={() => performSwipe("like")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-xl border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
-            aria-label="Like"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            aria-label="Add to picks"
           >
             <ThumbsUp className="h-5 w-5" />
-            <span className="hidden sm:inline">Like</span>
+            <span className="hidden sm:inline">Add to picks</span>
           </button>
         </div>
+
+        {renderUndoToast()}
       </div>
     </div>
   );
