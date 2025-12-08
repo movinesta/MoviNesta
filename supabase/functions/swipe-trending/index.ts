@@ -90,13 +90,31 @@ export async function handler(req: Request) {
 
     let cards = await buildTrendingDeck(supabaseAdmin, seenTitleIds, profile);
     if (cards.length < MIN_TRENDING_CARDS) {
-      const fallback = await buildPopularityDeck(supabaseAdmin, seenTitleIds, new Set(cards.map((c) => c.title_id)));
+      const fallback = await buildPopularityDeck(
+        supabaseAdmin,
+        seenTitleIds,
+        new Set(cards.map((c) => c.title_id)),
+      );
       cards = [...cards, ...fallback].slice(0, MAX_DECK_SIZE);
     }
 
+    // Map DB rows -> API shape expected by useSwipeDeck
+    const apiCards = cards.map((card) => ({
+      id: card.title_id,                           // REQUIRED
+      title: card.primary_title ?? "(Untitled)",   // REQUIRED
+      year: card.release_year ?? null,
+      type: card.content_type ?? null,
+      posterUrl: card.poster_url ?? null,
+      tmdbPosterPath: null,                        // optional: you could expose tmdb_poster_path here
+      tmdbBackdropPath: null,                      // optional: or tmdb_backdrop_path
+      imdbRating: card.imdb_rating ?? null,
+      rtTomatoMeter: card.rt_tomato_pct ?? null,
+    }));
+
     triggerBackgroundSync(req, cards.slice(0, 3));
 
-    return jsonResponse({ ok: true, cards });
+    return jsonResponse({ ok: true, cards: apiCards });
+
   } catch (err) {
     log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
