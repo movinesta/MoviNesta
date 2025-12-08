@@ -101,9 +101,13 @@ export async function findTmdbByImdbId(
 export async function fetchTmdbTrending(
   mediaType: TmdbMediaType,
   window: "day" | "week" = "day",
+  page: number = 1,
 ): Promise<any> {
-  return tmdbFetch(`/trending/${mediaType}/${window}`);
+  return tmdbFetch(`/trending/${mediaType}/${window}`, {
+    page: String(page),
+  });
 }
+
 
 /**
  * Discover content by popularity (basic helper used by backfill).
