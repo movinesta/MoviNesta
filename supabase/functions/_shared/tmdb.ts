@@ -108,7 +108,6 @@ export async function fetchTmdbTrending(
   });
 }
 
-
 /**
  * Discover content by popularity (basic helper used by backfill).
  */
