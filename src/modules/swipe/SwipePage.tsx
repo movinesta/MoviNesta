@@ -22,6 +22,9 @@ const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 
+// For overlays (less than full swipe threshold so you see them earlier)
+const DRAG_INTENT_THRESHOLD = 32;
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const formatRuntime = (minutes?: number | null): string | null => {
@@ -209,6 +212,10 @@ const SwipePage: React.FC = () => {
   const [activePosterFailed, setActivePosterFailed] = useState(false);
   const [nextPosterFailed, setNextPosterFailed] = useState(false);
 
+  // For overlays & parallax
+  const [dragIntent, setDragIntent] = useState<"like" | "dislike" | null>(null);
+  const [nextParallaxX, setNextParallaxX] = useState(0);
+
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
 
@@ -334,6 +341,8 @@ const SwipePage: React.FC = () => {
     lastMoveX.current = null;
     lastMoveTime.current = null;
     velocityRef.current = 0;
+    setDragIntent(null);
+    setNextParallaxX(0);
   };
 
   const triggerHaptic = () => {
@@ -358,6 +367,10 @@ const SwipePage: React.FC = () => {
       inWatchlist: activeCard.initiallyInWatchlist ?? undefined,
       sourceOverride: activeCard.source,
     });
+
+    // Reset overlay intent immediately so it doesn't linger
+    setDragIntent(null);
+    setNextParallaxX(0);
 
     // SKIP → drop + fade
     if (direction === "skip") {
@@ -419,6 +432,8 @@ const SwipePage: React.FC = () => {
     lastMoveX.current = x;
     lastMoveTime.current = performance.now();
     velocityRef.current = 0;
+    setDragIntent(null);
+    setNextParallaxX(0);
 
     const node = cardRef.current;
     if (!node) return;
@@ -437,6 +452,18 @@ const SwipePage: React.FC = () => {
     const dx = x - dragStartX.current;
 
     setCardTransform(dx, { withTransition: false });
+
+    // Update swipe intent overlays
+    if (dx > DRAG_INTENT_THRESHOLD) {
+      setDragIntent("like");
+    } else if (dx < -DRAG_INTENT_THRESHOLD) {
+      setDragIntent("dislike");
+    } else {
+      setDragIntent(null);
+    }
+
+    // Parallax on the next card (move slightly opposite the drag)
+    setNextParallaxX(-dx * 0.06);
 
     if (lastMoveX.current !== null && lastMoveTime.current !== null) {
       const dt = now - lastMoveTime.current;
@@ -478,6 +505,61 @@ const SwipePage: React.FC = () => {
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
   const actionsDisabled = !activeCard || isLoading || isError;
 
+  // Keyboard shortcuts: ← dislike, → like, ↓ / Space skip
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!activeCard || actionsDisabled || isDragging) return;
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        performSwipe("dislike");
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        performSwipe("like");
+      } else if (e.key === "ArrowDown" || e.key === " ") {
+        e.preventDefault();
+        performSwipe("skip");
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeCard, actionsDisabled, isDragging, performSwipe]);
+
+  // Simple deck indicator: first few cards with current highlighted
+  const renderDeckIndicator = () => {
+    if (!cards.length) return null;
+
+    const maxDots = 8;
+    const total = Math.min(cards.length, maxDots);
+
+    // Center window of dots around currentIndex when possible
+    const half = Math.floor(total / 2);
+    let start = Math.max(0, currentIndex - half);
+    if (start + total > cards.length) {
+      start = Math.max(0, cards.length - total);
+    }
+
+    return (
+      <div className="mb-3 flex justify-center">
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: total }).map((_, i) => {
+            const cardIndex = start + i;
+            const isActive = cardIndex === currentIndex;
+            return (
+              <span
+                key={cardIndex}
+                className={`h-1.5 rounded-full transition-all ${
+                  isActive ? "w-4 bg-mn-primary" : "w-2 bg-mn-border-subtle/70"
+                }`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="relative flex min-h-[calc(100vh-6rem)] flex-col rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
@@ -489,6 +571,8 @@ const SwipePage: React.FC = () => {
       />
 
       <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
+        {renderDeckIndicator()}
+
         <div
           className="relative flex flex-1 items-center justify-center overflow-visible [perspective:1400px]"
           aria-live="polite"
@@ -512,15 +596,17 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* Next-card preview */}
+              {/* Next-card preview with parallax */}
               {nextCard && (
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md items-center justify-center rounded-[30px] transition-all duration-300 ease-out"
                   style={{
-                    transform: isNextPreviewActive
-                      ? "translateY(-40px) scale(0.9)"
-                      : "translateY(-10px) scale(0.84)",
+                    transform: `${
+                      isNextPreviewActive
+                        ? "translateY(-40px) scale(0.9)"
+                        : "translateY(-10px) scale(0.84)"
+                    } translateX(${nextParallaxX}px)`,
                     opacity: isNextPreviewActive ? 1 : 0,
                   }}
                 >
@@ -572,6 +658,19 @@ const SwipePage: React.FC = () => {
                     <PosterFallback title={activeCard.title} />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+
+                  {/* Swipe overlays */}
+                  {dragIntent === "like" && (
+                    <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-emerald-400/80 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300 shadow-mn-soft rotate-[-6deg]">
+                      Like
+                    </div>
+                  )}
+                  {dragIntent === "dislike" && (
+                    <div className="pointer-events-none absolute right-4 top-4 rounded-lg border border-rose-400/80 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-300 shadow-mn-soft rotate-[6deg]">
+                      Pass
+                    </div>
+                  )}
+
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                     {/* Keep this as pill: key context badge */}
                     <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
@@ -671,6 +770,10 @@ const SwipePage: React.FC = () => {
             <span className="hidden sm:inline">Like</span>
           </button>
         </div>
+
+        <p className="mt-2 text-center text-[11px] text-mn-text-secondary/70">
+          Keyboard: ← Dislike · ↓ / Space Skip · → Like
+        </p>
       </div>
     </div>
   );
