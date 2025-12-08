@@ -8,14 +8,23 @@ import {
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  Share2,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
+import { RatingStars } from "../../components/RatingStars";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
+import { useAuth } from "../auth/AuthProvider";
+import {
+  useDiaryLibraryMutations,
+  useTitleDiaryEntry,
+  type DiaryStatus,
+} from "../diary/useDiaryLibrary";
 import { supabase } from "../../lib/supabase";
-import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
+import type { SwipeCardData, SwipeDirection, SwipeDeckKind } from "./useSwipeDeck";
 import { useSwipeDeck } from "./useSwipeDeck";
 import SwipeSyncBanner from "./SwipeSyncBanner";
+import { TitleType } from "@/types/supabase-helpers";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -24,16 +33,11 @@ const MAX_DRAG = 220;
 const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
-
-// For overlays (less than full swipe threshold so you see them earlier)
 const DRAG_INTENT_THRESHOLD = 32;
 
-// Haptic debounce
-const HAPTIC_MIN_INTERVAL_MS = 140;
-
-// Feature flag hook-in point for future settings
 const FEEDBACK_ENABLED = true;
 
+// Helpers
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -46,7 +50,7 @@ const formatRuntime = (minutes?: number | null): string | null => {
   return `${hours}h ${mins}m`;
 };
 
-const getSourceLabel = (source?: string) => {
+const getSourceLabel = (source?: SwipeDeckKind) => {
   switch (source) {
     case "from-friends":
       return "Friends’ picks";
@@ -79,7 +83,7 @@ interface CardMetadataProps {
   card: SwipeCardData;
 }
 
-export const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
+const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
   const runtimeLabel = formatRuntime(card.runtimeMinutes);
   const hasImdbRating =
     typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating) && card.imdbRating > 0;
@@ -108,14 +112,14 @@ export const CardMetadata: React.FC<CardMetadataProps> = ({ card }) => {
         <span className="mt-1 text-[10px]" />
       </div>
 
-      {card.tagline && (
+      {card.tagline && !card.tagline.trim().startsWith("Plot") && (
         <p className="line-clamp-3 text-[12px] text-mn-text-secondary">{card.tagline}</p>
       )}
     </div>
   );
 };
 
-export const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
+const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
   <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-mn-bg via-mn-bg-elevated to-mn-bg text-center">
     <div className="flex flex-col items-center gap-2 text-mn-text-secondary">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mn-surface-elevated/70 shadow-mn-soft">
@@ -132,17 +136,16 @@ export const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
 );
 
 /**
- * Animated loading skeleton with 3D “wiggle”
+ * Animated loading skeleton with subtle 3D “wiggle”
  */
-export const LoadingSwipeCard: React.FC = () => {
+const LoadingSwipeCard: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const directionRef = useRef<1 | -1>(1);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       directionRef.current = (directionRef.current === 1 ? -1 : 1) as 1 | -1;
-      const nextOffset = directionRef.current * 14; // px
-      setOffset(nextOffset);
+      setOffset(directionRef.current * 14);
     }, 850);
 
     return () => window.clearInterval(interval);
@@ -154,7 +157,9 @@ export const LoadingSwipeCard: React.FC = () => {
     <article
       className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur transform-gpu will-change-transform"
       style={{
-        transform: `perspective(1400px) translateX(${offset}px) rotateZ(${rotation}deg) rotateY(${offset / 6}deg) scale(1.02)`,
+        transform: `perspective(1400px) translateX(${offset}px) rotateZ(${rotation}deg) rotateY(${
+          offset / 6
+        }deg) scale(1.02)`,
         transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
       }}
     >
@@ -200,6 +205,35 @@ export const LoadingSwipeCard: React.FC = () => {
   );
 };
 
+// Narrowed version of TitleRow for what we need here
+interface TitleDetailRow {
+  title_id: string;
+  content_type: string | null;
+
+  plot: string | null;
+  tmdb_overview: string | null;
+  tagline: string | null;
+
+  omdb_director: string | null;
+  omdb_actors: string | null;
+
+  genres: string[] | null;
+  tmdb_genre_names: string[] | null;
+  language: string | null;
+  omdb_language: string | null;
+  tmdb_original_language: string | null;
+  country: string | null;
+  omdb_country: string | null;
+
+  imdb_rating: number | null;
+  metascore: number | null;
+  rt_tomato_pct: number | null;
+
+  poster_url: string | null;
+  tmdb_poster_path: string | null;
+  backdrop_url: string | null;
+}
+
 const SwipePage: React.FC = () => {
   const {
     cards,
@@ -222,14 +256,12 @@ const SwipePage: React.FC = () => {
   const [activePosterFailed, setActivePosterFailed] = useState(false);
   const [nextPosterFailed, setNextPosterFailed] = useState(false);
 
-  // For overlays & parallax
   const [dragIntent, setDragIntent] = useState<"like" | "dislike" | null>(null);
   const [nextParallaxX, setNextParallaxX] = useState(0);
 
-  // Detail mode: card layout changes but still swipable
   const [isDetailMode, setIsDetailMode] = useState(false);
+  const [showFullFriendReview, setShowFullFriendReview] = useState(false);
 
-  // Undo UI (last action)
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
     direction: SwipeDirection;
@@ -237,15 +269,88 @@ const SwipePage: React.FC = () => {
   const [showUndo, setShowUndo] = useState(false);
   const undoTimeoutRef = useRef<number | null>(null);
 
-  // Social quote expanded/collapsed
-  const [showFullFriendReview, setShowFullFriendReview] = useState(false);
-
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
 
   const activeTitleId = activeCard?.id ?? null;
 
-  const { data: titleDetail } = useQuery({
+  // diary / auth
+  const { user } = useAuth();
+  const { updateStatus, updateRating } = useDiaryLibraryMutations();
+  const { data: diaryEntryData } = useTitleDiaryEntry(activeTitleId);
+  const diaryEntry = diaryEntryData ?? { status: null, rating: null };
+
+  // long press
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  // haptics + audio
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const ensureAudioContext = () => {
+    if (!FEEDBACK_ENABLED) return null;
+    if (typeof window === "undefined") return null;
+    if (audioContextRef.current) return audioContextRef.current;
+    const AC =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return null;
+    const ctx = new AC();
+    audioContextRef.current = ctx;
+    return ctx;
+  };
+
+  const safeVibrate = (pattern: number | number[]) => {
+    if (!FEEDBACK_ENABLED) return;
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    navigator.vibrate(pattern);
+  };
+
+  const playSwipeSound = (direction: SwipeDirection, intensity: number) => {
+    if (!FEEDBACK_ENABLED) return;
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    let startFreq = 440;
+    let endFreq = 440;
+
+    if (direction === "like") {
+      startFreq = 420;
+      endFreq = 660;
+    } else if (direction === "dislike") {
+      startFreq = 280;
+      endFreq = 190;
+    } else {
+      startFreq = 360;
+      endFreq = 320;
+    }
+
+    const now = ctx.currentTime;
+    const duration = 0.08 + intensity * 0.07;
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
+
+    const startGain = 0.18 + intensity * 0.18;
+    gain.gain.setValueAtTime(startGain, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  };
+
+  // title detail data (same source as TitleDetailPage)
+  const { data: titleDetail } = useQuery<TitleDetailRow | null>({
     queryKey: qk.titleDetail(activeTitleId),
     enabled: Boolean(activeTitleId && isDetailMode),
     staleTime: 1000 * 60 * 30,
@@ -259,16 +364,25 @@ const SwipePage: React.FC = () => {
         .select(
           `
           title_id,
+          content_type,
           plot,
           tmdb_overview,
           tagline,
+          omdb_director,
+          omdb_actors,
           genres,
           tmdb_genre_names,
           language,
           omdb_language,
           tmdb_original_language,
           country,
-          omdb_country
+          omdb_country,
+          imdb_rating,
+          metascore,
+          rt_tomato_pct,
+          poster_url,
+          tmdb_poster_path,
+          backdrop_url
         `,
         )
         .eq("title_id", activeTitleId)
@@ -278,19 +392,7 @@ const SwipePage: React.FC = () => {
         throw error;
       }
 
-      return data as {
-        title_id: string;
-        plot: string | null;
-        tmdb_overview: string | null;
-        tagline: string | null;
-        genres: string[] | null;
-        tmdb_genre_names: string[] | null;
-        language: string | null;
-        omdb_language: string | null;
-        tmdb_original_language: string | null;
-        country: string | null;
-        omdb_country: string | null;
-      } | null;
+      return data as TitleDetailRow | null;
     },
   });
 
@@ -318,6 +420,77 @@ const SwipePage: React.FC = () => {
     activeCard?.country ??
     null;
 
+  const detailDirector = titleDetail?.omdb_director ?? null;
+  const detailActors = titleDetail?.omdb_actors ?? null;
+
+  const externalImdbRating = titleDetail?.imdb_rating ?? activeCard?.imdbRating ?? null;
+  const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
+  const externalMetascore = titleDetail?.metascore ?? null;
+
+  // diary helpers
+  const normalizedContentType: TitleType | null =
+    titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
+      ? titleDetail.content_type
+      : activeCard?.type ?? null;
+
+  const ensureSignedIn = () => {
+    if (!user) {
+      alert("Sign in to save this title to your diary, rate it, or add it to your watchlist.");
+      return false;
+    }
+    return true;
+  };
+
+  const setDiaryStatus = (status: DiaryStatus) => {
+    if (!activeTitleId || !ensureSignedIn() || updateStatus.isPending) return;
+
+    const type = normalizedContentType ?? "movie";
+    updateStatus.mutate({ titleId: activeTitleId, status, type });
+  };
+
+  const setDiaryRating = (nextRating: number | null) => {
+    if (!activeTitleId || !ensureSignedIn() || updateRating.isPending) return;
+
+    const type = normalizedContentType ?? "movie";
+    updateRating.mutate({ titleId: activeTitleId, rating: nextRating, type });
+  };
+
+  const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
+
+  const handleShareExternal = async () => {
+    if (!activeCard) return;
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/title/${activeCard.id}`
+        : `/title/${activeCard.id}`;
+    const text = `Check this out: ${activeCard.title}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: activeCard.title,
+          text,
+          url,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        alert("Link copied to clipboard");
+      } else {
+        alert(url);
+      }
+    } catch {
+      // user cancelled
+    }
+  };
+
+  const handleShareOpenDetail = () => {
+    if (!activeCard) return;
+    const url = `/title/${activeCard.id}`;
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank");
+    }
+  };
+
   const showActivePoster = Boolean(activeCard?.posterUrl && !activePosterFailed);
   const showNextPoster = Boolean(nextCard?.posterUrl && !nextPosterFailed);
 
@@ -329,136 +502,6 @@ const SwipePage: React.FC = () => {
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
 
-  // Long-press detection
-  const longPressTimeoutRef = useRef<number | null>(null);
-  const longPressTriggeredRef = useRef(false);
-
-  // Haptic state for crossing thresholds
-  const lastHapticIntentRef = useRef<"like" | "dislike" | null>(null);
-  const lastHapticTimeRef = useRef<number>(0);
-
-  // Web Audio for swipe sounds
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  const ensureAudioContext = () => {
-    if (!FEEDBACK_ENABLED) return null;
-    if (typeof window === "undefined") return null;
-    if (audioContextRef.current) return audioContextRef.current;
-    const AC =
-      (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AC) return null;
-    const ctx = new AC();
-    audioContextRef.current = ctx;
-    return ctx;
-  };
-
-  const playSwipeSound = (direction: SwipeDirection, intensity: number) => {
-    if (!FEEDBACK_ENABLED) return;
-    const ctx = ensureAudioContext();
-    if (!ctx) return;
-
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {
-        // ignore
-      });
-    }
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    let startFreq = 440;
-    let endFreq = 440;
-
-    if (direction === "like") {
-      startFreq = 420;
-      endFreq = 650;
-    } else if (direction === "dislike") {
-      startFreq = 260;
-      endFreq = 180;
-    } else if (direction === "skip") {
-      startFreq = 340;
-      endFreq = 300;
-    }
-
-    const now = ctx.currentTime;
-    const duration = 0.08 + intensity * 0.07; // 80–150ms
-
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(startFreq, now);
-    osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
-
-    const startGain = 0.18 + intensity * 0.18; // 0.18–0.36
-    gain.gain.setValueAtTime(startGain, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + duration + 0.02);
-  };
-
-  const safeVibrate = (pattern: number | number[]) => {
-    if (!FEEDBACK_ENABLED) return;
-    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
-    navigator.vibrate(pattern);
-  };
-
-  const playDirectionalHaptic = (intent: "like" | "dislike") => {
-    const now = performance.now();
-    if (now - lastHapticTimeRef.current < HAPTIC_MIN_INTERVAL_MS) return;
-
-    const duration = intent === "like" ? 10 : 14;
-    safeVibrate(duration);
-    lastHapticTimeRef.current = now;
-  };
-
-  const playSwipeCommitHaptic = (direction: SwipeDirection, intensity: number) => {
-    const base = direction === "skip" ? 12 : 18;
-    const extra = Math.round(intensity * 50); // up to +50ms
-    const total = base + extra;
-
-    safeVibrate(total);
-  };
-
-  const setUndo = (card: SwipeCardData, direction: SwipeDirection) => {
-    setLastAction({ card, direction });
-    setShowUndo(true);
-
-    if (undoTimeoutRef.current != null) {
-      window.clearTimeout(undoTimeoutRef.current);
-    }
-    undoTimeoutRef.current = window.setTimeout(() => {
-      setShowUndo(false);
-    }, 2800);
-  };
-
-  const clearUndo = () => {
-    setShowUndo(false);
-    setLastAction(null);
-    if (undoTimeoutRef.current != null) {
-      window.clearTimeout(undoTimeoutRef.current);
-      undoTimeoutRef.current = null;
-    }
-  };
-
-  const handleUndo = () => {
-    if (!lastAction) return;
-    // UI-only undo: step index back if this card is exactly the previous one
-    setCurrentIndex((prev) => {
-      const candidate = prev - 1;
-      if (candidate < 0) return prev;
-      const previousCard = cards[candidate];
-      if (previousCard && previousCard.id === lastAction.card.id) {
-        return candidate;
-      }
-      return prev;
-    });
-
-    // TODO: wire this to a real “undo” endpoint or compensating swipe
-    clearUndo();
-  };
-
   useEffect(() => {
     const hasSeen =
       typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
@@ -468,7 +511,7 @@ const SwipePage: React.FC = () => {
   useEffect(() => {
     setActivePosterFailed(false);
     setShowFullFriendReview(false);
-    setIsDetailMode(false); // reset detail mode when card changes
+    setIsDetailMode(false);
   }, [activeCard?.id]);
 
   useEffect(() => {
@@ -504,15 +547,12 @@ const SwipePage: React.FC = () => {
         window.clearTimeout(undoTimeoutRef.current);
       }
       if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {
-          // ignore
-        });
+        audioContextRef.current.close().catch(() => {});
       }
     },
     [],
   );
 
-  // Animate next-card preview when the next card changes
   useEffect(() => {
     if (!nextCard) return;
     setIsNextPreviewActive(false);
@@ -540,23 +580,15 @@ const SwipePage: React.FC = () => {
 
   const setCardTransform = (
     x: number,
-    {
-      withTransition = false,
-      clampDrag = true,
-    }: { withTransition?: boolean; clampDrag?: boolean } = {},
+    { withTransition = false, clampDrag = true }: { withTransition?: boolean; clampDrag?: boolean } = {},
   ) => {
     const node = cardRef.current;
     if (!node) return;
 
     const finalX = clampDrag ? clamp(x, -MAX_DRAG, MAX_DRAG) : x;
 
-    // Base Z-rotation (like a piece of paper)
     const rotateZ = clamp(finalX / ROTATION_FACTOR, -12, 12);
-
-    // 3D Y-rotation to tilt toward/away from the user
     const rotateY = clamp(finalX / 26, -10, 10);
-
-    // Slight “pop-out” scale
     const baseScale = 1.02;
     const extraScale = Math.min(Math.abs(finalX) / 900, 0.04);
     const scale = baseScale + extraScale;
@@ -585,7 +617,43 @@ const SwipePage: React.FC = () => {
     velocityRef.current = 0;
     setDragIntent(null);
     setNextParallaxX(0);
-    lastHapticIntentRef.current = null;
+  };
+
+  const setUndo = (card: SwipeCardData, direction: SwipeDirection) => {
+    setLastAction({ card, direction });
+    setShowUndo(true);
+
+    if (undoTimeoutRef.current != null) {
+      window.clearTimeout(undoTimeoutRef.current);
+    }
+    undoTimeoutRef.current = window.setTimeout(() => {
+      setShowUndo(false);
+    }, 2800);
+  };
+
+  const clearUndo = () => {
+    setShowUndo(false);
+    setLastAction(null);
+    if (undoTimeoutRef.current != null) {
+      window.clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  };
+
+  const handleUndo = () => {
+    if (!lastAction) return;
+
+    setCurrentIndex((prev) => {
+      const candidate = prev - 1;
+      if (candidate < 0) return prev;
+      const previousCard = cards[candidate];
+      if (previousCard && previousCard.id === lastAction.card.id) {
+        return candidate;
+      }
+      return prev;
+    });
+
+    clearUndo();
   };
 
   const performSwipe = (direction: SwipeDirection, velocity = 0) => {
@@ -596,10 +664,8 @@ const SwipePage: React.FC = () => {
       localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
     }
 
-    // Save last action for UI undo (before index moves)
     setUndo(activeCard, direction);
 
-    // Always send the event
     swipe({
       cardId: activeCard.id,
       direction,
@@ -608,12 +674,9 @@ const SwipePage: React.FC = () => {
       sourceOverride: activeCard.source,
     });
 
-    // Reset overlay intent immediately so it doesn't linger
     setDragIntent(null);
     setNextParallaxX(0);
-    lastHapticIntentRef.current = null;
 
-    // SKIP → drop + fade
     if (direction === "skip") {
       const node = cardRef.current;
       if (node) {
@@ -623,9 +686,9 @@ const SwipePage: React.FC = () => {
         node.style.opacity = "0";
       }
 
-      const skipIntensity = 0.4;
-      playSwipeCommitHaptic(direction, skipIntensity);
-      playSwipeSound(direction, skipIntensity);
+      const intensity = 0.4;
+      safeVibrate(16 + intensity * 40);
+      playSwipeSound(direction, intensity);
 
       window.setTimeout(() => {
         setCurrentIndex((prev) => Math.min(prev + 1, cards.length));
@@ -638,7 +701,6 @@ const SwipePage: React.FC = () => {
       return;
     }
 
-    // LIKE / DISLIKE: fling off-screen
     const directionSign = direction === "like" ? 1 : -1;
     const baseExit = Math.max(
       EXIT_MIN,
@@ -661,11 +723,10 @@ const SwipePage: React.FC = () => {
       `;
     }
 
-    // Intensity based on how far the card needs to travel
     const travelMagnitude = Math.abs(baseExit);
     const intensity = Math.min(1, travelMagnitude / 520);
 
-    playSwipeCommitHaptic(direction, intensity);
+    safeVibrate(22 + intensity * 60);
     playSwipeSound(direction, intensity);
 
     window.setTimeout(() => {
@@ -685,12 +746,9 @@ const SwipePage: React.FC = () => {
     velocityRef.current = 0;
     setDragIntent(null);
     setNextParallaxX(0);
-    lastHapticIntentRef.current = null;
 
-    // Prepare AudioContext on a user gesture
     ensureAudioContext();
 
-    // Long press: toggle detail mode (shrink poster, more info)
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
     }
@@ -700,7 +758,6 @@ const SwipePage: React.FC = () => {
       longPressTriggeredRef.current = true;
       setIsDragging(false);
       resetCardPosition();
-
       safeVibrate(20);
       setIsDetailMode((prev) => !prev);
     }, 550);
@@ -721,7 +778,6 @@ const SwipePage: React.FC = () => {
     const now = performance.now();
     const dx = x - dragStartX.current;
 
-    // If user is clearly dragging, cancel long-press
     if (longPressTimeoutRef.current != null && Math.abs(dx) > 10 && !longPressTriggeredRef.current) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
@@ -729,26 +785,11 @@ const SwipePage: React.FC = () => {
 
     setCardTransform(dx, { withTransition: false });
 
-    // Update swipe intent overlays
     let nextIntent: "like" | "dislike" | null = null;
-    if (dx > DRAG_INTENT_THRESHOLD) {
-      nextIntent = "like";
-    } else if (dx < -DRAG_INTENT_THRESHOLD) {
-      nextIntent = "dislike";
-    }
-
+    if (dx > DRAG_INTENT_THRESHOLD) nextIntent = "like";
+    else if (dx < -DRAG_INTENT_THRESHOLD) nextIntent = "dislike";
     setDragIntent(nextIntent);
 
-    // Haptic when crossing into a new intent zone
-    if (nextIntent && nextIntent !== lastHapticIntentRef.current) {
-      playDirectionalHaptic(nextIntent);
-      lastHapticIntentRef.current = nextIntent;
-    }
-    if (!nextIntent) {
-      lastHapticIntentRef.current = null;
-    }
-
-    // Parallax on the next card (move slightly opposite the drag)
     setNextParallaxX(-dx * 0.06);
 
     if (lastMoveX.current !== null && lastMoveTime.current !== null) {
@@ -767,13 +808,11 @@ const SwipePage: React.FC = () => {
   };
 
   const finishDrag = () => {
-    // Always clear pending long-press
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
 
-    // If the long press already triggered, don't treat this as a swipe
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
       dragStartX.current = null;
@@ -807,7 +846,6 @@ const SwipePage: React.FC = () => {
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
   const actionsDisabled = !activeCard || isLoading || isError;
 
-  // Keyboard shortcuts: ← dislike, → like, ↓ / Space skip (kept, but no visible hint)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!activeCard || actionsDisabled || isDragging) return;
@@ -829,7 +867,6 @@ const SwipePage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCard, actionsDisabled, isDragging]);
 
-  // Simple deck indicator: first few cards with current highlighted
   const renderDeckIndicator = () => {
     if (!cards.length) return null;
 
@@ -898,14 +935,25 @@ const SwipePage: React.FC = () => {
         isRetrying={isRetryingSwipe}
       />
 
-      <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
+      <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-transparent p-3">
+        {/* Blurred poster background */}
+        {activeCard?.posterUrl && (
+          <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-2xl">
+            <img
+              src={activeCard.posterUrl}
+              alt={activeCard.title}
+              className="h-full w-full scale-110 object-cover blur-xl brightness-[0.35]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-mn-bg/40 via-mn-bg/70 to-mn-bg/90" />
+          </div>
+        )}
+
         {renderDeckIndicator()}
 
         <div
           className="relative flex flex-1 items-center justify-center overflow-visible [perspective:1400px]"
           aria-live="polite"
         >
-          {/* Loading */}
           {isLoading && !activeCard && !isError && <LoadingSwipeCard />}
 
           {isError && !isLoading && (
@@ -938,7 +986,7 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* Next-card preview with parallax */}
+              {/* Next-card preview with mild parallax */}
               {nextCard && (
                 <div
                   aria-hidden="true"
@@ -972,7 +1020,7 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* Active card with detail mode toggle */}
+              {/* Active swipe card */}
               <article
                 ref={cardRef}
                 className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform"
@@ -986,38 +1034,49 @@ const SwipePage: React.FC = () => {
                 aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
               >
+                {/* Poster / visual header */}
                 <div
                   className={`relative overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95 transition-all duration-300 ease-out ${
-                    isDetailMode ? "h-[42%]" : "h-[58%]"
+                    isDetailMode ? "h-[40%]" : "h-[58%]"
                   }`}
                 >
                   {showActivePoster && activeCard.posterUrl ? (
-                    <img
-                      src={activeCard.posterUrl}
-                      alt={buildSwipeCardLabel(activeCard) ?? `${activeCard.title} poster`}
-                      className="h-full w-full object-cover"
-                      draggable={false}
-                      loading="lazy"
-                      onError={() => setActivePosterFailed(true)}
-                      style={{
-                        transform: isDetailMode
-                          ? "scale(0.7) translateY(8%)"
-                          : "scale(1) translateY(0)",
-                        transformOrigin: "center center",
-                        transition: "transform 260ms cubic-bezier(0.22,0.61,0.36,1)",
-                        borderRadius: isDetailMode ? 18 : 0,
-                        boxShadow: isDetailMode
-                          ? "0 16px 40px rgba(0,0,0,0.5)"
-                          : "none",
-                      }}
-                    />
+                    <>
+                      <img
+                        src={activeCard.posterUrl}
+                        alt={buildSwipeCardLabel(activeCard) ?? `${activeCard.title} poster`}
+                        className="h-full w-full object-cover"
+                        draggable={false}
+                        loading="lazy"
+                        onError={() => setActivePosterFailed(true)}
+                        style={{
+                          filter: isDetailMode ? "blur(3px) brightness(0.7)" : "none",
+                          transform: isDetailMode ? "scale(1.1)" : "scale(1)",
+                          transition:
+                            "filter 260ms cubic-bezier(0.22,0.61,0.36,1), transform 260ms cubic-bezier(0.22,0.61,0.36,1)",
+                        }}
+                      />
+                      {/* small foreground poster in detail mode */}
+                      {isDetailMode && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-[-18px] flex justify-center">
+                          <div className="h-24 w-16 overflow-hidden rounded-xl border border-mn-border-subtle/80 bg-mn-bg shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+                            <img
+                              src={activeCard.posterUrl}
+                              alt={activeCard.title}
+                              className="h-full w-full object-cover"
+                              draggable={false}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <PosterFallback title={activeCard.title} />
                   )}
 
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
 
-                  {/* Swipe overlays */}
+                  {/* Swipe intent overlays */}
                   {dragIntent === "like" && (
                     <>
                       <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-start">
@@ -1041,14 +1100,13 @@ const SwipePage: React.FC = () => {
                     </>
                   )}
 
+                  {/* top badges */}
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                    {/* Context badge */}
                     <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-full bg-mn-primary" />
                       {overlaySourceLabel}
                     </span>
 
-                    {/* Plain text, no bg */}
                     <span className="flex items-center gap-1 text-[10px] font-medium text-mn-text-secondary/80">
                       <Sparkles className="h-3 w-3 text-mn-primary/80" />
                       Card {currentIndex + 1} / {cards.length || 1}
@@ -1056,21 +1114,18 @@ const SwipePage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
                   <div className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}>
                     <CardMetadata card={activeCard} />
 
-                    {/* Detail-mode: richer text from TitleDetailPage fields */}
+                    {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
-                      <div className="mt-3 space-y-2 text-[11px] text-mn-text-secondary">
-                        {/* 1) Long description (plot / overview) */}
+                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
                         {detailOverview && (
-                          <p className="leading-relaxed">
-                            {detailOverview}
-                          </p>
+                          <p className="leading-relaxed">{detailOverview}</p>
                         )}
 
-                        {/* 2) Secondary line: genres + locale, in plain text (no extra pills) */}
                         {(detailGenres?.length || detailPrimaryCountry || detailPrimaryLanguage) && (
                           <p className="text-[10.5px] text-mn-text-secondary/80">
                             {[
@@ -1082,10 +1137,112 @@ const SwipePage: React.FC = () => {
                               .join(" · ")}
                           </p>
                         )}
+
+                        {(detailDirector || detailActors) && (
+                          <div className="space-y-1 text-[10.5px] text-mn-text-secondary/90">
+                            {detailDirector && (
+                              <p>
+                                <span className="font-semibold text-mn-text-primary">Director: </span>
+                                {detailDirector}
+                              </p>
+                            )}
+                            {detailActors && (
+                              <p>
+                                <span className="font-semibold text-mn-text-primary">Cast: </span>
+                                {detailActors}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {(externalImdbRating || externalTomato || externalMetascore) && (
+                          <p className="text-[10.5px] text-mn-text-secondary/80">
+                            {[
+                              externalImdbRating != null
+                                ? `IMDb ${externalImdbRating.toFixed(1)}`
+                                : null,
+                              externalTomato != null ? `${externalTomato}% RT` : null,
+                              externalMetascore != null ? `Metascore ${externalMetascore}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+
+                        {/* diary actions */}
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-mn-text-primary">
+                              Your rating
+                            </span>
+                            <RatingStars
+                              value={diaryEntry?.rating ?? null}
+                              disabled={updateRating.isPending}
+                              onChange={setDiaryRating}
+                            />
+                            {diaryEntry?.rating != null && (
+                              <span className="text-[10.5px] text-mn-text-secondary">
+                                {diaryEntry.rating}/10
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDiaryStatus("want_to_watch")}
+                              disabled={updateStatus.isPending}
+                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+                                statusIs("want_to_watch")
+                                  ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
+                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
+                              }`}
+                            >
+                              Watchlist
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiaryStatus("watched")}
+                              disabled={updateStatus.isPending}
+                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+                                statusIs("watched")
+                                  ? "border-emerald-500 bg-emerald-500/10 text-emerald-200"
+                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-emerald-400/80 hover:text-emerald-200"
+                              }`}
+                            >
+                              Marked watched
+                            </button>
+                          </div>
+                        </div>
+
+                        {!user && (
+                          <p className="mt-1 text-[10.5px] text-mn-text-secondary/80">
+                            Sign in to rate, track your watchlist, and keep this title in your diary.
+                          </p>
+                        )}
+
+                        {/* share row */}
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={handleShareExternal}
+                            className="inline-flex items-center gap-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1.5 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                            Share link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleShareOpenDetail}
+                            className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary hover:text-mn-primary"
+                          >
+                            Open detail page
+                          </button>
+                        </div>
                       </div>
                     )}
 
-                    {/* Social / friends row (kept from before) */}
+                    {/* Social / friends row */}
                     <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
                       {typeof activeCard.friendLikesCount === "number" &&
                         activeCard.friendLikesCount > 0 && (
@@ -1155,6 +1312,7 @@ const SwipePage: React.FC = () => {
           )}
         </div>
 
+        {/* Bottom actions */}
         <div className="mt-3 grid grid-cols-3 gap-3">
           <button
             type="button"
