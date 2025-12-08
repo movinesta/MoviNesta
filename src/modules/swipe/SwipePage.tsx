@@ -141,9 +141,9 @@ export const LoadingSwipeCard: React.FC = () => {
 
   return (
     <article
-      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
+      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur transform-gpu will-change-transform"
       style={{
-        transform: `translateX(${offset}px) rotate(${rotation}deg)`,
+        transform: `perspective(1400px) translateX(${offset}px) rotateZ(${rotation}deg) rotateY(${offset / 6}deg) scale(1.02)`,
         transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
       }}
     >
@@ -302,12 +302,30 @@ const SwipePage: React.FC = () => {
     if (!node) return;
 
     const finalX = clampDrag ? clamp(x, -MAX_DRAG, MAX_DRAG) : x;
-    const rotate = clamp(finalX / ROTATION_FACTOR, -12, 12);
+
+    // Base Z-rotation (like a piece of paper)
+    const rotateZ = clamp(finalX / ROTATION_FACTOR, -12, 12);
+
+    // 3D Y-rotation to tilt toward/away from the user
+    const rotateY = clamp(finalX / 26, -10, 10);
+
+    // Slight “pop-out” scale
+    const baseScale = 1.02;
+    const extraScale = Math.min(Math.abs(finalX) / 900, 0.04);
+    const scale = baseScale + extraScale;
 
     node.style.transition = withTransition
       ? "transform 260ms cubic-bezier(0.22,0.61,0.36,1)"
       : "none";
-    node.style.transform = `translateX(${finalX}px) rotate(${rotate}deg)`;
+
+    node.style.transform = `
+      perspective(1400px)
+      translateX(${finalX}px)
+      rotateZ(${rotateZ}deg)
+      rotateY(${rotateY}deg)
+      scale(${scale})
+    `;
+
     dragDelta.current = finalX;
   };
 
@@ -374,12 +392,17 @@ const SwipePage: React.FC = () => {
 
     const node = cardRef.current;
     if (node) {
+      const exitRotateZ = clamp(exitX / ROTATION_FACTOR, -18, 18);
+      const exitRotateY = directionSign * 12;
+
       node.style.transition = "transform 260ms cubic-bezier(0.22,0.61,0.36,1)";
-      node.style.transform = `translateX(${exitX}px) rotate(${clamp(
-        exitX / ROTATION_FACTOR,
-        -18,
-        18,
-      )}deg)`;
+      node.style.transform = `
+        perspective(1400px)
+        translateX(${exitX}px)
+        rotateZ(${exitRotateZ}deg)
+        rotateY(${exitRotateY}deg)
+        scale(1.02)
+      `;
     }
 
     triggerHaptic();
@@ -469,7 +492,7 @@ const SwipePage: React.FC = () => {
 
       <div className="relative mt-2 flex flex-1 flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
         <div
-          className="relative flex flex-1 items-center justify-center overflow-hidden"
+          className="relative flex flex-1 items-center justify-center overflow-hidden [perspective:1400px]"
           aria-live="polite"
         >
           {/* Only ONE loading UI now */}
@@ -525,7 +548,7 @@ const SwipePage: React.FC = () => {
 
               <article
                 ref={cardRef}
-                className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
+                className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform"
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
                   handlePointerDown(e.clientX, e.pointerId);
