@@ -18,25 +18,46 @@ export type SwipeDirection = "like" | "dislike" | "skip";
 export type SwipeCardData = {
   id: string;
   title: string;
+
+  // Core identity
   year?: number | null;
+  type?: TitleType | null;
+
+  // Time / mood
   runtimeMinutes?: number | null;
   tagline?: string | null;
   mood?: string | null;
   vibeTag?: string | null;
-  type?: TitleType | null;
+
+  // Artwork
   posterUrl?: string | null;
   tmdbPosterPath?: string | null;
   tmdbBackdropPath?: string | null;
+
+  // Social
   friendLikesCount?: number | null;
   topFriendName?: string | null;
   topFriendInitials?: string | null;
   topFriendReviewSnippet?: string | null;
+
+  // User personalization (initial state)
   initialRating?: number | null;
   initiallyInWatchlist?: boolean;
+
+  // External ratings
   imdbRating?: number | null;
   rtTomatoMeter?: number | null;
+
+  // Source of this card (for-you, from-friends, trending)
   source?: SwipeDeckKind;
+
+  // 🔥 New: richer metadata pulled from the same fields TitleDetailPage uses
+  overview?: string | null;      // plot / tmdb_overview
+  genres?: string[] | null;      // genres / tmdb_genre_names
+  language?: string | null;      // primary language
+  country?: string | null;       // primary country
 };
+
 
 export type SwipeDeckKind = "for-you" | "from-friends" | "trending";
 export type SwipeDeckKindOrCombined = SwipeDeckKind | "combined";
