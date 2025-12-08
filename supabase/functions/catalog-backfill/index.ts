@@ -35,7 +35,7 @@ interface BackfillResult {
 }
 
 // How many pages of trending to fetch per media type
-const TRENDING_PAGES = 4;
+const TRENDING_PAGES = 9;
 
 // Basic type validation for the request body.
 function parseRequestBody(body: unknown): BackfillRequestBody {
@@ -106,7 +106,7 @@ export async function handler(req: Request) {
       const idSet = new Set<number>();
       const logCtx = { fn: FN_NAME, mediaType: mt };
 
-      // 1) Trending - fetch multiple pages (default 4)
+      // 1) Trending - fetch multiple pages (default 9)
       try {
         for (let page = 1; page <= TRENDING_PAGES; page++) {
           const trending = await fetchTmdbTrending(mt, "day", page);
