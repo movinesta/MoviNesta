@@ -141,7 +141,7 @@ export const LoadingSwipeCard: React.FC = () => {
 
   return (
     <article
-      className="relative z-[9999] mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-visible rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur transition-transform transition-shadow duration-300 hover:-translate-y-3 hover:scale-[1.03] hover:shadow-[0_25px_60px_rgba(0,0,0,0.7)]"
+      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
       style={{
         transform: `translateX(${offset}px) rotate(${rotation}deg)`,
         transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
@@ -458,7 +458,7 @@ const SwipePage: React.FC = () => {
   const actionsDisabled = !activeCard || isLoading || isError;
 
   return (
-    <div className="relative flex min-h-[calc(100vh-6rem)] flex-col overflow-visible rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
+    <div className="relative flex min-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
 
       <SwipeSyncBanner
@@ -467,9 +467,9 @@ const SwipePage: React.FC = () => {
         isRetrying={isRetryingSwipe}
       />
 
-      <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
+      <div className="relative mt-2 flex flex-1 flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
         <div
-          className="relative flex flex-1 items-center justify-center overflow-visible"
+          className="relative flex flex-1 items-center justify-center overflow-hidden"
           aria-live="polite"
         >
           {/* Only ONE loading UI now */}
@@ -525,7 +525,7 @@ const SwipePage: React.FC = () => {
 
               <article
                 ref={cardRef}
-                className="relative z-[9999] mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-visible rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur transition-transform transition-shadow duration-300 hover:-translate-y-3 hover:scale-[1.03] hover:shadow-[0_25px_60px_rgba(0,0,0,0.7)]"
+                className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/70 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-mn-card backdrop-blur"
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
                   handlePointerDown(e.clientX, e.pointerId);
@@ -614,7 +614,7 @@ const SwipePage: React.FC = () => {
           )}
         </div>
 
-        <div className="-mt-6 grid grid-cols-3 gap-3 relative z-0">
+        <div className="mt-3 grid grid-cols-3 gap-3">
           <button
             type="button"
             onClick={() => performSwipe("dislike")}
