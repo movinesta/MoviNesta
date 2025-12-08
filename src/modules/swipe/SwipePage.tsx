@@ -614,7 +614,7 @@ const SwipePage: React.FC = () => {
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        <div className="-mt-6 grid grid-cols-3 gap-3 relative z-0">
           <button
             type="button"
             onClick={() => performSwipe("dislike")}
