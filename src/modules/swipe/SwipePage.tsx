@@ -34,10 +34,8 @@ const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 const DRAG_INTENT_THRESHOLD = 32;
-
 const FEEDBACK_ENABLED = true;
 
-// Helpers
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -205,7 +203,6 @@ const LoadingSwipeCard: React.FC = () => {
   );
 };
 
-// Narrowed version of TitleRow for what we need here
 interface TitleDetailRow {
   title_id: string;
   content_type: string | null;
@@ -261,6 +258,7 @@ const SwipePage: React.FC = () => {
 
   const [isDetailMode, setIsDetailMode] = useState(false);
   const [showFullFriendReview, setShowFullFriendReview] = useState(false);
+  const [showFullOverview, setShowFullOverview] = useState(false);
 
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
@@ -268,6 +266,14 @@ const SwipePage: React.FC = () => {
   } | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const undoTimeoutRef = useRef<number | null>(null);
+
+  // Smarts
+  const [smartHint, setSmartHint] = useState<string | null>(null);
+  const smartHintTimeoutRef = useRef<number | null>(null);
+  const [longSkipStreak, setLongSkipStreak] = useState(0);
+
+  // Share presets
+  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false);
 
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
@@ -349,7 +355,7 @@ const SwipePage: React.FC = () => {
     osc.stop(now + duration + 0.02);
   };
 
-  // title detail data (same source as TitleDetailPage)
+  // title details (from titles table)
   const { data: titleDetail } = useQuery<TitleDetailRow | null>({
     queryKey: qk.titleDetail(activeTitleId),
     enabled: Boolean(activeTitleId && isDetailMode),
@@ -435,7 +441,7 @@ const SwipePage: React.FC = () => {
 
   const ensureSignedIn = () => {
     if (!user) {
-      alert("Sign in to save this title to your diary, rate it, or add it to your watchlist.");
+      alert("Sign in to save this title, rate it, or add it to your watchlist.");
       return false;
     }
     return true;
@@ -443,27 +449,28 @@ const SwipePage: React.FC = () => {
 
   const setDiaryStatus = (status: DiaryStatus) => {
     if (!activeTitleId || !ensureSignedIn() || updateStatus.isPending) return;
-
     const type = normalizedContentType ?? "movie";
     updateStatus.mutate({ titleId: activeTitleId, status, type });
   };
 
   const setDiaryRating = (nextRating: number | null) => {
     if (!activeTitleId || !ensureSignedIn() || updateRating.isPending) return;
-
     const type = normalizedContentType ?? "movie";
     updateRating.mutate({ titleId: activeTitleId, rating: nextRating, type });
   };
 
   const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
 
-  const handleShareExternal = async () => {
+  const getShareUrl = () =>
+    typeof window !== "undefined"
+      ? `${window.location.origin}/title/${activeCard?.id ?? ""}`
+      : `/title/${activeCard?.id ?? ""}`;
+
+  const handleShareExternal = async (messageOverride?: string) => {
     if (!activeCard) return;
-    const url =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/title/${activeCard.id}`
-        : `/title/${activeCard.id}`;
-    const text = `Check this out: ${activeCard.title}`;
+    const url = getShareUrl();
+    const defaultText = `Check this out: ${activeCard.title}`;
+    const text = messageOverride ?? defaultText;
 
     try {
       if (navigator.share) {
@@ -473,10 +480,10 @@ const SwipePage: React.FC = () => {
           url,
         });
       } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(`${text}\n\n${url}`);
         alert("Link copied to clipboard");
       } else {
-        alert(url);
+        alert(`${text}\n\n${url}`);
       }
     } catch {
       // user cancelled
@@ -489,6 +496,35 @@ const SwipePage: React.FC = () => {
     if (typeof window !== "undefined") {
       window.open(url, "_blank");
     }
+  };
+
+  const handleSharePreset = async (preset: "watch_together" | "recommend" | "dm") => {
+    if (!activeCard) return;
+    const url = getShareUrl();
+
+    let text: string;
+    if (preset === "watch_together") {
+      text = `Should we watch this together?\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
+      await handleShareExternal(text);
+    } else if (preset === "recommend") {
+      text = `This looks like your type of movie.\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
+      await handleShareExternal(text);
+    } else {
+      // DM preset: always copy formatted DM text
+      text = `Hey, I found this on MoviNesta:\n${activeCard.title} (${activeCard.year ?? ""})\n\nWhat do you think?\n${url}`;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          alert("Message copied for DM");
+        } else {
+          alert(text);
+        }
+      } catch {
+        alert(text);
+      }
+    }
+
+    setShowSharePresetSheet(false);
   };
 
   const showActivePoster = Boolean(activeCard?.posterUrl && !activePosterFailed);
@@ -512,6 +548,8 @@ const SwipePage: React.FC = () => {
     setActivePosterFailed(false);
     setShowFullFriendReview(false);
     setIsDetailMode(false);
+    setShowFullOverview(false);
+    setShowSharePresetSheet(false);
   }, [activeCard?.id]);
 
   useEffect(() => {
@@ -545,6 +583,9 @@ const SwipePage: React.FC = () => {
       }
       if (undoTimeoutRef.current != null) {
         window.clearTimeout(undoTimeoutRef.current);
+      }
+      if (smartHintTimeoutRef.current != null) {
+        window.clearTimeout(smartHintTimeoutRef.current);
       }
       if (audioContextRef.current) {
         audioContextRef.current.close().catch(() => {});
@@ -580,7 +621,11 @@ const SwipePage: React.FC = () => {
 
   const setCardTransform = (
     x: number,
-    { withTransition = false, clampDrag = true }: { withTransition?: boolean; clampDrag?: boolean } = {},
+    {
+      withTransition = false,
+      clampDrag = true,
+      elastic = false,
+    }: { withTransition?: boolean; clampDrag?: boolean; elastic?: boolean } = {},
   ) => {
     const node = cardRef.current;
     if (!node) return;
@@ -593,9 +638,13 @@ const SwipePage: React.FC = () => {
     const extraScale = Math.min(Math.abs(finalX) / 900, 0.04);
     const scale = baseScale + extraScale;
 
-    node.style.transition = withTransition
-      ? "transform 260ms cubic-bezier(0.22,0.61,0.36,1)"
-      : "none";
+    if (withTransition) {
+      node.style.transition = elastic
+        ? "transform 360ms cubic-bezier(0.18,0.89,0.32,1.28)"
+        : "transform 260ms cubic-bezier(0.22,0.61,0.36,1)";
+    } else {
+      node.style.transition = "none";
+    }
 
     node.style.transform = `
       perspective(1400px)
@@ -609,7 +658,7 @@ const SwipePage: React.FC = () => {
   };
 
   const resetCardPosition = () => {
-    setCardTransform(0, { withTransition: true });
+    setCardTransform(0, { withTransition: true, elastic: true });
     dragDelta.current = 0;
     dragStartX.current = null;
     lastMoveX.current = null;
@@ -656,6 +705,48 @@ const SwipePage: React.FC = () => {
     clearUndo();
   };
 
+  // Simple rule-based hint system
+  const setSmartHintWithTimeout = (hint: string | null) => {
+    setSmartHint(hint);
+    if (smartHintTimeoutRef.current != null) {
+      window.clearTimeout(smartHintTimeoutRef.current);
+    }
+    if (hint) {
+      smartHintTimeoutRef.current = window.setTimeout(() => {
+        setSmartHint(null);
+      }, 3200);
+    }
+  };
+
+  const computeSmartHint = (card: SwipeCardData, direction: SwipeDirection) => {
+    if (direction === "like") {
+      if (externalImdbRating != null && externalImdbRating >= 7.5) {
+        return "Nice pick — we’ll surface more highly rated titles like this.";
+      }
+      if (card.friendLikesCount && card.friendLikesCount >= 3) {
+        return "Your friends are into this — we’ll pull in more friend-favorites.";
+      }
+      return "Got it — we’ll keep tuning picks like this.";
+    }
+
+    if (direction === "dislike") {
+      const runtime = card.runtimeMinutes ?? 0;
+      if (runtime > 130 && longSkipStreak + 1 >= 3) {
+        return "Looks like long movies aren’t your thing — we’ll lean shorter.";
+      }
+      if (runtime > 130) {
+        return "Noted – we’ll be more careful with super long runtimes.";
+      }
+      return "Okay, we’ll dial down similar titles.";
+    }
+
+    if (direction === "skip") {
+      return "We’ll move this out of your way and keep the feed fresh.";
+    }
+
+    return null;
+  };
+
   const performSwipe = (direction: SwipeDirection, velocity = 0) => {
     if (!activeCard) return;
 
@@ -677,12 +768,29 @@ const SwipePage: React.FC = () => {
     setDragIntent(null);
     setNextParallaxX(0);
 
+    // Long skip streak tracking
+    if (direction === "dislike" && (activeCard.runtimeMinutes ?? 0) > 130) {
+      setLongSkipStreak((s) => s + 1);
+    } else {
+      setLongSkipStreak(0);
+    }
+
+    // smart hint
+    const hint = computeSmartHint(activeCard, direction);
+    if (hint) {
+      setSmartHintWithTimeout(hint);
+    }
+
     if (direction === "skip") {
       const node = cardRef.current;
       if (node) {
         node.style.transition =
           "transform 220ms cubic-bezier(0.22,0.61,0.36,1), opacity 220ms ease-out";
-        node.style.transform = "translateX(0px) translateY(24px) scale(0.95)";
+        node.style.transform =
+          "perspective(1400px) translateX(0px) translateY(4px) scale(1.03) rotateZ(-1deg)";
+        window.setTimeout(() => {
+          node.style.transform = "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
+        }, 16);
         node.style.opacity = "0";
       }
 
@@ -717,9 +825,10 @@ const SwipePage: React.FC = () => {
       node.style.transform = `
         perspective(1400px)
         translateX(${exitX}px)
+        translateY(-4px)
         rotateZ(${exitRotateZ}deg)
         rotateY(${exitRotateY}deg)
-        scale(1.02)
+        scale(1.04)
       `;
     }
 
@@ -925,6 +1034,21 @@ const SwipePage: React.FC = () => {
     );
   };
 
+  const renderSmartHintToast = () => {
+    if (!smartHint) return null;
+    return (
+      <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-30 flex justify-center px-4 sm:px-0">
+        <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
+          <span>{smartHint}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const shouldShowLongPressHint =
+    !isDetailMode && !showOnboarding && currentIndex < 3 && !isLoading && !!activeCard;
+
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
@@ -986,6 +1110,21 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
+              {/* Intent glow behind card */}
+              {dragIntent && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 -z-0"
+                >
+                  {dragIntent === "like" && (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.22),transparent_60%)]" />
+                  )}
+                  {dragIntent === "dislike" && (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(248,113,113,0.22),transparent_60%)]" />
+                  )}
+                </div>
+              )}
+
               {/* Next-card preview with mild parallax */}
               {nextCard && (
                 <div
@@ -1119,11 +1258,141 @@ const SwipePage: React.FC = () => {
                   <div className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}>
                     <CardMetadata card={activeCard} />
 
+                    {/* Minimal long-press hint (first few cards only) */}
+                    {shouldShowLongPressHint && (
+                      <div className="mt-2 flex items-center gap-1 text-[10px] text-mn-text-secondary/70">
+                        <span className="h-1 w-1 rounded-full bg-mn-border-subtle/80" />
+                        <span>Long-press the card for details, rating, and sharing.</span>
+                      </div>
+                    )}
+
                     {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
                       <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
+                        {/* Sticky header for diary + share */}
+                        <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-medium text-mn-text-primary">
+                                Your rating
+                              </span>
+                              <RatingStars
+                                value={diaryEntry?.rating ?? null}
+                                disabled={updateRating.isPending}
+                                onChange={setDiaryRating}
+                              />
+                              {diaryEntry?.rating != null && (
+                                <span className="text-[10.5px] text-mn-text-secondary">
+                                  {diaryEntry.rating}/10
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDiaryStatus("want_to_watch")}
+                                disabled={updateStatus.isPending}
+                                className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+                                  statusIs("want_to_watch")
+                                    ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
+                                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
+                                }`}
+                              >
+                                Watchlist
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDiaryStatus("watched")}
+                                disabled={updateStatus.isPending}
+                                className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+                                  statusIs("watched")
+                                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-200"
+                                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-emerald-400/80 hover:text-emerald-200"
+                                }`}
+                              >
+                                Marked watched
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowSharePresetSheet((prev) => !prev)
+                                }
+                                className="inline-flex items-center gap-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1.5 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
+                              >
+                                <Share2 className="h-3.5 w-3.5" />
+                                Share
+                              </button>
+                            </div>
+                          </div>
+
+                          {showSharePresetSheet && (
+                            <div className="mt-2 space-y-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg/98 p-2 text-[11px] text-mn-text-secondary shadow-mn-soft">
+                              <p className="mb-1 text-[10.5px] text-mn-text-secondary/80">
+                                Choose how you want to share:
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSharePreset("watch_together")}
+                                  className="rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] hover:border-mn-primary/70 hover:text-mn-primary"
+                                >
+                                  Ask to watch together
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSharePreset("recommend")}
+                                  className="rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] hover:border-mn-primary/70 hover:text-mn-primary"
+                                >
+                                  Recommend to a friend
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSharePreset("dm")}
+                                  className="rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] hover:border-mn-primary/70 hover:text-mn-primary"
+                                >
+                                  Copy for DM
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleShareOpenDetail}
+                                className="mt-2 text-[10.5px] text-mn-text-secondary hover:text-mn-primary"
+                              >
+                                Open full detail page
+                              </button>
+                            </div>
+                          )}
+
+                          {!user && (
+                            <p className="mt-1 text-[10.5px] text-mn-text-secondary/80">
+                              Sign in to rate, track your watchlist, and keep this title in your diary.
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Overview with clamp + show more */}
                         {detailOverview && (
-                          <p className="leading-relaxed">{detailOverview}</p>
+                          <div className="space-y-1">
+                            <p
+                              className={
+                                showFullOverview
+                                  ? "text-[11px] leading-relaxed"
+                                  : "text-[11px] leading-relaxed line-clamp-6"
+                              }
+                            >
+                              {detailOverview}
+                            </p>
+                            {detailOverview.length > 220 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowFullOverview((v) => !v)}
+                                className="text-[10.5px] font-medium text-mn-primary hover:text-mn-primary/80"
+                              >
+                                {showFullOverview ? "Show less" : "Show more plot"}
+                              </button>
+                            )}
+                          </div>
                         )}
 
                         {(detailGenres?.length || detailPrimaryCountry || detailPrimaryLanguage) && (
@@ -1149,7 +1418,12 @@ const SwipePage: React.FC = () => {
                             {detailActors && (
                               <p>
                                 <span className="font-semibold text-mn-text-primary">Cast: </span>
-                                {detailActors}
+                                {detailActors
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean)
+                                  .slice(0, 4)
+                                  .join(", ")}
                               </p>
                             )}
                           </div>
@@ -1168,77 +1442,6 @@ const SwipePage: React.FC = () => {
                               .join(" · ")}
                           </p>
                         )}
-
-                        {/* diary actions */}
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-medium text-mn-text-primary">
-                              Your rating
-                            </span>
-                            <RatingStars
-                              value={diaryEntry?.rating ?? null}
-                              disabled={updateRating.isPending}
-                              onChange={setDiaryRating}
-                            />
-                            {diaryEntry?.rating != null && (
-                              <span className="text-[10.5px] text-mn-text-secondary">
-                                {diaryEntry.rating}/10
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setDiaryStatus("want_to_watch")}
-                              disabled={updateStatus.isPending}
-                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
-                                statusIs("want_to_watch")
-                                  ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
-                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
-                              }`}
-                            >
-                              Watchlist
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDiaryStatus("watched")}
-                              disabled={updateStatus.isPending}
-                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
-                                statusIs("watched")
-                                  ? "border-emerald-500 bg-emerald-500/10 text-emerald-200"
-                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-emerald-400/80 hover:text-emerald-200"
-                              }`}
-                            >
-                              Marked watched
-                            </button>
-                          </div>
-                        </div>
-
-                        {!user && (
-                          <p className="mt-1 text-[10.5px] text-mn-text-secondary/80">
-                            Sign in to rate, track your watchlist, and keep this title in your diary.
-                          </p>
-                        )}
-
-                        {/* share row */}
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-                          <button
-                            type="button"
-                            onClick={handleShareExternal}
-                            className="inline-flex items-center gap-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1.5 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
-                          >
-                            <Share2 className="h-3.5 w-3.5" />
-                            Share link
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleShareOpenDetail}
-                            className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary hover:text-mn-primary"
-                          >
-                            Open detail page
-                          </button>
-                        </div>
                       </div>
                     )}
 
@@ -1310,6 +1513,8 @@ const SwipePage: React.FC = () => {
               )}
             </>
           )}
+
+          {renderSmartHintToast()}
         </div>
 
         {/* Bottom actions */}
