@@ -142,7 +142,7 @@ export const LoadingSwipeCard: React.FC = () => {
 
   return (
     <article
-      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur transform-gpu will-change-transform"
+      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur transform-gpu will-change-transform"
       style={{
         transform: `perspective(1400px) translateX(${offset}px) rotateZ(${rotation}deg) rotateY(${offset / 6}deg) scale(1.02)`,
         transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
@@ -166,16 +166,16 @@ export const LoadingSwipeCard: React.FC = () => {
       <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
         <div className="space-y-3 text-left text-[12px] leading-relaxed">
           <div className="space-y-2">
-            <div className="h-5 w-3/4 animate-pulse rounded-full bg-mn-border-subtle/60" />
-            <div className="h-3 w-1/2 animate-pulse rounded-full bg-mn-border-subtle/40" />
+            <div className="h-5 w-3/4 animate-pulse rounded-md bg-mn-border-subtle/60" />
+            <div className="h-3 w-1/2 animate-pulse rounded-md bg-mn-border-subtle/40" />
           </div>
           <div className="space-y-1.5">
-            <div className="h-3 w-full animate-pulse rounded-full bg-mn-border-subtle/40" />
-            <div className="h-3 w-5/6 animate-pulse rounded-full bg-mn-border-subtle/30" />
+            <div className="h-3 w-full animate-pulse rounded-md bg-mn-border-subtle/40" />
+            <div className="h-3 w-5/6 animate-pulse rounded-md bg-mn-border-subtle/30" />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <div className="h-6 w-20 animate-pulse rounded-full bg-mn-border-subtle/40" />
-            <div className="h-6 w-16 animate-pulse rounded-full bg-mn-border-subtle/20" />
+            <div className="h-6 w-20 animate-pulse rounded-md bg-mn-border-subtle/40" />
+            <div className="h-6 w-16 animate-pulse rounded-md bg-mn-border-subtle/20" />
           </div>
         </div>
 
@@ -524,7 +524,8 @@ const SwipePage: React.FC = () => {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeCard, actionsDisabled, isDragging, performSwipe]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCard, actionsDisabled, isDragging]);
 
   // Simple deck indicator: first few cards with current highlighted
   const renderDeckIndicator = () => {
@@ -549,7 +550,7 @@ const SwipePage: React.FC = () => {
             return (
               <span
                 key={cardIndex}
-                className={`h-1.5 rounded-full transition-all ${
+                className={`h-1.5 rounded-md transition-all ${
                   isActive ? "w-4 bg-mn-primary" : "w-2 bg-mn-border-subtle/70"
                 }`}
               />
@@ -600,7 +601,7 @@ const SwipePage: React.FC = () => {
               {nextCard && (
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md items-center justify-center rounded-[30px] transition-all duration-300 ease-out"
+                  className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md items-center justify-center rounded-2xl transition-all duration-300 ease-out"
                   style={{
                     transform: `${
                       isNextPreviewActive
@@ -610,7 +611,7 @@ const SwipePage: React.FC = () => {
                     opacity: isNextPreviewActive ? 1 : 0,
                   }}
                 >
-                  <div className="relative h-full w-full overflow-hidden rounded-[30px] border border-mn-border-subtle/40 shadow-mn-card">
+                  <div className="relative h-full w-full overflow-hidden rounded-2xl border border-mn-border-subtle/40 shadow-mn-card">
                     {showNextPoster && nextCard.posterUrl ? (
                       <>
                         <img
@@ -633,7 +634,7 @@ const SwipePage: React.FC = () => {
               {/* Active card */}
               <article
                 ref={cardRef}
-                className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform"
+                className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform"
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
                   handlePointerDown(e.clientX, e.pointerId);
@@ -659,26 +660,26 @@ const SwipePage: React.FC = () => {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
 
-                  {/* Swipe overlays */}
+                  {/* Swipe overlays (rectangular, not capsule) */}
                   {dragIntent === "like" && (
-                    <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-emerald-400/80 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300 shadow-mn-soft rotate-[-6deg]">
+                    <div className="pointer-events-none absolute left-4 top-4 rounded-md border border-emerald-400/80 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300 shadow-mn-soft rotate-[-4deg]">
                       Like
                     </div>
                   )}
                   {dragIntent === "dislike" && (
-                    <div className="pointer-events-none absolute right-4 top-4 rounded-lg border border-rose-400/80 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-300 shadow-mn-soft rotate-[6deg]">
+                    <div className="pointer-events-none absolute right-4 top-4 rounded-md border border-rose-400/80 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-300 shadow-mn-soft rotate-[4deg]">
                       Pass
                     </div>
                   )}
 
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                    {/* Keep this as pill: key context badge */}
-                    <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
+                    {/* Context badge: square-ish chip, not pill */}
+                    <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-full bg-mn-primary" />
                       {overlaySourceLabel}
                     </span>
 
-                    {/* Plain text, not pill */}
+                    {/* Plain text, no bg */}
                     <span className="flex items-center gap-1 text-[10px] font-medium text-mn-text-secondary/80">
                       <Sparkles className="h-3 w-3 text-mn-primary/80" />
                       Card {currentIndex + 1} / {cards.length || 1}
@@ -721,7 +722,7 @@ const SwipePage: React.FC = () => {
                     </p>
                     <button
                       type="button"
-                      className="mt-3 w-full rounded-full bg-mn-primary px-3 py-2 text-sm font-semibold text-white shadow-mn-soft"
+                      className="mt-3 w-full rounded-xl bg-mn-primary px-3 py-2 text-sm font-semibold text-white shadow-mn-soft"
                       onClick={() => {
                         setShowOnboarding(false);
                         if (typeof window !== "undefined") {
@@ -763,7 +764,7 @@ const SwipePage: React.FC = () => {
             type="button"
             onClick={() => performSwipe("like")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-full border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex items-center justify-center gap-2 rounded-xl border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Like"
           >
             <ThumbsUp className="h-5 w-5" />
