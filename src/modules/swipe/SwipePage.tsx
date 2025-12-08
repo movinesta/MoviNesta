@@ -481,7 +481,7 @@ const SwipePage: React.FC = () => {
   const actionsDisabled = !activeCard || isLoading || isError;
 
   return (
-    <div className="relative flex min-h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
+    <div className="relative flex min-h-[calc(100vh-6rem)] flex-col rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
 
       <SwipeSyncBanner
@@ -490,9 +490,9 @@ const SwipePage: React.FC = () => {
         isRetrying={isRetryingSwipe}
       />
 
-      <div className="relative mt-2 flex flex-1 flex-col overflow-hidden rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
+      <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-gradient-to-b from-mn-bg/90 via-mn-bg to-mn-bg-elevated/80 p-3">
         <div
-          className="relative flex flex-1 items-center justify-center overflow-hidden [perspective:1400px]"
+          className="relative flex flex-1 items-center justify-center overflow-visible [perspective:1400px]"
           aria-live="polite"
         >
           {/* Only ONE loading UI now */}
