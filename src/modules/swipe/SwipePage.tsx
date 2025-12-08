@@ -562,7 +562,7 @@ const SwipePage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex min-h-[calc(100vh-6rem)] flex-col rounded-3xl border border-mn-border-subtle/70 bg-mn-bg-elevated/80 p-3 shadow-mn-card sm:p-5">
+    <div className="flex min-h-[calc(100vh-6rem)] flex-col">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
 
       <SwipeSyncBanner
