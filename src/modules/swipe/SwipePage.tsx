@@ -507,7 +507,7 @@ const SwipePage: React.FC = () => {
       text = `Should we watch this together?\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
       await handleShareExternal(text);
     } else if (preset === "recommend") {
-      text = `This looks like your type of movie.\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
+      text = `This looks like your type of title.\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
       await handleShareExternal(text);
     } else {
       // DM preset: always copy formatted DM text
@@ -705,7 +705,7 @@ const SwipePage: React.FC = () => {
     clearUndo();
   };
 
-  // Simple rule-based hint system
+  // Simple rule-based hint system (smarter)
   const setSmartHintWithTimeout = (hint: string | null) => {
     setSmartHint(hint);
     if (smartHintTimeoutRef.current != null) {
@@ -719,29 +719,45 @@ const SwipePage: React.FC = () => {
   };
 
   const computeSmartHint = (card: SwipeCardData, direction: SwipeDirection) => {
+    const runtime = card.runtimeMinutes ?? 0;
+    const genres = (detailGenres ?? card.genres ?? []) as string[];
+    const isSeries = normalizedContentType === "series" || card.type === "series";
+    const genreLower = genres.map((g) => g.toLowerCase());
+
     if (direction === "like") {
+      if (genreLower.some((g) => g.includes("horror") || g.includes("thriller"))) {
+        return "Got it — we’ll surface more intense and suspenseful titles like this.";
+      }
+      if (genreLower.some((g) => g.includes("comedy"))) {
+        return "We’ll show you more light and funny picks like this.";
+      }
+      if (isSeries) {
+        return "Nice — we’ll bring in more series that match this vibe.";
+      }
       if (externalImdbRating != null && externalImdbRating >= 7.5) {
         return "Nice pick — we’ll surface more highly rated titles like this.";
       }
       if (card.friendLikesCount && card.friendLikesCount >= 3) {
         return "Your friends are into this — we’ll pull in more friend-favorites.";
       }
-      return "Got it — we’ll keep tuning picks like this.";
+      return "Got it — we’ll keep tuning your picks around this kind of title.";
     }
 
     if (direction === "dislike") {
-      const runtime = card.runtimeMinutes ?? 0;
+      if (isSeries) {
+        return "Looks like this series isn’t your thing — we’ll dial down similar shows.";
+      }
       if (runtime > 130 && longSkipStreak + 1 >= 3) {
-        return "Looks like long movies aren’t your thing — we’ll lean shorter.";
+        return "You’ve skipped a few long movies — we’ll lean toward shorter runtimes.";
       }
       if (runtime > 130) {
-        return "Noted – we’ll be more careful with super long runtimes.";
+        return "Noted — we’ll be more careful with super long movies.";
       }
-      return "Okay, we’ll dial down similar titles.";
+      return "Okay, we’ll dial down similar titles in your feed.";
     }
 
     if (direction === "skip") {
-      return "We’ll move this out of your way and keep the feed fresh.";
+      return "We’ll move this out of your way and keep the feed feeling fresh.";
     }
 
     return null;
@@ -1013,10 +1029,10 @@ const SwipePage: React.FC = () => {
 
     const label =
       lastAction.direction === "like"
-        ? "Added to picks"
+        ? "Loved it"
         : lastAction.direction === "dislike"
-        ? "Skipped from feed"
-        : "Skipped";
+        ? "Marked as ‘No thanks’"
+        : "Saved for ‘Not now’";
 
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto">
@@ -1221,7 +1237,7 @@ const SwipePage: React.FC = () => {
                       <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-start">
                         <div className="flex items-center gap-2 rounded-md border border-emerald-400/70 bg-emerald-500/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200 shadow-mn-soft backdrop-blur-sm">
                           <ThumbsUp className="h-4 w-4 text-emerald-300" />
-                          <span>Add to picks</span>
+                          <span>Love it</span>
                         </div>
                       </div>
                       <div className="pointer-events-none absolute inset-y-8 right-2 w-1 rounded-full bg-gradient-to-b from-emerald-400/0 via-emerald-400/40 to-emerald-400/0" />
@@ -1232,7 +1248,7 @@ const SwipePage: React.FC = () => {
                       <div className="pointer-events-none absolute inset-x-8 top-6 flex justify-end">
                         <div className="flex items-center gap-2 rounded-md border border-rose-400/70 bg-rose-500/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-200 shadow-mn-soft backdrop-blur-sm">
                           <ThumbsDown className="h-4 w-4 text-rose-300" />
-                          <span>Skip this</span>
+                          <span>No thanks</span>
                         </div>
                       </div>
                       <div className="pointer-events-none absolute inset-y-8 left-2 w-1 rounded-full bg-gradient-to-b from-rose-400/0 via-rose-400/40 to-rose-400/0" />
@@ -1493,7 +1509,7 @@ const SwipePage: React.FC = () => {
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left to skip or right to add to your picks. Long-press to toggle
+                      Drag the card left for “No thanks”, right for “Love it”. Long-press to open
                       detail mode inside the card.
                     </p>
                     <button
@@ -1524,30 +1540,30 @@ const SwipePage: React.FC = () => {
             onClick={() => performSwipe("dislike")}
             disabled={actionsDisabled}
             className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
-            aria-label="Skip this"
+            aria-label="No thanks"
           >
             <ThumbsDown className="h-5 w-5" />
-            <span className="hidden sm:inline">Skip this</span>
+            <span className="hidden sm:inline">No thanks</span>
           </button>
           <button
             type="button"
             onClick={() => performSwipe("skip")}
             disabled={actionsDisabled}
             className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
-            aria-label="Maybe later"
+            aria-label="Not now"
           >
             <SkipForward className="h-5 w-5" />
-            <span className="hidden sm:inline">Maybe later</span>
+            <span className="hidden sm:inline">Not now</span>
           </button>
           <button
             type="button"
             onClick={() => performSwipe("like")}
             disabled={actionsDisabled}
             className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
-            aria-label="Add to picks"
+            aria-label="Love it"
           >
             <ThumbsUp className="h-5 w-5" />
-            <span className="hidden sm:inline">Add to picks</span>
+            <span className="hidden sm:inline">Love it</span>
           </button>
         </div>
 
