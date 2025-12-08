@@ -69,15 +69,36 @@ function parseRequestBody(body: unknown): SyncRequest {
   }
 
   const raw = body as Record<string, unknown>;
-  // Helpful for debugging what actually arrives:
-  console.log(`[${FN_NAME}] incoming body`, raw);
+  // If you want to debug what you actually receive, uncomment:
+  // console.log(`[${FN_NAME}] incoming body`, raw);
 
-  // Support both camelCase and snake_case keys, and string/number IDs.
-  const tmdbSource = raw.tmdbId ?? raw.tmdb_id;
-  const imdbSource = raw.imdbId ?? raw.imdb_id;
-  const contentTypeSource = raw.contentType ?? raw.content_type;
+  // Support two shapes:
+  // 1) Direct: { tmdbId, imdbId, contentType, options }
+  // 2) Nested: { external: { tmdbId, imdbId, type }, options }
+  const external = (raw.external ?? null) as Record<string, unknown> | null;
+
+  const tmdbSource =
+    (external?.tmdbId ?? external?.tmdb_id) ??
+    raw.tmdbId ??
+    raw.tmdb_id;
+
+  const imdbSource =
+    (external?.imdbId ?? external?.imdb_id) ??
+    raw.imdbId ??
+    raw.imdb_id;
+
+  const contentTypeSource =
+    raw.contentType ??
+    raw.content_type ??
+    (external?.type === "tv"
+      ? "series"
+      : external?.type === "movie"
+        ? "movie"
+        : undefined);
+
   const optionsSource = raw.options;
 
+  // ---------- tmdbId ----------
   let tmdbId: number | null = null;
   if (tmdbSource != null) {
     const parsed =
@@ -89,6 +110,7 @@ function parseRequestBody(body: unknown): SyncRequest {
     tmdbId = parsed;
   }
 
+  // ---------- imdbId ----------
   let imdbId: string | null = null;
   if (imdbSource != null) {
     if (typeof imdbSource !== "string" || !/^tt\d+$/.test(imdbSource)) {
@@ -99,6 +121,7 @@ function parseRequestBody(body: unknown): SyncRequest {
     imdbId = imdbSource;
   }
 
+  // ---------- contentType ----------
   let contentType: ContentType | null = null;
   if (contentTypeSource != null) {
     if (contentTypeSource !== "movie" && contentTypeSource !== "series") {
@@ -107,11 +130,12 @@ function parseRequestBody(body: unknown): SyncRequest {
     contentType = contentTypeSource as ContentType;
   }
 
-  // Only reject when both are truly null/undefined, not just falsy
+  // Only reject when both are truly missing
   if (tmdbId == null && imdbId == null) {
     throw new Error("Either 'tmdbId' or 'imdbId' must be provided");
   }
 
+  // ---------- options ----------
   let options: SyncRequest["options"] | undefined;
   if (optionsSource != null) {
     if (typeof optionsSource !== "object") {
@@ -155,11 +179,21 @@ async function handleTitleSync(req: Request, body: SyncRequest): Promise<Respons
   // 2. Find existing title
   const existingTitle = await findExistingTitle(supabase, ids.tmdbId, ids.imdbId);
   const titleId = existingTitle?.title_id ?? crypto.randomUUID();
-  log(logCtx, existingTitle ? "Found existing title" : "Creating new title", { titleId });
+  log(
+    logCtx,
+    existingTitle ? "Found existing title" : "Creating new title",
+    { titleId },
+  );
 
   // 3. Fetch data from external APIs
-  const tmdbDetails = ids.tmdbId ? await tmdbGetDetails(ids.tmdbId, ids.tmdbMediaType) : null;
-  const finalImdbId = ids.imdbId ?? tmdbDetails?.imdb_id ?? tmdbDetails?.external_ids?.imdb_id ?? null;
+  const tmdbDetails = ids.tmdbId
+    ? await tmdbGetDetails(ids.tmdbId, ids.tmdbMediaType)
+    : null;
+  const finalImdbId =
+    ids.imdbId ??
+    tmdbDetails?.imdb_id ??
+    tmdbDetails?.external_ids?.imdb_id ??
+    null;
   const omdbDetails = finalImdbId && (body.options?.syncOmdb ?? true)
     ? await omdbGetDetails(finalImdbId)
     : null;
@@ -173,7 +207,12 @@ async function handleTitleSync(req: Request, body: SyncRequest): Promise<Respons
   });
 
   // 5. Upsert to database
-  const { data: finalTitle, error } = await upsertTitle(supabase, titleId, titleRow, !!existingTitle);
+  const { data: finalTitle, error } = await upsertTitle(
+    supabase,
+    titleId,
+    titleRow,
+    !!existingTitle,
+  );
   if (error) {
     log(logCtx, "Upsert failed", { error: error.message });
     return jsonError("Failed to sync title", 500, "DATABASE_ERROR");
@@ -239,7 +278,9 @@ async function findExistingTitle(
 
   const { data, error } = await query.limit(1).maybeSingle();
   if (error) {
-    log({ fn: FN_NAME }, "Error finding existing title", { error: error.message });
+    log({ fn: FN_NAME }, "Error finding existing title", {
+      error: error.message,
+    });
     return null;
   }
   return data;
@@ -259,7 +300,11 @@ async function upsertTitle(
 
   // Handle race condition where another sync inserted the same tmdb_id
   if (error && error.code === "23505" && row.tmdb_id && !isUpdate) {
-    log({ fn: FN_NAME }, "Duplicate tmdb_id on insert, retrying as update", { tmdbId: row.tmdb_id });
+    log(
+      { fn: FN_NAME },
+      "Duplicate tmdb_id on insert, retrying as update",
+      { tmdbId: row.tmdb_id },
+    );
     const existing = await findExistingTitle(supabase, row.tmdb_id, null);
     if (existing) {
       return await supabase.from("titles")
@@ -279,9 +324,16 @@ async function ensureDetailTables(
   contentType: ContentType,
 ) {
   const table = contentType === "movie" ? "movies" : "series";
-  const { error } = await supabase.from(table).upsert({ title_id: titleId }, { onConflict: "title_id" });
+  const { error } = await supabase.from(table).upsert(
+    { title_id: titleId },
+    { onConflict: "title_id" },
+  );
   if (error) {
-    log({ fn: FN_NAME }, `Failed to upsert into ${table}`, { titleId, error: error.message });
+    log(
+      { fn: FN_NAME },
+      `Failed to upsert into ${table}`,
+      { titleId, error: error.message },
+    );
   }
 }
 
@@ -309,22 +361,43 @@ function buildTitleRow(args: {
     ...omdbBlock,
     // Canonical fields
     primary_title: primaryTitle,
-    original_title: tmdb?.original_title ?? tmdb?.original_name ?? omdb?.Title ?? null,
+    original_title:
+      tmdb?.original_title ??
+      tmdb?.original_name ??
+      omdb?.Title ??
+      null,
     sort_title: buildSortTitle(primaryTitle),
     release_date: tmdb?.release_date ?? tmdb?.first_air_date ?? null,
     release_year: parseIntSafe(
       (tmdb?.release_date ?? tmdb?.first_air_date ?? "0").substring(0, 4),
     ),
-    runtime_minutes: parseIntSafe(omdb?.Runtime) ?? tmdbBlock.tmdb_runtime ?? null,
-    poster_url: omdb?.Poster ?? buildTmdbImageUrl(tmdb?.poster_path, "w500") ?? null,
+    runtime_minutes:
+      parseIntSafe(omdb?.Runtime) ??
+      tmdbBlock.tmdb_runtime ??
+      null,
+    poster_url:
+      omdb?.Poster ??
+      buildTmdbImageUrl(tmdb?.poster_path, "w500") ??
+      null,
     backdrop_url: buildTmdbImageUrl(tmdb?.backdrop_path, "w1280"),
     plot: omdb?.Plot ?? tmdb?.overview ?? null,
     tagline: tmdb?.tagline ?? null,
-    genres: (omdb?.Genre ?? "").split(", ") ?? tmdbBlock.tmdb_genre_names ?? null,
-    language: (omdb?.Language ?? "").split(", ")[0] ?? tmdb?.original_language ?? null,
-    country: (omdb?.Country ?? "").split(", ")[0] ?? tmdb?.production_countries?.[0]?.iso_3166_1 ?? null,
+    genres:
+      (omdb?.Genre ?? "").split(", ") ??
+      tmdbBlock.tmdb_genre_names ??
+      null,
+    language:
+      (omdb?.Language ?? "").split(", ")[0] ??
+      tmdb?.original_language ??
+      null,
+    country:
+      (omdb?.Country ?? "").split(", ")[0] ??
+      tmdb?.production_countries?.[0]?.iso_3166_1 ??
+      null,
     imdb_rating: parseFloatSafe(omdb?.imdbRating),
-    imdb_votes: parseIntSafe((omdb?.imdbVotes ?? "").replace(/,/g, "")),
+    imdb_votes: parseIntSafe(
+      (omdb?.imdbVotes ?? "").replace(/,/g, ""),
+    ),
     metascore: parseIntSafe(omdb?.Metascore),
     rt_tomato_pct: extractRottenTomatoesPct(omdb?.Ratings),
     last_synced_at: new Date().toISOString(),
@@ -348,7 +421,9 @@ function buildTmdbBlock(tmdb: any, contentType: ContentType) {
     tmdb_release_date: isMovie ? tmdb.release_date : null,
     tmdb_first_air_date: !isMovie ? tmdb.first_air_date : null,
     tmdb_poster_path: tmdb.poster_path,
-    tmdb_runtime: isMovie ? tmdb.runtime : tmdb.episode_run_time?.[0],
+    tmdb_runtime: isMovie
+      ? tmdb.runtime
+      : tmdb.episode_run_time?.[0],
     tmdb_genre_names: (tmdb.genres ?? []).map((g: any) => g.name),
     tmdb_last_synced_at: new Date().toISOString(),
     tmdb_raw: tmdb,
@@ -383,38 +458,59 @@ function buildOmdbBlock(omdb: any) {
 // External API Fetchers
 // ============================================================================
 
-async function tmdbRequest(path: string, params?: Record<string, string>): Promise<any | null> {
+async function tmdbRequest(
+  path: string,
+  params?: Record<string, string>,
+): Promise<any | null> {
   const { tmdbApiReadAccessToken } = getConfig();
   const TMDB_BASE = "https://api.themoviedb.org/3";
   const url = new URL(TMDB_BASE + path);
   if (params) {
-    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+    Object.entries(params).forEach(([key, value]) =>
+      url.searchParams.set(key, value)
+    );
   }
 
   try {
     const res = await fetch(url.toString(), {
-      headers: { accept: "application/json", Authorization: `Bearer ${tmdbApiReadAccessToken}` },
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${tmdbApiReadAccessToken}`,
+      },
     });
     if (!res.ok) {
-      log({ fn: FN_NAME }, "TMDb request failed", { status: res.status, path });
+      log({ fn: FN_NAME }, "TMDb request failed", {
+        status: res.status,
+        path,
+      });
       return null;
     }
     return await res.json();
   } catch (error: any) {
-    log({ fn: FN_NAME }, "TMDb fetch error", { error: error.message, path });
+    log({ fn: FN_NAME }, "TMDb fetch error", {
+      error: error.message,
+      path,
+    });
     return null;
   }
 }
 
-async function tmdbFindByImdb(imdbId: string): Promise<{ id: number; media_type: TmdbMediaType } | null> {
-  const data = await tmdbRequest(`/find/${imdbId}`, { external_source: "imdb_id" });
+async function tmdbFindByImdb(
+  imdbId: string,
+): Promise<{ id: number; media_type: TmdbMediaType } | null> {
+  const data = await tmdbRequest(`/find/${imdbId}`, {
+    external_source: "imdb_id",
+  });
   const result = data?.movie_results?.[0] ?? data?.tv_results?.[0];
   if (!result) return null;
   const media_type = data.movie_results?.[0] ? "movie" : "tv";
   return { id: result.id, media_type };
 }
 
-async function tmdbGetDetails(tmdbId: number, type: TmdbMediaType): Promise<any | null> {
+async function tmdbGetDetails(
+  tmdbId: number,
+  type: TmdbMediaType,
+): Promise<any | null> {
   return await tmdbRequest(`/${type}/${tmdbId}`, {
     append_to_response: "credits,release_dates,external_ids",
   });
@@ -425,7 +521,11 @@ async function omdbGetDetails(imdbId: string): Promise<any | null> {
   const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY");
 
   if (!OMDB_API_KEY) {
-    log({ fn: FN_NAME }, "OMDB_API_KEY missing, skipping OMDb enrichment", { imdbId });
+    log(
+      { fn: FN_NAME },
+      "OMDB_API_KEY missing, skipping OMDb enrichment",
+      { imdbId },
+    );
     return null;
   }
 
@@ -437,19 +537,29 @@ async function omdbGetDetails(imdbId: string): Promise<any | null> {
   try {
     const res = await fetch(url.toString());
     if (!res.ok) {
-      log({ fn: FN_NAME }, "OMDb request failed", { status: res.status, imdbId });
+      log({ fn: FN_NAME }, "OMDb request failed", {
+        status: res.status,
+        imdbId,
+      });
       return null;
     }
 
     const data = await res.json();
     if (data.Response === "False") {
-      log({ fn: FN_NAME }, "OMDb API returned an error", { imdbId, error: data.Error });
+      log(
+        { fn: FN_NAME },
+        "OMDb API returned an error",
+        { imdbId, error: data.Error },
+      );
       return null;
     }
 
     return data;
   } catch (error: any) {
-    log({ fn: FN_NAME }, "OMDb fetch error", { error: error.message, imdbId });
+    log({ fn: FN_NAME }, "OMDb fetch error", {
+      error: error.message,
+      imdbId,
+    });
     return null;
   }
 }
@@ -478,7 +588,9 @@ const parseFloatSafe = (v: any) =>
     : parseFloat(v);
 
 const parseCurrency = (v: any) =>
-  v && v !== "N/A" ? parseFloatSafe(String(v).replace(/[^0-9.]/g, "")) : null;
+  v && v !== "N/A"
+    ? parseFloatSafe(String(v).replace(/[^0-9.]/g, ""))
+    : null;
 
 function extractRottenTomatoesPct(ratings: any[]): number | null {
   const rt = ratings?.find((r: any) => r.Source === "Rotten Tomatoes");
