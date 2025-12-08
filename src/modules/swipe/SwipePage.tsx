@@ -119,9 +119,7 @@ export const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
 );
 
 /**
- * Animated loading skeleton that matches the real card’s size/position
- * and does a subtle “swipe wiggle” left/right.
- * Updated so there is only ONE visible card (no blurred background layer).
+ * Animated loading skeleton with 3D “wiggle”
  */
 export const LoadingSwipeCard: React.FC = () => {
   const [offset, setOffset] = useState(0);
@@ -151,11 +149,11 @@ export const LoadingSwipeCard: React.FC = () => {
         <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
         <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 font-semibold text-mn-text-muted shadow-mn-soft">
-            <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle" />
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-mn-text-muted/90">
+            <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle/80" />
             Getting picks…
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] text-mn-text-muted shadow-mn-soft">
+          <span className="inline-flex items-center gap-1 text-[10px] text-mn-text-muted/80">
             <Sparkles className="h-3 w-3" />
             Warming up
           </span>
@@ -179,8 +177,8 @@ export const LoadingSwipeCard: React.FC = () => {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
-          <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-1 shadow-mn-soft">
-            <Flame className="h-4 w-4 text-mn-border-subtle" />
+          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary/80">
+            <Flame className="h-4 w-4 text-mn-border-subtle/80" />
             Finding what friends like…
           </span>
         </div>
@@ -495,7 +493,7 @@ const SwipePage: React.FC = () => {
           className="relative flex flex-1 items-center justify-center overflow-visible [perspective:1400px]"
           aria-live="polite"
         >
-          {/* Only ONE loading UI now */}
+          {/* Loading */}
           {isLoading && !activeCard && !isError && <LoadingSwipeCard />}
 
           {isError && !isLoading && (
@@ -514,7 +512,7 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* Next-card preview (only when we have data, not during skeleton load) */}
+              {/* Next-card preview */}
               {nextCard && (
                 <div
                   aria-hidden="true"
@@ -546,6 +544,7 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
+              {/* Active card */}
               <article
                 ref={cardRef}
                 className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-[30px] border border-mn-border-subtle/80 bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform"
@@ -574,12 +573,15 @@ const SwipePage: React.FC = () => {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 font-semibold text-mn-text-primary shadow-mn-soft">
+                    {/* Keep this as pill: key context badge */}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-full bg-mn-primary" />
                       {overlaySourceLabel}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg/80 px-2 py-1 text-[10px] text-mn-text-secondary shadow-mn-soft">
-                      <Sparkles className="h-3 w-3 text-mn-primary" />
+
+                    {/* Plain text, not pill */}
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-mn-text-secondary/80">
+                      <Sparkles className="h-3 w-3 text-mn-primary/80" />
                       Card {currentIndex + 1} / {cards.length || 1}
                     </span>
                   </div>
@@ -591,15 +593,15 @@ const SwipePage: React.FC = () => {
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
                     {typeof activeCard.friendLikesCount === "number" &&
                       activeCard.friendLikesCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-mn-surface-elevated/80 px-2 py-1 shadow-mn-soft">
-                          <Flame className="h-4 w-4 text-mn-primary" />
+                        <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                          <Flame className="h-4 w-4 text-mn-primary/80" />
                           {activeCard.friendLikesCount === 1
                             ? "1 friend likes this"
                             : `${activeCard.friendLikesCount} friends like this`}
                         </span>
                       )}
                     {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
-                      <span className="inline-flex flex-1 items-start gap-2 rounded-xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft">
+                      <span className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft">
                         <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
                         <span className="line-clamp-2">
                           {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
@@ -642,7 +644,7 @@ const SwipePage: React.FC = () => {
             type="button"
             onClick={() => performSwipe("dislike")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Dislike"
           >
             <ThumbsDown className="h-5 w-5" />
@@ -652,7 +654,7 @@ const SwipePage: React.FC = () => {
             type="button"
             onClick={() => performSwipe("skip")}
             disabled={actionsDisabled}
-            className="flex items-center justify-center gap-2 rounded-full border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Skip"
           >
             <SkipForward className="h-5 w-5" />
