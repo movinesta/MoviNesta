@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Flame,
@@ -77,6 +77,13 @@ const buildSwipeCardLabel = (card?: SwipeCardData) => {
   return descriptor ? `${card.title} (${descriptor})` : card.title;
 };
 
+
+type SessionStats = {
+  like: number;
+  dislike: number;
+  skip: number;
+};
+
 interface CardMetadataProps {
   card: SwipeCardData;
   metaLine: string;
@@ -95,7 +102,7 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card, metaLine, highlightLa
             <p className="truncate text-[11px] text-mn-text-secondary/90">{metaLine}</p>
           )}
           {highlightLabel && (
-            <p className="text-[10px] font-medium text-mn-primary/90">
+            <p className="text-[11px] font-medium text-mn-primary/90">
               {highlightLabel}
             </p>
           )}
@@ -155,12 +162,12 @@ const LoadingSwipeCard: React.FC = () => {
       <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
         <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
-        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-mn-text-muted/90">
+        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-mn-text-muted/90">
             <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle/80" />
             Getting picks…
           </span>
-          <span className="inline-flex items-center gap-1 text-[10px] text-mn-text-muted/80">
+          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-muted/80">
             <Sparkles className="h-3 w-3" />
             Warming up
           </span>
@@ -248,6 +255,17 @@ const SwipePage: React.FC = () => {
   const [nextParallaxX, setNextParallaxX] = useState(0);
 
   const [isDetailMode, setIsDetailMode] = useState(false);
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+
+  const [isLongPressActive, setIsLongPressActive] = useState(false);
+  const [longPressProgress, setLongPressProgress] = useState(0);
+
+  const [sessionStats, setSessionStats] = useState<SessionStats>({
+    like: 0,
+    dislike: 0,
+    skip: 0,
+  });
+
   const [showFullFriendReview, setShowFullFriendReview] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
 
@@ -536,6 +554,11 @@ const SwipePage: React.FC = () => {
     const hasSeen =
       typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
     setShowOnboarding(!hasSeen);
+
+    if (typeof window !== "undefined") {
+      const mq = window.matchMedia?.("(pointer: coarse)");
+      setIsCoarsePointer(mq?.matches ?? false);
+    }
   }, []);
 
   useEffect(() => {
@@ -768,6 +791,11 @@ const SwipePage: React.FC = () => {
   const performSwipe = (direction: SwipeDirection, velocity = 0) => {
     if (!activeCard) return;
 
+    setSessionStats((prev) => ({
+      ...prev,
+      [direction]: prev[direction as keyof SessionStats] + 1,
+    } as SessionStats));
+
     setShowOnboarding(false);
     if (typeof window !== "undefined") {
       localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
@@ -876,6 +904,9 @@ const SwipePage: React.FC = () => {
 
     ensureAudioContext();
 
+    setIsLongPressActive(true);
+    setLongPressProgress(1);
+
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
     }
@@ -908,6 +939,8 @@ const SwipePage: React.FC = () => {
     if (longPressTimeoutRef.current != null && Math.abs(dx) > 10 && !longPressTriggeredRef.current) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
+      setIsLongPressActive(false);
+      setLongPressProgress(0);
     }
 
     setCardTransform(dx, { withTransition: false });
@@ -938,6 +971,8 @@ const SwipePage: React.FC = () => {
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
+      setIsLongPressActive(false);
+      setLongPressProgress(0);
     }
 
     if (longPressTriggeredRef.current) {
@@ -993,6 +1028,9 @@ const SwipePage: React.FC = () => {
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCard, actionsDisabled, isDragging]);
+
+
+  const sessionTotal = sessionStats.like + sessionStats.dislike + sessionStats.skip;
 
   const renderDeckIndicator = () => {
     if (!cards.length) return null;
@@ -1250,10 +1288,48 @@ const SwipePage: React.FC = () => {
                 onMouseLeave={handleMouseLeaveCard}
                 aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
+                tabIndex={0}
               >
-              {isDetailMode && (
-                <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl bg-black/35 transition-opacity duration-200" />
-              )}
+                {/* Detail-mode dim overlay */}
+                {isDetailMode && (
+                  <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl bg-black/35 transition-opacity duration-200" />
+                )}
+
+                {/* Swipe intent labels */}
+                {dragIntent === "like" && (
+                  <div className="pointer-events-none absolute left-3 top-3 z-30 rounded-md border border-emerald-400/60 bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-50">
+                    Love it
+                  </div>
+                )}
+                {dragIntent === "dislike" && (
+                  <div className="pointer-events-none absolute right-3 top-3 z-30 rounded-md border border-rose-400/60 bg-rose-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-50">
+                    No thanks
+                  </div>
+                )}
+
+                {/* Small details chip on card */}
+                {!isDetailMode && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDetailMode(true)}
+                    className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg/80 px-2.5 py-1 text-[11px] text-mn-text-secondary backdrop-blur hover:bg-mn-bg-elevated/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary/60"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
+                    <span>Details</span>
+                  </button>
+                )}
+
+                {/* Long-press progress indicator */}
+                {isLongPressActive && !isDetailMode && (
+                  <div className="pointer-events-none absolute inset-x-10 bottom-3 z-30">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-mn-bg-elevated/80">
+                      <div
+                        className="h-full rounded-full bg-mn-primary/80 transition-[width] duration-150 ease-out"
+                        style={{ width: `${longPressProgress * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Light leak + subtle grain overlay */}
                 <div
@@ -1294,6 +1370,7 @@ const SwipePage: React.FC = () => {
                               alt={activeCard.title}
                               className="h-full w-full object-cover"
                               draggable={false}
+                              loading="lazy"
                             />
                           </div>
                         </div>
@@ -1330,13 +1407,13 @@ const SwipePage: React.FC = () => {
                   )}
 
                   {/* top status strip + index */}
-                  <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
+                  <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[11px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-sm bg-mn-primary" />
                       {overlaySourceLabel}
                     </span>
 
-                    <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/70 px-2 py-1 text-[10px] font-medium text-mn-text-secondary/85 shadow-mn-soft">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/70 px-2 py-1 text-[11px] font-medium text-mn-text-secondary/85 shadow-mn-soft">
                       <Sparkles className="h-3 w-3 text-mn-primary/80" />
                       {currentIndex + 1} / {cards.length || 1}
                     </span>
@@ -1359,7 +1436,7 @@ const SwipePage: React.FC = () => {
 
                       {/* Minimal long-press hint (first few cards only) */}
                       {shouldShowLongPressHint && (
-                        <div className="mt-2 flex items-center gap-1 text-[10px] text-mn-text-secondary/70">
+                        <div className="mt-2 flex items-center gap-1 text-[11px] text-mn-text-secondary/70">
                           <span className="h-1 w-1 rounded-full bg-mn-border-subtle/80" />
                           <span>Long-press the card for details, rating, and sharing.</span>
                         </div>
@@ -1627,9 +1704,15 @@ const SwipePage: React.FC = () => {
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      Drag the card left for “No thanks”, right for “Love it”. Long-press to open
-                      detail mode inside the card.
+                      {isCoarsePointer
+                        ? "Swipe left for “No thanks”, right for “Love it”. Long-press the card for details."
+                        : "Drag the card left for “No thanks”, right for “Love it”. Long-press the card for details."}
                     </p>
+                    {!isCoarsePointer && (
+                      <p className="mt-1 text-[11px] text-mn-text-secondary/80">
+                        You can also use ← / → / Space on your keyboard.
+                      </p>
+                    )}
                     <button
                       type="button"
                       className="mt-3 w-full rounded-xl bg-mn-primary px-3 py-2 text-sm font-semibold text-white shadow-mn-soft"
@@ -1702,10 +1785,19 @@ const SwipePage: React.FC = () => {
             <span>Details</span>
           </button>
 
-          <p className="ml-auto hidden text-[10px] text-mn-text-secondary/70 sm:block">
+          <p className="ml-auto hidden text-[11px] text-mn-text-secondary/70 sm:block">
             Shortcuts: &larr; No thanks · Space Not now · &rarr; Love it
           </p>
+
         </div>
+
+        {sessionTotal >= 5 && (
+          <div className="mt-3 text-center text-[11px] text-mn-text-secondary/80">
+            <span className="font-medium text-mn-text-primary">This session:</span>{" "}
+            Loved {sessionStats.like}, Not now {sessionStats.skip}, No thanks{" "}
+            {sessionStats.dislike}
+          </div>
+        )
 
         {renderUndoToast()}
       </div>
