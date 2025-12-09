@@ -729,21 +729,21 @@ const SwipePage: React.FC = () => {
 
     if (direction === "like") {
       if (genreLower.some((g) => g.includes("horror") || g.includes("thriller"))) {
-        return "Got it — we’ll surface more intense and suspenseful titles like this.";
+        return "We’ll show more intense picks like this.";
       }
       if (genreLower.some((g) => g.includes("comedy"))) {
-        return "We’ll show you more light and funny picks like this.";
+        return "We’ll show more light and funny picks like this.";
       }
       if (isSeries) {
         return "Nice — we’ll bring in more series that match this vibe.";
       }
       if (externalImdbRating != null && externalImdbRating >= 7.5) {
-        return "Nice pick — we’ll surface more highly rated titles like this.";
+        return "Nice pick — we’ll show more highly rated titles like this.";
       }
       if (card.friendLikesCount && card.friendLikesCount >= 3) {
         return "Your friends are into this — we’ll pull in more friend-favorites.";
       }
-      return "Got it — we’ll keep tuning your picks around this kind of title.";
+      return "Got it — we’ll keep tuning around this kind of title.";
     }
 
     if (direction === "dislike") {
@@ -1100,9 +1100,8 @@ const SwipePage: React.FC = () => {
 
   // Hover parallax (desktop only)
   const handleMouseMoveOnCard = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (typeof window !== "undefined") {
-      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
-        // Disable hover tilt on touch / coarse pointer devices
+    if (typeof window !== "undefined" && window.matchMedia) {
+      if (window.matchMedia("(pointer: coarse)").matches) {
         return;
       }
     }
@@ -1345,25 +1344,26 @@ const SwipePage: React.FC = () => {
                 {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
                   <div
-                    className={`transition-opacity transition-transform duration-250 ${
-                      isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
-                    }`}
+                    className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}
+                    style={isDetailMode ? { msOverflowStyle: "none", scrollbarWidth: "none" } : undefined}
                   >
-                    <CardMetadata
-                      card={activeCard}
-                      metaLine={metaLine}
-                      highlightLabel={!isDetailMode ? highlightLabel : null}
-                    />
-
-                    {/* Minimal long-press hint (first few cards only) */}
-                  </div>
-
-                  {/* Detail-mode: more info from titles table */}
-                  {isDetailMode && (
                     <div
-                      className="mt-3 space-y-3 text-[11px] text-mn-text-secondary overflow-y-auto pr-1"
-                      style={{ maxHeight: "60vh", msOverflowStyle: "none", scrollbarWidth: "none" }}
+                      className={`transition-opacity transition-transform duration-250 ${
+                        isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
+                      }`}
                     >
+                      <CardMetadata
+                        card={activeCard}
+                        metaLine={metaLine}
+                        highlightLabel={!isDetailMode ? highlightLabel : null}
+                      />
+
+                      {/* Minimal long-press hint removed per design */}
+                    </div>
+
+                    {/* Detail-mode: more info from titles table */}
+                    {isDetailMode && (
+                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
                           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1534,8 +1534,6 @@ const SwipePage: React.FC = () => {
                               </p>
                             )}
                           </div>
-                        )}
-</div>
                         )}
 
                         {(externalImdbRating || externalTomato || externalMetascore) && (
