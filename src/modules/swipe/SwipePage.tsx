@@ -1661,11 +1661,11 @@ const SwipePage: React.FC = () => {
 
           {isFullDetailOpen && activeCard && (
             <div
-              className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 px-3 pb-4 sm:items-center sm:pb-0"
+              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-3"
               onClick={() => setIsFullDetailOpen(false)}
             >
               <div
-                className="max-h-[90vh] w-full max-w-md overflow-hidden rounded-3xl border border-mn-border-subtle/80 bg-mn-bg shadow-mn-card"
+                className="max-h-[90vh] w-full max-w-md overflow-hidden rounded-3xl border border-mn-border-subtle/80 bg-gradient-to-b from-mn-bg/96 via-mn-bg/98 to-mn-bg shadow-mn-card"
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-mn-border-subtle/70 px-4 py-3">
