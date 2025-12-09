@@ -410,6 +410,13 @@ const SwipePage: React.FC = () => {
     activeCard?.genres ??
     null;
 
+  const detailRuntimeMinutes =
+    typeof titleDetail?.runtime_minutes === "number"
+      ? titleDetail.runtime_minutes
+      : typeof activeCard?.runtimeMinutes === "number"
+      ? activeCard.runtimeMinutes
+      : null;
+
   const detailPrimaryLanguage =
     titleDetail?.language ??
     titleDetail?.omdb_language ??
@@ -435,6 +442,14 @@ const SwipePage: React.FC = () => {
     titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
       ? titleDetail.content_type
       : activeCard?.type ?? null;
+
+
+  const normalizedContentTypeLabel =
+    normalizedContentType === "movie"
+      ? "Movie"
+      : normalizedContentType === "series"
+      ? "Series"
+      : null;
 
   const ensureSignedIn = () => {
     if (!user) {
