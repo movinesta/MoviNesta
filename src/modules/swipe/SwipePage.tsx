@@ -264,6 +264,8 @@ const SwipePage: React.FC = () => {
   const [longSkipStreak, setLongSkipStreak] = useState(0);
   const [sessionSwipeCount, setSessionSwipeCount] = useState(0);
   const detailContentRef = useRef<HTMLDivElement | null>(null);
+  const dragGestureModeRef = useRef<"undecided" | "swipe" | "scroll">("undecided");
+  const dragStartYRef = useRef<number | null>(null);
   const dragStartedInDetailAreaRef = useRef(false);
 
   // Share presets
@@ -944,6 +946,9 @@ const SwipePage: React.FC = () => {
   };
 
   const finishDrag = () => {
+    dragGestureModeRef.current = "undecided";
+    dragStartYRef.current = null;
+
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
@@ -1251,21 +1256,54 @@ const SwipePage: React.FC = () => {
                 onPointerDown={(e) => {
                 if (e.pointerType === "mouse" && e.button !== 0) return;
 
+                dragGestureModeRef.current = "undecided";
+                dragStartYRef.current = e.clientY;
+
                 const startedInDetail =
                   isDetailMode &&
                   detailContentRef.current &&
                   detailContentRef.current.contains(e.target as Node);
 
-                // On touch in detail mode, let the information area scroll without triggering swipe
-                if (e.pointerType === "touch" && startedInDetail) {
-                  dragStartedInDetailAreaRef.current = false;
-                  return;
-                }
-
                 dragStartedInDetailAreaRef.current = startedInDetail;
                 handlePointerDown(e.clientX, e.pointerId);
               }}
-                onPointerMove={(e) => handlePointerMove(e.clientX)}
+                onPointerMove={(e) => {
+                if (!isDragging) return;
+
+                if (dragGestureModeRef.current === "undecided" && dragStartYRef.current !== null && dragStartX.current !== null) {
+                  const dx = e.clientX - dragStartX.current;
+                  const dy = e.clientY - dragStartYRef.current;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+
+                  if (distance > 8) {
+                    if (Math.abs(dy) > Math.abs(dx) * 1.2) {
+                      // Treat as scroll: cancel swipe and release capture
+                      dragGestureModeRef.current = "scroll";
+                      const node = cardRef.current;
+                      if (node) {
+                        try {
+                          node.releasePointerCapture(e.pointerId);
+                        } catch {
+                          // ignore
+                        }
+                      }
+                      setIsDragging(false);
+                      resetCardPosition();
+                      return;
+                    } else {
+                      dragGestureModeRef.current = "swipe";
+                    }
+                  }
+                }
+
+                if (dragGestureModeRef.current === "scroll") {
+                  // let native scroll handle it
+                  return;
+                }
+
+                // default: swipe
+                handlePointerMove(e.clientX);
+              }}
                 onPointerUp={finishDrag}
                 onPointerCancel={finishDrag}
                 onMouseMove={handleMouseMoveOnCard}
