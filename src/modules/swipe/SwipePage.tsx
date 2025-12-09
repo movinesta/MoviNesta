@@ -1768,25 +1768,6 @@ const SwipePage: React.FC = () => {
           {renderSmartHintToast()}
         </div>
 
-        <p className="mt-3 text-center text-[11px] text-mn-text-secondary/80">
-          Your swipes help tune what you see next.
-        </p>
-
-        {sessionTotal > 0 && sessionTotal <= 3 && lastAction && (
-          <div className="mt-2 flex justify-center">
-            <div className="inline-flex max-w-md items-center gap-1 rounded-full bg-mn-bg-elevated/90 px-3 py-1 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-mn-primary" />
-              <span>
-                {lastAction.direction === "dislike"
-                  ? "Got it — we’ll show fewer titles like this."
-                  : lastAction.direction === "like"
-                  ? "Nice pick — we’ll show more titles like this."
-                  : "We’ll keep this around and resurface it later."}
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Bottom actions */}
         <div className="mt-4 rounded-3xl border-t border-mn-border-subtle/40 bg-mn-bg/95 px-3 pt-3 pb-2 backdrop-blur">
           <div className="grid grid-cols-3 gap-3">
