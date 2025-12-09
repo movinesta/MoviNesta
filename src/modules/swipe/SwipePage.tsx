@@ -257,9 +257,6 @@ const SwipePage: React.FC = () => {
   const [isDetailMode, setIsDetailMode] = useState(false);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
 
-  const [isLongPressActive, setIsLongPressActive] = useState(false);
-  const [longPressProgress, setLongPressProgress] = useState(0);
-
   const [sessionStats, setSessionStats] = useState<SessionStats>({
     like: 0,
     dislike: 0,
@@ -904,9 +901,6 @@ const SwipePage: React.FC = () => {
 
     ensureAudioContext();
 
-    setIsLongPressActive(true);
-    setLongPressProgress(1);
-
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
     }
@@ -939,8 +933,6 @@ const SwipePage: React.FC = () => {
     if (longPressTimeoutRef.current != null && Math.abs(dx) > 10 && !longPressTriggeredRef.current) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
-      setIsLongPressActive(false);
-      setLongPressProgress(0);
     }
 
     setCardTransform(dx, { withTransition: false });
@@ -971,8 +963,6 @@ const SwipePage: React.FC = () => {
     if (longPressTimeoutRef.current != null) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
-      setIsLongPressActive(false);
-      setLongPressProgress(0);
     }
 
     if (longPressTriggeredRef.current) {
@@ -1069,10 +1059,10 @@ const SwipePage: React.FC = () => {
 
     const label =
       lastAction.direction === "like"
-        ? "Loved it"
+        ? "We’ll show more titles like this."
         : lastAction.direction === "dislike"
-        ? "Marked as ‘No thanks’"
-        : "Saved for ‘Not now’";
+        ? "Okay, we’ll dial down similar titles in your feed."
+        : "We’ll keep this for later and show it occasionally.";
 
     return (
       <div
@@ -1297,12 +1287,12 @@ const SwipePage: React.FC = () => {
 
                 {/* Swipe intent labels */}
                 {dragIntent === "like" && (
-                  <div className="pointer-events-none absolute left-3 top-3 z-30 rounded-md border border-emerald-400/60 bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-50">
+                  <div className="pointer-events-none absolute left-3 top-1/2 z-30 -translate-y-1/2 rounded-md border border-emerald-400/60 bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-50">
                     Love it
                   </div>
                 )}
                 {dragIntent === "dislike" && (
-                  <div className="pointer-events-none absolute right-3 top-3 z-30 rounded-md border border-rose-400/60 bg-rose-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-50">
+                  <div className="pointer-events-none absolute right-3 top-1/2 z-30 -translate-y-1/2 rounded-md border border-rose-400/60 bg-rose-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-50">
                     No thanks
                   </div>
                 )}
@@ -1319,17 +1309,6 @@ const SwipePage: React.FC = () => {
                   </button>
                 )}
 
-                {/* Long-press progress indicator */}
-                {isLongPressActive && !isDetailMode && (
-                  <div className="pointer-events-none absolute inset-x-10 bottom-3 z-30">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-mn-bg-elevated/80">
-                      <div
-                        className="h-full rounded-full bg-mn-primary/80 transition-[width] duration-150 ease-out"
-                        style={{ width: `${longPressProgress * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
 
                 {/* Light leak + subtle grain overlay */}
                 <div
@@ -1705,14 +1684,9 @@ const SwipePage: React.FC = () => {
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
                       {isCoarsePointer
-                        ? "Swipe left for “No thanks”, right for “Love it”. Long-press the card for details."
-                        : "Drag the card left for “No thanks”, right for “Love it”. Long-press the card for details."}
+                        ? "Swipe left for “No thanks” or right for “Love it” to quickly tune your feed."
+                        : "Drag left for “No thanks” or right for “Love it” to quickly tune your feed."}
                     </p>
-                    {!isCoarsePointer && (
-                      <p className="mt-1 text-[11px] text-mn-text-secondary/80">
-                        You can also use ← / → / Space on your keyboard.
-                      </p>
-                    )}
                     <button
                       type="button"
                       className="mt-3 w-full rounded-xl bg-mn-primary px-3 py-2 text-sm font-semibold text-white shadow-mn-soft"
@@ -1775,16 +1749,6 @@ const SwipePage: React.FC = () => {
 
         {/* Details button + keyboard hint */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-mn-text-secondary/80">
-          <button
-            type="button"
-            onClick={() => setIsDetailMode(true)}
-            disabled={actionsDisabled || !activeCard}
-            className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg-elevated/80 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/70" />
-            <span>Details</span>
-          </button>
-
           <p className="ml-auto hidden text-[11px] text-mn-text-secondary/70 sm:block">
             Shortcuts: &larr; No thanks · Space Not now · &rarr; Love it
           </p>
