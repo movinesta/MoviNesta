@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Flame,
   Info,
-  Users,
   ImageOff,
   SkipForward,
   Sparkles,
@@ -76,13 +75,6 @@ const buildSwipeCardLabel = (card?: SwipeCardData) => {
 
   const descriptor = [...pieces, ...ratingBits].filter(Boolean).join(" · ");
   return descriptor ? `${card.title} (${descriptor})` : card.title;
-};
-
-
-type SessionStats = {
-  like: number;
-  dislike: number;
-  skip: number;
 };
 
 interface CardMetadataProps {
@@ -256,18 +248,9 @@ const SwipePage: React.FC = () => {
   const [nextParallaxX, setNextParallaxX] = useState(0);
 
   const [isDetailMode, setIsDetailMode] = useState(false);
-  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
-
-  const [sessionStats, setSessionStats] = useState<SessionStats>({
-    like: 0,
-    dislike: 0,
-    skip: 0,
-  });
-
-  const [showWhyThis, setShowWhyThis] = useState(false);
-
   const [showFullFriendReview, setShowFullFriendReview] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
+  const [showWhyThis, setShowWhyThis] = useState(false);
 
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
@@ -289,7 +272,7 @@ const SwipePage: React.FC = () => {
 
   const activeTitleId = activeCard?.id ?? null;
 
-  const whyThisReason = useMemo(() => {
+  const whyThisReason = (() => {
     if (!activeCard) return "";
     if (activeCard.friendLikesCount && activeCard.friendLikesCount > 0 && activeCard.topFriendName) {
       return `Popular with your friends — ${activeCard.topFriendName} liked this.`;
@@ -304,7 +287,7 @@ const SwipePage: React.FC = () => {
       return "Trending now among MoviNesta viewers.";
     }
     return "Because it looks like a good match for your taste.";
-  }, [activeCard]);
+  })();
 
   // diary / auth
   const { user } = useAuth();
@@ -571,11 +554,6 @@ const SwipePage: React.FC = () => {
     const hasSeen =
       typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
     setShowOnboarding(!hasSeen);
-
-    if (typeof window !== "undefined") {
-      const mq = window.matchMedia?.("(pointer: coarse)");
-      setIsCoarsePointer(mq?.matches ?? false);
-    }
   }, []);
 
   useEffect(() => {
@@ -808,11 +786,6 @@ const SwipePage: React.FC = () => {
   const performSwipe = (direction: SwipeDirection, velocity = 0) => {
     if (!activeCard) return;
 
-    setSessionStats((prev) => ({
-      ...prev,
-      [direction]: prev[direction as keyof SessionStats] + 1,
-    } as SessionStats));
-
     setShowOnboarding(false);
     if (typeof window !== "undefined") {
       localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
@@ -1039,9 +1012,6 @@ const SwipePage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCard, actionsDisabled, isDragging]);
 
-
-  const sessionTotal = sessionStats.like + sessionStats.dislike + sessionStats.skip;
-
   const renderDeckIndicator = () => {
     if (!cards.length) return null;
 
@@ -1055,7 +1025,7 @@ const SwipePage: React.FC = () => {
     }
 
     return (
-      <div className="mb-3 flex flex-col items-center gap-1">
+      <div className="mb-3 flex justify-center">
         <div className="flex items-center gap-1.5">
           {Array.from({ length: total }).map((_, i) => {
             const cardIndex = start + i;
@@ -1070,11 +1040,6 @@ const SwipePage: React.FC = () => {
             );
           })}
         </div>
-        {currentIndex < 2 && (
-          <p className="text-[11px] text-mn-text-secondary/80">
-            First time here? Try swiping left or right.
-          </p>
-        )}
       </div>
     );
   };
@@ -1085,12 +1050,8 @@ const SwipePage: React.FC = () => {
     const label = "Undid your last swipe.";
 
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto"
-      >
-        <div className="pointer-events-auto inline-flex items-center gap-3 rounded-full bg-mn-bg-elevated/95 px-3.5 py-2.5 text-[12px] text-mn-text-primary shadow-mn-card backdrop-blur">
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto">
+        <div className="pointer-events-auto inline-flex items-center gap-3 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[12px] text-mn-text-primary shadow-mn-card backdrop-blur">
           <span>{label}</span>
           <button
             type="button"
@@ -1106,20 +1067,17 @@ const SwipePage: React.FC = () => {
 
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
-
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-30 flex justify-center px-4 sm:px-0"
-      >
-        <div className="pointer-events-auto inline-flex max-w-md items-center gap-2 rounded-full bg-mn-bg-elevated/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-30 flex justify-center px-4 sm:px-0">
+        <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
           <span>{smartHint}</span>
         </div>
       </div>
     );
-  };const shouldShowLongPressHint =
+  };
+
+  const shouldShowLongPressHint =
     !isDetailMode && !showOnboarding && currentIndex < 3 && !isLoading && !!activeCard;
 
   const posterRuntime = formatRuntime(activeCard?.runtimeMinutes);
@@ -1181,44 +1139,6 @@ const SwipePage: React.FC = () => {
         isRetrying={isRetryingSwipe}
       />
 
-      <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[11px] text-mn-text-secondary">
-        <div className="flex items-center gap-2">
-          {activeCard && (
-            <>
-              {activeCard.source === "trending" && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
-                  <Sparkles className="h-3.5 w-3.5 text-mn-primary" />
-                  <span className="font-medium text-mn-text-primary/90">Trending today</span>
-                </span>
-              )}
-              {activeCard.source === "from-friends" && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
-                  <Users className="h-3.5 w-3.5 text-mn-primary" />
-                  <span className="font-medium text-mn-text-primary/90">Friends’ picks</span>
-                </span>
-              )}
-              {activeCard.source !== "trending" && activeCard.source !== "from-friends" && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/60 px-2.5 py-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
-                  <span className="font-medium text-mn-text-primary/90">Matched for you</span>
-                </span>
-              )}
-            </>
-          )}
-        </div>
-
-        {cards.length > 0 && (
-          <div className="flex items-center gap-2">
-            {activeCard && currentIndex === cards.length - 1 && (
-              <span className="text-[11px] text-mn-text-secondary/80">Last one in this batch</span>
-            )}
-            <span className="rounded-full border border-mn-border-subtle/60 px-2 py-0.5 text-[11px] text-mn-text-secondary/90">
-              {activeCard ? `${currentIndex + 1} of ${cards.length}` : `${cards.length} cards`}
-            </span>
-          </div>
-        )}
-      </div>
-
       <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-transparent p-3">
         {/* Blurred poster background */}
         {activeCard?.posterUrl && (
@@ -1257,7 +1177,7 @@ const SwipePage: React.FC = () => {
           {!isLoading && !isError && !activeCard && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center text-sm text-mn-text-secondary">
               <Sparkles className="h-8 w-8 text-mn-primary" />
-              <p>You’ve seen today’s picks. We’ll have more soon.</p>
+              <p>All caught up. New cards will appear soon.</p>
               <button
                 type="button"
                 onClick={() => fetchMore(36)}
@@ -1336,38 +1256,7 @@ const SwipePage: React.FC = () => {
                 onMouseLeave={handleMouseLeaveCard}
                 aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
-                tabIndex={0}
               >
-                {/* Detail-mode dim overlay */}
-                {isDetailMode && (
-                  <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl bg-black/35 transition-opacity duration-200" />
-                )}
-
-                {/* Swipe intent labels */}
-                {dragIntent === "like" && (
-                  <div className="pointer-events-none absolute left-3 top-1/2 z-30 -translate-y-1/2 rounded-md border border-emerald-400/60 bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-50">
-                    Love it
-                  </div>
-                )}
-                {dragIntent === "dislike" && (
-                  <div className="pointer-events-none absolute right-3 top-1/2 z-30 -translate-y-1/2 rounded-md border border-rose-400/60 bg-rose-500/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-50">
-                    No thanks
-                  </div>
-                )}
-
-                {/* Small details chip on card */}
-                {!isDetailMode && (
-                  <button
-                    type="button"
-                    onClick={() => setIsDetailMode(true)}
-                    className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg/80 px-2.5 py-1 text-[11px] text-mn-text-secondary backdrop-blur hover:bg-mn-bg-elevated/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary/60"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
-                    <span>Details &amp; rating</span>
-                  </button>
-                )}
-
-
                 {/* Light leak + subtle grain overlay */}
                 <div
                   aria-hidden="true"
@@ -1407,7 +1296,6 @@ const SwipePage: React.FC = () => {
                               alt={activeCard.title}
                               className="h-full w-full object-cover"
                               draggable={false}
-                              loading="lazy"
                             />
                           </div>
                         </div>
@@ -1480,7 +1368,7 @@ const SwipePage: React.FC = () => {
                           <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/80" />
                           <span>Why this title?</span>
                         </button>
-                        {showWhyThis && (
+                        {showWhyThis && whyThisReason && (
                           <p className="flex-1 text-right text-[11px] text-mn-text-secondary/80 sm:text-left">
                             {whyThisReason}
                           </p>
@@ -1492,19 +1380,6 @@ const SwipePage: React.FC = () => {
                       <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mn-text-secondary/80">
-                              Details &amp; rating
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setIsDetailMode(false)}
-                              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg-elevated/80"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-mn-text-secondary/70" />
-                              <span>Back to swiping</span>
-                            </button>
-                          </div>
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-medium text-mn-text-primary/90">
@@ -1743,9 +1618,7 @@ const SwipePage: React.FC = () => {
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
                     <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
-                      {isCoarsePointer
-                        ? "Swipe left to pass, right to save what you love."
-                        : "Drag left to pass, right to save what you love."}
+                      Swipe left to pass, right to save what you love.
                     </p>
                     <button
                       type="button"
@@ -1768,57 +1641,43 @@ const SwipePage: React.FC = () => {
           {renderSmartHintToast()}
         </div>
 
-        {/* Bottom actions */}
-        <div className="mt-4 rounded-3xl border-t border-mn-border-subtle/40 bg-mn-bg/95 px-3 pt-3 pb-2 backdrop-blur">
-          <div className="grid grid-cols-3 gap-3">
+        <p className="mt-3 text-center text-[11px] text-mn-text-secondary/80">
+          Your swipes help tune what you see next.
+        </p>
 
-          {/* No thanks */}
+        {/* Bottom actions */}
+        <div className="mt-3 grid grid-cols-3 gap-3">
           <button
             type="button"
             onClick={() => performSwipe("dislike")}
             disabled={actionsDisabled}
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-mn-bg text-sm font-semibold text-rose-300 shadow-mn-soft hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="No thanks"
           >
             <ThumbsDown className="h-5 w-5" />
             <span className="hidden sm:inline">No thanks</span>
           </button>
-
-          {/* Not now */}
           <button
             type="button"
             onClick={() => performSwipe("skip")}
             disabled={actionsDisabled}
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg text-sm font-medium text-mn-text-secondary shadow-mn-soft hover:bg-mn-bg-elevated/80 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary/50 active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Not now"
           >
             <SkipForward className="h-5 w-5" />
             <span className="hidden sm:inline">Not now</span>
           </button>
-
-          {/* Love it (primary) */}
           <button
             type="button"
             onClick={() => performSwipe("like")}
             disabled={actionsDisabled}
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-mn-primary text-sm font-semibold text-black shadow-mn-soft hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary/70 active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Love it"
           >
             <ThumbsUp className="h-5 w-5" />
             <span className="hidden sm:inline">Love it</span>
           </button>
-          </div>
         </div>
-
-        </div>
-
-        {sessionTotal >= 5 && (
-          <div className="mt-3 text-center text-[11px] text-mn-text-secondary/80">
-            <span className="font-medium text-mn-text-primary">This session:</span>{" "}
-            Loved {sessionStats.like}, Not now {sessionStats.skip}, No thanks{" "}
-            {sessionStats.dislike}
-          </div>
-        )}
 
         {renderUndoToast()}
       </div>
