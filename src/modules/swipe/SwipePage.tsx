@@ -410,6 +410,9 @@ const SwipePage: React.FC = () => {
     activeCard?.genres ??
     null;
 
+  const detailYear =
+    typeof activeCard?.year === "number" ? activeCard.year : null;
+
   const detailRuntimeMinutes =
     typeof titleDetail?.runtime_minutes === "number"
       ? titleDetail.runtime_minutes
