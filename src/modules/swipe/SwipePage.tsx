@@ -9,6 +9,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Share2,
+  X,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
 import { RatingStars } from "../../components/RatingStars";
@@ -250,6 +251,7 @@ const SwipePage: React.FC = () => {
   const [isDetailMode, setIsDetailMode] = useState(false);
   const [showFullFriendReview, setShowFullFriendReview] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
+  const [showFullDetailSheet, setShowFullDetailSheet] = useState(false);
 
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
@@ -1375,10 +1377,7 @@ const SwipePage: React.FC = () => {
 
                 {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div
-                    ref={detailContentRef}
-                    className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}
-                  >
+                  <div>
                     <div
                       className={`transition-opacity transition-transform duration-250 ${
                         isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
@@ -1559,6 +1558,15 @@ const SwipePage: React.FC = () => {
                             )}
                           </div>
                         )}
+                        {/* Full details sheet trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setShowFullDetailSheet(true)}
+                          className="text-[10.5px] font-medium text-mn-primary hover:underline"
+                        >
+                          Open full details
+                        </button>
+
                       </div>
                     )}
 
@@ -1662,6 +1670,107 @@ const SwipePage: React.FC = () => {
             <span className="hidden sm:inline">Love it</span>
           </button>
         </div>
+
+      {showFullDetailSheet && activeCard && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-mn-bg shadow-mn-card no-scrollbar sm:rounded-3xl">
+            <div className="flex items-center justify-between border-b border-mn-border-subtle px-4 py-3">
+              <h2 className="text-sm font-semibold text-mn-text-primary">
+                {activeCard.title}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowFullDetailSheet(false)}
+                className="rounded-full p-1 text-mn-text-secondary hover:bg-mn-bg-elevated/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 px-4 py-3 text-[11px] text-mn-text-secondary">
+              {/* Scores & basics */}
+              {(externalImdbRating || externalTomato || externalMetascore || detailGenres) && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3 text-[10.5px] font-medium text-mn-text-primary/95">
+                    {externalImdbRating && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
+                        <span className="text-[10px] font-semibold text-mn-text-secondary/80">
+                          IMDb
+                        </span>
+                        <span>{externalImdbRating.toFixed(1)}</span>
+                      </span>
+                    )}
+                    {externalTomato && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
+                        <span className="text-[10px] font-semibold text-mn-text-secondary/80">
+                          RT
+                        </span>
+                        <span>{externalTomato}%</span>
+                      </span>
+                    )}
+                    {externalMetascore && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
+                        <span className="text-[10px] font-semibold text-mn-text-secondary/80">
+                          Metascore
+                        </span>
+                        <span>{externalMetascore}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {(detailGenres || detailRuntimeMinutes || detailPrimaryCountry) && (
+                    <div className="text-[10.5px] text-mn-text-secondary/85">
+                      <p>
+                        {[detailYear, normalizedContentTypeLabel, detailGenres]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      {detailRuntimeMinutes && (
+                        <p className="mt-0.5">
+                          {Math.round(detailRuntimeMinutes)} min
+                          {detailPrimaryCountry ? ` · ${detailPrimaryCountry}` : ""}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Overview */}
+              {detailOverview && (
+                <div className="space-y-1">
+                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
+                    Overview
+                  </p>
+                  <p className="text-[11px] text-mn-text-secondary">
+                    {detailOverview}
+                  </p>
+                </div>
+              )}
+
+              {/* People */}
+              {(detailDirector || detailActors) && (
+                <div className="space-y-1 text-[10.5px] text-mn-text-secondary/90">
+                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
+                    People
+                  </p>
+                  {detailDirector && (
+                    <p>
+                      <span className="font-semibold text-mn-text-primary">Director: </span>
+                      {detailDirector}
+                    </p>
+                  )}
+                  {detailActors && (
+                    <p>
+                      <span className="font-semibold text-mn-text-primary">Cast: </span>
+                      {detailActors}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
         {renderUndoToast()}
       </div>
