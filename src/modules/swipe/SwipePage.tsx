@@ -1250,15 +1250,19 @@ const SwipePage: React.FC = () => {
                 }`}
                 onPointerDown={(e) => {
                 if (e.pointerType === "mouse" && e.button !== 0) return;
-                if (
+
+                const startedInDetail =
                   isDetailMode &&
                   detailContentRef.current &&
-                  detailContentRef.current.contains(e.target as Node)
-                ) {
-                  dragStartedInDetailAreaRef.current = true;
-                } else {
+                  detailContentRef.current.contains(e.target as Node);
+
+                // On touch in detail mode, let the information area scroll without triggering swipe
+                if (e.pointerType === "touch" && startedInDetail) {
                   dragStartedInDetailAreaRef.current = false;
+                  return;
                 }
+
+                dragStartedInDetailAreaRef.current = startedInDetail;
                 handlePointerDown(e.clientX, e.pointerId);
               }}
                 onPointerMove={(e) => handlePointerMove(e.clientX)}
