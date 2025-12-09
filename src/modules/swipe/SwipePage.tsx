@@ -1797,7 +1797,7 @@ const SwipePage: React.FC = () => {
             Loved {sessionStats.like}, Not now {sessionStats.skip}, No thanks{" "}
             {sessionStats.dislike}
           </div>
-        )
+        )}
 
         {renderUndoToast()}
       </div>
