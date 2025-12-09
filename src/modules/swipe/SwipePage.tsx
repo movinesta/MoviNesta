@@ -263,6 +263,8 @@ const SwipePage: React.FC = () => {
   const smartHintTimeoutRef = useRef<number | null>(null);
   const [longSkipStreak, setLongSkipStreak] = useState(0);
   const [sessionSwipeCount, setSessionSwipeCount] = useState(0);
+  const detailContentRef = useRef<HTMLDivElement | null>(null);
+  const dragStartedInDetailAreaRef = useRef(false);
 
   // Share presets
   const [showSharePresetSheet, setShowSharePresetSheet] = useState(false);
@@ -532,9 +534,6 @@ const SwipePage: React.FC = () => {
   const lastMoveX = useRef<number | null>(null);
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
-  const detailScrollRef = useRef<HTMLDivElement | null>(null);
-  const dragStartedInDetailAreaRef = useRef(false);
-
 
   useEffect(() => {
     const hasSeen =
@@ -903,9 +902,7 @@ const SwipePage: React.FC = () => {
     if (!node) return;
 
     try {
-      if (!dragStartedInDetailAreaRef.current) {
-        node.setPointerCapture(pointerId);
-      }
+      node.setPointerCapture(pointerId);
     } catch {
       // ignore
     }
@@ -964,16 +961,12 @@ const SwipePage: React.FC = () => {
     if (!isDragging) return;
     setIsDragging(false);
 
-    const distance = dragDelta.current;
+        const distance = dragDelta.current;
     const projected = distance + velocityRef.current * 180;
 
     const isDetailDrag = isDetailMode && dragStartedInDetailAreaRef.current;
-    const distanceThreshold = isDetailDrag
-      ? SWIPE_DISTANCE_THRESHOLD * 1.6
-      : SWIPE_DISTANCE_THRESHOLD;
-    const velocityThreshold = isDetailDrag
-      ? SWIPE_VELOCITY_THRESHOLD * 1.4
-      : SWIPE_VELOCITY_THRESHOLD;
+    const distanceThreshold = isDetailDrag ? SWIPE_DISTANCE_THRESHOLD * 1.6 : SWIPE_DISTANCE_THRESHOLD;
+    const velocityThreshold = isDetailDrag ? SWIPE_VELOCITY_THRESHOLD * 1.4 : SWIPE_VELOCITY_THRESHOLD;
 
     const shouldSwipe =
       Math.abs(projected) >= distanceThreshold ||
@@ -1256,14 +1249,18 @@ const SwipePage: React.FC = () => {
                   isDetailMode ? "ring-1 ring-mn-primary/40" : "border border-white/5"
                 }`}
                 onPointerDown={(e) => {
-                  if (e.pointerType === "mouse" && e.button !== 0) return;
-                  if (isDetailMode && detailScrollRef.current && detailScrollRef.current.contains(e.target as Node)) {
-                    dragStartedInDetailAreaRef.current = true;
-                  } else {
-                    dragStartedInDetailAreaRef.current = false;
-                  }
-                  handlePointerDown(e.clientX, e.pointerId);
-                }}
+                if (e.pointerType === "mouse" && e.button !== 0) return;
+                if (
+                  isDetailMode &&
+                  detailContentRef.current &&
+                  detailContentRef.current.contains(e.target as Node)
+                ) {
+                  dragStartedInDetailAreaRef.current = true;
+                } else {
+                  dragStartedInDetailAreaRef.current = false;
+                }
+                handlePointerDown(e.clientX, e.pointerId);
+              }}
                 onPointerMove={(e) => handlePointerMove(e.clientX)}
                 onPointerUp={finishDrag}
                 onPointerCancel={finishDrag}
@@ -1383,9 +1380,8 @@ const SwipePage: React.FC = () => {
                     {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
                       <div
-                        ref={detailScrollRef}
-                        className="mt-3 space-y-3 text-[11px] text-mn-text-secondary overflow-y-auto pr-1"
-                        style={{ maxHeight: "60vh", msOverflowStyle: "none", scrollbarWidth: "none" }}
+                        ref={detailContentRef}
+                        className="mt-3 space-y-3 text-[11px] text-mn-text-secondary"
                       >
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
