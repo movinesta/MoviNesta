@@ -1370,6 +1370,177 @@ const SwipePage: React.FC = () => {
                       />
                     </div>
 
+                    {/* Detail mode sections */}
+                    {isDetailMode && (
+                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
+                        {/* Rating + diary actions */}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-mn-text-primary/90">
+                              Your rating
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => {
+                                const currentRating = diaryEntry?.rating ?? null;
+                                const isActive = typeof currentRating === "number" && currentRating >= star;
+                                return (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setDiaryRating(isActive ? star - 1 || null : star)}
+                                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] transition ${
+                                      isActive
+                                        ? "border-mn-primary/80 bg-mn-primary/90 text-black"
+                                        : "border-mn-border-subtle/70 bg-mn-bg-elevated/60 text-mn-text-muted hover:border-mn-primary/70 hover:text-mn-primary/90"
+                                    }`}
+                                    aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
+                                  >
+                                    ★
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDiaryStatus(statusIs("watchlist") ? null : "watchlist")
+                              }
+                              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+                                statusIs("watchlist")
+                                  ? "border-mn-primary/70 bg-mn-primary/90 text-black"
+                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
+                              }`}
+                            >
+                              Watchlist
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDiaryStatus(statusIs("watched") ? null : "watched")
+                              }
+                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+                                statusIs("watched")
+                                  ? "border-emerald-400/80 bg-emerald-500/90 text-black"
+                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-emerald-400/80 hover:text-emerald-200"
+                              }`}
+                            >
+                              Marked watched
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowSharePresetSheet(true)}
+                              className="inline-flex items-center gap-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1.5 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                              Share
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Scores & basics */}
+                        {(externalImdbRating || externalTomato || externalMetascore || detailGenres) && (
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-3 text-[10.5px] font-medium text-mn-text-primary/95">
+                              {externalImdbRating && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
+                                  <span className="text-[10px] font-semibold text-mn-text-secondary/80">
+                                    IMDb
+                                  </span>
+                                  <span>{externalImdbRating.toFixed(1)}</span>
+                                </span>
+                              )}
+                              {externalTomato && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
+                                  <span className="text-[10px] font-semibold text-mn-text-secondary/80">
+                                    RT
+                                  </span>
+                                  <span>{externalTomato}%</span>
+                                </span>
+                              )}
+                              {externalMetascore && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
+                                  <span className="text-[10px] font-semibold text-mn-text-secondary/80">
+                                    Metascore
+                                  </span>
+                                  <span>{externalMetascore}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {(detailGenres || detailRuntimeMinutes || detailPrimaryCountry) && (
+                              <div className="text-[10.5px] text-mn-text-secondary/85">
+                                <p>
+                                  {[detailYear, normalizedContentTypeLabel, detailGenres]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                                {detailRuntimeMinutes && (
+                                  <p className="mt-0.5">
+                                    {Math.round(detailRuntimeMinutes)} min
+                                    {detailPrimaryCountry ? ` · ${detailPrimaryCountry}` : ""}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Overview */}
+                        {detailOverview && (
+                          <div className="space-y-1">
+                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
+                              Overview
+                            </p>
+                            <p
+                              className={`text-[11px] text-mn-text-secondary ${
+                                showFullOverview ? "" : "line-clamp-3"
+                              }`}
+                            >
+                              {detailOverview}
+                            </p>
+                            {detailOverview.length > 180 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowFullOverview((v) => !v)}
+                                className="text-[10.5px] font-medium text-mn-primary hover:underline"
+                              >
+                                {showFullOverview ? "Show less" : "Read more"}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* People */}
+                        {(detailDirector || detailActors) && (
+                          <div className="space-y-1 text-[10.5px] text-mn-text-secondary/90">
+                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
+                              People
+                            </p>
+                            {detailDirector && (
+                              <p>
+                                <span className="font-semibold text-mn-text-primary">Director: </span>
+                                {detailDirector}
+                              </p>
+                            )}
+                            {detailActors && (
+                              <p>
+                                <span className="font-semibold text-mn-text-primary">Cast: </span>
+                                {detailActors
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean)
+                                  .slice(0, 5)
+                                  .join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Social / friends row */}
                     <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
                       {typeof activeCard.friendLikesCount === "number" &&
