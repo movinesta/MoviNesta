@@ -1357,10 +1357,7 @@ const SwipePage: React.FC = () => {
 
                 {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div
-                    className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}
-                    style={isDetailMode ? { msOverflowStyle: "none", scrollbarWidth: "none" } : undefined}
-                  >
+                  <div>
                     <div
                       className={`transition-opacity transition-transform duration-250 ${
                         isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
@@ -1371,208 +1368,7 @@ const SwipePage: React.FC = () => {
                         metaLine={metaLine}
                         highlightLabel={!isDetailMode ? highlightLabel : null}
                       />
-
-                      {/* Minimal long-press hint removed per design */}
                     </div>
-
-                    {/* Detail-mode: more info from titles table */}
-                    {isDetailMode && (
-                      <div
-                        ref={detailContentRef}
-                        className="mt-3 space-y-3 text-[11px] text-mn-text-secondary"
-                      >
-                        {/* Sticky header for diary + share */}
-                        <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-medium text-mn-text-primary/90">
-                                Your rating
-                              </span>
-                              <RatingStars
-                                value={diaryEntry?.rating ?? null}
-                                disabled={updateRating.isPending}
-                                onChange={setDiaryRating}
-                              />
-                              {diaryEntry?.rating != null && (
-                                <span className="text-[10.5px] text-mn-text-secondary">
-                                  {diaryEntry.rating}/10
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setDiaryStatus("want_to_watch")}
-                                disabled={updateStatus.isPending}
-                                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
-                                  statusIs("want_to_watch")
-                                    ? "border-mn-primary bg-mn-primary/10 text-mn-primary"
-                                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
-                                }`}
-                              >
-                                Watchlist
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDiaryStatus("watched")}
-                                disabled={updateStatus.isPending}
-                                className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
-                                  statusIs("watched")
-                                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-200"
-                                    : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-emerald-400/80 hover:text-emerald-200"
-                                }`}
-                              >
-                                Marked watched
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setShowSharePresetSheet((prev) => !prev)
-                                }
-                                className="inline-flex items-center gap-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1.5 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
-                              >
-                                <Share2 className="h-3.5 w-3.5" />
-                                Share
-                              </button>
-                            </div>
-                          </div>
-
-                          {showSharePresetSheet && (
-                            <div className="mt-2 space-y-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg/98 p-2 text-[11px] text-mn-text-secondary shadow-mn-soft">
-                              <p className="mb-1 text-[10.5px] text-mn-text-secondary/80">
-                                Choose how you want to share:
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSharePreset("watch_together")}
-                                  className="rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] hover:border-mn-primary/70 hover:text-mn-primary"
-                                >
-                                  Ask to watch together
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSharePreset("recommend")}
-                                  className="rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] hover:border-mn-primary/70 hover:text-mn-primary"
-                                >
-                                  Recommend to a friend
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSharePreset("dm")}
-                                  className="rounded-md border border-mn-border-subtle bg-mn-bg px-2 py-1 text-[11px] hover:border-mn-primary/70 hover:text-mn-primary"
-                                >
-                                  Copy for DM
-                                </button>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleShareOpenDetail}
-                                className="mt-2 text-[10.5px] text-mn-text-secondary hover:text-mn-primary"
-                              >
-                                Open full detail page
-                              </button>
-                            </div>
-                          )}
-
-                          {!user && (
-                            <p className="mt-1 text-[10.5px] text-mn-text-secondary/80">
-                              Sign in to rate, track your watchlist, and keep this title in your diary.
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Overview with clamp + show more */}
-                        {detailOverview && (
-                          <div className="space-y-1">
-                            <p
-                              className={
-                                showFullOverview
-                                  ? "text-[11px] leading-relaxed"
-                                  : "text-[11px] leading-relaxed line-clamp-6"
-                              }
-                            >
-                              {detailOverview}
-                            </p>
-                            {detailOverview.length > 220 && (
-                              <button
-                                type="button"
-                                onClick={() => setShowFullOverview((v) => !v)}
-                                className="text-[10.5px] font-medium text-mn-primary hover:text-mn-primary/80"
-                              >
-                                {showFullOverview ? "Show less" : "Show more plot"}
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {(detailGenres?.length || detailPrimaryCountry || detailPrimaryLanguage) && (
-                          <div className="pt-1">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                              Details
-                            </p>
-                            <p className="mt-0.5 text-[10.5px] text-mn-text-secondary/80">
-                              {[
-                                detailGenres?.length ? detailGenres.slice(0, 3).join(" · ") : null,
-                                detailPrimaryCountry,
-                                detailPrimaryLanguage,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </p>
-                          </div>
-                        )}
-
-                        {(detailDirector || detailActors) && (
-                          <div className="space-y-1 pt-2 text-[10.5px] text-mn-text-secondary/90">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                              People
-                            </p>
-                            {detailDirector && (
-                              <p>
-                                <span className="font-semibold text-mn-text-primary">
-                                  Director:{" "}
-                                </span>
-                                {detailDirector}
-                              </p>
-                            )}
-                            {detailActors && (
-                              <p>
-                                <span className="font-semibold text-mn-text-primary">
-                                  Cast:{" "}
-                                </span>
-                                {detailActors
-                                  .split(",")
-                                  .map((s) => s.trim())
-                                  .filter(Boolean)
-                                  .slice(0, 4)
-                                  .join(", ")}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {(externalImdbRating || externalTomato || externalMetascore) && (
-                          <div className="pt-2">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                              Scores
-                            </p>
-                            <p className="mt-0.5 text-[10.5px] text-mn-text-secondary/80">
-                              {[
-                                externalImdbRating != null
-                                  ? `IMDb ${externalImdbRating.toFixed(1)}`
-                                  : null,
-                                externalTomato != null ? `${externalTomato}% RT` : null,
-                                externalMetascore != null ? `Metascore ${externalMetascore}` : null,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                     {/* Social / friends row */}
                     <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
@@ -1590,7 +1386,7 @@ const SwipePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setShowFullFriendReview((v) => !v)}
-                          className="inline-flex flex-1 items-start gap-2 rounded-xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+                          className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
                         >
                           <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
                           <div
@@ -1600,9 +1396,7 @@ const SwipePage: React.FC = () => {
                           >
                             <span
                               className={`block text-[11px] ${
-                                showFullFriendReview || isDetailMode
-                                  ? ""
-                                  : "line-clamp-2"
+                                showFullFriendReview || isDetailMode ? "" : "line-clamp-2"
                               }`}
                             >
                               {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
@@ -1612,7 +1406,6 @@ const SwipePage: React.FC = () => {
                       )}
                     </div>
                   </div>
-
                 </div>
               </article>
 
