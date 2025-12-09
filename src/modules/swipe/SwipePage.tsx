@@ -1375,7 +1375,10 @@ const SwipePage: React.FC = () => {
 
                 {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div>
+                  <div
+                    ref={detailContentRef}
+                    className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}
+                  >
                     <div
                       className={`transition-opacity transition-transform duration-250 ${
                         isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
