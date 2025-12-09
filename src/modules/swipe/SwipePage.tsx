@@ -262,6 +262,7 @@ const SwipePage: React.FC = () => {
   const [smartHint, setSmartHint] = useState<string | null>(null);
   const smartHintTimeoutRef = useRef<number | null>(null);
   const [longSkipStreak, setLongSkipStreak] = useState(0);
+  const [sessionSwipeCount, setSessionSwipeCount] = useState(0);
 
   // Share presets
   const [showSharePresetSheet, setShowSharePresetSheet] = useState(false);
@@ -793,11 +794,17 @@ const SwipePage: React.FC = () => {
       setLongSkipStreak(0);
     }
 
-    // smart hint
-    const hint = computeSmartHint(activeCard, direction);
-    if (hint) {
-      setSmartHintWithTimeout(hint);
-    }
+    // smart hint – only after a few swipes, and not on every swipe
+    setSessionSwipeCount((prev) => {
+      const next = prev + 1;
+      const hint = computeSmartHint(activeCard, direction);
+      if (hint && next >= 4 && next % 4 === 0) {
+        setSmartHintWithTimeout(hint);
+      } else {
+        setSmartHintWithTimeout(null);
+      }
+      return next;
+    });
 
     if (direction === "skip") {
       const node = cardRef.current;
@@ -1031,10 +1038,10 @@ const SwipePage: React.FC = () => {
 
     const label =
       lastAction.direction === "like"
-        ? "We’ll show more like this."
+        ? "Loved it"
         : lastAction.direction === "dislike"
-        ? "We’ll show fewer like this."
-        : "We’ll save this for later.";
+        ? "Marked as ‘No thanks’"
+        : "Saved for ‘Not now’";
 
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto">
@@ -1055,7 +1062,7 @@ const SwipePage: React.FC = () => {
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-30 flex justify-center px-4 sm:px-0">
+      <div className="pointer-events-none absolute inset-x-0 top-[4.75rem] z-30 flex justify-center px-4 sm:px-0">
         <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
           <span>{smartHint}</span>
@@ -1087,7 +1094,7 @@ const SwipePage: React.FC = () => {
     if (!activeCard) return null;
     const imdb = activeCard.imdbRating ?? externalImdbRating;
     if (typeof imdb === "number" && imdb >= 8) {
-      return `Critically acclaimed · IMDb ${imdb.toFixed(1)}`;
+      return `IMDb ${imdb.toFixed(1)}`;
     }
     if (activeCard.friendLikesCount && activeCard.friendLikesCount >= 3) {
       return "Friends love this";
@@ -1097,6 +1104,13 @@ const SwipePage: React.FC = () => {
 
   // Hover parallax (desktop only)
   const handleMouseMoveOnCard = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (typeof window !== "undefined") {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+        // Disable hover tilt on touch / coarse pointer devices
+        return;
+      }
+    }
+
     if (isDragging) return;
     const node = cardRef.current;
     if (!node) return;
@@ -1242,7 +1256,7 @@ const SwipePage: React.FC = () => {
                 onMouseMove={handleMouseMoveOnCard}
                 onMouseLeave={handleMouseLeaveCard}
                 aria-label={buildSwipeCardLabel(activeCard)}
-                style={{ touchAction: "pan-y" }}
+                style={{ touchAction: "pan-y pan-x" }}
               >
                 {/* Light leak + subtle grain overlay */}
                 <div
@@ -1292,12 +1306,12 @@ const SwipePage: React.FC = () => {
                     <PosterFallback title={activeCard.title} />
                   )}
 
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-mn-bg/95" />
 
                   {/* Swipe intent overlays */}
                   {dragIntent === "like" && (
                     <>
-                      <div className="pointer-events-none absolute inset-x-8 top-4 flex justify-start">
+                      <div className="pointer-events-none absolute inset-x-8 bottom-3 flex justify-start">
                         <div className="flex items-center gap-2 rounded-md bg-emerald-500/14 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200 shadow-mn-soft backdrop-blur-sm">
                           <ThumbsUp className="h-4 w-4 text-emerald-300" />
                           <span>Love it</span>
@@ -1308,7 +1322,7 @@ const SwipePage: React.FC = () => {
                   )}
                   {dragIntent === "dislike" && (
                     <>
-                      <div className="pointer-events-none absolute inset-x-8 top-4 flex justify-end">
+                      <div className="pointer-events-none absolute inset-x-8 bottom-3 flex justify-end">
                         <div className="flex items-center gap-2 rounded-md bg-rose-500/14 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-200 shadow-mn-soft backdrop-blur-sm">
                           <ThumbsDown className="h-4 w-4 text-rose-300" />
                           <span>No thanks</span>
@@ -1347,17 +1361,14 @@ const SwipePage: React.FC = () => {
                       />
 
                       {/* Minimal long-press hint (first few cards only) */}
-                      {shouldShowLongPressHint && (
-                        <div className="mt-2 flex items-center gap-1 text-[10px] text-mn-text-secondary/70">
-                          <span className="h-1 w-1 rounded-full bg-mn-border-subtle/80" />
-                          <span>Tap the card to see more details, rating, and sharing options.</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
-                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
+                      <div
+                        className="mt-3 space-y-3 text-[11px] text-mn-text-secondary overflow-y-auto pr-1"
+                        style={{ scrollbarWidth: "none" as any }}
+                      >
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
                           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1590,13 +1601,6 @@ const SwipePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {isDetailMode && (
-                    <div className="mt-3 flex items-center justify-between text-[11px]">
-                      <span className="text-mn-text-secondary/80">
-                        You can exit details any time and keep swiping in either mode.
-                      </span>
-                    </div>
-                  )}
                 </div>
               </article>
 
@@ -1661,10 +1665,6 @@ const SwipePage: React.FC = () => {
             <span className="hidden sm:inline">Love it</span>
           </button>
         </div>
-
-        <p className="mt-3 text-center text-[11px] text-mn-text-secondary/80">
-          Your swipes help tune what you see next.
-        </p>
 
         {renderUndoToast()}
       </div>
