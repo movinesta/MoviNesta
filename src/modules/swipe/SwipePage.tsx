@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ChevronRight,
   Flame,
   Info,
   ImageOff,
@@ -9,7 +10,6 @@ import {
   ThumbsDown,
   ThumbsUp,
   Share2,
-  X,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
 import { RatingStars } from "../../components/RatingStars";
@@ -47,6 +47,14 @@ const formatRuntime = (minutes?: number | null): string | null => {
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
+};
+
+const extractYear = (value?: string | null): number | null => {
+  if (!value) return null;
+  const match = value.match(/\d{4}/);
+  if (!match) return null;
+  const year = Number(match[0]);
+  return Number.isFinite(year) ? year : null;
 };
 
 const getSourceLabel = (source?: SwipeDeckKind) => {
@@ -196,31 +204,72 @@ const LoadingSwipeCard: React.FC = () => {
 };
 
 interface TitleDetailRow {
+  // identity
   title_id: string;
   content_type: string | null;
 
+  // story & copy
   plot: string | null;
   tmdb_overview: string | null;
   tagline: string | null;
 
+  // people
   omdb_director: string | null;
+  omdb_writer: string | null;
   omdb_actors: string | null;
 
+  // taxonomy
   genres: string[] | null;
   tmdb_genre_names: string[] | null;
+
+  // languages & region
   language: string | null;
   omdb_language: string | null;
   tmdb_original_language: string | null;
   country: string | null;
   omdb_country: string | null;
 
-  imdb_rating: number | null;
-  metascore: number | null;
-  rt_tomato_pct: number | null;
+  // release info
+  release_year: number | null;
+  release_date: string | null;
+  tmdb_release_date: string | null;
+  tmdb_first_air_date: string | null;
+  omdb_released: string | null;
 
+  // runtimes
+  runtime_minutes: number | null;
+  tmdb_runtime: number | null;
+  tmdb_episode_run_time: number[] | null;
+
+  // ratings & scores
+  imdb_rating: number | null;
+  imdb_votes: number | null;
+  metascore: number | null;
+  omdb_rt_rating_pct: number | null;
+  rt_tomato_pct: number | null;
+  tmdb_vote_average: number | null;
+  tmdb_vote_count: number | null;
+  tmdb_popularity: number | null;
+  omdb_rated: string | null;
+
+  // commerce / performance
+  omdb_box_office_str: string | null;
+  omdb_box_office: number | null;
+
+  // production metadata
+  omdb_awards: string | null;
+  omdb_production: string | null;
+  omdb_website: string | null;
+  omdb_dvd: string | null;
+
+  // artwork
   poster_url: string | null;
   tmdb_poster_path: string | null;
   backdrop_url: string | null;
+
+  // ids
+  omdb_imdb_id: string | null;
+  tmdb_id: number | null;
 }
 
 const SwipePage: React.FC = () => {
@@ -251,7 +300,7 @@ const SwipePage: React.FC = () => {
   const [isDetailMode, setIsDetailMode] = useState(false);
   const [showFullFriendReview, setShowFullFriendReview] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
-  const [showFullDetailSheet, setShowFullDetailSheet] = useState(false);
+  const [isFullDetailOpen, setIsFullDetailOpen] = useState(false);
 
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
@@ -368,26 +417,72 @@ const SwipePage: React.FC = () => {
         .from("titles")
         .select(
           `
+          -- identity
           title_id,
           content_type,
+
+          -- story & copy
           plot,
           tmdb_overview,
           tagline,
+
+          -- people
           omdb_director,
+          omdb_writer,
           omdb_actors,
+
+          -- taxonomy
           genres,
           tmdb_genre_names,
+
+          -- languages & region
           language,
           omdb_language,
           tmdb_original_language,
           country,
           omdb_country,
+
+          -- release info
+          release_year,
+          release_date,
+          tmdb_release_date,
+          tmdb_first_air_date,
+          omdb_released,
+
+          -- runtimes
+          runtime_minutes,
+          tmdb_runtime,
+          tmdb_episode_run_time,
+
+          -- ratings & scores
           imdb_rating,
+          imdb_votes,
           metascore,
+          omdb_rt_rating_pct,
           rt_tomato_pct,
+          tmdb_vote_average,
+          tmdb_vote_count,
+          tmdb_popularity,
+          omdb_rated,
+
+          -- commerce / performance
+          omdb_box_office_str,
+          omdb_box_office,
+
+          -- production metadata
+          omdb_awards,
+          omdb_production,
+          omdb_website,
+          omdb_dvd,
+
+          -- artwork
           poster_url,
           tmdb_poster_path,
-          backdrop_url
+          backdrop_url,
+
+          -- ids
+          omdb_imdb_id,
+          tmdb_id
         `,
         )
         .eq("title_id", activeTitleId)
@@ -412,16 +507,6 @@ const SwipePage: React.FC = () => {
     activeCard?.genres ??
     null;
 
-  const detailYear =
-    typeof activeCard?.year === "number" ? activeCard.year : null;
-
-  const detailRuntimeMinutes =
-    typeof titleDetail?.runtime_minutes === "number"
-      ? titleDetail.runtime_minutes
-      : typeof activeCard?.runtimeMinutes === "number"
-      ? activeCard.runtimeMinutes
-      : null;
-
   const detailPrimaryLanguage =
     titleDetail?.language ??
     titleDetail?.omdb_language ??
@@ -441,6 +526,36 @@ const SwipePage: React.FC = () => {
   const externalImdbRating = titleDetail?.imdb_rating ?? activeCard?.imdbRating ?? null;
   const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
   const externalMetascore = titleDetail?.metascore ?? null;
+  const externalImdbVotes = titleDetail?.imdb_votes ?? null;
+  const externalTmdbVoteCount = titleDetail?.tmdb_vote_count ?? null;
+  const tmdbVoteAverage = titleDetail?.tmdb_vote_average ?? null;
+
+  // Derived detail fields for layout
+
+  const detailRuntimeMinutesRaw =
+    titleDetail?.runtime_minutes ??
+    titleDetail?.tmdb_runtime ??
+    (Array.isArray(titleDetail?.tmdb_episode_run_time) &&
+    (titleDetail?.tmdb_episode_run_time as number[] | null)?.length
+      ? (titleDetail?.tmdb_episode_run_time as number[])[0]
+      : null) ??
+    activeCard?.runtimeMinutes ??
+    null;
+
+  const detailRuntimeMinutes =
+    typeof detailRuntimeMinutesRaw === "number" && detailRuntimeMinutesRaw > 0
+      ? detailRuntimeMinutesRaw
+      : null;
+
+  const detailYear =
+    titleDetail?.release_year ??
+    extractYear(titleDetail?.release_date) ??
+    extractYear(titleDetail?.tmdb_release_date) ??
+    extractYear(titleDetail?.tmdb_first_air_date) ??
+    extractYear(titleDetail?.omdb_released) ??
+    (typeof activeCard?.year === "number" ? activeCard.year : null);
+
+  const detailCertificate = titleDetail?.omdb_rated ?? null;
 
   // diary helpers
   const normalizedContentType: TitleType | null =
@@ -448,8 +563,7 @@ const SwipePage: React.FC = () => {
       ? titleDetail.content_type
       : activeCard?.type ?? null;
 
-
-  const normalizedContentTypeLabel =
+  const normalizedContentTypeLabel: string | null =
     normalizedContentType === "movie"
       ? "Movie"
       : normalizedContentType === "series"
@@ -1101,17 +1215,37 @@ const SwipePage: React.FC = () => {
   const shouldShowLongPressHint =
     !isDetailMode && !showOnboarding && currentIndex < 3 && !isLoading && !!activeCard;
 
-  const posterRuntime = formatRuntime(activeCard?.runtimeMinutes);
+  const posterRuntimeMinutes = detailRuntimeMinutes ?? activeCard?.runtimeMinutes ?? null;
+  const posterRuntime = formatRuntime(posterRuntimeMinutes || null);
+
+  const posterYear =
+    detailYear ??
+    (typeof activeCard?.year === "number" ? activeCard.year : null);
+
+  const posterTypeLabel =
+    activeCard?.type === "movie"
+      ? "Movie"
+      : activeCard?.type === "series"
+      ? "Series"
+      : null;
+
+  const posterGenres =
+    detailGenres && Array.isArray(detailGenres) && detailGenres.length > 0
+      ? (detailGenres as string[])
+      : activeCard?.genres ?? null;
+
+  const posterPrimaryCountry = detailPrimaryCountry ?? activeCard?.country ?? null;
+
   const metaLine = activeCard
     ? [
-        activeCard.year ? String(activeCard.year) : null,
-        activeCard.genres?.[0] ?? null,
-        posterRuntime,
-        typeof activeCard.imdbRating === "number" &&
-        !Number.isNaN(activeCard.imdbRating) &&
-        activeCard.imdbRating > 0
-          ? `IMDb ${activeCard.imdbRating.toFixed(1)}`
+        posterYear ? String(posterYear) : null,
+        posterTypeLabel,
+        posterGenres && (posterGenres as string[]).length
+          ? (posterGenres as string[]).slice(0, 3).join(", ")
           : null,
+        posterRuntime,
+        detailCertificate,
+        posterPrimaryCountry,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -1390,183 +1524,74 @@ const SwipePage: React.FC = () => {
                       />
                     </div>
 
-                    {/* Detail mode sections */}
-                    {isDetailMode && (
-                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
-                        {/* Rating + diary actions */}
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-medium text-mn-text-primary/90">
-                              Your rating
-                            </span>
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => {
-                                const currentRating = diaryEntry?.rating ?? null;
-                                const isActive = typeof currentRating === "number" && currentRating >= star;
-                                return (
-                                  <button
-                                    key={star}
-                                    type="button"
-                                    onClick={() => setDiaryRating(isActive ? star - 1 || null : star)}
-                                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] transition ${
-                                      isActive
-                                        ? "border-mn-primary/80 bg-mn-primary/90 text-black"
-                                        : "border-mn-border-subtle/70 bg-mn-bg-elevated/60 text-mn-text-muted hover:border-mn-primary/70 hover:text-mn-primary/90"
-                                    }`}
-                                    aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
-                                  >
-                                    ★
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDiaryStatus(statusIs("watchlist") ? null : "watchlist")
-                              }
-                              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
-                                statusIs("watchlist")
-                                  ? "border-mn-primary/70 bg-mn-primary/90 text-black"
-                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-mn-primary/60 hover:text-mn-primary"
-                              }`}
-                            >
-                              Watchlist
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDiaryStatus(statusIs("watched") ? null : "watched")
-                              }
-                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
-                                statusIs("watched")
-                                  ? "border-emerald-400/80 bg-emerald-500/90 text-black"
-                                  : "border-mn-border-subtle bg-mn-bg text-mn-text-primary hover:border-emerald-400/80 hover:text-emerald-200"
-                              }`}
-                            >
-                              Marked watched
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowSharePresetSheet(true)}
-                              className="inline-flex items-center gap-1 rounded-md border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1.5 text-[11px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
-                            >
-                              <Share2 className="h-3.5 w-3.5" />
-                              Share
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Scores & basics */}
-                        {(externalImdbRating || externalTomato || externalMetascore || detailGenres) && (
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-3 text-[10.5px] font-medium text-mn-text-primary/95">
-                              {externalImdbRating && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
-                                  <span className="text-[10px] font-semibold text-mn-text-secondary/80">
-                                    IMDb
-                                  </span>
-                                  <span>{externalImdbRating.toFixed(1)}</span>
-                                </span>
-                              )}
-                              {externalTomato && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
-                                  <span className="text-[10px] font-semibold text-mn-text-secondary/80">
-                                    RT
-                                  </span>
-                                  <span>{externalTomato}%</span>
-                                </span>
-                              )}
-                              {externalMetascore && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
-                                  <span className="text-[10px] font-semibold text-mn-text-secondary/80">
-                                    Metascore
-                                  </span>
-                                  <span>{externalMetascore}</span>
-                                </span>
-                              )}
-                            </div>
-
-                            {(detailGenres || detailRuntimeMinutes || detailPrimaryCountry) && (
-                              <div className="text-[10.5px] text-mn-text-secondary/85">
-                                <p>
-                                  {[detailYear, normalizedContentTypeLabel, detailGenres]
-                                    .filter(Boolean)
-                                    .join(" · ")}
-                                </p>
-                                {detailRuntimeMinutes && (
-                                  <p className="mt-0.5">
-                                    {Math.round(detailRuntimeMinutes)} min
-                                    {detailPrimaryCountry ? ` · ${detailPrimaryCountry}` : ""}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Overview */}
+                    {isDetailMode && activeCard && (
+                      <div className="mt-3 space-y-2 text-left text-[11px] text-mn-text-secondary">
                         {detailOverview && (
-                          <div className="space-y-1">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                              Overview
-                            </p>
-                            <p
-                              className={`text-[11px] text-mn-text-secondary ${
-                                showFullOverview ? "" : "line-clamp-3"
-                              }`}
-                            >
-                              {detailOverview}
-                            </p>
-                            {detailOverview.length > 180 && (
-                              <button
-                                type="button"
-                                onClick={() => setShowFullOverview((v) => !v)}
-                                className="text-[10.5px] font-medium text-mn-primary hover:underline"
-                              >
-                                {showFullOverview ? "Show less" : "Read more"}
-                              </button>
-                            )}
-                          </div>
+                          <p className="leading-relaxed text-[11px] text-mn-text-secondary/90 line-clamp-3">
+                            {detailOverview}
+                          </p>
                         )}
 
-                        {/* People */}
-                        {(detailDirector || detailActors) && (
-                          <div className="space-y-1 text-[10.5px] text-mn-text-secondary/90">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                              People
-                            </p>
+                        {(detailDirector || detailActors || detailPrimaryCountry || detailPrimaryLanguage) && (
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-mn-text-secondary/80">
                             {detailDirector && (
-                              <p>
-                                <span className="font-semibold text-mn-text-primary">Director: </span>
-                                {detailDirector}
-                              </p>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium text-mn-text-primary/90">Dir.</span>
+                                <span className="truncate max-w-[9rem]">{detailDirector}</span>
+                              </span>
                             )}
                             {detailActors && (
-                              <p>
-                                <span className="font-semibold text-mn-text-primary">Cast: </span>
-                                {detailActors
-                                  .split(",")
-                                  .map((s) => s.trim())
-                                  .filter(Boolean)
-                                  .slice(0, 5)
-                                  .join(", ")}
-                              </p>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium text-mn-text-primary/90">Cast</span>
+                                <span className="truncate max-w-[11rem]">{detailActors}</span>
+                              </span>
+                            )}
+                            {detailPrimaryCountry && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium text-mn-text-primary/90">Region</span>
+                                <span>{detailPrimaryCountry}</span>
+                              </span>
+                            )}
+                            {detailPrimaryLanguage && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium text-mn-text-primary/90">Language</span>
+                                <span>{detailPrimaryLanguage}</span>
+                              </span>
                             )}
                           </div>
                         )}
-                        {/* Full details sheet trigger */}
-                        <button
-                          type="button"
-                          onClick={() => setShowFullDetailSheet(true)}
-                          className="text-[10.5px] font-medium text-mn-primary hover:underline"
-                        >
-                          Open full details
-                        </button>
 
+                        {(externalImdbRating || externalTomato || externalMetascore) && (
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-mn-text-secondary/80">
+                            {typeof externalImdbRating === "number" && !Number.isNaN(externalImdbRating) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1">
+                                <span className="font-semibold text-mn-text-primary/90">IMDb</span>
+                                <span>{externalImdbRating.toFixed(1)}</span>
+                              </span>
+                            )}
+                            {typeof externalTomato === "number" && !Number.isNaN(externalTomato) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1">
+                                <span className="font-semibold text-mn-text-primary/90">RT</span>
+                                <span>{externalTomato}%</span>
+                              </span>
+                            )}
+                            {typeof externalMetascore === "number" && !Number.isNaN(externalMetascore) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1">
+                                <span className="font-semibold text-mn-text-primary/90">Metascore</span>
+                                <span>{externalMetascore}</span>
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setIsFullDetailOpen(true)}
+                              className="ml-auto inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
+                            >
+                              <span>Full details</span>
+                              <ChevronRight className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1634,6 +1659,243 @@ const SwipePage: React.FC = () => {
             </>
           )}
 
+          {isFullDetailOpen && activeCard && (
+            <div
+              className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 px-3 pb-4 sm:items-center sm:pb-0"
+              onClick={() => setIsFullDetailOpen(false)}
+            >
+              <div
+                className="max-h-[90vh] w-full max-w-md overflow-hidden rounded-3xl border border-mn-border-subtle/80 bg-mn-bg shadow-mn-card"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-mn-border-subtle/70 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-mn-text-secondary">
+                      Full details
+                    </p>
+                    <p className="truncate text-sm font-semibold text-mn-text-primary">
+                      {activeCard.title}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsFullDetailOpen(false)}
+                    className="ml-3 inline-flex h-7 items-center rounded-full border border-mn-border-subtle/70 px-3 text-[11px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="max-h-[80vh] overflow-y-auto px-4 pb-4 pt-3 text-[12px] text-mn-text-secondary">
+                  {/* Overview & tagline */}
+                  {(titleDetail?.tagline || detailOverview) && (
+                    <section className="space-y-1 pb-3">
+                      {titleDetail?.tagline && (
+                        <p className="text-[11px] font-semibold text-mn-text-primary/90">
+                          {titleDetail.tagline}
+                        </p>
+                      )}
+                      {detailOverview && (
+                        <p className="text-[11px] leading-relaxed text-mn-text-secondary">
+                          {detailOverview}
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {/* Quick facts */}
+                  <section className="grid gap-2 rounded-2xl bg-mn-bg-elevated/60 px-3 py-2 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {detailYear && (
+                        <span className="rounded-full bg-mn-bg px-2 py-0.5 font-medium text-mn-text-primary/90">
+                          {detailYear}
+                        </span>
+                      )}
+                      {normalizedContentTypeLabel && (
+                        <span className="rounded-full bg-mn-bg px-2 py-0.5 text-mn-text-secondary/90">
+                          {normalizedContentTypeLabel}
+                        </span>
+                      )}
+                      {detailRuntimeMinutes && (
+                        <span className="rounded-full bg-mn-bg px-2 py-0.5 text-mn-text-secondary/90">
+                          {formatRuntime(detailRuntimeMinutes)}
+                        </span>
+                      )}
+                      {detailCertificate && (
+                        <span className="rounded-full bg-mn-bg px-2 py-0.5 text-mn-text-secondary/90">
+                          {detailCertificate}
+                        </span>
+                      )}
+                    </div>
+
+                    {(detailGenres || detailPrimaryCountry || detailPrimaryLanguage) && (
+                      <div className="space-y-1 text-[10.5px]">
+                        {detailGenres && (
+                          <p className="text-mn-text-secondary/90">
+                            <span className="font-medium text-mn-text-primary/90">Genres: </span>
+                            {Array.isArray(detailGenres)
+                              ? (detailGenres as string[]).join(", ")
+                              : String(detailGenres)}
+                          </p>
+                        )}
+                        {(detailPrimaryCountry || detailPrimaryLanguage) && (
+                          <p className="text-mn-text-secondary/90">
+                            {detailPrimaryCountry && (
+                              <>
+                                <span className="font-medium text-mn-text-primary/90">Country: </span>
+                                <span>{detailPrimaryCountry}</span>
+                              </>
+                            )}
+                            {detailPrimaryCountry && detailPrimaryLanguage && <span> · </span>}
+                            {detailPrimaryLanguage && (
+                              <>
+                                <span className="font-medium text-mn-text-primary/90">Language: </span>
+                                <span>{detailPrimaryLanguage}</span>
+                              </>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* People */}
+                  {(detailDirector || titleDetail?.omdb_writer || detailActors) && (
+                    <section className="mt-3 grid gap-1.5 text-[11px]">
+                      {detailDirector && (
+                        <p>
+                          <span className="font-medium text-mn-text-primary/90">Director: </span>
+                          <span>{detailDirector}</span>
+                        </p>
+                      )}
+                      {titleDetail?.omdb_writer && (
+                        <p>
+                          <span className="font-medium text-mn-text-primary/90">Writer: </span>
+                          <span>{titleDetail.omdb_writer}</span>
+                        </p>
+                      )}
+                      {detailActors && (
+                        <p>
+                          <span className="font-medium text-mn-text-primary/90">Cast: </span>
+                          <span>{detailActors}</span>
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {/* Ratings & scores */}
+                  {(externalImdbRating ||
+                    externalTomato ||
+                    externalMetascore ||
+                    externalImdbVotes ||
+                    externalTmdbVoteCount ||
+                    tmdbVoteAverage) && (
+                    <section className="mt-4 space-y-1 text-[11px]">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                        Ratings &amp; scores
+                      </h3>
+                      <div className="mt-1 grid gap-1.5">
+                        {typeof externalImdbRating === "number" && !Number.isNaN(externalImdbRating) && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-mn-text-secondary/90">IMDb</span>
+                            <span className="font-medium text-mn-text-primary/90">
+                              {externalImdbRating.toFixed(1)}
+                              {externalImdbVotes
+                                ? ` · ${externalImdbVotes.toLocaleString()} votes`
+                                : ""}
+                            </span>
+                          </div>
+                        )}
+                        {typeof tmdbVoteAverage === "number" &&
+                          !Number.isNaN(tmdbVoteAverage) && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-mn-text-secondary/90">TMDB</span>
+                              <span className="font-medium text-mn-text-primary/90">
+                                {tmdbVoteAverage.toFixed(1)}
+                                {externalTmdbVoteCount
+                                  ? ` · ${externalTmdbVoteCount.toLocaleString()} votes`
+                                  : ""}
+                              </span>
+                            </div>
+                          )}
+                        {typeof externalTomato === "number" && !Number.isNaN(externalTomato) && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-mn-text-secondary/90">Rotten Tomatoes</span>
+                            <span className="font-medium text-mn-text-primary/90">
+                              {externalTomato}%
+                            </span>
+                          </div>
+                        )}
+                        {typeof externalMetascore === "number" && !Number.isNaN(externalMetascore) && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-mn-text-secondary/90">Metascore</span>
+                            <span className="font-medium text-mn-text-primary/90">
+                              {externalMetascore}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Awards & box office */}
+                  {(titleDetail?.omdb_awards || titleDetail?.omdb_box_office_str) && (
+                    <section className="mt-4 space-y-1 text-[11px]">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                        Recognition
+                      </h3>
+                      {titleDetail?.omdb_awards && (
+                        <p className="text-mn-text-secondary/90">{titleDetail.omdb_awards}</p>
+                      )}
+                      {titleDetail?.omdb_box_office_str && (
+                        <p className="text-mn-text-secondary/90">
+                          <span className="font-medium text-mn-text-primary/90">Box office: </span>
+                          {titleDetail.omdb_box_office_str}
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {/* Production & links */}
+                  {(titleDetail?.omdb_production ||
+                    titleDetail?.omdb_website ||
+                    titleDetail?.omdb_dvd ||
+                    titleDetail?.omdb_imdb_id) && (
+                    <section className="mt-4 space-y-1 text-[11px]">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                        Production &amp; links
+                      </h3>
+                      {titleDetail?.omdb_production && (
+                        <p className="text-mn-text-secondary/90">
+                          <span className="font-medium text-mn-text-primary/90">Production: </span>
+                          {titleDetail.omdb_production}
+                        </p>
+                      )}
+                      {titleDetail?.omdb_dvd && (
+                        <p className="text-mn-text-secondary/90">
+                          <span className="font-medium text-mn-text-primary/90">DVD: </span>
+                          {titleDetail.omdb_dvd}
+                        </p>
+                      )}
+                      {titleDetail?.omdb_website && titleDetail.omdb_website !== "N/A" && (
+                        <p className="text-mn-text-secondary/90">
+                          <span className="font-medium text-mn-text-primary/90">Website: </span>
+                          <span className="break-all">{titleDetail.omdb_website}</span>
+                        </p>
+                      )}
+                      {titleDetail?.omdb_imdb_id && (
+                        <p className="text-mn-text-secondary/90">
+                          <span className="font-medium text-mn-text-primary/90">IMDb ID: </span>
+                          {titleDetail.omdb_imdb_id}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {renderSmartHintToast()}
         </div>
 
@@ -1670,107 +1932,6 @@ const SwipePage: React.FC = () => {
             <span className="hidden sm:inline">Love it</span>
           </button>
         </div>
-
-      {showFullDetailSheet && activeCard && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-mn-bg shadow-mn-card no-scrollbar sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-mn-border-subtle px-4 py-3">
-              <h2 className="text-sm font-semibold text-mn-text-primary">
-                {activeCard.title}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowFullDetailSheet(false)}
-                className="rounded-full p-1 text-mn-text-secondary hover:bg-mn-bg-elevated/80"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-4 px-4 py-3 text-[11px] text-mn-text-secondary">
-              {/* Scores & basics */}
-              {(externalImdbRating || externalTomato || externalMetascore || detailGenres) && (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-3 text-[10.5px] font-medium text-mn-text-primary/95">
-                    {externalImdbRating && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
-                        <span className="text-[10px] font-semibold text-mn-text-secondary/80">
-                          IMDb
-                        </span>
-                        <span>{externalImdbRating.toFixed(1)}</span>
-                      </span>
-                    )}
-                    {externalTomato && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
-                        <span className="text-[10px] font-semibold text-mn-text-secondary/80">
-                          RT
-                        </span>
-                        <span>{externalTomato}%</span>
-                      </span>
-                    )}
-                    {externalMetascore && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1 shadow-mn-soft">
-                        <span className="text-[10px] font-semibold text-mn-text-secondary/80">
-                          Metascore
-                        </span>
-                        <span>{externalMetascore}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {(detailGenres || detailRuntimeMinutes || detailPrimaryCountry) && (
-                    <div className="text-[10.5px] text-mn-text-secondary/85">
-                      <p>
-                        {[detailYear, normalizedContentTypeLabel, detailGenres]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      {detailRuntimeMinutes && (
-                        <p className="mt-0.5">
-                          {Math.round(detailRuntimeMinutes)} min
-                          {detailPrimaryCountry ? ` · ${detailPrimaryCountry}` : ""}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Overview */}
-              {detailOverview && (
-                <div className="space-y-1">
-                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                    Overview
-                  </p>
-                  <p className="text-[11px] text-mn-text-secondary">
-                    {detailOverview}
-                  </p>
-                </div>
-              )}
-
-              {/* People */}
-              {(detailDirector || detailActors) && (
-                <div className="space-y-1 text-[10.5px] text-mn-text-secondary/90">
-                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                    People
-                  </p>
-                  {detailDirector && (
-                    <p>
-                      <span className="font-semibold text-mn-text-primary">Director: </span>
-                      {detailDirector}
-                    </p>
-                  )}
-                  {detailActors && (
-                    <p>
-                      <span className="font-semibold text-mn-text-primary">Cast: </span>
-                      {detailActors}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
         {renderUndoToast()}
       </div>
