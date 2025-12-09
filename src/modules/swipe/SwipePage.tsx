@@ -1062,7 +1062,7 @@ const SwipePage: React.FC = () => {
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-[4.75rem] z-30 flex justify-center px-4 sm:px-0">
+      <div className="pointer-events-none absolute inset-x-0 top-[4.75rem] z-30 flex justify-center px-4 sm:px-0 transition-all duration-300 ease-out">
         <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
           <span>{smartHint}</span>
@@ -1092,10 +1092,6 @@ const SwipePage: React.FC = () => {
 
   const highlightLabel = (() => {
     if (!activeCard) return null;
-    const imdb = activeCard.imdbRating ?? externalImdbRating;
-    if (typeof imdb === "number" && imdb >= 8) {
-      return `IMDb ${imdb.toFixed(1)}`;
-    }
     if (activeCard.friendLikesCount && activeCard.friendLikesCount >= 3) {
       return "Friends love this";
     }
@@ -1256,7 +1252,7 @@ const SwipePage: React.FC = () => {
                 onMouseMove={handleMouseMoveOnCard}
                 onMouseLeave={handleMouseLeaveCard}
                 aria-label={buildSwipeCardLabel(activeCard)}
-                style={{ touchAction: "pan-y pan-x" }}
+                style={{ touchAction: "pan-y" }}
               >
                 {/* Light leak + subtle grain overlay */}
                 <div
@@ -1365,10 +1361,7 @@ const SwipePage: React.FC = () => {
 
                     {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
-                      <div
-                        className="mt-3 space-y-3 text-[11px] text-mn-text-secondary overflow-y-auto pr-1"
-                        style={{ scrollbarWidth: "none" as any }}
-                      >
+                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
                           <div className="flex flex-wrap items-center justify-between gap-3">
