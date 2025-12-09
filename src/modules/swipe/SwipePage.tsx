@@ -883,18 +883,20 @@ const SwipePage: React.FC = () => {
 
     ensureAudioContext();
 
-    if (longPressTimeoutRef.current != null) {
-      window.clearTimeout(longPressTimeoutRef.current);
-    }
-    longPressTriggeredRef.current = false;
+    if (!isDetailMode) {
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+      longPressTriggeredRef.current = false;
 
-    longPressTimeoutRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      setIsDragging(false);
-      resetCardPosition();
-      safeVibrate(20);
-      setIsDetailMode((prev) => !prev);
-    }, 550);
+      longPressTimeoutRef.current = window.setTimeout(() => {
+        longPressTriggeredRef.current = true;
+        setIsDragging(false);
+        resetCardPosition();
+        safeVibrate(20);
+        setIsDetailMode((prev) => !prev);
+      }, 550);
+    }
 
     const node = cardRef.current;
     if (!node) return;
@@ -1062,7 +1064,7 @@ const SwipePage: React.FC = () => {
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-[4.75rem] z-30 flex justify-center px-4 sm:px-0 transition-all duration-300 ease-out">
+      <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-4 sm:px-0 transition-all duration-300 ease-out">
         <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
           <span>{smartHint}</span>
@@ -1344,7 +1346,10 @@ const SwipePage: React.FC = () => {
 
                 {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}>
+                  <div
+                    className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}
+                    style={isDetailMode ? { maxHeight: "60vh" } : undefined}
+                  >
                     <div
                       className={`transition-opacity transition-transform duration-250 ${
                         isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
