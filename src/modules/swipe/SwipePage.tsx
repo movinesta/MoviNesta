@@ -1535,6 +1535,8 @@ const SwipePage: React.FC = () => {
                             )}
                           </div>
                         )}
+</div>
+                        )}
 
                         {(externalImdbRating || externalTomato || externalMetascore) && (
                           <div className="pt-2">
