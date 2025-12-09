@@ -1270,13 +1270,19 @@ const SwipePage: React.FC = () => {
                 onPointerMove={(e) => {
                 if (!isDragging) return;
 
-                if (dragGestureModeRef.current === "undecided" && dragStartYRef.current !== null && dragStartX.current !== null) {
+                if (
+                  dragGestureModeRef.current === "undecided" &&
+                  dragStartYRef.current !== null &&
+                  dragStartX.current !== null &&
+                  isDetailMode &&
+                  dragStartedInDetailAreaRef.current
+                ) {
                   const dx = e.clientX - dragStartX.current;
                   const dy = e.clientY - dragStartYRef.current;
                   const distance = Math.sqrt(dx * dx + dy * dy);
 
-                  if (distance > 8) {
-                    if (Math.abs(dy) > Math.abs(dx) * 1.2) {
+                  if (distance > 6) {
+                    if (Math.abs(dy) > Math.abs(dx) * 1.6) {
                       // Treat as scroll: cancel swipe and release capture
                       dragGestureModeRef.current = "scroll";
                       const node = cardRef.current;
