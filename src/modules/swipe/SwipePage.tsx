@@ -1037,8 +1037,12 @@ const SwipePage: React.FC = () => {
         : "Saved for ‘Not now’";
 
     return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto">
-        <div className="pointer-events-auto inline-flex items-center gap-3 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[12px] text-mn-text-primary shadow-mn-card backdrop-blur">
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto"
+      >
+        <div className="pointer-events-auto inline-flex items-center gap-3 rounded-full bg-mn-bg-elevated/95 px-3.5 py-2.5 text-[12px] text-mn-text-primary shadow-mn-card backdrop-blur">
           <span>{label}</span>
           <button
             type="button"
@@ -1054,17 +1058,20 @@ const SwipePage: React.FC = () => {
 
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
+
     return (
-      <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-30 flex justify-center px-4 sm:px-0">
-        <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-30 flex justify-center px-4 sm:px-0"
+      >
+        <div className="pointer-events-auto inline-flex max-w-md items-center gap-2 rounded-full bg-mn-bg-elevated/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
           <span>{smartHint}</span>
         </div>
       </div>
     );
-  };
-
-  const shouldShowLongPressHint =
+  };const shouldShowLongPressHint =
     !isDetailMode && !showOnboarding && currentIndex < 3 && !isLoading && !!activeCard;
 
   const posterRuntime = formatRuntime(activeCard?.runtimeMinutes);
@@ -1244,6 +1251,10 @@ const SwipePage: React.FC = () => {
                 aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
               >
+              {isDetailMode && (
+                <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl bg-black/35 transition-opacity duration-200" />
+              )}
+
                 {/* Light leak + subtle grain overlay */}
                 <div
                   aria-hidden="true"
@@ -1358,6 +1369,17 @@ const SwipePage: React.FC = () => {
                     {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
                       <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
+                        <div className="flex items-center justify-between gap-2 pb-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsDetailMode(false)}
+                            className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg-elevated/80"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-mn-text-secondary/70" />
+                            <span>Back to swiping</span>
+                          </button>
+                        </div>
+
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
                           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1631,36 +1653,58 @@ const SwipePage: React.FC = () => {
 
         {/* Bottom actions */}
         <div className="mt-3 grid grid-cols-3 gap-3">
+          {/* No thanks */}
           <button
             type="button"
             onClick={() => performSwipe("dislike")}
             disabled={actionsDisabled}
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-rose-400 shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-mn-bg text-sm font-semibold text-rose-300 shadow-mn-soft hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="No thanks"
           >
             <ThumbsDown className="h-5 w-5" />
             <span className="hidden sm:inline">No thanks</span>
           </button>
+
+          {/* Not now */}
           <button
             type="button"
             onClick={() => performSwipe("skip")}
             disabled={actionsDisabled}
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-3 py-3 text-sm font-semibold text-mn-text-secondary shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-border-subtle focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-mn-border-subtle/70 bg-mn-bg text-sm font-medium text-mn-text-secondary shadow-mn-soft hover:bg-mn-bg-elevated/80 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary/50 active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Not now"
           >
             <SkipForward className="h-5 w-5" />
             <span className="hidden sm:inline">Not now</span>
           </button>
+
+          {/* Love it (primary) */}
           <button
             type="button"
             onClick={() => performSwipe("like")}
             disabled={actionsDisabled}
-            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-transparent bg-mn-primary/95 px-3 py-3 text-sm font-semibold text-mn-bg shadow-mn-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary focus-visible:ring-offset-2 focus-visible:ring-offset-mn-bg active:translate-y-[1px] active:scale-[0.99] active:shadow-none transition-all duration-150"
+            className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-mn-primary text-sm font-semibold text-black shadow-mn-soft hover:bg-mn-primary/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mn-primary/70 active:scale-[0.99] active:shadow-none transition-all duration-150"
             aria-label="Love it"
           >
             <ThumbsUp className="h-5 w-5" />
             <span className="hidden sm:inline">Love it</span>
           </button>
+        </div>
+
+        {/* Details button + keyboard hint */}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-mn-text-secondary/80">
+          <button
+            type="button"
+            onClick={() => setIsDetailMode(true)}
+            disabled={actionsDisabled || !activeCard}
+            className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[11px] text-mn-text-secondary hover:bg-mn-bg-elevated/80 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-mn-primary/70" />
+            <span>Details</span>
+          </button>
+
+          <p className="ml-auto hidden text-[10px] text-mn-text-secondary/70 sm:block">
+            Shortcuts: &larr; No thanks · Space Not now · &rarr; Love it
+          </p>
         </div>
 
         {renderUndoToast()}
