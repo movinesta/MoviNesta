@@ -532,6 +532,9 @@ const SwipePage: React.FC = () => {
   const lastMoveX = useRef<number | null>(null);
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
+  const dragStartedInDetailAreaRef = useRef(false);
+
 
   useEffect(() => {
     const hasSeen =
@@ -900,7 +903,9 @@ const SwipePage: React.FC = () => {
     if (!node) return;
 
     try {
-      node.setPointerCapture(pointerId);
+      if (!dragStartedInDetailAreaRef.current) {
+        node.setPointerCapture(pointerId);
+      }
     } catch {
       // ignore
     }
@@ -961,9 +966,18 @@ const SwipePage: React.FC = () => {
 
     const distance = dragDelta.current;
     const projected = distance + velocityRef.current * 180;
+
+    const isDetailDrag = isDetailMode && dragStartedInDetailAreaRef.current;
+    const distanceThreshold = isDetailDrag
+      ? SWIPE_DISTANCE_THRESHOLD * 1.6
+      : SWIPE_DISTANCE_THRESHOLD;
+    const velocityThreshold = isDetailDrag
+      ? SWIPE_VELOCITY_THRESHOLD * 1.4
+      : SWIPE_VELOCITY_THRESHOLD;
+
     const shouldSwipe =
-      Math.abs(projected) >= SWIPE_DISTANCE_THRESHOLD ||
-      Math.abs(velocityRef.current) >= SWIPE_VELOCITY_THRESHOLD;
+      Math.abs(projected) >= distanceThreshold ||
+      Math.abs(velocityRef.current) >= velocityThreshold;
 
     if (shouldSwipe) {
       performSwipe(projected >= 0 ? "like" : "dislike", velocityRef.current);
@@ -1243,6 +1257,11 @@ const SwipePage: React.FC = () => {
                 }`}
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
+                  if (isDetailMode && detailScrollRef.current && detailScrollRef.current.contains(e.target as Node)) {
+                    dragStartedInDetailAreaRef.current = true;
+                  } else {
+                    dragStartedInDetailAreaRef.current = false;
+                  }
                   handlePointerDown(e.clientX, e.pointerId);
                 }}
                 onPointerMove={(e) => handlePointerMove(e.clientX)}
@@ -1363,7 +1382,11 @@ const SwipePage: React.FC = () => {
 
                     {/* Detail-mode: more info from titles table */}
                     {isDetailMode && (
-                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
+                      <div
+                        ref={detailScrollRef}
+                        className="mt-3 space-y-3 text-[11px] text-mn-text-secondary overflow-y-auto pr-1"
+                        style={{ maxHeight: "60vh", msOverflowStyle: "none", scrollbarWidth: "none" }}
+                      >
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
                           <div className="flex flex-wrap items-center justify-between gap-3">
