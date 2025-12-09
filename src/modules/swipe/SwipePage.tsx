@@ -883,20 +883,18 @@ const SwipePage: React.FC = () => {
 
     ensureAudioContext();
 
-    if (!isDetailMode) {
-      if (longPressTimeoutRef.current != null) {
-        window.clearTimeout(longPressTimeoutRef.current);
-      }
-      longPressTriggeredRef.current = false;
-
-      longPressTimeoutRef.current = window.setTimeout(() => {
-        longPressTriggeredRef.current = true;
-        setIsDragging(false);
-        resetCardPosition();
-        safeVibrate(20);
-        setIsDetailMode((prev) => !prev);
-      }, 550);
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
     }
+    longPressTriggeredRef.current = false;
+
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setIsDragging(false);
+      resetCardPosition();
+      safeVibrate(20);
+      setIsDetailMode((prev) => !prev);
+    }, 550);
 
     const node = cardRef.current;
     if (!node) return;
@@ -1347,26 +1345,25 @@ const SwipePage: React.FC = () => {
                 {/* Content & detail mode */}
                 <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
                   <div
-                    className={isDetailMode ? "flex-1 overflow-y-auto pr-1" : ""}
-                    style={isDetailMode ? { maxHeight: "60vh" } : undefined}
+                    className={`transition-opacity transition-transform duration-250 ${
+                      isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
+                    }`}
                   >
+                    <CardMetadata
+                      card={activeCard}
+                      metaLine={metaLine}
+                      highlightLabel={!isDetailMode ? highlightLabel : null}
+                    />
+
+                    {/* Minimal long-press hint (first few cards only) */}
+                  </div>
+
+                  {/* Detail-mode: more info from titles table */}
+                  {isDetailMode && (
                     <div
-                      className={`transition-opacity transition-transform duration-250 ${
-                        isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
-                      }`}
+                      className="mt-3 space-y-3 text-[11px] text-mn-text-secondary overflow-y-auto pr-1"
+                      style={{ maxHeight: "60vh", msOverflowStyle: "none", scrollbarWidth: "none" }}
                     >
-                      <CardMetadata
-                        card={activeCard}
-                        metaLine={metaLine}
-                        highlightLabel={!isDetailMode ? highlightLabel : null}
-                      />
-
-                      {/* Minimal long-press hint (first few cards only) */}
-                    </div>
-
-                    {/* Detail-mode: more info from titles table */}
-                    {isDetailMode && (
-                      <div className="mt-3 space-y-3 text-[11px] text-mn-text-secondary">
                         {/* Sticky header for diary + share */}
                         <div className="sticky top-0 z-10 mb-2 bg-gradient-to-b from-mn-bg/98 via-mn-bg/96 to-mn-bg/98 pb-2">
                           <div className="flex flex-wrap items-center justify-between gap-3">
