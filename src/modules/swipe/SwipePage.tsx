@@ -273,7 +273,7 @@ const SwipePage: React.FC = () => {
 
   const [isDetailMode, setIsDetailMode] = useState(false);
   const [showFullFriendReview, setShowFullFriendReview] = useState(false);
-  const [showFullOverview, setShowFullOverview] = useState(false);
+  const [showFullOverview, setShowFullOverview] = useState(false); // kept for compatibility
   const [isFullDetailOpen, setIsFullDetailOpen] = useState(false);
 
   useEffect(() => {
@@ -1432,7 +1432,7 @@ const SwipePage: React.FC = () => {
                 </div>
 
                 {/* Content & detail mode */}
-                <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
+                <div className="relative flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
                   <div>
                     <div
                       className={`transition-opacity transition-transform duration-250 ${
@@ -1632,172 +1632,6 @@ const SwipePage: React.FC = () => {
                             <span>Full details</span>
                           </button>
                         </div>
-
-                        {/* Full detail sheet */}
-                        {isFullDetailOpen && (
-                          <div className="mt-3 rounded-3xl border border-mn-border-subtle/80 bg-mn-bg-elevated/95 shadow-mn-card">
-                            <div className="flex items-center justify-center pt-2">
-                              <div className="h-1 w-12 rounded-full bg-mn-border-subtle/80" />
-                            </div>
-                            <div
-                              className="mt-2 max-h-[52vh] overflow-y-auto px-3 pb-3 pt-1 text-[11px] leading-relaxed text-mn-text-secondary/90"
-                              style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
-                            >
-                              {(titleDetail?.tagline || detailOverview) && (
-                                <section className="space-y-1 pb-3">
-                                  {titleDetail?.tagline && (
-                                    <p className="text-[11px] font-semibold text-mn-text-primary/90">
-                                      {titleDetail.tagline}
-                                    </p>
-                                  )}
-                                  {detailOverview && (
-                                    <p className="text-[11px] leading-relaxed text-mn-text-secondary">
-                                      {detailOverview}
-                                    </p>
-                                  )}
-                                </section>
-                              )}
-
-                              {/* Basic info & structure */}
-                              <section className="mt-1 grid gap-2 rounded-2xl bg-mn-bg/60 px-3 py-2 text-[11px]">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  {activeCard.year && (
-                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 font-medium text-mn-text-primary/90">
-                                      {activeCard.year}
-                                    </span>
-                                  )}
-                                  {normalizedContentType && (
-                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
-                                      {normalizedContentType === "movie" ? "Movie" : "Series"}
-                                    </span>
-                                  )}
-                                  {typeof activeCard.runtimeMinutes === "number" &&
-                                    activeCard.runtimeMinutes > 0 && (
-                                      <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
-                                        {formatRuntime(activeCard.runtimeMinutes)}
-                                      </span>
-                                    )}
-                                </div>
-
-                                {(detailGenres ||
-                                  detailPrimaryCountry ||
-                                  detailPrimaryLanguage) && (
-                                  <div className="space-y-1 text-[10.5px]">
-                                    {detailGenres && (
-                                      <p className="text-mn-text-secondary/90">
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          Genres:{" "}
-                                        </span>
-                                        {Array.isArray(detailGenres)
-                                          ? (detailGenres as string[]).join(", ")
-                                          : String(detailGenres)}
-                                      </p>
-                                    )}
-                                    {(detailPrimaryCountry || detailPrimaryLanguage) && (
-                                      <p className="text-mn-text-secondary/90">
-                                        {detailPrimaryCountry && (
-                                          <>
-                                            <span className="font-medium text-mn-text-primary/90">
-                                              Country:{" "}
-                                            </span>
-                                            <span>{detailPrimaryCountry}</span>
-                                          </>
-                                        )}
-                                        {detailPrimaryCountry && detailPrimaryLanguage && (
-                                          <span> · </span>
-                                        )}
-                                        {detailPrimaryLanguage && (
-                                          <>
-                                            <span className="font-medium text-mn-text-primary/90">
-                                              Language:{" "}
-                                            </span>
-                                            <span>{detailPrimaryLanguage}</span>
-                                          </>
-                                        )}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </section>
-
-                              {/* People */}
-                              {(detailDirector || detailActors) && (
-                                <section className="mt-3 grid gap-1.5 text-[11px]">
-                                  {detailDirector && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Director:
-                                      </span>{" "}
-                                      <span>{detailDirector}</span>
-                                    </p>
-                                  )}
-                                  {detailActors && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Full cast:
-                                      </span>{" "}
-                                      <span>{detailActors}</span>
-                                    </p>
-                                  )}
-                                </section>
-                              )}
-
-                              {/* Ratings breakdown */}
-                              {(externalImdbRating ||
-                                externalTomato ||
-                                externalMetascore) && (
-                                <section className="mt-4 space-y-1 text-[11px]">
-                                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
-                                    Ratings
-                                  </h3>
-                                  <div className="mt-1 grid gap-1.5">
-                                    {typeof externalImdbRating === "number" &&
-                                      !Number.isNaN(externalImdbRating) && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-mn-text-secondary/90">IMDb</span>
-                                          <span className="font-medium text-mn-text-primary/90">
-                                            {externalImdbRating.toFixed(1)}
-                                          </span>
-                                        </div>
-                                      )}
-                                    {typeof externalTomato === "number" &&
-                                      !Number.isNaN(externalTomato) && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-mn-text-secondary/90">
-                                            Rotten Tomatoes
-                                          </span>
-                                          <span className="font-medium text-mn-text-primary/90">
-                                            {externalTomato}%
-                                          </span>
-                                        </div>
-                                      )}
-                                    {typeof externalMetascore === "number" &&
-                                      !Number.isNaN(externalMetascore) && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-mn-text-secondary/90">
-                                            Metascore
-                                          </span>
-                                          <span className="font-medium text-mn-text-primary/90">
-                                            {externalMetascore}
-                                          </span>
-                                        </div>
-                                      )}
-                                  </div>
-                                </section>
-                              )}
-
-                              <div className="mt-3 flex justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => setIsFullDetailOpen(false)}
-                                  className="inline-flex items-center rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                                >
-                                  Collapse
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -1841,6 +1675,174 @@ const SwipePage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Full details sheet overlay: same footprint as detail area, scrollable */}
+                  {isDetailMode && isFullDetailOpen && (
+                    <div className="pointer-events-auto absolute inset-0 z-20 flex flex-col">
+                      <div className="mt-1 flex-1 rounded-3xl border border-mn-border-subtle/80 bg-mn-bg-elevated/95 shadow-mn-card">
+                        <div className="flex items-center justify-center pt-2">
+                          <div className="h-1 w-12 rounded-full bg-mn-border-subtle/80" />
+                        </div>
+                        <div
+                          className="mt-2 h-[calc(100%-0.75rem)] overflow-y-auto px-3 pb-3 pt-1 text-[11px] leading-relaxed text-mn-text-secondary/90"
+                          style={{ WebkitOverflowScrolling: "touch" }}
+                        >
+                          {(titleDetail?.tagline || detailOverview) && (
+                            <section className="space-y-1 pb-3">
+                              {titleDetail?.tagline && (
+                                <p className="text-[11px] font-semibold text-mn-text-primary/90">
+                                  {titleDetail.tagline}
+                                </p>
+                              )}
+                              {detailOverview && (
+                                <p className="text-[11px] leading-relaxed text-mn-text-secondary">
+                                  {detailOverview}
+                                </p>
+                              )}
+                            </section>
+                          )}
+
+                          {/* Basic info & structure */}
+                          <section className="mt-1 grid gap-2 rounded-2xl bg-mn-bg/60 px-3 py-2 text-[11px]">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {activeCard.year && (
+                                <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 font-medium text-mn-text-primary/90">
+                                  {activeCard.year}
+                                </span>
+                              )}
+                              {normalizedContentType && (
+                                <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
+                                  {normalizedContentType === "movie" ? "Movie" : "Series"}
+                                </span>
+                              )}
+                              {typeof activeCard.runtimeMinutes === "number" &&
+                                activeCard.runtimeMinutes > 0 && (
+                                  <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
+                                    {formatRuntime(activeCard.runtimeMinutes)}
+                                  </span>
+                                )}
+                            </div>
+
+                            {(detailGenres ||
+                              detailPrimaryCountry ||
+                              detailPrimaryLanguage) && (
+                              <div className="space-y-1 text-[10.5px]">
+                                {detailGenres && (
+                                  <p className="text-mn-text-secondary/90">
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Genres:{" "}
+                                    </span>
+                                    {Array.isArray(detailGenres)
+                                      ? (detailGenres as string[]).join(", ")
+                                      : String(detailGenres)}
+                                  </p>
+                                )}
+                                {(detailPrimaryCountry || detailPrimaryLanguage) && (
+                                  <p className="text-mn-text-secondary/90">
+                                    {detailPrimaryCountry && (
+                                      <>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          Country:{" "}
+                                        </span>
+                                        <span>{detailPrimaryCountry}</span>
+                                      </>
+                                    )}
+                                    {detailPrimaryCountry && detailPrimaryLanguage && (
+                                      <span> · </span>
+                                    )}
+                                    {detailPrimaryLanguage && (
+                                      <>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          Language:{" "}
+                                        </span>
+                                        <span>{detailPrimaryLanguage}</span>
+                                      </>
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </section>
+
+                          {/* People */}
+                          {(detailDirector || detailActors) && (
+                            <section className="mt-3 grid gap-1.5 text-[11px]">
+                              {detailDirector && (
+                                <p>
+                                  <span className="font-medium text-mn-text-primary/90">
+                                    Director:
+                                  </span>{" "}
+                                  <span>{detailDirector}</span>
+                                </p>
+                              )}
+                              {detailActors && (
+                                <p>
+                                  <span className="font-medium text-mn-text-primary/90">
+                                    Full cast:
+                                  </span>{" "}
+                                  <span>{detailActors}</span>
+                                </p>
+                              )}
+                            </section>
+                          )}
+
+                          {/* Ratings breakdown */}
+                          {(externalImdbRating ||
+                            externalTomato ||
+                            externalMetascore) && (
+                            <section className="mt-4 space-y-1 text-[11px]">
+                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                Ratings
+                              </h3>
+                              <div className="mt-1 grid gap-1.5">
+                                {typeof externalImdbRating === "number" &&
+                                  !Number.isNaN(externalImdbRating) && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-mn-text-secondary/90">IMDb</span>
+                                      <span className="font-medium text-mn-text-primary/90">
+                                        {externalImdbRating.toFixed(1)}
+                                      </span>
+                                    </div>
+                                  )}
+                                {typeof externalTomato === "number" &&
+                                  !Number.isNaN(externalTomato) && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-mn-text-secondary/90">
+                                        Rotten Tomatoes
+                                      </span>
+                                      <span className="font-medium text-mn-text-primary/90">
+                                        {externalTomato}%
+                                      </span>
+                                    </div>
+                                  )}
+                                {typeof externalMetascore === "number" &&
+                                  !Number.isNaN(externalMetascore) && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-mn-text-secondary/90">
+                                        Metascore
+                                      </span>
+                                      <span className="font-medium text-mn-text-primary/90">
+                                        {externalMetascore}
+                                      </span>
+                                    </div>
+                                  )}
+                              </div>
+                            </section>
+                          )}
+
+                          <div className="mt-3 flex justify-end pb-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsFullDetailOpen(false)}
+                              className="inline-flex items-center rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                            >
+                              Collapse
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </article>
 
