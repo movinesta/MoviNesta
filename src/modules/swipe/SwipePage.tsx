@@ -10,6 +10,8 @@ import {
   ThumbsUp,
   Share2,
   Star,
+  Search,
+  Link2,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
 import { useQuery } from "@tanstack/react-query";
@@ -1996,8 +1998,14 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
     >
       <div className="pointer-events-auto mb-[72px] w-full max-w-md self-center rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
         <div className="flex items-center justify-between px-4 pb-2">
+          <button
+            type="button"
+            className="rounded-full p-1 text-mn-text-secondary hover:bg-mn-bg/80"
+          >
+            <Search className="h-4 w-4" />
+          </button>
           <span className="text-[13px] font-semibold text-mn-text-primary">
-            Share
+            Send to
           </span>
           <button
             type="button"
@@ -2038,9 +2046,15 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
                   text={text}
                 />
               ))}
-              <ExternalShareChip onShareExternal={onShareExternal} />
             </div>
           )}
+        </section>
+
+        <section className="border-t border-mn-border-subtle/80 px-4 pt-3 pb-3">
+          <div className="flex gap-3 overflow-x-auto pb-1 pt-0.5">
+            <ShareCopyLinkChip shareUrl={shareUrl} />
+            <ExternalShareChip onShareExternal={onShareExternal} />
+          </div>
         </section>
       </div>
     </div>
@@ -2107,6 +2121,40 @@ const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({
     </button>
   );
 };
+
+interface ShareCopyLinkChipProps {
+  shareUrl: string;
+}
+
+const ShareCopyLinkChip: React.FC<ShareCopyLinkChipProps> = ({ shareUrl }) => {
+  const handleClick = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Link copied to clipboard");
+      } else {
+        alert(shareUrl);
+      }
+    } catch {
+      alert(shareUrl);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex w-[72px] flex-col items-center gap-1 text-center"
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-mn-primary">
+        <Link2 className="h-4 w-4 text-mn-bg" />
+      </div>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        Copy link
+      </span>
+    </button>
+  );
+}
 
 interface ExternalShareChipProps {
   onShareExternal: () => Promise<void>;
