@@ -12,7 +12,6 @@ import {
   Star,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
-import { RatingStars } from "../../components/RatingStars";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -28,8 +27,6 @@ import SwipeSyncBanner from "./SwipeSyncBanner";
 import { TitleType } from "@/types/supabase-helpers";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
-
-// swipe constants (kept)
 const SWIPE_DISTANCE_THRESHOLD = 88;
 const SWIPE_VELOCITY_THRESHOLD = 0.32; // px per ms
 const MAX_DRAG = 220;
@@ -42,6 +39,15 @@ const FEEDBACK_ENABLED = true;
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+/** Treat "N/A", empty and null as non-existent to save space */
+const cleanText = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.toUpperCase() === "N/A") return null;
+  return trimmed;
+};
+
 const formatRuntime = (minutes?: number | null): string | null => {
   if (!minutes || minutes <= 0) return null;
   const hours = Math.floor(minutes / 60);
@@ -52,10 +58,9 @@ const formatRuntime = (minutes?: number | null): string | null => {
 };
 
 const abbreviateCountry = (value?: string | null): string | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const lower = trimmed.toLowerCase();
+  const cleaned = cleanText(value);
+  if (!cleaned) return null;
+  const lower = cleaned.toLowerCase();
 
   if (lower === "united states" || lower === "united states of america") return "US";
   if (lower === "united kingdom" || lower === "great britain") return "UK";
@@ -67,8 +72,8 @@ const abbreviateCountry = (value?: string | null): string | null => {
   if (lower === "italy") return "IT";
   if (lower === "japan") return "JP";
   if (lower === "south korea" || lower === "republic of korea") return "KR";
-  if (trimmed.length <= 3) return trimmed.toUpperCase();
-  return trimmed;
+  if (cleaned.length <= 3) return cleaned.toUpperCase();
+  return cleaned;
 };
 
 const getSourceLabel = (source?: SwipeDeckKind) => {
@@ -108,7 +113,7 @@ interface CardMetadataProps {
 
 const CardMetadata: React.FC<CardMetadataProps> = ({ card, metaLine, highlightLabel }) => {
   return (
-    <div className="space-y-2 text-left leading-relaxed">
+    <div className="space-y-2 text-left leading-relaxed" aria-label="Swipe card summary">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h2 className="line-clamp-2 text-2xl font-heading font-semibold text-mn-text-primary">
@@ -265,7 +270,7 @@ const SwipePage: React.FC = () => {
   const detailContentRef = useRef<HTMLDivElement | null>(null);
   const dragStartedInDetailAreaRef = useRef(false);
 
-  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false);
+  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false); // kept for future use
 
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
@@ -277,11 +282,9 @@ const SwipePage: React.FC = () => {
   const { data: diaryEntryData } = useTitleDiaryEntry(activeTitleId);
   const diaryEntry = diaryEntryData ?? { status: null, rating: null };
 
-  // long press
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 
-  // audio + hover
   const audioContextRef = useRef<AudioContext | null>(null);
   const hoverTiltRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -347,7 +350,7 @@ const SwipePage: React.FC = () => {
     osc.stop(now + duration + 0.02);
   };
 
-  // title detail
+  // title detail query
   const { data: titleDetail } = useQuery<TitleDetailRow | null>({
     queryKey: qk.titleDetail(activeTitleId),
     enabled: Boolean(activeTitleId && isDetailMode),
@@ -391,9 +394,11 @@ const SwipePage: React.FC = () => {
     },
   });
 
+  // clean + merged fields (hide "N/A")
   const detailOverview =
-    (titleDetail?.plot ?? titleDetail?.tmdb_overview) ??
-    activeCard?.overview ??
+    cleanText(titleDetail?.plot) ??
+    cleanText(titleDetail?.tmdb_overview) ??
+    cleanText(activeCard?.overview) ??
     null;
 
   const detailGenres =
@@ -402,23 +407,24 @@ const SwipePage: React.FC = () => {
     activeCard?.genres ??
     null;
 
-  const detailPrimaryLanguage =
+  const primaryLanguageRaw =
     titleDetail?.language ??
     titleDetail?.omdb_language ??
     titleDetail?.tmdb_original_language ??
     activeCard?.language ??
     null;
+  const detailPrimaryLanguage = cleanText(primaryLanguageRaw);
 
-  const detailPrimaryCountry =
+  const primaryCountryRaw =
     titleDetail?.country ??
     titleDetail?.omdb_country ??
     activeCard?.country ??
     null;
-
+  const detailPrimaryCountry = cleanText(primaryCountryRaw);
   const detailPrimaryCountryAbbr = abbreviateCountry(detailPrimaryCountry);
 
-  const detailDirector = titleDetail?.omdb_director ?? null;
-  const detailActors = titleDetail?.omdb_actors ?? null;
+  const detailDirector = cleanText(titleDetail?.omdb_director);
+  const detailActors = cleanText(titleDetail?.omdb_actors);
 
   const externalImdbRating = titleDetail?.imdb_rating ?? activeCard?.imdbRating ?? null;
   const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
@@ -430,10 +436,11 @@ const SwipePage: React.FC = () => {
       : activeCard?.type ?? null;
 
   const activeCardAny = activeCard as any;
-  const detailCertification: string | null =
+  const rawCertification: string | null =
     (activeCardAny?.certification as string | undefined) ??
     (activeCardAny?.rated as string | undefined) ??
     null;
+  const detailCertification = cleanText(rawCertification);
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -488,7 +495,7 @@ const SwipePage: React.FC = () => {
         alert(`${text}\n\n${url}`);
       }
     } catch {
-      // ignore
+      // user cancelled / blocked
     }
   };
 
@@ -510,6 +517,7 @@ const SwipePage: React.FC = () => {
     setShowOnboarding(!hasSeen);
   }, []);
 
+  // reset on card change
   useEffect(() => {
     setActivePosterFailed(false);
     setShowFullFriendReview(false);
@@ -522,6 +530,7 @@ const SwipePage: React.FC = () => {
     setNextPosterFailed(false);
   }, [nextCard?.id]);
 
+  // preload next posters
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -541,6 +550,7 @@ const SwipePage: React.FC = () => {
     });
   }, [cards, currentIndex]);
 
+  // cleanup
   useEffect(
     () => () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -552,6 +562,7 @@ const SwipePage: React.FC = () => {
     [],
   );
 
+  // next card preview timing
   useEffect(() => {
     if (!nextCard) return;
     setIsNextPreviewActive(false);
@@ -559,11 +570,13 @@ const SwipePage: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [nextCard?.id]);
 
+  // fetch more when low
   useEffect(() => {
     const remaining = cards.length - currentIndex;
     if (remaining < 3) fetchMore(Math.max(24, remaining + 12));
   }, [cards.length, currentIndex, fetchMore]);
 
+  // trim consumed
   useEffect(() => {
     if (currentIndex <= 10) return;
     const drop = Math.min(Math.max(currentIndex - 6, 0), cards.length);
@@ -828,6 +841,8 @@ const SwipePage: React.FC = () => {
       resetCardPosition();
       safeVibrate(20);
       setIsDetailMode((prev) => !prev);
+      // when exiting detail mode, also close full details so we return to clean state
+      setIsFullDetailOpen(false);
     }, 550);
 
     const startedInDetail =
@@ -922,6 +937,7 @@ const SwipePage: React.FC = () => {
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
   const actionsDisabled = !activeCard || isLoading || isError;
 
+  // keyboard
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!activeCard || actionsDisabled || isDragging) return;
@@ -953,7 +969,7 @@ const SwipePage: React.FC = () => {
     if (start + total > cards.length) start = Math.max(0, cards.length - total);
 
     return (
-      <div className="mb-3 flex justify-center">
+      <div className="mb-3 flex justify-center" aria-hidden="true">
         <div className="flex items-center gap-1.5">
           {Array.from({ length: total }).map((_, i) => {
             const cardIndex = start + i;
@@ -1009,9 +1025,6 @@ const SwipePage: React.FC = () => {
       </div>
     );
   };
-
-  const shouldShowLongPressHint =
-    !isDetailMode && !showOnboarding && currentIndex < 3 && !isLoading && !!activeCard;
 
   const primaryImdbForMeta =
     typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
@@ -1091,7 +1104,7 @@ const SwipePage: React.FC = () => {
       />
 
       <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-transparent p-3">
-        {/* Blurred poster background */}
+        {/* blurred background */}
         {activeCard?.posterUrl && (
           <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-2xl">
             <img
@@ -1141,7 +1154,7 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* Intent glow */}
+              {/* intent glow */}
               {dragIntent && (
                 <div className="pointer-events-none absolute inset-0 -z-0">
                   {dragIntent === "like" && (
@@ -1153,7 +1166,7 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* Next card preview */}
+              {/* next preview */}
               {nextCard && (
                 <div
                   aria-hidden="true"
@@ -1187,9 +1200,12 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* Active card */}
+              {/* active card */}
               <article
                 ref={cardRef}
+                role="group"
+                aria-roledescription="Movie card"
+                aria-label={buildSwipeCardLabel(activeCard)}
                 className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${
                   isDetailMode ? "ring-1 ring-mn-primary/40" : "border border-white/5"
                 }`}
@@ -1202,10 +1218,9 @@ const SwipePage: React.FC = () => {
                 onPointerCancel={finishDrag}
                 onMouseMove={handleMouseMoveOnCard}
                 onMouseLeave={handleMouseLeaveCard}
-                aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
               >
-                {/* Light leak */}
+                {/* light leak */}
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 mix-blend-screen opacity-[0.14]"
@@ -1213,7 +1228,7 @@ const SwipePage: React.FC = () => {
                   <div className="absolute -top-20 left-0 right-0 h-40 bg-[radial-gradient(circle_at_10%_0%,rgba(255,255,255,0.18),transparent_60%),radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.1),transparent_60%)]" />
                 </div>
 
-                {/* Poster header */}
+                {/* header / poster */}
                 <div
                   className={`relative overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95 transition-all duration-300 ease-out ${
                     isDetailMode ? "h-[40%]" : "h-[58%]"
@@ -1235,16 +1250,16 @@ const SwipePage: React.FC = () => {
                             "filter 260ms cubic-bezier(0.22,0.61,0.36,1), transform 260ms cubic-bezier(0.22,0.61,1)",
                         }}
                       />
-                      {/* adaptive mini-poster in detail mode */}
+                      {/* adaptive mini-poster in detail mode (more responsive) */}
                       {isDetailMode && (
                         <div
                           className="pointer-events-none absolute left-3 flex items-start"
-                          style={{ top: "3.2rem" }}
+                          style={{ top: "3.4rem" }}
                         >
                           <div
                             className="overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-mn-bg shadow-[0_14px_40px_rgba(0,0,0,0.85)]"
                             style={{
-                              height: "min(32vh, 220px)",
+                              height: "clamp(120px, 22vh, 220px)",
                               aspectRatio: "2 / 3",
                             }}
                           >
@@ -1301,413 +1316,425 @@ const SwipePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Content + modes (swipe / detail / full-detail) */}
+                {/* bottom content: swipe vs detail vs full details (same footprint, no scroll) */}
                 <div className="relative flex flex-1 flex-col bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  {/* Swipe mode metadata */}
+                  {/* SWIPE MODE: compact */}
                   {!isDetailMode && (
-                    <CardMetadata
-                      card={activeCard}
-                      metaLine={metaLine}
-                      highlightLabel={highlightLabel}
-                    />
+                    <>
+                      <CardMetadata
+                        card={activeCard}
+                        metaLine={metaLine}
+                        highlightLabel={highlightLabel}
+                      />
+
+                      {/* friends info under swipe card */}
+                      <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
+                        {typeof activeCard.friendLikesCount === "number" &&
+                          activeCard.friendLikesCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                              <Flame className="h-4 w-4 text-mn-primary/80" />
+                              {activeCard.friendLikesCount === 1
+                                ? "1 friend likes this"
+                                : `${activeCard.friendLikesCount} friends like this`}
+                            </span>
+                          )}
+
+                        {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
+                          <button
+                            type="button"
+                            onClick={() => setShowFullFriendReview((v) => !v)}
+                            className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+                          >
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                            <div
+                              className={`overflow-hidden transition-all duration-200 ${
+                                showFullFriendReview ? "max-h-32" : "max-h-10"
+                              }`}
+                            >
+                              <span
+                                className={`block text-[11px] ${
+                                  showFullFriendReview ? "" : "line-clamp-2"
+                                }`}
+                              >
+                                {activeCard.topFriendName}: “
+                                {activeCard.topFriendReviewSnippet}”
+                              </span>
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    </>
                   )}
 
-                  {/* Detail / full detail content */}
+                  {/* DETAIL / FULL DETAIL MODES (same container, no scroll) */}
                   {isDetailMode && activeCard && (
                     <div
                       ref={detailContentRef}
-                      className={`mt-2 flex-1 ${
-                        isFullDetailOpen ? "overflow-y-auto" : "overflow-hidden"
-                      } text-left text-[11px] text-mn-text-secondary`}
-                      style={isFullDetailOpen ? { WebkitOverflowScrolling: "touch" } : undefined}
+                      id="swipe-detail-panel"
+                      aria-label={isFullDetailOpen ? "Full details" : "Details summary"}
+                      aria-live="polite"
+                      className="mt-2 flex flex-1 flex-col text-left text-[11px] text-mn-text-secondary"
                     >
-                      {!isFullDetailOpen ? (
-                        // DETAIL SUMMARY (non-scrolling, compact)
-                        <div className="space-y-3 pr-1">
-                          {/* Title + meta badges */}
-                          <div className="space-y-1.5">
-                            <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
-                              {activeCard.title}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
-                              {detailGenres && (
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Genres
+                      <div className="flex-1 overflow-hidden pr-1">
+                        {!isFullDetailOpen ? (
+                          // SUMMARY DETAIL: old + new info, clipped to card
+                          <div className="space-y-3">
+                            {/* Title & compact badges */}
+                            <div className="space-y-1.5">
+                              <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
+                                {activeCard.title}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
+                                {detailGenres && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Genres
+                                    </span>
+                                    <span className="truncate max-w-[180px]">
+                                      {Array.isArray(detailGenres)
+                                        ? (detailGenres as string[]).slice(0, 3).join(", ")
+                                        : String(detailGenres)}
+                                    </span>
                                   </span>
-                                  <span className="truncate max-w-[180px]">
-                                    {Array.isArray(detailGenres)
-                                      ? (detailGenres as string[]).slice(0, 3).join(", ")
-                                      : String(detailGenres)}
+                                )}
+                                {detailCertification && (
+                                  <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
+                                    {detailCertification}
                                   </span>
-                                </span>
-                              )}
-                              {detailCertification && (
-                                <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
-                                  {detailCertification}
-                                </span>
-                              )}
-                              {detailPrimaryCountryAbbr && (
-                                <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
-                                  {detailPrimaryCountryAbbr}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Overview (3 lines only) */}
-                          {detailOverview && (
-                            <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
-                              {detailOverview}
-                            </p>
-                          )}
-
-                          {/* Director / cast (3 actors) */}
-                          {(detailDirector || detailActors) && (
-                            <div className="space-y-1.5 text-[10.5px]">
-                              {detailDirector && (
-                                <p>
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Director:
-                                  </span>{" "}
-                                  <span>{detailDirector}</span>
-                                </p>
-                              )}
-                              {detailActors && (
-                                <p>
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Cast:
-                                  </span>{" "}
-                                  <span>
-                                    {detailActors
-                                      .split(",")
-                                      .map((a) => a.trim())
-                                      .filter(Boolean)
-                                      .slice(0, 3)
-                                      .join(", ")}
+                                )}
+                                {detailPrimaryCountryAbbr && (
+                                  <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                    {detailPrimaryCountryAbbr}
                                   </span>
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Your rating + actions */}
-                          <div className="flex flex-wrap items-center gap-2 pt-1">
-                            <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
-                              <span className="text-[10px] text-mn-text-secondary/80">
-                                Your rating
-                              </span>
-                              <div className="flex items-center gap-0.5">
-                                {Array.from({ length: 5 }).map((_, idx) => {
-                                  const value = idx + 1;
-                                  const filled =
-                                    currentUserRating != null && currentUserRating >= value;
-                                  return (
-                                    <button
-                                      key={value}
-                                      type="button"
-                                      onClick={() => handleStarClick(value)}
-                                      className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
-                                    >
-                                      <Star
-                                        className={`h-3.5 w-3.5 ${
-                                          filled
-                                            ? "fill-yellow-400 text-yellow-400"
-                                            : "text-mn-border-subtle"
-                                        }`}
-                                      />
-                                    </button>
-                                  );
-                                })}
+                                )}
                               </div>
                             </div>
 
-                            <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
-                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                                  statusIs(WATCHLIST_STATUS)
-                                    ? "bg-mn-primary/90 text-mn-bg"
-                                    : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                                }`}
-                              >
-                                Watchlist
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDiaryStatus(WATCHED_STATUS)}
-                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                                  statusIs(WATCHED_STATUS)
-                                    ? "bg-emerald-500/90 text-mn-bg"
-                                    : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
-                                }`}
-                              >
-                                Watched
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleShareExternal()}
-                                className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                              >
-                                <Share2 className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Share</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Friends info (summary mode) */}
-                          {(typeof activeCard.friendLikesCount === "number" &&
-                            activeCard.friendLikesCount > 0) ||
-                          (activeCard.topFriendName &&
-                            activeCard.topFriendReviewSnippet) ? (
-                            <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
-                              {typeof activeCard.friendLikesCount === "number" &&
-                                activeCard.friendLikesCount > 0 && (
-                                  <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                                    <Flame className="h-4 w-4 text-mn-primary/80" />
-                                    {activeCard.friendLikesCount === 1
-                                      ? "1 friend likes this"
-                                      : `${activeCard.friendLikesCount} friends like this`}
-                                  </div>
-                                )}
-                              {activeCard.topFriendName &&
-                                activeCard.topFriendReviewSnippet && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setShowFullFriendReview((v) => !v)
-                                    }
-                                    className="mt-1 inline-flex w-full items-start gap-2 text-left"
-                                  >
-                                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                                    <div
-                                      className={`overflow-hidden transition-all duration-200 ${
-                                        showFullFriendReview ? "max-h-32" : "max-h-10"
-                                      }`}
-                                    >
-                                      <span
-                                        className={`block text-[11px] ${
-                                          showFullFriendReview ? "" : "line-clamp-2"
-                                        }`}
-                                      >
-                                        {activeCard.topFriendName}: “
-                                        {activeCard.topFriendReviewSnippet}”
-                                      </span>
-                                    </div>
-                                  </button>
-                                )}
-                            </div>
-                          ) : null}
-
-                          {/* Full details trigger */}
-                          <div className="flex justify-end pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setIsFullDetailOpen(true)}
-                              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
-                            >
-                              <span>Full details</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        // FULL DETAILS (same footprint, scrollable)
-                        <div className="h-full space-y-3 pr-1 text-[11px] leading-relaxed text-mn-text-secondary/90">
-                          {/* Tagline + full overview */}
-                          {(titleDetail?.tagline || detailOverview) && (
-                            <section className="space-y-1 pb-2">
-                              {titleDetail?.tagline && (
-                                <p className="text-[11px] font-semibold text-mn-text-primary/90">
-                                  {titleDetail.tagline}
+                            {/* Overview (3 lines, with small heading) */}
+                            {detailOverview && (
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
+                                  Overview
                                 </p>
-                              )}
-                              {detailOverview && (
-                                <p className="text-[11px] leading-relaxed text-mn-text-secondary">
+                                <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
                                   {detailOverview}
                                 </p>
-                              )}
-                            </section>
-                          )}
+                              </div>
+                            )}
 
-                          {/* Basic info */}
-                          <section className="mt-1 grid gap-2 rounded-2xl bg-mn-bg/60 px-3 py-2 text-[11px]">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {activeCard.year && (
-                                <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 font-medium text-mn-text-primary/90">
-                                  {activeCard.year}
-                                </span>
-                              )}
-                              {normalizedContentType && (
-                                <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
-                                  {normalizedContentType === "movie" ? "Movie" : "Series"}
-                                </span>
-                              )}
-                              {typeof activeCard.runtimeMinutes === "number" &&
-                                activeCard.runtimeMinutes > 0 && (
-                                  <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
-                                    {formatRuntime(activeCard.runtimeMinutes)}
-                                  </span>
-                                )}
-                            </div>
-
-                            {(detailGenres ||
-                              detailPrimaryCountry ||
-                              detailPrimaryLanguage) && (
-                              <div className="space-y-1 text-[10.5px]">
-                                {detailGenres && (
-                                  <p className="text-mn-text-secondary/90">
+                            {/* Director / cast (first 3 actors) */}
+                            {(detailDirector || detailActors) && (
+                              <div className="space-y-1.5 text-[10.5px]">
+                                {detailDirector && (
+                                  <p>
                                     <span className="font-medium text-mn-text-primary/90">
-                                      Genres:{" "}
-                                    </span>
-                                    {Array.isArray(detailGenres)
-                                      ? (detailGenres as string[]).join(", ")
-                                      : String(detailGenres)}
+                                      Director:
+                                    </span>{" "}
+                                    <span>{detailDirector}</span>
                                   </p>
                                 )}
-                                {(detailPrimaryCountry || detailPrimaryLanguage) && (
-                                  <p className="text-mn-text-secondary/90">
-                                    {detailPrimaryCountry && (
-                                      <>
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          Country:{" "}
-                                        </span>
-                                        <span>{detailPrimaryCountry}</span>
-                                      </>
-                                    )}
-                                    {detailPrimaryCountry && detailPrimaryLanguage && (
-                                      <span> · </span>
-                                    )}
-                                    {detailPrimaryLanguage && (
-                                      <>
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          Language:{" "}
-                                        </span>
-                                        <span>{detailPrimaryLanguage}</span>
-                                      </>
-                                    )}
+                                {detailActors && (
+                                  <p>
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Cast:
+                                    </span>{" "}
+                                    <span>
+                                      {detailActors
+                                        .split(",")
+                                        .map((a) => a.trim())
+                                        .filter(Boolean)
+                                        .slice(0, 3)
+                                        .join(", ")}
+                                    </span>
                                   </p>
                                 )}
                               </div>
                             )}
-                          </section>
 
-                          {/* People */}
-                          {(detailDirector || detailActors) && (
-                            <section className="mt-3 grid gap-1.5 text-[11px]">
-                              {detailDirector && (
-                                <p>
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Director:
-                                  </span>{" "}
-                                  <span>{detailDirector}</span>
-                                </p>
-                              )}
-                              {detailActors && (
-                                <p>
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Full cast:
-                                  </span>{" "}
-                                  <span>{detailActors}</span>
-                                </p>
-                              )}
-                            </section>
-                          )}
+                            {/* Your rating + quick actions */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
+                                <span className="text-[10px] text-mn-text-secondary/80">
+                                  Your rating
+                                </span>
+                                <div className="flex items-center gap-0.5" aria-label="Your rating">
+                                  {Array.from({ length: 5 }).map((_, idx) => {
+                                    const value = idx + 1;
+                                    const filled =
+                                      currentUserRating != null && currentUserRating >= value;
+                                    return (
+                                      <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => handleStarClick(value)}
+                                        className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
+                                      >
+                                        <Star
+                                          className={`h-3.5 w-3.5 ${
+                                            filled
+                                              ? "fill-yellow-400 text-yellow-400"
+                                              : "text-mn-border-subtle"
+                                          }`}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
 
-                          {/* Ratings breakdown */}
-                          {(externalImdbRating ||
-                            externalTomato ||
-                            externalMetascore) && (
-                            <section className="mt-4 space-y-1 text-[11px]">
-                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
-                                Ratings
-                              </h3>
-                              <div className="mt-1 grid gap-1.5">
-                                {typeof externalImdbRating === "number" &&
-                                  !Number.isNaN(externalImdbRating) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">IMDb</span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {externalImdbRating.toFixed(1)}
-                                      </span>
+                              <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                    statusIs(WATCHLIST_STATUS)
+                                      ? "bg-mn-primary/90 text-mn-bg"
+                                      : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                                  }`}
+                                >
+                                  Watchlist
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDiaryStatus(WATCHED_STATUS)}
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                    statusIs(WATCHED_STATUS)
+                                      ? "bg-emerald-500/90 text-mn-bg"
+                                      : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
+                                  }`}
+                                >
+                                  Watched
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleShareExternal()}
+                                  className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                                >
+                                  <Share2 className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">Share</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Friends info block (same as before) */}
+                            {(typeof activeCard.friendLikesCount === "number" &&
+                              activeCard.friendLikesCount > 0) ||
+                            (activeCard.topFriendName &&
+                              activeCard.topFriendReviewSnippet) ? (
+                              <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
+                                {typeof activeCard.friendLikesCount === "number" &&
+                                  activeCard.friendLikesCount > 0 && (
+                                    <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                                      <Flame className="h-4 w-4 text-mn-primary/80" />
+                                      {activeCard.friendLikesCount === 1
+                                        ? "1 friend likes this"
+                                        : `${activeCard.friendLikesCount} friends like this`}
                                     </div>
                                   )}
-                                {typeof externalTomato === "number" &&
-                                  !Number.isNaN(externalTomato) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">
-                                        Rotten Tomatoes
-                                      </span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {externalTomato}%
-                                      </span>
-                                    </div>
-                                  )}
-                                {typeof externalMetascore === "number" &&
-                                  !Number.isNaN(externalMetascore) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">
-                                        Metascore
-                                      </span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {externalMetascore}
-                                      </span>
-                                    </div>
+                                {activeCard.topFriendName &&
+                                  activeCard.topFriendReviewSnippet && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setShowFullFriendReview((v) => !v)
+                                      }
+                                      className="mt-1 inline-flex w-full items-start gap-2 text-left"
+                                    >
+                                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                                      <div
+                                        className={`overflow-hidden transition-all duration-200 ${
+                                          showFullFriendReview ? "max-h-32" : "max-h-10"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`block text-[11px] ${
+                                            showFullFriendReview ? "" : "line-clamp-2"
+                                          }`}
+                                        >
+                                          {activeCard.topFriendName}: “
+                                          {activeCard.topFriendReviewSnippet}”
+                                        </span>
+                                      </div>
+                                    </button>
                                   )}
                               </div>
-                            </section>
-                          )}
-
-                          <div className="mt-3 flex justify-end pb-1">
-                            <button
-                              type="button"
-                              onClick={() => setIsFullDetailOpen(false)}
-                              className="inline-flex items-center rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                            >
-                              Collapse
-                            </button>
+                            ) : null}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        ) : (
+                          // FULL DETAILS: only "new" info, small sections first, big story last
+                          <div className="h-full space-y-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
+                            {/* INFO */}
+                            <section aria-label="Detailed info">
+                              <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                Info
+                              </h3>
+                              <div className="mt-1 grid gap-1.5 rounded-2xl bg-mn-bg/60 px-3 py-2">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {activeCard.year && (
+                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
+                                      {activeCard.year}
+                                    </span>
+                                  )}
+                                  {normalizedContentType && (
+                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                      {normalizedContentType === "movie" ? "Movie" : "Series"}
+                                    </span>
+                                  )}
+                                  {typeof activeCard.runtimeMinutes === "number" &&
+                                    activeCard.runtimeMinutes > 0 && (
+                                      <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                        {formatRuntime(activeCard.runtimeMinutes)}
+                                      </span>
+                                    )}
+                                </div>
 
-                  {/* Social / friends row in SWIPE mode only */}
-                  {!isDetailMode && (
-                    <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
-                      {typeof activeCard.friendLikesCount === "number" &&
-                        activeCard.friendLikesCount > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                            <Flame className="h-4 w-4 text-mn-primary/80" />
-                            {activeCard.friendLikesCount === 1
-                              ? "1 friend likes this"
-                              : `${activeCard.friendLikesCount} friends like this`}
-                          </span>
+                                {(detailGenres ||
+                                  detailPrimaryCountry ||
+                                  detailPrimaryLanguage) && (
+                                  <div className="space-y-1 text-[10.5px]">
+                                    {detailGenres && (
+                                      <p className="text-mn-text-secondary/90">
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          All genres:{" "}
+                                        </span>
+                                        {Array.isArray(detailGenres)
+                                          ? (detailGenres as string[]).join(", ")
+                                          : String(detailGenres)}
+                                      </p>
+                                    )}
+                                    {(detailPrimaryCountry || detailPrimaryLanguage) && (
+                                      <p className="text-mn-text-secondary/90">
+                                        {detailPrimaryCountry && (
+                                          <>
+                                            <span className="font-medium text-mn-text-primary/90">
+                                              Country:{" "}
+                                            </span>
+                                            <span>{detailPrimaryCountry}</span>
+                                          </>
+                                        )}
+                                        {detailPrimaryCountry && detailPrimaryLanguage && (
+                                          <span> · </span>
+                                        )}
+                                        {detailPrimaryLanguage && (
+                                          <>
+                                            <span className="font-medium text-mn-text-primary/90">
+                                              Language:{" "}
+                                            </span>
+                                            <span>{detailPrimaryLanguage}</span>
+                                          </>
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </section>
+
+                            {/* RATINGS */}
+                            {(externalImdbRating ||
+                              externalTomato ||
+                              externalMetascore) && (
+                              <section aria-label="Ratings breakdown" className="mt-1">
+                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                  Ratings
+                                </h3>
+                                <div className="mt-1 grid gap-1.5">
+                                  {typeof externalImdbRating === "number" &&
+                                    !Number.isNaN(externalImdbRating) && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">IMDb</span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {externalImdbRating.toFixed(1)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  {typeof externalTomato === "number" &&
+                                    !Number.isNaN(externalTomato) && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">
+                                          Rotten Tomatoes
+                                        </span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {externalTomato}%
+                                        </span>
+                                      </div>
+                                    )}
+                                  {typeof externalMetascore === "number" &&
+                                    !Number.isNaN(externalMetascore) && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">
+                                          Metascore
+                                        </span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {externalMetascore}
+                                        </span>
+                                      </div>
+                                    )}
+                                </div>
+                              </section>
+                            )}
+
+                            {/* CREDITS / FULL CAST */}
+                            {detailActors && (
+                              <section aria-label="Credits" className="mt-1">
+                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                  Credits
+                                </h3>
+                                <div className="mt-1 space-y-1.5 text-[11px]">
+                                  {detailDirector && (
+                                    <p>
+                                      <span className="font-medium text-mn-text-primary/90">
+                                        Director:
+                                      </span>{" "}
+                                      <span>{detailDirector}</span>
+                                    </p>
+                                  )}
+                                  <p>
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Full cast:
+                                    </span>{" "}
+                                    <span>{detailActors}</span>
+                                  </p>
+                                </div>
+                              </section>
+                            )}
+
+                            {/* STORY (full overview & tagline last so big text sits at the bottom and can clip) */}
+                            {(cleanText(titleDetail?.tagline) || detailOverview) && (
+                              <section aria-label="Story" className="mt-1">
+                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                  Story
+                                </h3>
+                                <div className="mt-1 space-y-1">
+                                  {cleanText(titleDetail?.tagline) && (
+                                    <p className="text-[11px] font-semibold text-mn-text-primary/90">
+                                      {cleanText(titleDetail?.tagline)}
+                                    </p>
+                                  )}
+                                  {detailOverview && (
+                                    <p className="text-[11px] leading-relaxed text-mn-text-secondary">
+                                      {detailOverview}
+                                    </p>
+                                  )}
+                                </div>
+                              </section>
+                            )}
+                          </div>
                         )}
+                      </div>
 
-                      {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
+                      {/* toggle button row – same location & shape for both states */}
+                      <div className="mt-2 flex justify-end">
                         <button
                           type="button"
-                          onClick={() => setShowFullFriendReview((v) => !v)}
-                          className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+                          onClick={() => setIsFullDetailOpen((val) => !val)}
+                          aria-expanded={isFullDetailOpen}
+                          aria-controls="swipe-detail-panel"
+                          className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
                         >
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                          <div
-                            className={`overflow-hidden transition-all duration-200 ${
-                              showFullFriendReview ? "max-h-32" : "max-h-10"
-                            }`}
-                          >
-                            <span
-                              className={`block text-[11px] ${
-                                showFullFriendReview ? "" : "line-clamp-2"
-                              }`}
-                            >
-                              {activeCard.topFriendName}: “
-                              {activeCard.topFriendReviewSnippet}”
-                            </span>
-                          </div>
+                          <span>{isFullDetailOpen ? "Collapse" : "Full details"}</span>
                         </button>
-                      )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1743,8 +1770,8 @@ const SwipePage: React.FC = () => {
           {renderSmartHintToast()}
         </div>
 
-        {/* Bottom actions */}
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        {/* bottom actions */}
+        <div className="mt-3 grid grid-cols-3 gap-3" aria-label="Swipe actions">
           <button
             type="button"
             onClick={() => performSwipe("dislike")}
