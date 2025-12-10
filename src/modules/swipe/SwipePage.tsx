@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { callSupabaseFunction } from "../../lib/callSupabaseFunction";
 import TopBar from "../../components/shared/TopBar";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
@@ -26,7 +27,6 @@ import type { SwipeCardData, SwipeDirection, SwipeDeckKind } from "./useSwipeDec
 import { useSwipeDeck } from "./useSwipeDeck";
 import SwipeSyncBanner from "./SwipeSyncBanner";
 import { TitleType } from "@/types/supabase-helpers";
-import { callSupabaseFunction } from "../../lib/callSupabaseFunction";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -142,9 +142,7 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card, metaLine, highlightLa
             <p className="truncate text-[11px] text-mn-text-secondary/90">{metaLine}</p>
           )}
           {highlightLabel && (
-            <p className="text-[10px] font-medium text-mn-primary/90">
-              {highlightLabel}
-            </p>
+            <p className="text-[10px] font-medium text-mn-primary/90">{highlightLabel}</p>
           )}
         </div>
       </div>
@@ -268,6 +266,8 @@ const WATCHLIST_STATUS = "want_to_watch" as DiaryStatus;
 const WATCHED_STATUS = "watched" as DiaryStatus;
 
 const SwipePage: React.FC = () => {
+  const navigate = useNavigate();
+
   const {
     cards,
     isLoading,
@@ -281,8 +281,6 @@ const SwipePage: React.FC = () => {
   } = useSwipeDeck("combined", {
     limit: 72,
   });
-
-  const navigate = useNavigate();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -313,7 +311,8 @@ const SwipePage: React.FC = () => {
   const detailContentRef = useRef<HTMLDivElement | null>(null);
   const dragStartedInDetailAreaRef = useRef(false);
 
-  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false);
+  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false); // kept for future use
+
   const [localUserRating, setLocalUserRating] = useState<number | null>(null);
   const [ratingBounce, setRatingBounce] = useState<number | null>(null);
   const [shareLoadingIds, setShareLoadingIds] = useState<Record<string, boolean>>({});
@@ -328,6 +327,20 @@ const SwipePage: React.FC = () => {
   const { data: diaryEntryData } = useTitleDiaryEntry(activeTitleId);
   const diaryEntry = diaryEntryData ?? { status: null, rating: null };
 
+  useEffect(() => {
+    const ratingValue = diaryEntry?.rating;
+    if (ratingValue == null) {
+      setLocalUserRating(null);
+      return;
+    }
+    if (typeof ratingValue === "number") {
+      setLocalUserRating(ratingValue);
+      return;
+    }
+    const numeric = safeNumber(ratingValue);
+    setLocalUserRating(numeric);
+  }, [diaryEntry?.rating]);
+
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 
@@ -338,7 +351,8 @@ const SwipePage: React.FC = () => {
     if (!FEEDBACK_ENABLED) return null;
     if (typeof window === "undefined") return null;
     if (audioContextRef.current) return audioContextRef.current;
-    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const AC =
+      (window as any).AudioContext || (window as any).webkitAudioContext || null;
     if (!AC) return null;
     const ctx = new AC();
     audioContextRef.current = ctx;
@@ -347,7 +361,8 @@ const SwipePage: React.FC = () => {
 
   const safeVibrate = (pattern: number | number[]) => {
     if (!FEEDBACK_ENABLED) return;
-    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function")
+      return;
     navigator.vibrate(pattern);
   };
 
@@ -395,7 +410,6 @@ const SwipePage: React.FC = () => {
     osc.stop(now + duration + 0.02);
   };
 
-  // title detail query
   const { data: titleDetail } = useQuery<TitleDetailRow | null>({
     queryKey: qk.titleDetail(activeTitleId),
     enabled: Boolean(activeTitleId && isDetailMode),
@@ -449,7 +463,6 @@ const SwipePage: React.FC = () => {
     },
   });
 
-  // clean + merged fields (hide "N/A")
   const detailOverview =
     cleanText(titleDetail?.plot) ??
     cleanText(titleDetail?.tmdb_overview) ??
@@ -480,7 +493,7 @@ const SwipePage: React.FC = () => {
 
   const normalizedContentType: TitleType | null =
     titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
-      ? titleDetail.content_type
+      ? (titleDetail.content_type as TitleType)
       : activeCard?.type ?? null;
 
   const activeCardAny = activeCard as any;
@@ -488,19 +501,24 @@ const SwipePage: React.FC = () => {
   const rawCertification: string | null =
     (activeCardAny?.certification as string | undefined) ??
     (activeCardAny?.rated as string | undefined) ??
-    (titleDetail as any)?.omdb_rated ??
+    (titleDetail?.omdb_rated as string | undefined) ??
     null;
   const detailCertification = cleanText(rawCertification);
 
-  const detailCreatorsFallback =
-    cleanText(
-      (activeCardAny?.creators as string | undefined) ??
-        (activeCardAny?.tmdb_creators as string | undefined) ??
-        null,
-    ) ?? null;
+  const detailDirector = (() => {
+    const directorClean = cleanText(titleDetail?.omdb_director);
+    const isSeries =
+      titleDetail?.content_type === "series" || activeCard?.type === "series";
+    if (directorClean) return directorClean;
+    if (!isSeries) return null;
+    const createdBy =
+      cleanText((titleDetail as any)?.tmdb_created_by) ??
+      cleanText((titleDetail as any)?.created_by) ??
+      cleanText((activeCardAny as any)?.createdBy) ??
+      cleanText((activeCardAny as any)?.creators);
+    return createdBy;
+  })();
 
-  const detailDirector =
-    cleanText(titleDetail?.omdb_director) ?? detailCreatorsFallback;
   const detailWriter = cleanText(titleDetail?.omdb_writer);
   const detailActors = cleanText(titleDetail?.omdb_actors);
 
@@ -515,9 +533,12 @@ const SwipePage: React.FC = () => {
 
   const detailAwards = cleanText(titleDetail?.omdb_awards);
   const detailBoxOffice = cleanText(titleDetail?.omdb_box_office_str);
-  const detailReleased = cleanText(titleDetail?.omdb_released);
+  const detailReleased =
+    cleanText(titleDetail?.omdb_released) ??
+    cleanText((titleDetail as any)?.released) ??
+    cleanText((titleDetail as any)?.tmdb_release_date) ??
+    null;
 
-  // extra derived for full details
   const allGenresArray: string[] =
     (Array.isArray(detailGenres)
       ? (detailGenres as string[])
@@ -603,34 +624,6 @@ const SwipePage: React.FC = () => {
 
   const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
 
-  // local rating → sync with diary entry
-  useEffect(() => {
-    const ratingValue = diaryEntry?.rating;
-    if (ratingValue == null) {
-      setLocalUserRating(null);
-      return;
-    }
-    if (typeof ratingValue === "number") {
-      setLocalUserRating(ratingValue);
-      return;
-    }
-    const numeric = safeNumber(ratingValue);
-    setLocalUserRating(numeric);
-  }, [diaryEntry?.rating]);
-
-  const currentUserRating = localUserRating;
-
-  const handleStarClick = (value: number) => {
-    const current = localUserRating;
-    const next = current === value ? null : value;
-
-    setLocalUserRating(next);
-    setRatingBounce(value);
-    window.setTimeout(() => setRatingBounce(null), 180);
-
-    setDiaryRating(next);
-  };
-
   const getShareUrl = () =>
     typeof window !== "undefined"
       ? `${window.location.origin}/title/${activeCard?.id ?? ""}`
@@ -660,8 +653,25 @@ const SwipePage: React.FC = () => {
     }
   };
 
-  const shareFriends: ShareFriend[] =
-    (activeCardAny?.shareFriends as ShareFriend[] | undefined) ?? [];
+  const shareFriends: ShareFriend[] = (() => {
+    if (!activeCardAny) return [];
+    const raw =
+      (activeCardAny.shareFriends as any[] | undefined) ??
+      (activeCardAny.share_friends as any[] | undefined);
+    if (!raw) return [];
+    return raw
+      .map((f) => {
+        const id = f.id ?? f.user_id ?? f.profile_id ?? null;
+        if (!id) return null;
+        return {
+          id,
+          displayName: f.displayName ?? f.display_name ?? null,
+          username: f.username ?? null,
+          avatarUrl: f.avatarUrl ?? f.avatar_url ?? null,
+        } as ShareFriend;
+      })
+      .filter((f): f is ShareFriend => !!f);
+  })();
 
   const handleShareToFriend = async (friend: ShareFriend) => {
     if (!activeCard || !activeTitleId) return;
@@ -710,14 +720,12 @@ const SwipePage: React.FC = () => {
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
 
-  // onboarding
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hasSeen = localStorage.getItem(ONBOARDING_STORAGE_KEY);
     setShowOnboarding(!hasSeen);
   }, []);
 
-  // reset on card change
   useEffect(() => {
     setActivePosterFailed(false);
     setShowFullFriendReview(false);
@@ -730,7 +738,6 @@ const SwipePage: React.FC = () => {
     setNextPosterFailed(false);
   }, [nextCard?.id]);
 
-  // preload next posters
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -750,7 +757,6 @@ const SwipePage: React.FC = () => {
     });
   }, [cards, currentIndex]);
 
-  // cleanup
   useEffect(
     () => () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -764,7 +770,6 @@ const SwipePage: React.FC = () => {
     [],
   );
 
-  // next card preview timing
   useEffect(() => {
     if (!nextCard) return;
     setIsNextPreviewActive(false);
@@ -772,13 +777,11 @@ const SwipePage: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [nextCard?.id]);
 
-  // fetch more when low
   useEffect(() => {
     const remaining = cards.length - currentIndex;
     if (remaining < 3) fetchMore(Math.max(24, remaining + 12));
   }, [cards.length, currentIndex, fetchMore]);
 
-  // trim consumed
   useEffect(() => {
     if (currentIndex <= 10) return;
     const drop = Math.min(Math.max(currentIndex - 6, 0), cards.length);
@@ -964,7 +967,7 @@ const SwipePage: React.FC = () => {
       const node = cardRef.current;
       if (node) {
         node.style.transition =
-          "transform 220ms cubic-bezier(0.22,0.61,0.36,1), opacity 220ms ease-out";
+          "transform 220ms cubic-bezier(0.22,0.61,0.36,1), opacity 220msEase-out";
         node.style.transform =
           "perspective(1400px) translateX(0px) translateY(4px) scale(1.03) rotateZ(-1deg)";
         window.setTimeout(() => {
@@ -1157,7 +1160,6 @@ const SwipePage: React.FC = () => {
   const overlaySourceLabel = getSourceLabel(activeCard?.source);
   const actionsDisabled = !activeCard || isLoading || isError;
 
-  // keyboard
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!activeCard || actionsDisabled || isDragging) return;
@@ -1246,7 +1248,6 @@ const SwipePage: React.FC = () => {
     );
   };
 
-  // meta line for SWIPE MODE ONLY
   const primaryImdbForMeta =
     typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
       ? activeCard.imdbRating
@@ -1320,6 +1321,18 @@ const SwipePage: React.FC = () => {
     setCardTransform(dragDelta.current, true);
   };
 
+  const currentUserRating = localUserRating;
+  const handleStarClick = (value: number) => {
+    const current = localUserRating;
+    const next = current === value ? null : value;
+
+    setLocalUserRating(next);
+    setRatingBounce(value);
+    window.setTimeout(() => setRatingBounce(null), 180);
+
+    setDiaryRating(next);
+  };
+
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col">
       <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
@@ -1331,7 +1344,6 @@ const SwipePage: React.FC = () => {
       />
 
       <div className="relative mt-2 flex flex-1 flex-col overflow-visible rounded-2xl border border-mn-border-subtle/60 bg-transparent p-3">
-        {/* blurred background */}
         {activeCard?.posterUrl && (
           <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-2xl">
             <img
@@ -1381,7 +1393,6 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* intent glow */}
               {dragIntent && (
                 <div className="pointer-events-none absolute inset-0 -z-0">
                   {dragIntent === "like" && (
@@ -1393,7 +1404,6 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* next preview */}
               {nextCard && (
                 <div
                   aria-hidden="true"
@@ -1447,7 +1457,6 @@ const SwipePage: React.FC = () => {
                 onMouseLeave={handleMouseLeaveCard}
                 style={{ touchAction: "pan-y" }}
               >
-                {/* light leak */}
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 mix-blend-screen opacity-[0.14]"
@@ -1455,7 +1464,6 @@ const SwipePage: React.FC = () => {
                   <div className="absolute -top-20 left-0 right-0 h-40 bg-[radial-gradient(circle_at_10%_0%,rgba(255,255,255,0.18),transparent_60%),radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.1),transparent_60%)]" />
                 </div>
 
-                {/* header / poster */}
                 <div
                   className={`relative overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95 transition-all duration-300 ease-out ${
                     isDetailMode ? "h-[40%]" : "h-[58%]"
@@ -1480,7 +1488,6 @@ const SwipePage: React.FC = () => {
                             "filter 260ms cubic-bezier(0.22,0.61,0.36,1), transform 260ms cubic-bezier(0.22,0.61,1)",
                         }}
                       />
-                      {/* mini-poster only in DETAIL MODE */}
                       {isDetailMode && (
                         <div
                           className="pointer-events-none absolute left-3 flex items-start"
@@ -1509,7 +1516,6 @@ const SwipePage: React.FC = () => {
 
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-mn-bg/95" />
 
-                  {/* swipe overlays */}
                   {dragIntent === "like" && (
                     <>
                       <div className="pointer-events-none absolute inset-x-8 bottom-3 flex justify-start">
@@ -1533,7 +1539,6 @@ const SwipePage: React.FC = () => {
                     </>
                   )}
 
-                  {/* badges top */}
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                     <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-sm bg-mn-primary" />
@@ -1546,9 +1551,7 @@ const SwipePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* bottom content: swipe vs detail vs full details (same footprint, no scroll) */}
                 <div className="relative flex flex-1 flex-col bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  {/* SWIPE MODE (A) */}
                   {!isDetailMode && (
                     <>
                       <CardMetadata
@@ -1557,7 +1560,6 @@ const SwipePage: React.FC = () => {
                         highlightLabel={highlightLabel}
                       />
 
-                      {/* friends info under swipe card */}
                       <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
                         {typeof activeCard.friendLikesCount === "number" &&
                           activeCard.friendLikesCount > 0 && (
@@ -1597,7 +1599,7 @@ const SwipePage: React.FC = () => {
                     </>
                   )}
 
-                  {/* DETAIL / FULL DETAILS (B & C) */}
+                  {/* DETAIL / FULL DETAIL MODES (same container, no scroll) */}
                   {isDetailMode && activeCard && (
                     <div
                       ref={detailContentRef}
@@ -1606,9 +1608,8 @@ const SwipePage: React.FC = () => {
                       aria-live="polite"
                       className="mt-2 flex flex-1 flex-col text-left text-[11px] text-mn-text-secondary"
                     >
-                      {/* Cross-fade container; no scrolling, same footprint */}
                       <div className="relative flex-1 overflow-hidden pr-1">
-                        {/* DETAIL SUMMARY (B) */}
+                        {/* DETAIL SUMMARY */}
                         <div
                           className={`absolute inset-0 space-y-3 transition-opacity duration-200 ${
                             isFullDetailOpen
@@ -1616,286 +1617,289 @@ const SwipePage: React.FC = () => {
                               : "pointer-events-auto opacity-100"
                           }`}
                         >
-                          {/* Title & compact metadata (genres, cert, country) */}
-                          <div className="space-y-1.5">
-                            <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
-                              {activeCard.title}
-                            </h3>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
-                              {detailGenres && (
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Genres
+                          <div className="space-y-3">
+                            {/* Title & compact badges */}
+                            <div className="space-y-1.5">
+                              <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
+                                {activeCard.title}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
+                                {detailGenres && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Genres
+                                    </span>
+                                    <span className="truncate max-w-[180px]">
+                                      {Array.isArray(detailGenres)
+                                        ? (detailGenres as string[])
+                                            .slice(0, 3)
+                                            .join(", ")
+                                        : String(detailGenres)
+                                            .split(",")
+                                            .map((g) => g.trim())
+                                            .slice(0, 3)
+                                            .join(", ")}
+                                    </span>
                                   </span>
-                                  <span className="max-w-[180px] truncate">
-                                    {Array.isArray(detailGenres)
-                                      ? (detailGenres as string[])
-                                          .slice(0, 3)
-                                          .join(", ")
-                                      : String(detailGenres)
-                                          .split(",")
-                                          .map((g) => g.trim())
-                                          .slice(0, 3)
-                                          .join(", ")}
+                                )}
+                                {detailCertification && (
+                                  <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
+                                    {detailCertification}
                                   </span>
-                                </span>
-                              )}
-                              {detailCertification && (
-                                <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
-                                  {detailCertification}
-                                </span>
-                              )}
-                              {detailPrimaryCountryAbbr && (
-                                <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
-                                  {detailPrimaryCountryAbbr}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Overview – 3 line clamp */}
-                          {detailOverview && (
-                            <div className="space-y-0.5">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
-                                Overview
-                              </p>
-                              <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
-                                {detailOverview}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Director / cast (first 3 actors) */}
-                          {(detailDirector || detailActors) && (
-                            <div className="space-y-1.5 text-[10.5px]">
-                              {detailDirector && (
-                                <p>
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Director:
-                                  </span>{" "}
-                                  <span>{detailDirector}</span>
-                                </p>
-                              )}
-                              {detailActors && (
-                                <p>
-                                  <span className="font-medium text-mn-text-primary/90">
-                                    Cast:
-                                  </span>{" "}
-                                  <span>
-                                    {detailActors
-                                      .split(",")
-                                      .map((a) => a.trim())
-                                      .filter(Boolean)
-                                      .slice(0, 3)
-                                      .join(", ")}
+                                )}
+                                {detailPrimaryCountryAbbr && (
+                                  <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                    {detailPrimaryCountryAbbr}
                                   </span>
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Your rating + quick actions */}
-                          <div className="flex flex-wrap items-center gap-2 pt-1">
-                            <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
-                              <span className="text-[10px] text-mn-text-secondary/80">
-                                Your rating
-                              </span>
-                              <div
-                                className="flex items-center gap-0.5"
-                                aria-label="Your rating"
-                              >
-                                {Array.from({ length: 5 }).map((_, idx) => {
-                                  const value = idx + 1;
-                                  const filled =
-                                    currentUserRating != null &&
-                                    currentUserRating >= value;
-                                  const bouncing = ratingBounce === value;
-                                  return (
-                                    <button
-                                      key={value}
-                                      type="button"
-                                      onClick={() => handleStarClick(value)}
-                                      className={`flex h-5 w-5 items-center justify-center rounded-full transition-transform duration-150 hover:scale-105 focus-visible:outline-none ${
-                                        bouncing ? "scale-110" : ""
-                                      }`}
-                                      aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
-                                    >
-                                      <Star
-                                        className={`h-3.5 w-3.5 ${
-                                          filled
-                                            ? "fill-yellow-400 text-yellow-400"
-                                            : "text-mn-border-subtle"
-                                        }`}
-                                      />
-                                    </button>
-                                  );
-                                })}
+                                )}
                               </div>
                             </div>
 
-                            <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
-                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                                  statusIs(WATCHLIST_STATUS)
-                                    ? "bg-mn-primary/90 text-mn-bg"
-                                    : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                                }`}
-                              >
-                                Watchlist
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDiaryStatus(WATCHED_STATUS)}
-                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                                  statusIs(WATCHED_STATUS)
-                                    ? "bg-emerald-500/90 text-mn-bg"
-                                    : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
-                                }`}
-                              >
-                                Watched
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setShowSharePresetSheet((prev) => !prev)
-                                }
-                                className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                                aria-expanded={showSharePresetSheet}
-                              >
-                                <Share2 className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Share</span>
-                              </button>
-                            </div>
-                          </div>
+                            {/* Overview (3 lines, with small heading) */}
+                            {detailOverview && (
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/70">
+                                  Overview
+                                </p>
+                                <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
+                                  {detailOverview}
+                                </p>
+                              </div>
+                            )}
 
-                          {/* Friends info block */}
-                          {(typeof activeCard.friendLikesCount === "number" &&
-                            activeCard.friendLikesCount > 0) ||
-                          (activeCard.topFriendName &&
-                            activeCard.topFriendReviewSnippet) ? (
-                            <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
-                              {typeof activeCard.friendLikesCount === "number" &&
-                                activeCard.friendLikesCount > 0 && (
-                                  <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                                    <Flame className="h-4 w-4 text-mn-primary/80" />
-                                    {activeCard.friendLikesCount === 1
-                                      ? "1 friend likes this"
-                                      : `${activeCard.friendLikesCount} friends like this`}
-                                  </div>
+                            {/* Director / cast (first 3 actors) */}
+                            {(detailDirector || detailActors) && (
+                              <div className="space-y-1.5 text-[10.5px]">
+                                {detailDirector && (
+                                  <p>
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Director:
+                                    </span>{" "}
+                                    <span>{detailDirector}</span>
+                                  </p>
                                 )}
-                              {activeCard.topFriendName &&
-                                activeCard.topFriendReviewSnippet && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setShowFullFriendReview((v) => !v)
-                                    }
-                                    className="mt-1 inline-flex w-full items-start gap-2 text-left"
-                                  >
-                                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                                    <div
-                                      className={`overflow-hidden transition-all duration-200 ${
-                                        showFullFriendReview ? "max-h-32" : "max-h-10"
-                                      }`}
-                                    >
-                                      <span
-                                        className={`block text-[11px] ${
-                                          showFullFriendReview
-                                            ? ""
-                                            : "line-clamp-2"
-                                        }`}
-                                      >
-                                        {activeCard.topFriendName}: “
-                                        {activeCard.topFriendReviewSnippet}”
-                                      </span>
-                                    </div>
-                                  </button>
+                                {detailActors && (
+                                  <p>
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Cast:
+                                    </span>{" "}
+                                    <span>
+                                      {detailActors
+                                        .split(",")
+                                        .map((a) => a.trim())
+                                        .filter(Boolean)
+                                        .slice(0, 3)
+                                        .join(", ")}
+                                    </span>
+                                  </p>
                                 )}
-                            </div>
-                          ) : null}
+                              </div>
+                            )}
 
-                          {/* Inline share preset sheet */}
-                          {showSharePresetSheet && (
-                            <div className="mt-2 rounded-2xl bg-mn-bg-elevated/80 px-2.5 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft">
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/75">
-                                Share with a friend
-                              </p>
-                              <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
-                                {shareFriends.length > 0 ? (
-                                  shareFriends.map((friend) => {
-                                    const displayName =
-                                      friend.displayName ||
-                                      (friend.username
-                                        ? `@${friend.username}`
-                                        : "Friend");
-                                    const initial =
-                                      displayName?.trim().charAt(0).toUpperCase() ||
-                                      "F";
-                                    const isSending = !!shareLoadingIds[friend.id];
+                            {/* Your rating + quick actions */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
+                                <span className="text-[10px] text-mn-text-secondary/80">
+                                  Your rating
+                                </span>
+                                <div
+                                  className="flex items-center gap-0.5"
+                                  aria-label="Your rating"
+                                >
+                                  {Array.from({ length: 5 }).map((_, idx) => {
+                                    const value = idx + 1;
+                                    const filled =
+                                      currentUserRating != null &&
+                                      currentUserRating >= value;
                                     return (
                                       <button
-                                        key={friend.id}
+                                        key={value}
                                         type="button"
-                                        onClick={() => handleShareToFriend(friend)}
-                                        className="flex w-[88px] flex-col items-center gap-1 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-2 py-2 text-[10px] text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary focus-visible:outline-none"
+                                        onClick={() => handleStarClick(value)}
+                                        className={`flex h-5 w-5 items-center justify-center rounded-full transition-transform duration-150 hover:scale-105 focus-visible:outline-none ${
+                                          ratingBounce === value ? "scale-110" : ""
+                                        }`}
+                                        aria-label={`Rate ${value} star${
+                                          value > 1 ? "s" : ""
+                                        }`}
                                       >
-                                        <div className="relative mb-1 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated/90 shadow-mn-soft">
-                                          {friend.avatarUrl ? (
-                                            <img
-                                              src={friend.avatarUrl}
-                                              alt={displayName}
-                                              className="h-full w-full object-cover"
-                                            />
-                                          ) : (
-                                            <span className="text-[11px] font-semibold">
-                                              {initial}
-                                            </span>
-                                          )}
-                                          {isSending && (
-                                            <div className="absolute inset-0 rounded-full bg-mn-bg/60 animate-pulse" />
-                                          )}
-                                        </div>
-                                        <span className="line-clamp-1 max-w-[80px] text-[10px]">
-                                          {displayName}
-                                        </span>
-                                        <span className="text-[9px] uppercase tracking-[0.14em] text-mn-primary/80">
-                                          {shareLoadingIds[friend.id]
-                                            ? "Sending…"
-                                            : "DM"}
-                                        </span>
+                                        <Star
+                                          className={`h-3.5 w-3.5 ${
+                                            filled
+                                              ? "fill-yellow-400 text-yellow-400"
+                                              : "text-mn-border-subtle"
+                                          }`}
+                                        />
                                       </button>
                                     );
-                                  })
-                                ) : (
-                                  <div className="flex items-center px-2 py-1.5 text-[11px] text-mn-text-secondary/80">
-                                    No direct friends available yet.
-                                  </div>
-                                )}
+                                  })}
+                                </div>
+                              </div>
 
-                                {/* System share tile */}
+                              <div className="ml-auto flex flex-wrap items-center gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handleShareExternal()}
-                                  className="flex w-[88px] flex-col items-center gap-1 rounded-xl border border-dashed border-mn-border-subtle/80 bg-mn-bg/80 px-2 py-2 text-[10px] text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary focus-visible:outline-none"
+                                  onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                    statusIs(WATCHLIST_STATUS)
+                                      ? "bg-mn-primary/90 text-mn-bg"
+                                      : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                                  }`}
                                 >
-                                  <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/90 shadow-mn-soft">
-                                    <Share2 className="h-4 w-4" />
-                                  </div>
-                                  <span className="line-clamp-1 text-[10px]">
-                                    System share
-                                  </span>
-                                  <span className="text-[9px] uppercase tracking-[0.14em] text-mn-text-secondary/80">
-                                    More…
-                                  </span>
+                                  Watchlist
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDiaryStatus(WATCHED_STATUS)}
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                    statusIs(WATCHED_STATUS)
+                                      ? "bg-emerald-500/90 text-mn-bg"
+                                      : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
+                                  }`}
+                                >
+                                  Watched
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setShowSharePresetSheet((prev) => !prev)
+                                  }
+                                  aria-expanded={showSharePresetSheet}
+                                  className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                                >
+                                  <Share2 className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">Share</span>
                                 </button>
                               </div>
                             </div>
-                          )}
+
+                            {/* Inline share preset sheet */}
+                            {showSharePresetSheet && (
+                              <div className="mt-2 rounded-2xl bg-mn-bg-elevated/80 px-2.5 py-2 text-[11px] text-mn-text-secondary shadow-mn-soft">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/75">
+                                  Share with a friend
+                                </p>
+                                <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+                                  {shareFriends.length > 0 ? (
+                                    shareFriends.map((friend) => {
+                                      const displayName =
+                                        friend.displayName ||
+                                        (friend.username
+                                          ? `@${friend.username}`
+                                          : "Friend");
+                                      const initial =
+                                        displayName?.trim().charAt(0).toUpperCase() ||
+                                        "F";
+                                      const isSending = !!shareLoadingIds[friend.id];
+                                      return (
+                                        <button
+                                          key={friend.id}
+                                          type="button"
+                                          onClick={() => handleShareToFriend(friend)}
+                                          className="flex w-[88px] flex-col items-center gap-1 rounded-xl border border-mn-border-subtle/70 bg-mn-bg px-2 py-2 text-[10px] text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary focus-visible:outline-none"
+                                        >
+                                          <div className="relative mb-1 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg-elevated/90 shadow-mn-soft">
+                                            {friend.avatarUrl ? (
+                                              <img
+                                                src={friend.avatarUrl}
+                                                alt={displayName}
+                                                className="h-full w-full object-cover"
+                                              />
+                                            ) : (
+                                              <span className="text-[11px] font-semibold">
+                                                {initial}
+                                              </span>
+                                            )}
+                                            {isSending && (
+                                              <div className="absolute inset-0 rounded-full bg-mn-bg/60 animate-pulse" />
+                                            )}
+                                          </div>
+                                          <span className="line-clamp-1 max-w-[80px] text-[10px]">
+                                            {displayName}
+                                          </span>
+                                          <span className="text-[9px] uppercase tracking-[0.14em] text-mn-primary/80">
+                                            {shareLoadingIds[friend.id]
+                                              ? "Sending…"
+                                              : "DM"}
+                                          </span>
+                                        </button>
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="flex items-center px-2 py-1.5 text-[11px] text-mn-text-secondary/80">
+                                      No direct friends available yet.
+                                    </div>
+                                  )}
+
+                                  {/* System share tile */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleShareExternal()}
+                                    className="flex w-[88px] flex-col items-center gap-1 rounded-xl border border-dashed border-mn-border-subtle/80 bg-mn-bg/80 px-2 py-2 text-[10px] text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary focus-visible:outline-none"
+                                  >
+                                    <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-mn-bg-elevated/90 shadow-mn-soft">
+                                      <Share2 className="h-4 w-4" />
+                                    </div>
+                                    <span className="line-clamp-1 text-[10px]">
+                                      System share
+                                    </span>
+                                    <span className="text-[9px] uppercase tracking-[0.14em] text-mn-text-secondary/80">
+                                      More…
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Friends info block (same data as swipe, but in summary layout) */}
+                            {(typeof activeCard.friendLikesCount === "number" &&
+                              activeCard.friendLikesCount > 0) ||
+                            (activeCard.topFriendName &&
+                              activeCard.topFriendReviewSnippet) ? (
+                              <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
+                                {typeof activeCard.friendLikesCount === "number" &&
+                                  activeCard.friendLikesCount > 0 && (
+                                    <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                                      <Flame className="h-4 w-4 text-mn-primary/80" />
+                                      {activeCard.friendLikesCount === 1
+                                        ? "1 friend likes this"
+                                        : `${activeCard.friendLikesCount} friends like this`}
+                                    </div>
+                                  )}
+                                {activeCard.topFriendName &&
+                                  activeCard.topFriendReviewSnippet && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setShowFullFriendReview((v) => !v)
+                                      }
+                                      className="mt-1 inline-flex w-full items-start gap-2 text-left"
+                                    >
+                                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                                      <div
+                                        className={`overflow-hidden transition-all duration-200 ${
+                                          showFullFriendReview ? "max-h-32" : "max-h-10"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`block text-[11px] ${
+                                            showFullFriendReview
+                                              ? ""
+                                              : "line-clamp-2"
+                                          }`}
+                                        >
+                                          {activeCard.topFriendName}: “
+                                          {activeCard.topFriendReviewSnippet}”
+                                        </span>
+                                      </div>
+                                    </button>
+                                  )}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
 
-                        {/* FULL DETAILS (C) */}
+                        {/* FULL DETAILS */}
                         <div
                           className={`absolute inset-0 space-y-3 text-[11px] leading-relaxed text-mn-text-secondary/90 transition-opacity duration-200 ${
                             isFullDetailOpen
@@ -1903,7 +1907,7 @@ const SwipePage: React.FC = () => {
                               : "pointer-events-none opacity-0"
                           }`}
                         >
-                          {/* Info: more genres / languages / countries / episode runtime */}
+                          {/* INFO: more genres / languages / countries / episode runtime */}
                           {(moreGenres.length > 0 ||
                             languages.length > 0 ||
                             extraCountries.length > 0 ||
@@ -1957,7 +1961,7 @@ const SwipePage: React.FC = () => {
                             </section>
                           )}
 
-                          {/* Ratings breakdown */}
+                          {/* RATINGS: only extra stats (no raw IMDb/RT scores) */}
                           {(imdbVotes ||
                             externalMetascore ||
                             tmdbVoteAverage ||
@@ -2025,8 +2029,8 @@ const SwipePage: React.FC = () => {
                             </section>
                           )}
 
-                          {/* Credits: writers + extra cast */}
-                          {(detailActors || detailWriter) && (
+                          {/* CREDITS: writers + extra cast beyond first 3 */}
+                          {(detailWriter || detailActors) && (
                             <section aria-label="Credits" className="mt-1">
                               <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
                                 Credits
@@ -2061,12 +2065,9 @@ const SwipePage: React.FC = () => {
                             </section>
                           )}
 
-                          {/* Release & production */}
+                          {/* RELEASE & PRODUCTION: release date, awards, box office */}
                           {(detailReleased || detailAwards || detailBoxOffice) && (
-                            <section
-                              aria-label="Release and production"
-                              className="mt-1"
-                            >
+                            <section aria-label="Release and production" className="mt-1">
                               <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
                                 Release &amp; production
                               </h3>
@@ -2084,7 +2085,7 @@ const SwipePage: React.FC = () => {
                                     <span className="font-medium text-mn-text-primary/90">
                                       Awards:
                                     </span>{" "}
-                                    <span>{detailAwards}</span>
+                                      <span>{detailAwards}</span>
                                   </p>
                                 )}
                                 {detailBoxOffice && (
@@ -2099,9 +2100,11 @@ const SwipePage: React.FC = () => {
                             </section>
                           )}
 
-                          {/* Full overview (unclamped) */}
                           {detailOverview && (
-                            <section aria-label="Full overview" className="mt-1">
+                            <section
+                              aria-label="Full overview"
+                              className="mt-1"
+                            >
                               <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
                                 Story
                               </h3>
@@ -2110,6 +2113,8 @@ const SwipePage: React.FC = () => {
                               </p>
                             </section>
                           )}
+
+                          {/* NOTE: no story/overview here, to keep full-details only "new" compact data */}
                         </div>
                       </div>
 
@@ -2160,7 +2165,6 @@ const SwipePage: React.FC = () => {
           {renderSmartHintToast()}
         </div>
 
-        {/* bottom actions – swipe controls */}
         <div className="mt-3 grid grid-cols-3 gap-3" aria-label="Swipe actions">
           <button
             type="button"
