@@ -174,8 +174,8 @@ const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
 const LoadingSwipeCard: React.FC = () => (
   <article className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur">
     <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
-      <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+      <div className="h-full w-full bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
       <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-mn-text-muted/90">
           <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle/80" />
