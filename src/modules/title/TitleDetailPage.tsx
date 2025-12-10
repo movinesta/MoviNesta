@@ -61,7 +61,6 @@ interface TitleRow {
   poster_url: string | null;
   tmdb_poster_path: string | null;
   backdrop_url: string | null;
-
 }
 
 interface CreateDirectConversationResponse {

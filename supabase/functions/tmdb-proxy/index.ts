@@ -71,7 +71,7 @@ async function fetchFromTmdb(url: URL) {
 // Main handler
 // ---------------------------------------------------------------------------
 
-serve(async (req: Request) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -95,7 +95,7 @@ serve(async (req: Request) => {
     return jsonError("Invalid JSON body", 400, "BAD_REQUEST_INVALID_JSON");
   }
 
-  if (!payload || typeof payload.path !== "string" || !payload.path.startsWith("/")) {
+  if (!payload || typeof payload.path !== "string" || !payload.path.startsWith("/search/")) {
     return jsonError("Invalid path", 400, "BAD_REQUEST_INVALID_PATH");
   }
 
@@ -113,4 +113,6 @@ serve(async (req: Request) => {
     log(logCtx, "Unhandled error", { error: String(err) });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-});
+}
+
+serve(handler);
