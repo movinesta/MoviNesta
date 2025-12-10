@@ -29,6 +29,7 @@ type TitleRow = Pick<
   Database["public"]["Tables"]["titles"]["Row"],
   "title_id" | "primary_title" | "release_year" | "content_type" | "poster_url" | "backdrop_url"
 >;
+type LibraryRowWithTitle = LibraryRow & { titles: TitleRow | null };
 type RatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "title_id" | "rating">;
 type TitleDiaryRow = Pick<Database["public"]["Tables"]["library_entries"]["Row"], "status">;
 type TitleDiaryRatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "rating">;
@@ -69,10 +70,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
           .select("title_id, primary_title, release_year, content_type, poster_url, backdrop_url")
           .in("title_id", titleIds);
         if (titlesError) {
-          console.warn(
-            "[useDiaryLibrary] Failed to load titles for library entries",
-            titlesError.message,
-          );
+          console.warn("[useDiaryLibrary] Failed to load titles for library entries", titlesError.message);
         } else {
           titlesById = new Map(titles.map((row) => [row.title_id, row]));
         }

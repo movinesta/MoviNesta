@@ -38,7 +38,10 @@ const SegmentedControl = <T extends string>({
     tab?.focus();
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+  const handleKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    currentIndex: number,
+  ) => {
     const lastIndex = segments.length - 1;
     let nextIndex = currentIndex;
 

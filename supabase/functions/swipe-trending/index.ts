@@ -100,7 +100,6 @@ export async function handler(req: Request) {
 
     // Map DB rows -> API shape expected by useSwipeDeck
     const apiCards = cards.map((card) => ({
-      title_id: card.title_id,
       id: card.title_id,                           // REQUIRED
       title: card.primary_title ?? "(Untitled)",   // REQUIRED
       year: card.release_year ?? null,

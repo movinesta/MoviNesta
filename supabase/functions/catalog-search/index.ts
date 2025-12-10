@@ -146,9 +146,9 @@ async function handleSearch(
 
   // 1) Search TMDb
   const tmdbResponse = await tmdbSearch(query, page, type);
-  const tmdbItems = (tmdbResponse?.results ?? [])
-    .map((item) => ({ media_type: item.media_type ?? "movie", ...item }))
-    .filter((item) => type !== "multi" || ["movie", "tv"].includes(item.media_type ?? ""));
+  const tmdbItems = (tmdbResponse?.results ?? []).filter(
+    (item) => type !== "multi" || ["movie", "tv"].includes(item.media_type ?? ""),
+  );
   const tmdbIds = tmdbItems.map((item) => item.id).filter((id): id is number => !!id);
 
   // 2) Load local titles by tmdb_id
@@ -177,11 +177,6 @@ async function handleSearch(
     local: localMap.get(tmdbItem.id) ?? null,
   }));
 
-  const responseResults = mergedResults.map((item) => ({
-    ...item,
-    title: item.local?.primary_title ?? item.tmdb.title ?? item.tmdb.name ?? "",
-  }));
-
   // 4) Fire-and-forget sync for a few missing titles
   triggerBackgroundSync(mergedResults.slice(0, 5));
 
@@ -191,7 +186,7 @@ async function handleSearch(
     page: tmdbResponse?.page ?? 1,
     total_pages: tmdbResponse?.total_pages ?? 0,
     total_results: tmdbResponse?.total_results ?? 0,
-    results: responseResults,
+    results: mergedResults,
   });
 }
 
