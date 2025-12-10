@@ -116,6 +116,9 @@ const HomePage = () => {
                 label: tab.label,
               }))}
               active={activeTab}
+              ariaLabel="Home sections"
+              idPrefix="home-tab"
+              getPanelId={(key) => `home-tabpanel-${key}`}
               onChange={(key) => setActiveTab(key as HomeTabKey)}
             />
           </div>
@@ -146,6 +149,7 @@ const HomePage = () => {
         role="tabpanel"
         aria-live="polite"
         aria-label={activeTabConfig.label}
+        aria-labelledby={`home-tab-${activeTab}`}
         className="flex-1"
         id={`home-tabpanel-${activeTab}`}
       >
