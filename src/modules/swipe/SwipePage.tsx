@@ -1989,29 +1989,12 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
     }
   };
 
-  const handleCopyLink = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-        alert("Link copied to clipboard");
-      } else {
-        alert(shareUrl);
-      }
-    } catch {
-      alert(shareUrl);
-    }
-  };
-
-  const handleExternalShareClick = async () => {
-    await onShareExternal();
-  };
-
   return (
     <div
-      className="fixed inset-0 z-[90] flex flex-col justify-end bg-black/55"
+      className="fixed inset-0 z-[9999] flex flex-col justify-end bg-black/55"
       onClick={handleBackdropClick}
     >
-      <div className="pointer-events-auto w-full max-w-md self-center rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
+      <div className="pointer-events-auto mb-[72px] w-full max-w-md self-center rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
         <div className="flex items-center justify-between px-4 pb-2">
           <span className="text-[13px] font-semibold text-mn-text-primary">
             Share
@@ -2055,30 +2038,9 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
                   text={text}
                 />
               ))}
+              <ExternalShareChip onShareExternal={onShareExternal} />
             </div>
           )}
-        </section>
-
-        <section className="border-t border-mn-border-subtle/80 px-4 pt-3 pb-1.5">
-          <h2 className="mb-2 text-[12px] font-medium uppercase tracking-[0.08em] text-mn-text-secondary/90">
-            Share via
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1 text-[11px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-            >
-              Copy link
-            </button>
-            <button
-              type="button"
-              onClick={handleExternalShareClick}
-              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1 text-[11px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-            >
-              Share outside MoviNesta
-            </button>
-          </div>
         </section>
       </div>
     </div>
@@ -2090,7 +2052,10 @@ interface ShareRecipientChipProps {
   text: string;
 }
 
-const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, text }) => {
+const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({
+  conversation,
+  text,
+}) => {
   const primaryOther = conversation.isGroup
     ? null
     : conversation.participants?.find((p: any) => !p.isSelf) ??
@@ -2138,6 +2103,31 @@ const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, t
       </div>
       <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
         {displayName}
+      </span>
+    </button>
+  );
+};
+
+interface ExternalShareChipProps {
+  onShareExternal: () => Promise<void>;
+}
+
+const ExternalShareChip: React.FC<ExternalShareChipProps> = ({ onShareExternal }) => {
+  const handleClick = async () => {
+    await onShareExternal();
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex w-[72px] flex-col items-center gap-1 text-center"
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-full border border-mn-border-subtle/80 bg-mn-bg-subtle">
+        <Share2 className="h-4 w-4 text-mn-text-secondary" />
+      </div>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        External
       </span>
     </button>
   );
