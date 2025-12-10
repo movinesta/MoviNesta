@@ -2052,8 +2052,10 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
 
         <section className="border-t border-mn-border-subtle/80 px-4 pt-3 pb-3">
           <div className="flex gap-3 overflow-x-auto pb-1 pt-0.5">
+            <WhatsAppShareChip shareUrl={shareUrl} title={activeCard.title} />
+            <TelegramShareChip shareUrl={shareUrl} title={activeCard.title} />
+            <MoreShareChip onShareExternal={onShareExternal} />
             <ShareCopyLinkChip shareUrl={shareUrl} />
-            <ExternalShareChip onShareExternal={onShareExternal} />
           </div>
         </section>
       </div>
@@ -2154,13 +2156,73 @@ const ShareCopyLinkChip: React.FC<ShareCopyLinkChipProps> = ({ shareUrl }) => {
       </span>
     </button>
   );
+};
+
+interface WhatsAppShareChipProps {
+  shareUrl: string;
+  title: string;
 }
 
-interface ExternalShareChipProps {
+const WhatsAppShareChip: React.FC<WhatsAppShareChipProps> = ({ shareUrl, title }) => {
+  const handleClick = () => {
+    if (typeof window === "undefined") return;
+    const text = `Check this out: ${title}\n\n${shareUrl}`;
+    const href = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(href, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex w-[72px] flex-col items-center gap-1 text-center"
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#25D366]">
+        <span className="text-[16px] font-semibold text-white">W</span>
+      </div>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        WhatsApp
+      </span>
+    </button>
+  );
+};
+
+interface TelegramShareChipProps {
+  shareUrl: string;
+  title: string;
+}
+
+const TelegramShareChip: React.FC<TelegramShareChipProps> = ({ shareUrl, title }) => {
+  const handleClick = () => {
+    if (typeof window === "undefined") return;
+    const text = `Check this out: ${title}\n\n${shareUrl}`;
+    const href = `https://t.me/share/url?url=${encodeURIComponent(
+      shareUrl,
+    )}&text=${encodeURIComponent(text)}`;
+    window.open(href, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex w-[72px] flex-col items-center gap-1 text-center"
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#229ED9]">
+        <span className="text-[16px] font-semibold text-white">T</span>
+      </div>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        Telegram
+      </span>
+    </button>
+  );
+};
+
+interface MoreShareChipProps {
   onShareExternal: () => Promise<void>;
 }
 
-const ExternalShareChip: React.FC<ExternalShareChipProps> = ({ onShareExternal }) => {
+const MoreShareChip: React.FC<MoreShareChipProps> = ({ onShareExternal }) => {
   const handleClick = async () => {
     await onShareExternal();
   };
@@ -2175,11 +2237,10 @@ const ExternalShareChip: React.FC<ExternalShareChipProps> = ({ onShareExternal }
         <Share2 className="h-4 w-4 text-mn-text-secondary" />
       </div>
       <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
-        External
+        More
       </span>
     </button>
   );
 };
-
 
 export default SwipePage;
