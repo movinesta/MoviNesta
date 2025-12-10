@@ -9,6 +9,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Share2,
+  Star,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
 import { RatingStars } from "../../components/RatingStars";
@@ -46,6 +47,26 @@ const formatRuntime = (minutes?: number | null): string | null => {
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
+};
+
+const abbreviateCountry = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+
+  if (lower === "united states" || lower === "united states of america") return "US";
+  if (lower === "united kingdom" || lower === "great britain") return "UK";
+  if (lower === "canada") return "CA";
+  if (lower === "australia") return "AU";
+  if (lower === "germany") return "DE";
+  if (lower === "france") return "FR";
+  if (lower === "spain") return "ES";
+  if (lower === "italy") return "IT";
+  if (lower === "japan") return "JP";
+  if (lower === "south korea" || lower === "republic of korea") return "KR";
+  if (trimmed.length <= 3) return trimmed.toUpperCase();
+  return trimmed;
 };
 
 const getSourceLabel = (source?: SwipeDeckKind) => {
@@ -222,6 +243,9 @@ interface TitleDetailRow {
   backdrop_url: string | null;
 }
 
+const WATCHLIST_STATUS = "watchlist" as DiaryStatus;
+const WATCHED_STATUS = "watched" as DiaryStatus;
+
 const SwipePage: React.FC = () => {
   const {
     cards,
@@ -257,7 +281,6 @@ const SwipePage: React.FC = () => {
       setIsFullDetailOpen(false);
     }
   }, [isDetailMode]);
-
 
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
@@ -430,6 +453,8 @@ const SwipePage: React.FC = () => {
     titleDetail?.omdb_country ??
     activeCard?.country ??
     null;
+
+  const detailPrimaryCountryAbbr = abbreviateCountry(detailPrimaryCountry);
 
   const detailDirector = titleDetail?.omdb_director ?? null;
   const detailActors = titleDetail?.omdb_actors ?? null;
@@ -969,7 +994,7 @@ const SwipePage: React.FC = () => {
     if (!isDragging) return;
     setIsDragging(false);
 
-        const distance = dragDelta.current;
+    const distance = dragDelta.current;
     const projected = distance + velocityRef.current * 180;
 
     const isDetailDrag = isDetailMode && dragStartedInDetailAreaRef.current;
@@ -1089,20 +1114,40 @@ const SwipePage: React.FC = () => {
   const shouldShowLongPressHint =
     !isDetailMode && !showOnboarding && currentIndex < 3 && !isLoading && !!activeCard;
 
-  const posterRuntime = formatRuntime(activeCard?.runtimeMinutes);
+  const primaryImdbForMeta =
+    typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
+      ? activeCard.imdbRating
+      : typeof titleDetail?.imdb_rating === "number" && !Number.isNaN(titleDetail.imdb_rating)
+      ? titleDetail.imdb_rating
+      : null;
+
+  const primaryRtForMeta =
+    typeof activeCard?.rtTomatoMeter === "number" && !Number.isNaN(activeCard.rtTomatoMeter)
+      ? activeCard.rtTomatoMeter
+      : typeof titleDetail?.rt_tomato_pct === "number" && !Number.isNaN(titleDetail.rt_tomato_pct)
+      ? titleDetail.rt_tomato_pct
+      : null;
+
   const metaLine = activeCard
-    ? [
-        activeCard.year ? String(activeCard.year) : null,
-        activeCard.genres?.[0] ?? null,
-        posterRuntime,
-        typeof activeCard.imdbRating === "number" &&
-        !Number.isNaN(activeCard.imdbRating) &&
-        activeCard.imdbRating > 0
-          ? `IMDb ${activeCard.imdbRating.toFixed(1)}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · ")
+    ? (() => {
+        const parts: string[] = [];
+        if (activeCard.year) parts.push(String(activeCard.year));
+
+        const typeLabel =
+          (normalizedContentType ?? activeCard.type) === "series" ? "Series" : "Movie";
+        if (typeLabel) parts.push(typeLabel);
+
+        if (primaryImdbForMeta != null) {
+          parts.push(`IMDb ${primaryImdbForMeta.toFixed(1)}`);
+        }
+        if (primaryRtForMeta != null) {
+          parts.push(`RT ${primaryRtForMeta}%`);
+        }
+        if (typeof activeCard.runtimeMinutes === "number" && activeCard.runtimeMinutes > 0) {
+          parts.push(`${activeCard.runtimeMinutes} min`);
+        }
+        return parts.join(" · ");
+      })()
     : "";
 
   const highlightLabel = (() => {
@@ -1139,6 +1184,18 @@ const SwipePage: React.FC = () => {
     hoverTiltRef.current = { x: 0, y: 0 };
     setCardTransform(dragDelta.current, { withTransition: true });
   };
+
+  const currentUserRating = diaryEntry?.rating ?? null;
+  const handleStarClick = (value: number) => {
+    const next = currentUserRating === value ? null : value;
+    setDiaryRating(next);
+  };
+
+  const activeCardAny = activeCard as any;
+  const detailCertification: string | null =
+    (activeCardAny?.certification as string | undefined) ??
+    (activeCardAny?.rated as string | undefined) ??
+    null;
 
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col">
@@ -1253,20 +1310,22 @@ const SwipePage: React.FC = () => {
               {/* Active swipe card */}
               <article
                 ref={cardRef}
-                className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${
+                className={`relative z-10 mx-auto flex ${
+                  isFullDetailOpen ? "h-[82%] max-h-[560px]" : "h-[72%] max-h-[480px]"
+                } w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${
                   isDetailMode ? "ring-1 ring-mn-primary/40" : "border border-white/5"
                 }`}
                 onPointerDown={(e) => {
-                if (e.pointerType === "mouse" && e.button !== 0) return;
+                  if (e.pointerType === "mouse" && e.button !== 0) return;
 
-                const startedInDetail =
-                  isDetailMode &&
-                  detailContentRef.current &&
-                  detailContentRef.current.contains(e.target as Node);
+                  const startedInDetail =
+                    isDetailMode &&
+                    detailContentRef.current &&
+                    detailContentRef.current.contains(e.target as Node);
 
-                dragStartedInDetailAreaRef.current = startedInDetail;
-                handlePointerDown(e.clientX, e.pointerId);
-              }}
+                  dragStartedInDetailAreaRef.current = startedInDetail;
+                  handlePointerDown(e.clientX, e.pointerId);
+                }}
                 onPointerMove={(e) => handlePointerMove(e.clientX)}
                 onPointerUp={finishDrag}
                 onPointerCancel={finishDrag}
@@ -1302,13 +1361,22 @@ const SwipePage: React.FC = () => {
                           filter: isDetailMode ? "blur(4px) brightness(0.65)" : "none",
                           transform: isDetailMode ? "scale(1.12)" : "scale(1)",
                           transition:
-                            "filter 260ms cubic-bezier(0.22,0.61,0.36,1), transform 260ms cubic-bezier(0.22,0.61,0.36,1)",
+                            "filter 260ms cubic-bezier(0.22,0.61,0.36,1), transform 260ms cubic-bezier(0.22,0.61,1)",
                         }}
                       />
-                      {/* small foreground poster in detail mode - top-left */}
+                      {/* foreground adaptive mini-poster in detail mode */}
                       {isDetailMode && (
-                        <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-3">
-                          <div className="h-20 w-14 overflow-hidden rounded-xl border border-mn-border-subtle/80 bg-mn-bg shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+                        <div
+                          className="pointer-events-none absolute left-3 flex items-start"
+                          style={{ top: "3.2rem" }}
+                        >
+                          <div
+                            className="overflow-hidden rounded-2xl border border-mn-border-subtle/80 bg-mn-bg shadow-[0_14px_40px_rgba(0,0,0,0.85)]"
+                            style={{
+                              height: "min(32vh, 220px)",
+                              aspectRatio: "2 / 3",
+                            }}
+                          >
                             <img
                               src={activeCard.posterUrl}
                               alt={activeCard.title}
@@ -1379,244 +1447,399 @@ const SwipePage: React.FC = () => {
                     </div>
 
                     {isDetailMode && activeCard && (
-                      <div className="mt-3 space-y-2 text-left text-[11px] text-mn-text-secondary">
-                        {!isFullDetailOpen && (
-                          <>
-                            {detailOverview && (
-                              <p className="leading-relaxed text-[11px] text-mn-text-secondary/90 line-clamp-3">
-                                {detailOverview}
-                              </p>
+                      <div
+                        ref={detailContentRef}
+                        className="mt-3 space-y-3 text-left text-[11px] text-mn-text-secondary"
+                      >
+                        {/* Title & compact metadata for detail mode */}
+                        <div className="space-y-1.5">
+                          <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
+                            {activeCard.title}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
+                            {detailGenres && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium text-mn-text-primary/90">Genres</span>
+                                <span className="truncate max-w-[180px]">
+                                  {Array.isArray(detailGenres)
+                                    ? (detailGenres as string[]).slice(0, 3).join(", ")
+                                    : String(detailGenres)}
+                                </span>
+                              </span>
                             )}
-
-                            {(detailDirector || detailActors || detailPrimaryCountry || detailPrimaryLanguage) && (
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-mn-text-secondary/80">
-                                {detailDirector && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span className="font-medium text-mn-text-primary/90">Dir.</span>
-                                    <span className="truncate max-w-[9rem]">{detailDirector}</span>
-                                  </span>
-                                )}
-                                {detailActors && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span className="font-medium text-mn-text-primary/90">Cast</span>
-                                    <span className="truncate max-w-[11rem]">{detailActors}</span>
-                                  </span>
-                                )}
-                                {detailPrimaryCountry && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span className="font-medium text-mn-text-primary/90">Region</span>
-                                    <span>{detailPrimaryCountry}</span>
-                                  </span>
-                                )}
-                                {detailPrimaryLanguage && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span className="font-medium text-mn-text-primary/90">Language</span>
-                                    <span>{detailPrimaryLanguage}</span>
-                                  </span>
-                                )}
-                              </div>
+                            {detailCertification && (
+                              <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
+                                {detailCertification}
+                              </span>
                             )}
-
-                            {(externalImdbRating || externalTomato || externalMetascore) && (
-                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-mn-text-secondary/80">
-                                {typeof externalImdbRating === "number" && !Number.isNaN(externalImdbRating) && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1">
-                                    <span className="font-semibold text-mn-text-primary/90">IMDb</span>
-                                    <span>{externalImdbRating.toFixed(1)}</span>
-                                  </span>
-                                )}
-                                {typeof externalTomato === "number" && !Number.isNaN(externalTomato) && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1">
-                                    <span className="font-semibold text-mn-text-primary/90">RT</span>
-                                    <span>{externalTomato}%</span>
-                                  </span>
-                                )}
-                                {typeof externalMetascore === "number" && !Number.isNaN(externalMetascore) && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2 py-1">
-                                    <span className="font-semibold text-mn-text-primary/90">Metascore</span>
-                                    <span>{externalMetascore}</span>
-                                  </span>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={() => setIsFullDetailOpen(true)}
-                                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
-                                >
-                                  <span>Full details</span>
-                                </button>
-                              </div>
+                            {detailPrimaryCountryAbbr && (
+                              <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                {detailPrimaryCountryAbbr}
+                              </span>
                             )}
-                          </>
+                          </div>
+                        </div>
+
+                        {detailOverview && (
+                          <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
+                            {detailOverview}
+                          </p>
                         )}
 
-                        {isFullDetailOpen && (
-                          <div className="mt-2 max-h-[42vh] overflow-y-auto pr-1 text-[11px] text-mn-text-secondary/90" style={{ scrollbarWidth: "none" }}>
-                            {(titleDetail?.tagline || detailOverview) && (
-                              <section className="space-y-1 pb-3">
-                                {titleDetail?.tagline && (
-                                  <p className="text-[11px] font-semibold text-mn-text-primary/90">
-                                    {titleDetail.tagline}
-                                  </p>
-                                )}
-                                {detailOverview && (
-                                  <p className="text-[11px] leading-relaxed text-mn-text-secondary">
-                                    {detailOverview}
-                                  </p>
-                                )}
-                              </section>
+                        {/* Director / cast summary */}
+                        {(detailDirector || detailActors) && (
+                          <div className="space-y-1.5 text-[10.5px]">
+                            {detailDirector && (
+                              <p>
+                                <span className="font-medium text-mn-text-primary/90">
+                                  Director:
+                                </span>{" "}
+                                <span>{detailDirector}</span>
+                              </p>
                             )}
+                            {detailActors && (
+                              <p>
+                                <span className="font-medium text-mn-text-primary/90">Cast:</span>{" "}
+                                <span>
+                                  {detailActors
+                                    .split(",")
+                                    .map((a) => a.trim())
+                                    .filter(Boolean)
+                                    .slice(0, 3)
+                                    .join(", ")}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        )}
 
-                            <section className="mt-1 grid gap-2 rounded-2xl bg-mn-bg-elevated/60 px-3 py-2 text-[11px]">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {activeCard?.year && (
-                                  <span className="rounded-full bg-mn-bg px-2 py-0.5 font-medium text-mn-text-primary/90">
-                                    {activeCard.year}
-                                  </span>
-                                )}
-                                {normalizedContentType && (
-                                  <span className="rounded-full bg-mn-bg px-2 py-0.5 text-mn-text-secondary/90">
-                                    {normalizedContentType === "movie" ? "Movie" : "Series"}
-                                  </span>
-                                )}
-                                {activeCard?.runtimeMinutes && (
-                                  <span className="rounded-full bg-mn-bg px-2 py-0.5 text-mn-text-secondary/90">
-                                    {formatRuntime(activeCard.runtimeMinutes)}
-                                  </span>
-                                )}
-                              </div>
+                        {/* Rating + actions row */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
+                            <span className="text-[10px] text-mn-text-secondary/80">
+                              Your rating
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {Array.from({ length: 5 }).map((_, idx) => {
+                                const value = idx + 1;
+                                const filled =
+                                  currentUserRating != null && currentUserRating >= value;
+                                return (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => handleStarClick(value)}
+                                    className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
+                                  >
+                                    <Star
+                                      className={`h-3.5 w-3.5 ${
+                                        filled
+                                          ? "fill-yellow-400 text-yellow-400"
+                                          : "text-mn-border-subtle"
+                                      }`}
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
 
-                              {(detailGenres || detailPrimaryCountry || detailPrimaryLanguage) && (
-                                <div className="space-y-1 text-[10.5px]">
-                                  {detailGenres && (
-                                    <p className="text-mn-text-secondary/90">
-                                      <span className="font-medium text-mn-text-primary/90">Genres: </span>
-                                      {Array.isArray(detailGenres)
-                                        ? (detailGenres as string[]).join(", ")
-                                        : String(detailGenres)}
-                                    </p>
-                                  )}
-                                  {(detailPrimaryCountry || detailPrimaryLanguage) && (
-                                    <p className="text-mn-text-secondary/90">
-                                      {detailPrimaryCountry && (
-                                        <>
-                                          <span className="font-medium text-mn-text-primary/90">Country: </span>
-                                          <span>{detailPrimaryCountry}</span>
-                                        </>
-                                      )}
-                                      {detailPrimaryCountry && detailPrimaryLanguage && <span> · </span>}
-                                      {detailPrimaryLanguage && (
-                                        <>
-                                          <span className="font-medium text-mn-text-primary/90">Language: </span>
-                                          <span>{detailPrimaryLanguage}</span>
-                                        </>
-                                      )}
-                                    </p>
-                                  )}
+                          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                statusIs(WATCHLIST_STATUS)
+                                  ? "bg-mn-primary/90 text-mn-bg"
+                                  : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                              }`}
+                            >
+                              Watchlist
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiaryStatus(WATCHED_STATUS)}
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                statusIs(WATCHED_STATUS)
+                                  ? "bg-emerald-500/90 text-mn-bg"
+                                  : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
+                              }`}
+                            >
+                              Watched
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShareExternal()}
+                              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Share</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Friends info block */}
+                        {(typeof activeCard.friendLikesCount === "number" &&
+                          activeCard.friendLikesCount > 0) ||
+                        (activeCard.topFriendName &&
+                          activeCard.topFriendReviewSnippet) ? (
+                          <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
+                            {typeof activeCard.friendLikesCount === "number" &&
+                              activeCard.friendLikesCount > 0 && (
+                                <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                                  <Flame className="h-4 w-4 text-mn-primary/80" />
+                                  {activeCard.friendLikesCount === 1
+                                    ? "1 friend likes this"
+                                    : `${activeCard.friendLikesCount} friends like this`}
                                 </div>
                               )}
-                            </section>
+                            {activeCard.topFriendName &&
+                              activeCard.topFriendReviewSnippet && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setShowFullFriendReview((v) => !v)
+                                  }
+                                  className="mt-1 inline-flex w-full items-start gap-2 text-left"
+                                >
+                                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                                  <div
+                                    className={`overflow-hidden transition-all duration-200 ${
+                                      showFullFriendReview ? "max-h-32" : "max-h-10"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`block text-[11px] ${
+                                        showFullFriendReview ? "" : "line-clamp-2"
+                                      }`}
+                                    >
+                                      {activeCard.topFriendName}: “
+                                      {activeCard.topFriendReviewSnippet}”
+                                    </span>
+                                  </div>
+                                </button>
+                              )}
+                          </div>
+                        ) : null}
 
-                            {(detailDirector || detailActors) && (
-                              <section className="mt-3 grid gap-1.5 text-[11px]">
-                                {detailDirector && (
-                                  <p>
-                                    <span className="font-medium text-mn-text-primary/90">Director: </span>
-                                    <span>{detailDirector}</span>
-                                  </p>
-                                )}
-                                {detailActors && (
-                                  <p>
-                                    <span className="font-medium text-mn-text-primary/90">Cast: </span>
-                                    <span>{detailActors}</span>
-                                  </p>
-                                )}
-                              </section>
-                            )}
+                        {/* Full details trigger */}
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsFullDetailOpen(true)}
+                            className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
+                          >
+                            <span>Full details</span>
+                          </button>
+                        </div>
 
-                            {(externalImdbRating || externalTomato || externalMetascore) && (
-                              <section className="mt-4 space-y-1 text-[11px]">
-                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
-                                  Ratings
-                                </h3>
-                                <div className="mt-1 grid gap-1.5">
-                                  {typeof externalImdbRating === "number" && !Number.isNaN(externalImdbRating) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">IMDb</span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {externalImdbRating.toFixed(1)}
-                                      </span>
-                                    </div>
+                        {/* Full detail sheet */}
+                        {isFullDetailOpen && (
+                          <div className="mt-3 rounded-3xl border border-mn-border-subtle/80 bg-mn-bg-elevated/95 shadow-mn-card">
+                            <div className="flex items-center justify-center pt-2">
+                              <div className="h-1 w-12 rounded-full bg-mn-border-subtle/80" />
+                            </div>
+                            <div
+                              className="mt-2 max-h-[52vh] overflow-y-auto px-3 pb-3 pt-1 text-[11px] leading-relaxed text-mn-text-secondary/90"
+                              style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+                            >
+                              {(titleDetail?.tagline || detailOverview) && (
+                                <section className="space-y-1 pb-3">
+                                  {titleDetail?.tagline && (
+                                    <p className="text-[11px] font-semibold text-mn-text-primary/90">
+                                      {titleDetail.tagline}
+                                    </p>
                                   )}
-                                  {typeof externalTomato === "number" && !Number.isNaN(externalTomato) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">Rotten Tomatoes</span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {externalTomato}%
-                                      </span>
-                                    </div>
+                                  {detailOverview && (
+                                    <p className="text-[11px] leading-relaxed text-mn-text-secondary">
+                                      {detailOverview}
+                                    </p>
                                   )}
-                                  {typeof externalMetascore === "number" && !Number.isNaN(externalMetascore) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">Metascore</span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {externalMetascore}
-                                      </span>
-                                    </div>
+                                </section>
+                              )}
+
+                              {/* Basic info & structure */}
+                              <section className="mt-1 grid gap-2 rounded-2xl bg-mn-bg/60 px-3 py-2 text-[11px]">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {activeCard.year && (
+                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 font-medium text-mn-text-primary/90">
+                                      {activeCard.year}
+                                    </span>
                                   )}
+                                  {normalizedContentType && (
+                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
+                                      {normalizedContentType === "movie" ? "Movie" : "Series"}
+                                    </span>
+                                  )}
+                                  {typeof activeCard.runtimeMinutes === "number" &&
+                                    activeCard.runtimeMinutes > 0 && (
+                                      <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-mn-text-secondary/90">
+                                        {formatRuntime(activeCard.runtimeMinutes)}
+                                      </span>
+                                    )}
                                 </div>
-                              </section>
-                            )}
 
-                            <div className="mt-3 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setIsFullDetailOpen(false)}
-                                className="inline-flex items-center rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                              >
-                                Collapse
-                              </button>
+                                {(detailGenres ||
+                                  detailPrimaryCountry ||
+                                  detailPrimaryLanguage) && (
+                                  <div className="space-y-1 text-[10.5px]">
+                                    {detailGenres && (
+                                      <p className="text-mn-text-secondary/90">
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          Genres:{" "}
+                                        </span>
+                                        {Array.isArray(detailGenres)
+                                          ? (detailGenres as string[]).join(", ")
+                                          : String(detailGenres)}
+                                      </p>
+                                    )}
+                                    {(detailPrimaryCountry || detailPrimaryLanguage) && (
+                                      <p className="text-mn-text-secondary/90">
+                                        {detailPrimaryCountry && (
+                                          <>
+                                            <span className="font-medium text-mn-text-primary/90">
+                                              Country:{" "}
+                                            </span>
+                                            <span>{detailPrimaryCountry}</span>
+                                          </>
+                                        )}
+                                        {detailPrimaryCountry && detailPrimaryLanguage && (
+                                          <span> · </span>
+                                        )}
+                                        {detailPrimaryLanguage && (
+                                          <>
+                                            <span className="font-medium text-mn-text-primary/90">
+                                              Language:{" "}
+                                            </span>
+                                            <span>{detailPrimaryLanguage}</span>
+                                          </>
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </section>
+
+                              {/* People */}
+                              {(detailDirector || detailActors) && (
+                                <section className="mt-3 grid gap-1.5 text-[11px]">
+                                  {detailDirector && (
+                                    <p>
+                                      <span className="font-medium text-mn-text-primary/90">
+                                        Director:
+                                      </span>{" "}
+                                      <span>{detailDirector}</span>
+                                    </p>
+                                  )}
+                                  {detailActors && (
+                                    <p>
+                                      <span className="font-medium text-mn-text-primary/90">
+                                        Full cast:
+                                      </span>{" "}
+                                      <span>{detailActors}</span>
+                                    </p>
+                                  )}
+                                </section>
+                              )}
+
+                              {/* Ratings breakdown */}
+                              {(externalImdbRating ||
+                                externalTomato ||
+                                externalMetascore) && (
+                                <section className="mt-4 space-y-1 text-[11px]">
+                                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                    Ratings
+                                  </h3>
+                                  <div className="mt-1 grid gap-1.5">
+                                    {typeof externalImdbRating === "number" &&
+                                      !Number.isNaN(externalImdbRating) && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-mn-text-secondary/90">IMDb</span>
+                                          <span className="font-medium text-mn-text-primary/90">
+                                            {externalImdbRating.toFixed(1)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    {typeof externalTomato === "number" &&
+                                      !Number.isNaN(externalTomato) && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-mn-text-secondary/90">
+                                            Rotten Tomatoes
+                                          </span>
+                                          <span className="font-medium text-mn-text-primary/90">
+                                            {externalTomato}%
+                                          </span>
+                                        </div>
+                                      )}
+                                    {typeof externalMetascore === "number" &&
+                                      !Number.isNaN(externalMetascore) && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-mn-text-secondary/90">
+                                            Metascore
+                                          </span>
+                                          <span className="font-medium text-mn-text-primary/90">
+                                            {externalMetascore}
+                                          </span>
+                                        </div>
+                                      )}
+                                  </div>
+                                </section>
+                              )}
+
+                              <div className="mt-3 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsFullDetailOpen(false)}
+                                  className="inline-flex items-center rounded-full border border-mn-border-subtle/70 px-3 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                                >
+                                  Collapse
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* Social / friends row */}
-                    <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
-                      {typeof activeCard.friendLikesCount === "number" &&
-                        activeCard.friendLikesCount > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                            <Flame className="h-4 w-4 text-mn-primary/80" />
-                            {activeCard.friendLikesCount === 1
-                              ? "1 friend likes this"
-                              : `${activeCard.friendLikesCount} friends like this`}
-                          </span>
-                        )}
-
-                      {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
-                        <button
-                          type="button"
-                          onClick={() => setShowFullFriendReview((v) => !v)}
-                          className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
-                        >
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                          <div
-                            className={`overflow-hidden transition-all duration-200 ${
-                              showFullFriendReview || isDetailMode ? "max-h-32" : "max-h-10"
-                            }`}
-                          >
-                            <span
-                              className={`block text-[11px] ${
-                                showFullFriendReview || isDetailMode ? "" : "line-clamp-2"
-                              }`}
-                            >
-                              {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
+                    {/* Social / friends row for main card (compact) */}
+                    {!isDetailMode && (
+                      <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
+                        {typeof activeCard.friendLikesCount === "number" &&
+                          activeCard.friendLikesCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                              <Flame className="h-4 w-4 text-mn-primary/80" />
+                              {activeCard.friendLikesCount === 1
+                                ? "1 friend likes this"
+                                : `${activeCard.friendLikesCount} friends like this`}
                             </span>
-                          </div>
-                        </button>
-                      )}
-                    </div>
+                          )}
+
+                        {activeCard.topFriendName &&
+                          activeCard.topFriendReviewSnippet && (
+                            <button
+                              type="button"
+                              onClick={() => setShowFullFriendReview((v) => !v)}
+                              className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+                            >
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                              <div
+                                className={`overflow-hidden transition-all duration-200 ${
+                                  showFullFriendReview ? "max-h-32" : "max-h-10"
+                                }`}
+                              >
+                                <span
+                                  className={`block text-[11px] ${
+                                    showFullFriendReview ? "" : "line-clamp-2"
+                                  }`}
+                                >
+                                  {activeCard.topFriendName}: “
+                                  {activeCard.topFriendReviewSnippet}”
+                                </span>
+                              </div>
+                            </button>
+                          )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </article>
