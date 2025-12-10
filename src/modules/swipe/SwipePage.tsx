@@ -306,6 +306,7 @@ const SwipePage: React.FC = () => {
   const dragStartedInDetailAreaRef = useRef(false);
 
   const [showSharePresetSheet, setShowSharePresetSheet] = useState(false); // kept for future use
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
 
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
