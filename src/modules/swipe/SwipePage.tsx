@@ -1665,7 +1665,7 @@ const SwipePage: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleShare()}
+                                  onClick={() => setIsShareSheetOpen(true)}
                                   className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
                                 >
                                   <Share2 className="h-3.5 w-3.5" />
