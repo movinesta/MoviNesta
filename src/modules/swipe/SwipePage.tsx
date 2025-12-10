@@ -40,7 +40,8 @@ const ROTATION_FACTOR = 14;
 const DRAG_INTENT_THRESHOLD = 32;
 const FEEDBACK_ENABLED = true;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 /** Treat "N/A", empty and null as non-existent to save space */
 const cleanText = (value?: string | null): string | null => {
@@ -79,7 +80,9 @@ const abbreviateCountry = (value?: string | null): string | null => {
   return cleaned;
 };
 
-const safeNumber = (value?: number | string | null): number | null => {
+const safeNumber = (
+  value?: number | string | null,
+): number | null => {
   if (value == null) return null;
   if (typeof value === "number") {
     if (Number.isNaN(value)) return null;
@@ -127,21 +130,11 @@ const buildSwipeCardLabel = (card?: SwipeCardData) => {
 
 interface CardMetadataProps {
   card: SwipeCardData;
-  metaLine?: string;
-  highlightLabel?: string | null;
+  metaLine: string;
+  highlightLabel: string | null;
 }
 
 const CardMetadata: React.FC<CardMetadataProps> = ({ card, metaLine, highlightLabel }) => {
-  const defaultMetaLine = [
-    card.year ? String(card.year) : null,
-    card.imdbRating != null ? `IMDb ${card.imdbRating}` : null,
-    card.rtTomatoMeter != null ? `${card.rtTomatoMeter}% RT` : null,
-  ]
-    .filter(Boolean)
-    .join(" • ");
-
-  const resolvedMetaLine = metaLine ?? defaultMetaLine ?? buildSwipeCardLabel(card) ?? undefined;
-
   return (
     <div className="space-y-2 text-left leading-relaxed" aria-label="Swipe card summary">
       <div className="flex items-start justify-between gap-3">
@@ -149,11 +142,13 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card, metaLine, highlightLa
           <h2 className="line-clamp-2 text-2xl font-heading font-semibold text-mn-text-primary">
             {card.title}
           </h2>
-          {resolvedMetaLine && (
-            <p className="truncate text-[11px] text-mn-text-secondary/90">{resolvedMetaLine}</p>
+          {metaLine && (
+            <p className="truncate text-[11px] text-mn-text-secondary/90">{metaLine}</p>
           )}
           {highlightLabel && (
-            <p className="text-[10px] font-medium text-mn-primary/90">{highlightLabel}</p>
+            <p className="text-[10px] font-medium text-mn-primary/90">
+              {highlightLabel}
+            </p>
           )}
         </div>
       </div>
@@ -305,11 +300,13 @@ const SwipePage: React.FC = () => {
 
   const [smartHint, setSmartHint] = useState<string | null>(null);
   const smartHintTimeoutRef = useRef<number | null>(null);
+  const [sessionSwipeCount, setSessionSwipeCount] = useState(0);
   const [longSkipStreak, setLongSkipStreak] = useState(0);
 
   const detailContentRef = useRef<HTMLDivElement | null>(null);
   const dragStartedInDetailAreaRef = useRef(false);
 
+  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false); // kept for future use
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
 
   const activeCard = cards[currentIndex];
@@ -334,7 +331,8 @@ const SwipePage: React.FC = () => {
     if (!FEEDBACK_ENABLED) return null;
     if (typeof window === "undefined") return null;
     if (audioContextRef.current) return audioContextRef.current;
-    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const AC =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AC) return null;
     const ctx = new AC();
     audioContextRef.current = ctx;
@@ -453,10 +451,24 @@ const SwipePage: React.FC = () => {
     null;
 
   const detailGenres =
-    titleDetail?.tmdb_genre_names ?? titleDetail?.genres ?? activeCard?.genres ?? null;
+    titleDetail?.tmdb_genre_names ??
+    titleDetail?.genres ??
+    activeCard?.genres ??
+    null;
+
+  const primaryLanguageRaw =
+    titleDetail?.language ??
+    titleDetail?.omdb_language ??
+    titleDetail?.tmdb_original_language ??
+    activeCard?.language ??
+    null;
+  const detailPrimaryLanguage = cleanText(primaryLanguageRaw);
 
   const primaryCountryRaw =
-    titleDetail?.country ?? titleDetail?.omdb_country ?? activeCard?.country ?? null;
+    titleDetail?.country ??
+    titleDetail?.omdb_country ??
+    activeCard?.country ??
+    null;
   const detailPrimaryCountry = cleanText(primaryCountryRaw);
   const detailPrimaryCountryAbbr = abbreviateCountry(detailPrimaryCountry);
 
@@ -465,6 +477,7 @@ const SwipePage: React.FC = () => {
   const detailActors = cleanText(titleDetail?.omdb_actors);
 
   const externalImdbRating = titleDetail?.imdb_rating ?? activeCard?.imdbRating ?? null;
+  const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
   const externalMetascore = titleDetail?.metascore ?? null;
 
   const imdbVotes = titleDetail?.imdb_votes ?? null;
@@ -479,7 +492,7 @@ const SwipePage: React.FC = () => {
   const normalizedContentType: TitleType | null =
     titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
       ? titleDetail.content_type
-      : (activeCard?.type ?? null);
+      : activeCard?.type ?? null;
 
   const activeCardAny = activeCard as any;
   const rawCertification: string | null =
@@ -494,11 +507,10 @@ const SwipePage: React.FC = () => {
     (Array.isArray(detailGenres)
       ? (detailGenres as string[])
       : detailGenres
-        ? String(detailGenres)
-            .split(",")
-            .map((g) => g.trim())
-        : []) ?? [];
-  const moreGenres = allGenresArray.length > 3 ? allGenresArray.slice(3).filter(Boolean) : [];
+      ? String(detailGenres).split(",").map((g) => g.trim())
+      : []) ?? [];
+  const moreGenres =
+    allGenresArray.length > 3 ? allGenresArray.slice(3).filter(Boolean) : [];
 
   const allLanguagesRaw: (string | null)[] = [
     titleDetail?.language ?? null,
@@ -507,7 +519,11 @@ const SwipePage: React.FC = () => {
     activeCard?.language ?? null,
   ];
   const languages = Array.from(
-    new Set(allLanguagesRaw.map((l) => cleanText(l)).filter((l): l is string => !!l)),
+    new Set(
+      allLanguagesRaw
+        .map((l) => cleanText(l))
+        .filter((l): l is string => !!l),
+    ),
   );
 
   let episodeRuntimeMinutes: number | null = null;
@@ -622,7 +638,8 @@ const SwipePage: React.FC = () => {
     if (typeof window === "undefined") return;
 
     const idle =
-      (window as any).requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 180));
+      (window as any).requestIdleCallback ??
+      ((cb: () => void) => window.setTimeout(cb, 180));
 
     idle(() => {
       const upcoming = cards.slice(currentIndex + 1, currentIndex + 4);
@@ -773,11 +790,7 @@ const SwipePage: React.FC = () => {
       if (isSeries) {
         return "Nice — we’ll bring in more series that match this vibe.";
       }
-      if (
-        externalImdbRating != null &&
-        safeNumber(externalImdbRating) != null &&
-        safeNumber(externalImdbRating)! >= 7.5
-      ) {
+      if (externalImdbRating != null && safeNumber(externalImdbRating) != null && safeNumber(externalImdbRating)! >= 7.5) {
         return "Nice pick — we’ll show more highly rated titles like this.";
       }
       if (card.friendLikesCount && card.friendLikesCount >= 3) {
@@ -852,7 +865,8 @@ const SwipePage: React.FC = () => {
         node.style.transform =
           "perspective(1400px) translateX(0px) translateY(4px) scale(1.03) rotateZ(-1deg)";
         window.setTimeout(() => {
-          node.style.transform = "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
+          node.style.transform =
+            "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
         }, 16);
         node.style.opacity = "0";
       }
@@ -934,7 +948,9 @@ const SwipePage: React.FC = () => {
     }, 550);
 
     const startedInDetail =
-      isDetailMode && detailContentRef.current && detailContentRef.current.contains(target as Node);
+      isDetailMode &&
+      detailContentRef.current &&
+      detailContentRef.current.contains(target as Node);
     dragStartedInDetailAreaRef.current = startedInDetail;
 
     const node = cardRef.current;
@@ -952,11 +968,7 @@ const SwipePage: React.FC = () => {
     const now = performance.now();
     const dx = x - dragStartX.current;
 
-    if (
-      longPressTimeoutRef.current != null &&
-      Math.abs(dx) > 10 &&
-      !longPressTriggeredRef.current
-    ) {
+    if (longPressTimeoutRef.current != null && Math.abs(dx) > 10 && !longPressTriggeredRef.current) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
@@ -1005,12 +1017,8 @@ const SwipePage: React.FC = () => {
     const projected = distance + velocityRef.current * 180;
 
     const isDetailDrag = isDetailMode && dragStartedInDetailAreaRef.current;
-    const distanceThreshold = isDetailDrag
-      ? SWIPE_DISTANCE_THRESHOLD * 1.6
-      : SWIPE_DISTANCE_THRESHOLD;
-    const velocityThreshold = isDetailDrag
-      ? SWIPE_VELOCITY_THRESHOLD * 1.4
-      : SWIPE_VELOCITY_THRESHOLD;
+    const distanceThreshold = isDetailDrag ? SWIPE_DISTANCE_THRESHOLD * 1.6 : SWIPE_DISTANCE_THRESHOLD;
+    const velocityThreshold = isDetailDrag ? SWIPE_VELOCITY_THRESHOLD * 1.4 : SWIPE_VELOCITY_THRESHOLD;
 
     const shouldSwipe =
       Math.abs(projected) >= distanceThreshold ||
@@ -1089,8 +1097,8 @@ const SwipePage: React.FC = () => {
       lastAction.direction === "like"
         ? "Loved it"
         : lastAction.direction === "dislike"
-          ? "Marked as ‘No thanks’"
-          : "Saved for ‘Not now’";
+        ? "Marked as ‘No thanks’"
+        : "Saved for ‘Not now’";
 
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:px-0">
@@ -1123,18 +1131,16 @@ const SwipePage: React.FC = () => {
   const primaryImdbForMeta =
     typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
       ? activeCard.imdbRating
-      : typeof titleDetail?.imdb_rating === "number" &&
-          !Number.isNaN(titleDetail.imdb_rating as number)
-        ? (titleDetail.imdb_rating as number)
-        : safeNumber(titleDetail?.imdb_rating);
+      : typeof titleDetail?.imdb_rating === "number" && !Number.isNaN(titleDetail.imdb_rating as number)
+      ? (titleDetail.imdb_rating as number)
+      : safeNumber(titleDetail?.imdb_rating);
 
   const primaryRtForMeta =
     typeof activeCard?.rtTomatoMeter === "number" && !Number.isNaN(activeCard.rtTomatoMeter)
       ? activeCard.rtTomatoMeter
-      : typeof titleDetail?.rt_tomato_pct === "number" &&
-          !Number.isNaN(titleDetail.rt_tomato_pct as number)
-        ? (titleDetail.rt_tomato_pct as number)
-        : safeNumber(titleDetail?.rt_tomato_pct);
+      : typeof titleDetail?.rt_tomato_pct === "number" && !Number.isNaN(titleDetail.rt_tomato_pct as number)
+      ? (titleDetail.rt_tomato_pct as number)
+      : safeNumber(titleDetail?.rt_tomato_pct);
 
   const metaLine = activeCard
     ? (() => {
@@ -1452,7 +1458,8 @@ const SwipePage: React.FC = () => {
                                   showFullFriendReview ? "" : "line-clamp-2"
                                 }`}
                               >
-                                {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
+                                {activeCard.topFriendName}: “
+                                {activeCard.topFriendReviewSnippet}”
                               </span>
                             </div>
                           </button>
@@ -1481,7 +1488,9 @@ const SwipePage: React.FC = () => {
                               </h3>
                               {/* old info (same meta line as swipe) */}
                               {metaLine && (
-                                <p className="text-[11px] text-mn-text-secondary/90">{metaLine}</p>
+                                <p className="text-[11px] text-mn-text-secondary/90">
+                                  {metaLine}
+                                </p>
                               )}
                               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
                                 {detailGenres && (
@@ -1622,7 +1631,8 @@ const SwipePage: React.FC = () => {
                             {/* Friends info block (same data as swipe, but in summary layout) */}
                             {(typeof activeCard.friendLikesCount === "number" &&
                               activeCard.friendLikesCount > 0) ||
-                            (activeCard.topFriendName && activeCard.topFriendReviewSnippet) ? (
+                            (activeCard.topFriendName &&
+                              activeCard.topFriendReviewSnippet) ? (
                               <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
                                 {typeof activeCard.friendLikesCount === "number" &&
                                   activeCard.friendLikesCount > 0 && (
@@ -1633,29 +1643,32 @@ const SwipePage: React.FC = () => {
                                         : `${activeCard.friendLikesCount} friends like this`}
                                     </div>
                                   )}
-                                {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowFullFriendReview((v) => !v)}
-                                    className="mt-1 inline-flex w-full items-start gap-2 text-left"
-                                  >
-                                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                                    <div
-                                      className={`overflow-hidden transition-all duration-200 ${
-                                        showFullFriendReview ? "max-h-32" : "max-h-10"
-                                      }`}
+                                {activeCard.topFriendName &&
+                                  activeCard.topFriendReviewSnippet && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setShowFullFriendReview((v) => !v)
+                                      }
+                                      className="mt-1 inline-flex w-full items-start gap-2 text-left"
                                     >
-                                      <span
-                                        className={`block text-[11px] ${
-                                          showFullFriendReview ? "" : "line-clamp-2"
+                                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                                      <div
+                                        className={`overflow-hidden transition-all duration-200 ${
+                                          showFullFriendReview ? "max-h-32" : "max-h-10"
                                         }`}
                                       >
-                                        {activeCard.topFriendName}: “
-                                        {activeCard.topFriendReviewSnippet}”
-                                      </span>
-                                    </div>
-                                  </button>
-                                )}
+                                        <span
+                                          className={`block text-[11px] ${
+                                            showFullFriendReview ? "" : "line-clamp-2"
+                                          }`}
+                                        >
+                                          {activeCard.topFriendName}: “
+                                          {activeCard.topFriendReviewSnippet}”
+                                        </span>
+                                      </div>
+                                    </button>
+                                  )}
                               </div>
                             ) : null}
                           </div>
@@ -1687,14 +1700,17 @@ const SwipePage: React.FC = () => {
                                       <span>{languages.join(", ")}</span>
                                     </p>
                                   )}
-                                  {episodeRuntimeMinutes && normalizedContentType === "series" && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Episode runtime:
-                                      </span>{" "}
-                                      <span>{formatRuntime(episodeRuntimeMinutes)}</span>
-                                    </p>
-                                  )}
+                                  {episodeRuntimeMinutes &&
+                                    normalizedContentType === "series" && (
+                                      <p>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          Episode runtime:
+                                        </span>{" "}
+                                        <span>
+                                          {formatRuntime(episodeRuntimeMinutes)}
+                                        </span>
+                                      </p>
+                                    )}
                                 </div>
                               </section>
                             )}
@@ -1712,46 +1728,57 @@ const SwipePage: React.FC = () => {
                                 <div className="mt-1 grid gap-1.5">
                                   {imdbVotes && formatInt(imdbVotes) && (
                                     <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">IMDb votes</span>
+                                      <span className="text-mn-text-secondary/90">
+                                        IMDb votes
+                                      </span>
                                       <span className="font-medium text-mn-text-primary/90">
                                         {formatInt(imdbVotes)}
                                       </span>
                                     </div>
                                   )}
-                                  {externalMetascore && safeNumber(externalMetascore) != null && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">Metascore</span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {safeNumber(externalMetascore)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {tmdbVoteAverage && safeNumber(tmdbVoteAverage) != null && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">TMDB score</span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {safeNumber(tmdbVoteAverage)?.toFixed(1)}
-                                      </span>
-                                    </div>
-                                  )}
+                                  {externalMetascore &&
+                                    safeNumber(externalMetascore) != null && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">
+                                          Metascore
+                                        </span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {safeNumber(externalMetascore)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  {tmdbVoteAverage &&
+                                    safeNumber(tmdbVoteAverage) != null && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">
+                                          TMDB score
+                                        </span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {safeNumber(tmdbVoteAverage)?.toFixed(1)}
+                                        </span>
+                                      </div>
+                                    )}
                                   {tmdbVoteCount && formatInt(tmdbVoteCount) && (
                                     <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">TMDB votes</span>
+                                      <span className="text-mn-text-secondary/90">
+                                        TMDB votes
+                                      </span>
                                       <span className="font-medium text-mn-text-primary/90">
                                         {formatInt(tmdbVoteCount)}
                                       </span>
                                     </div>
                                   )}
-                                  {tmdbPopularity && safeNumber(tmdbPopularity) != null && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">
-                                        TMDB popularity
-                                      </span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {safeNumber(tmdbPopularity)?.toFixed(1)}
-                                      </span>
-                                    </div>
-                                  )}
+                                  {tmdbPopularity &&
+                                    safeNumber(tmdbPopularity) != null && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">
+                                          TMDB popularity
+                                        </span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {safeNumber(tmdbPopularity)?.toFixed(1)}
+                                        </span>
+                                      </div>
+                                    )}
                                 </div>
                               </section>
                             )}
@@ -1771,23 +1798,22 @@ const SwipePage: React.FC = () => {
                                       <span>{detailWriter}</span>
                                     </p>
                                   )}
-                                  {detailActors &&
-                                    (() => {
-                                      const allNames = detailActors
-                                        .split(",")
-                                        .map((a) => a.trim())
-                                        .filter(Boolean);
-                                      const extra = allNames.slice(3);
-                                      if (!extra.length) return null;
-                                      return (
-                                        <p>
-                                          <span className="font-medium text-mn-text-primary/90">
-                                            More cast:
-                                          </span>{" "}
-                                          <span>{extra.join(", ")}</span>
-                                        </p>
-                                      );
-                                    })()}
+                                  {detailActors && (() => {
+                                    const allNames = detailActors
+                                      .split(",")
+                                      .map((a) => a.trim())
+                                      .filter(Boolean);
+                                    const extra = allNames.slice(3);
+                                    if (!extra.length) return null;
+                                    return (
+                                      <p>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          More cast:
+                                        </span>{" "}
+                                        <span>{extra.join(", ")}</span>
+                                      </p>
+                                    );
+                                  })()}
                                 </div>
                               </section>
                             ) : null}
@@ -1852,7 +1878,9 @@ const SwipePage: React.FC = () => {
               {showOnboarding && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-mn-bg/70 via-mn-bg/50 to-mn-bg/80">
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
-                    <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
+                    <p className="text-sm font-semibold text-mn-text-primary">
+                      Swipe to decide
+                    </p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
                       Swipe left to pass, right to save what you love.
                     </p>
@@ -1925,6 +1953,7 @@ const SwipePage: React.FC = () => {
   );
 };
 
+
 interface SwipeShareSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1962,24 +1991,10 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
     }
   };
 
-  const handleBackdropKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
-    if (event.key === "Escape") {
-      onClose();
-    }
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onClose();
-    }
-  };
-
   return (
     <div
       className="fixed inset-0 z-[9999] flex flex-col justify-end bg-black/55"
       onClick={handleBackdropClick}
-      onKeyDown={handleBackdropKeyDown}
-      role="button"
-      tabIndex={0}
-      aria-label="Close share sheet"
     >
       <div className="pointer-events-auto mb-[72px] w-full max-w-md self-center rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
         <div className="flex items-center justify-between px-4 pb-2">
@@ -1989,7 +2004,9 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
           >
             <Search className="h-4 w-4" />
           </button>
-          <span className="text-[13px] font-semibold text-mn-text-primary">Send to</span>
+          <span className="text-[13px] font-semibold text-mn-text-primary">
+            Send to
+          </span>
           <button
             type="button"
             onClick={onClose}
@@ -2013,7 +2030,9 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
               ))}
             </div>
           ) : !user ? (
-            <p className="text-[12px] text-mn-text-secondary/80">Sign in to share via messages.</p>
+            <p className="text-[12px] text-mn-text-secondary/80">
+              Sign in to share via messages.
+            </p>
           ) : conversations.length === 0 ? (
             <p className="text-[12px] text-mn-text-secondary/80">
               No conversations yet. Start a chat from a profile or the Messages tab.
@@ -2021,7 +2040,11 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-1 pt-0.5">
               {conversations.map((conversation) => (
-                <ShareRecipientChip key={conversation.id} conversation={conversation} text={text} />
+                <ShareRecipientChip
+                  key={conversation.id}
+                  conversation={conversation}
+                  text={text}
+                />
               ))}
             </div>
           )}
@@ -2045,10 +2068,14 @@ interface ShareRecipientChipProps {
   text: string;
 }
 
-const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, text }) => {
+const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({
+  conversation,
+  text,
+}) => {
   const primaryOther = conversation.isGroup
     ? null
-    : (conversation.participants?.find((p: any) => !p.isSelf) ?? conversation.participants?.[0]);
+    : conversation.participants?.find((p: any) => !p.isSelf) ??
+      conversation.participants?.[0];
 
   const displayName = primaryOther?.displayName ?? conversation.title ?? "Conversation";
   const avatarUrl = primaryOther?.avatarUrl;
@@ -2075,7 +2102,11 @@ const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, t
       <div className="relative">
         <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-mn-bg-subtle text-[10px] text-mn-text-secondary">
           {avatarUrl ? (
-            <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+            <img
+              src={avatarUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
           ) : (
             <span>{initials}</span>
           )}
@@ -2117,7 +2148,9 @@ const ShareCopyLinkChip: React.FC<ShareCopyLinkChipProps> = ({ shareUrl }) => {
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-mn-primary">
         <Link2 className="h-4 w-4 text-mn-bg" />
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">Copy link</span>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        Copy link
+      </span>
     </button>
   );
 };
@@ -2144,7 +2177,9 @@ const WhatsAppShareChip: React.FC<WhatsAppShareChipProps> = ({ shareUrl, title }
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#25D366]">
         <span className="text-[16px] font-semibold text-white">W</span>
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">WhatsApp</span>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        WhatsApp
+      </span>
     </button>
   );
 };
@@ -2173,7 +2208,9 @@ const TelegramShareChip: React.FC<TelegramShareChipProps> = ({ shareUrl, title }
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#229ED9]">
         <span className="text-[16px] font-semibold text-white">T</span>
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">Telegram</span>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        Telegram
+      </span>
     </button>
   );
 };
@@ -2196,10 +2233,11 @@ const MoreShareChip: React.FC<MoreShareChipProps> = ({ onShareExternal }) => {
       <div className="flex h-11 w-11 items-center justify-center rounded-full border border-mn-border-subtle/80 bg-mn-bg-subtle">
         <Share2 className="h-4 w-4 text-mn-text-secondary" />
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">More</span>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        More
+      </span>
     </button>
   );
 };
 
-export { CardMetadata, LoadingSwipeCard, PosterFallback };
 export default SwipePage;
