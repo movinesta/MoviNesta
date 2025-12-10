@@ -1980,10 +1980,238 @@ const SwipePage: React.FC = () => {
           </button>
         </div>
 
+        <SwipeShareSheet
+          isOpen={isShareSheetOpen}
+          onClose={() => setIsShareSheetOpen(false)}
+          activeCard={activeCard}
+          shareUrl={shareUrl}
+          onShareExternal={handleShareExternal}
+        />
+
         {renderUndoToast()}
       </div>
     </div>
   );
 };
+
+
+interface SwipeShareSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  activeCard: SwipeCardData | undefined;
+  shareUrl: string;
+  onShareExternal: () => Promise<void>;
+}
+
+interface ShareRecipientRowProps {
+  conversation: ConversationListItem;
+  text: string;
+  onSent?: (conversation: ConversationListItem) => void;
+}
+
+const ShareRecipientRow: React.FC<ShareRecipientRowProps> = ({
+  conversation,
+  text,
+  onSent,
+}) => {
+  const primaryOther = conversation.isGroup
+    ? null
+    : conversation.participants.find((p) => !p.isSelf) ??
+      conversation.participants[0];
+
+  const displayName = primaryOther?.displayName ?? conversation.title ?? "Conversation";
+  const avatarUrl = primaryOther?.avatarUrl;
+
+  const sendMessage = useSendMessage(conversation.id);
+  const handleSend = () => {
+    if (sendMessage.isPending) return;
+    sendMessage.mutate(
+      { text },
+      {
+        onSuccess: () => {
+          onSent?.(conversation);
+        },
+      },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleSend}
+      disabled={sendMessage.isPending}
+      className="flex items-center justify-between rounded-xl px-2.5 py-1.5 hover:bg-mn-bg/80 disabled:opacity-60"
+    >
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg-subtle text-[11px] text-mn-text-secondary">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span>{displayName.charAt(0).toUpperCase()}</span>
+          )}
+        </div>
+        <div className="flex flex-col text-left">
+          <span className="text-[12px] font-medium text-mn-text-primary">
+            {displayName}
+          </span>
+          <span className="text-[11px] text-mn-text-secondary">
+            {conversation.isGroup ? "Group" : "Direct message"}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        {sendMessage.isSuccess && (
+          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+        )}
+        <span className="text-[11px] font-semibold text-mn-primary">
+          {sendMessage.isPending ? "Sending…" : "Send"}
+        </span>
+      </div>
+    </button>
+  );
+};
+
+const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
+  isOpen,
+  onClose,
+  activeCard,
+  shareUrl,
+  onShareExternal,
+}) => {
+  const { user } = useAuth();
+  const { data: conversations = [], isLoading } = useConversations();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !activeCard) return null;
+
+  const text = `Check this out: ${activeCard.title}\n\n${shareUrl}`;
+
+  const handleBackdropClick: React.MouseEventHandler<HTMLDivElement> = (event) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Link copied to clipboard");
+      } else {
+        alert(shareUrl);
+      }
+    } catch {
+      alert(shareUrl);
+    }
+  };
+
+  const handleExternalShareClick = async () => {
+    await onShareExternal();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
+      onClick={handleBackdropClick}
+    >
+      <div className="pointer-events-auto w-full max-w-md transform rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
+        <div className="flex items-center justify-between px-4 pb-2">
+          <span className="text-[13px] font-semibold text-mn-text-primary">
+            Share
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1 text-mn-text-secondary hover:bg-mn-bg/80"
+          >
+            <span className="text-[18px] leading-none">&times;</span>
+          </button>
+        </div>
+
+        <section className="border-t border-mn-border-subtle/80 px-4 pt-3 pb-2">
+          <h2 className="mb-2 text-[12px] font-medium uppercase tracking-[0.08em] text-mn-text-secondary/90">
+            Send to
+          </h2>
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-xl px-2.5 py-1.5"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 animate-pulse rounded-full bg-mn-border-subtle/40" />
+                    <div className="space-y-1">
+                      <div className="h-3 w-24 animate-pulse rounded bg-mn-border-subtle/50" />
+                      <div className="h-2.5 w-16 animate-pulse rounded bg-mn-border-subtle/30" />
+                    </div>
+                  </div>
+                  <div className="h-3 w-10 animate-pulse rounded bg-mn-border-subtle/40" />
+                </div>
+              ))}
+            </div>
+          ) : conversations.length === 0 ? (
+            <p className="text-[12px] text-mn-text-secondary/80">
+              No conversations yet. Start a chat from a profile or the Messages tab.
+            </p>
+          ) : !user ? (
+            <p className="text-[12px] text-mn-text-secondary/80">
+              Sign in to share via messages.
+            </p>
+          ) : (
+            <div className="flex max-h-[260px] flex-col gap-1.5 overflow-y-auto pb-1">
+              {conversations.map((conversation) => (
+                <ShareRecipientRow
+                  key={conversation.id}
+                  conversation={conversation}
+                  text={text}
+                  onSent={() => {
+                    // keep sheet open to allow sharing to multiple people
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="border-t border-mn-border-subtle/80 px-4 pt-3 pb-1.5">
+          <h2 className="mb-2 text-[12px] font-medium uppercase tracking-[0.08em] text-mn-text-secondary/90">
+            Share via
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1 text-[11px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+            >
+              Copy link
+            </button>
+            <button
+              type="button"
+              onClick={handleExternalShareClick}
+              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/80 bg-mn-bg px-2.5 py-1 text-[11px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+            >
+              Share outside MoviNesta
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+};
+
 
 export default SwipePage;
