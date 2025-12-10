@@ -2130,15 +2130,12 @@ interface ShareCopyLinkChipProps {
 
 const ShareCopyLinkChip: React.FC<ShareCopyLinkChipProps> = ({ shareUrl }) => {
   const handleClick = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
+    if (navigator.clipboard?.writeText) {
+      try {
         await navigator.clipboard.writeText(shareUrl);
-        alert("Link copied to clipboard");
-      } else {
-        alert(shareUrl);
+      } catch {
+        // Swallow copy errors silently; user can still use other share options
       }
-    } catch {
-      alert(shareUrl);
     }
   };
 
