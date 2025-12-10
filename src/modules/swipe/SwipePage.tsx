@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -255,10 +256,12 @@ interface TitleDetailRow {
   tmdb_episode_run_time: number | number[] | null;
 }
 
-const WATCHLIST_STATUS = "watchlist" as DiaryStatus;
+const WATCHLIST_STATUS = "want_to_watch" as DiaryStatus;
 const WATCHED_STATUS = "watched" as DiaryStatus;
 
 const SwipePage: React.FC = () => {
+  const navigate = useNavigate();
+
   const {
     cards,
     isLoading,
@@ -313,6 +316,8 @@ const SwipePage: React.FC = () => {
   const { updateStatus, updateRating } = useDiaryLibraryMutations();
   const { data: diaryEntryData } = useTitleDiaryEntry(activeTitleId);
   const diaryEntry = diaryEntryData ?? { status: null, rating: null };
+
+  const [localRating, setLocalRating] = useState<number | null>(null);
 
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
@@ -550,9 +555,17 @@ const SwipePage: React.FC = () => {
 
   const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
 
-  const currentUserRating = diaryEntry?.rating ?? null;
+  const serverRating = diaryEntry?.rating ?? null;
+  const currentUserRating = localRating ?? serverRating;
+
+  useEffect(() => {
+    // Reset local rating when the active title or server rating changes
+    setLocalRating(null);
+  }, [activeTitleId, serverRating]);
+
   const handleStarClick = (value: number) => {
     const next = currentUserRating === value ? null : value;
+    setLocalRating(next);
     setDiaryRating(next);
   };
 
@@ -582,6 +595,51 @@ const SwipePage: React.FC = () => {
       }
     } catch {
       // user cancelled / blocked
+    }
+  };
+
+  const handleShareToMessages = async () => {
+    if (!activeCard) return;
+
+    if (!user) {
+      alert("Sign in to share via messages.");
+      return;
+    }
+
+    const url = getShareUrl();
+    const text = `Check this out: ${activeCard.title}\n\n${url}`;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        alert("Link copied. Open a conversation to paste and share.");
+      } else {
+        alert(text);
+      }
+    } catch (error) {
+      console.error("[SwipePage] Failed to prepare share message", error);
+      alert(text);
+    } finally {
+      navigate("/messages");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!activeCard) return;
+
+    if (!user || typeof window === "undefined") {
+      await handleShareExternal();
+      return;
+    }
+
+    const wantsDm = window.confirm(
+      "Share this in your MoviNesta messages? Press OK for messages, or Cancel to share outside the app.",
+    );
+
+    if (wantsDm) {
+      await handleShareToMessages();
+    } else {
+      await handleShareExternal();
     }
   };
 
@@ -1602,7 +1660,7 @@ const SwipePage: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleShareExternal()}
+                                  onClick={() => handleShare()}
                                   className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
                                 >
                                   <Share2 className="h-3.5 w-3.5" />
