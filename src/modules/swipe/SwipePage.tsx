@@ -12,7 +12,6 @@ import {
   Star,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
-import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -21,7 +20,7 @@ import {
   useTitleDiaryEntry,
   type DiaryStatus,
 } from "../diary/useDiaryLibrary";
-import { useConversations, type ConversationListItem } from "../messages/useConversations";
+import { useConversations } from "../messages/useConversations";
 import { useSendMessage } from "../messages/ConversationPage";
 import { supabase } from "../../lib/supabase";
 import type { SwipeCardData, SwipeDirection, SwipeDeckKind } from "./useSwipeDeck";
@@ -262,8 +261,6 @@ const WATCHLIST_STATUS = "want_to_watch" as DiaryStatus;
 const WATCHED_STATUS = "watched" as DiaryStatus;
 
 const SwipePage: React.FC = () => {
-  const navigate = useNavigate();
-
   const {
     cards,
     isLoading,
@@ -600,51 +597,6 @@ const SwipePage: React.FC = () => {
       }
     } catch {
       // user cancelled / blocked
-    }
-  };
-
-  const handleShareToMessages = async () => {
-    if (!activeCard) return;
-
-    if (!user) {
-      alert("Sign in to share via messages.");
-      return;
-    }
-
-    const url = getShareUrl();
-    const text = `Check this out: ${activeCard.title}\n\n${url}`;
-
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        alert("Link copied. Open a conversation to paste and share.");
-      } else {
-        alert(text);
-      }
-    } catch (error) {
-      console.error("[SwipePage] Failed to prepare share message", error);
-      alert(text);
-    } finally {
-      navigate("/messages");
-    }
-  };
-
-  const handleShare = async () => {
-    if (!activeCard) return;
-
-    if (!user || typeof window === "undefined") {
-      await handleShareExternal();
-      return;
-    }
-
-    const wantsDm = window.confirm(
-      "Share this in your MoviNesta messages? Press OK for messages, or Cancel to share outside the app.",
-    );
-
-    if (wantsDm) {
-      await handleShareToMessages();
-    } else {
-      await handleShareExternal();
     }
   };
 
@@ -2008,79 +1960,6 @@ interface SwipeShareSheetProps {
   onShareExternal: () => Promise<void>;
 }
 
-interface ShareRecipientRowProps {
-  conversation: ConversationListItem;
-  text: string;
-  onSent?: (conversation: ConversationListItem) => void;
-}
-
-const ShareRecipientRow: React.FC<ShareRecipientRowProps> = ({
-  conversation,
-  text,
-  onSent,
-}) => {
-  const primaryOther = conversation.isGroup
-    ? null
-    : conversation.participants.find((p) => !p.isSelf) ??
-      conversation.participants[0];
-
-  const displayName = primaryOther?.displayName ?? conversation.title ?? "Conversation";
-  const avatarUrl = primaryOther?.avatarUrl;
-
-  const sendMessage = useSendMessage(conversation.id);
-  const handleSend = () => {
-    if (sendMessage.isPending) return;
-    sendMessage.mutate(
-      { text },
-      {
-        onSuccess: () => {
-          onSent?.(conversation);
-        },
-      },
-    );
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleSend}
-      disabled={sendMessage.isPending}
-      className="flex items-center justify-between rounded-xl px-2.5 py-1.5 hover:bg-mn-bg/80 disabled:opacity-60"
-    >
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-mn-bg-subtle text-[11px] text-mn-text-secondary">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={displayName}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span>{displayName.charAt(0).toUpperCase()}</span>
-          )}
-        </div>
-        <div className="flex flex-col text-left">
-          <span className="text-[12px] font-medium text-mn-text-primary">
-            {displayName}
-          </span>
-          <span className="text-[11px] text-mn-text-secondary">
-            {conversation.isGroup ? "Group" : "Direct message"}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        {sendMessage.isSuccess && (
-          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-        )}
-        <span className="text-[11px] font-semibold text-mn-primary">
-          {sendMessage.isPending ? "Sending…" : "Send"}
-        </span>
-      </div>
-    </button>
-  );
-};
-
 const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
   isOpen,
   onClose,
@@ -2129,10 +2008,10 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
+      className="fixed inset-0 z-[90] flex flex-col justify-end bg-black/55"
       onClick={handleBackdropClick}
     >
-      <div className="pointer-events-auto w-full max-w-md transform rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
+      <div className="pointer-events-auto w-full max-w-md self-center rounded-t-2xl bg-mn-bg-elevated pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
         <div className="flex items-center justify-between px-4 pb-2">
           <span className="text-[13px] font-semibold text-mn-text-primary">
             Share
@@ -2151,41 +2030,29 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
             Send to
           </h2>
           {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between rounded-xl px-2.5 py-1.5"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 animate-pulse rounded-full bg-mn-border-subtle/40" />
-                    <div className="space-y-1">
-                      <div className="h-3 w-24 animate-pulse rounded bg-mn-border-subtle/50" />
-                      <div className="h-2.5 w-16 animate-pulse rounded bg-mn-border-subtle/30" />
-                    </div>
-                  </div>
-                  <div className="h-3 w-10 animate-pulse rounded bg-mn-border-subtle/40" />
+            <div className="flex gap-3 overflow-hidden">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="flex flex-col items-center gap-1">
+                  <div className="h-11 w-11 animate-pulse rounded-full bg-mn-border-subtle/50" />
+                  <div className="h-2.5 w-12 animate-pulse rounded bg-mn-border-subtle/40" />
                 </div>
               ))}
             </div>
-          ) : conversations.length === 0 ? (
-            <p className="text-[12px] text-mn-text-secondary/80">
-              No conversations yet. Start a chat from a profile or the Messages tab.
-            </p>
           ) : !user ? (
             <p className="text-[12px] text-mn-text-secondary/80">
               Sign in to share via messages.
             </p>
+          ) : conversations.length === 0 ? (
+            <p className="text-[12px] text-mn-text-secondary/80">
+              No conversations yet. Start a chat from a profile or the Messages tab.
+            </p>
           ) : (
-            <div className="flex max-h-[260px] flex-col gap-1.5 overflow-y-auto pb-1">
+            <div className="flex gap-3 overflow-x-auto pb-1 pt-0.5">
               {conversations.map((conversation) => (
-                <ShareRecipientRow
+                <ShareRecipientChip
                   key={conversation.id}
                   conversation={conversation}
                   text={text}
-                  onSent={() => {
-                    // keep sheet open to allow sharing to multiple people
-                  }}
                 />
               ))}
             </div>
@@ -2215,6 +2082,64 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
         </section>
       </div>
     </div>
+  );
+};
+
+interface ShareRecipientChipProps {
+  conversation: any;
+  text: string;
+}
+
+const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, text }) => {
+  const primaryOther = conversation.isGroup
+    ? null
+    : conversation.participants?.find((p: any) => !p.isSelf) ??
+      conversation.participants?.[0];
+
+  const displayName = primaryOther?.displayName ?? conversation.title ?? "Conversation";
+  const avatarUrl = primaryOther?.avatarUrl;
+
+  const sendMessage = useSendMessage(conversation.id);
+
+  const handleClick = () => {
+    if (sendMessage.isPending) return;
+    sendMessage.mutate({ text });
+  };
+
+  const initials = displayName
+    .split(" ")
+    .map((part: string) => part.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join("");
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex w-[72px] flex-col items-center gap-1 text-center"
+    >
+      <div className="relative">
+        <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-mn-bg-subtle text-[10px] text-mn-text-secondary">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span>{initials}</span>
+          )}
+        </div>
+        {sendMessage.isSuccess && (
+          <div className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+            <CheckCircle2 className="h-3 w-3 text-mn-bg" />
+          </div>
+        )}
+      </div>
+      <span className="line-clamp-2 max-w-[72px] text-[10px] text-mn-text-primary">
+        {displayName}
+      </span>
+    </button>
   );
 };
 
