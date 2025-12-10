@@ -21,8 +21,6 @@ import {
   useTitleDiaryEntry,
   type DiaryStatus,
 } from "../diary/useDiaryLibrary";
-import { useConversations, type ConversationListItem } from "../messages/useConversations";
-import { useSendMessage } from "../messages/ConversationPage";
 import { supabase } from "../../lib/supabase";
 import type { SwipeCardData, SwipeDirection, SwipeDeckKind } from "./useSwipeDeck";
 import { useSwipeDeck } from "./useSwipeDeck";
@@ -309,8 +307,6 @@ const SwipePage: React.FC = () => {
 
   const [showSharePresetSheet, setShowSharePresetSheet] = useState(false); // kept for future use
 
-  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
-
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
 
@@ -577,6 +573,8 @@ const SwipePage: React.FC = () => {
     typeof window !== "undefined"
       ? `${window.location.origin}/title/${activeCard?.id ?? ""}`
       : `/title/${activeCard?.id ?? ""}`;
+
+  const shareUrl = getShareUrl();
 
   const handleShareExternal = async (messageOverride?: string) => {
     if (!activeCard) return;
