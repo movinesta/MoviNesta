@@ -28,6 +28,8 @@ import SwipeSyncBanner from "./SwipeSyncBanner";
 import { TitleType } from "@/types/supabase-helpers";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
+
+// swipe constants (kept)
 const SWIPE_DISTANCE_THRESHOLD = 88;
 const SWIPE_VELOCITY_THRESHOLD = 0.32; // px per ms
 const MAX_DRAG = 220;
@@ -145,75 +147,48 @@ const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
   </div>
 );
 
-/**
- * Animated loading skeleton with subtle 3D “wiggle”
- */
-const LoadingSwipeCard: React.FC = () => {
-  const [offset, setOffset] = useState(0);
-  const directionRef = useRef<1 | -1>(1);
+const LoadingSwipeCard: React.FC = () => (
+  <article className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur">
+    <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
+      <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
+      <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-mn-text-muted/90">
+          <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle/80" />
+          Getting picks…
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-mn-text-muted/80">
+          <Sparkles className="h-3 w-3" />
+          Warming up
+        </span>
+      </div>
+    </div>
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      directionRef.current = (directionRef.current === 1 ? -1 : 1) as 1 | -1;
-      setOffset(directionRef.current * 14);
-    }, 850);
-
-    return () => window.clearInterval(interval);
-  }, []);
-
-  const rotation = offset / 5;
-
-  return (
-    <article
-      className="relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_24px_70px_rgba(0,0,0,0.8)] backdrop-blur transform-gpu will-change-transform"
-      style={{
-        transform: `perspective(1400px) translateX(${offset}px) rotateZ(${rotation}deg) rotateY(${
-          offset / 6
-        }deg) scale(1.02)`,
-        transition: "transform 480ms cubic-bezier(0.22,0.61,0.36,1)",
-      }}
-    >
-      <div className="relative h-[58%] overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95">
-        <div className="h-full w-full animate-pulse bg-gradient-to-br from-mn-border-subtle/40 via-mn-border-subtle/20 to-mn-border-subtle/50" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-mn-bg/85" />
-        <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-mn-text-muted/90">
-            <span className="h-1.5 w-1.5 rounded-full bg-mn-border-subtle/80" />
-            Getting picks…
-          </span>
-          <span className="inline-flex items-center gap-1 text-[10px] text-mn-text-muted/80">
-            <Sparkles className="h-3 w-3" />
-            Warming up
-          </span>
+    <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
+      <div className="space-y-3 text-left text-[12px] leading-relaxed">
+        <div className="space-y-2">
+          <div className="h-5 w-3/4 animate-pulse rounded-md bg-mn-border-subtle/60" />
+          <div className="h-3 w-1/2 animate-pulse rounded-md bg-mn-border-subtle/40" />
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-3 w-full animate-pulse rounded-md bg-mn-border-subtle/40" />
+          <div className="h-3 w-5/6 animate-pulse rounded-md bg-mn-border-subtle/30" />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="h-6 w-20 animate-pulse rounded-md bg-mn-border-subtle/40" />
+          <div className="h-6 w-16 animate-pulse rounded-md bg-mn-border-subtle/20" />
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-        <div className="space-y-3 text-left text-[12px] leading-relaxed">
-          <div className="space-y-2">
-            <div className="h-5 w-3/4 animate-pulse rounded-md bg-mn-border-subtle/60" />
-            <div className="h-3 w-1/2 animate-pulse rounded-md bg-mn-border-subtle/40" />
-          </div>
-          <div className="space-y-1.5">
-            <div className="h-3 w-full animate-pulse rounded-md bg-mn-border-subtle/40" />
-            <div className="h-3 w-5/6 animate-pulse rounded-md bg-mn-border-subtle/30" />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <div className="h-6 w-20 animate-pulse rounded-md bg-mn-border-subtle/40" />
-            <div className="h-6 w-16 animate-pulse rounded-md bg-mn-border-subtle/20" />
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
-          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary/80">
-            <Flame className="h-4 w-4 text-mn-border-subtle/80" />
-            Finding what friends like…
-          </span>
-        </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-mn-text-secondary">
+        <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary/80">
+          <Flame className="h-4 w-4 text-mn-border-subtle/80" />
+          Finding what friends like…
+        </span>
       </div>
-    </article>
-  );
-};
+    </div>
+  </article>
+);
 
 interface TitleDetailRow {
   title_id: string;
@@ -272,15 +247,8 @@ const SwipePage: React.FC = () => {
   const [nextParallaxX, setNextParallaxX] = useState(0);
 
   const [isDetailMode, setIsDetailMode] = useState(false);
-  const [showFullFriendReview, setShowFullFriendReview] = useState(false);
-  const [showFullOverview, setShowFullOverview] = useState(false); // kept for compatibility
   const [isFullDetailOpen, setIsFullDetailOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isDetailMode) {
-      setIsFullDetailOpen(false);
-    }
-  }, [isDetailMode]);
+  const [showFullFriendReview, setShowFullFriendReview] = useState(false);
 
   const [lastAction, setLastAction] = useState<{
     card: SwipeCardData;
@@ -289,15 +257,14 @@ const SwipePage: React.FC = () => {
   const [showUndo, setShowUndo] = useState(false);
   const undoTimeoutRef = useRef<number | null>(null);
 
-  // Smarts
   const [smartHint, setSmartHint] = useState<string | null>(null);
   const smartHintTimeoutRef = useRef<number | null>(null);
-  const [longSkipStreak, setLongSkipStreak] = useState(0);
   const [sessionSwipeCount, setSessionSwipeCount] = useState(0);
+  const [longSkipStreak, setLongSkipStreak] = useState(0);
+
   const detailContentRef = useRef<HTMLDivElement | null>(null);
   const dragStartedInDetailAreaRef = useRef(false);
 
-  // Share presets
   const [showSharePresetSheet, setShowSharePresetSheet] = useState(false);
 
   const activeCard = cards[currentIndex];
@@ -305,7 +272,6 @@ const SwipePage: React.FC = () => {
 
   const activeTitleId = activeCard?.id ?? null;
 
-  // diary / auth
   const { user } = useAuth();
   const { updateStatus, updateRating } = useDiaryLibraryMutations();
   const { data: diaryEntryData } = useTitleDiaryEntry(activeTitleId);
@@ -315,10 +281,8 @@ const SwipePage: React.FC = () => {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 
-  // haptics + audio
+  // audio + hover
   const audioContextRef = useRef<AudioContext | null>(null);
-
-  // hover parallax
   const hoverTiltRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const ensureAudioContext = () => {
@@ -383,7 +347,7 @@ const SwipePage: React.FC = () => {
     osc.stop(now + duration + 0.02);
   };
 
-  // title details (from titles table)
+  // title detail
   const { data: titleDetail } = useQuery<TitleDetailRow | null>({
     queryKey: qk.titleDetail(activeTitleId),
     enabled: Boolean(activeTitleId && isDetailMode),
@@ -422,10 +386,7 @@ const SwipePage: React.FC = () => {
         .eq("title_id", activeTitleId)
         .maybeSingle();
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       return data as TitleDetailRow | null;
     },
   });
@@ -463,11 +424,16 @@ const SwipePage: React.FC = () => {
   const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
   const externalMetascore = titleDetail?.metascore ?? null;
 
-  // diary helpers
   const normalizedContentType: TitleType | null =
     titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
       ? titleDetail.content_type
       : activeCard?.type ?? null;
+
+  const activeCardAny = activeCard as any;
+  const detailCertification: string | null =
+    (activeCardAny?.certification as string | undefined) ??
+    (activeCardAny?.rated as string | undefined) ??
+    null;
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -490,6 +456,12 @@ const SwipePage: React.FC = () => {
   };
 
   const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
+
+  const currentUserRating = diaryEntry?.rating ?? null;
+  const handleStarClick = (value: number) => {
+    const next = currentUserRating === value ? null : value;
+    setDiaryRating(next);
+  };
 
   const getShareUrl = () =>
     typeof window !== "undefined"
@@ -516,45 +488,8 @@ const SwipePage: React.FC = () => {
         alert(`${text}\n\n${url}`);
       }
     } catch {
-      // user cancelled
+      // ignore
     }
-  };
-
-  const handleShareOpenDetail = () => {
-    if (!activeCard) return;
-    const url = `/title/${activeCard.id}`;
-    if (typeof window !== "undefined") {
-      window.open(url, "_blank");
-    }
-  };
-
-  const handleSharePreset = async (preset: "watch_together" | "recommend" | "dm") => {
-    if (!activeCard) return;
-    const url = getShareUrl();
-
-    let text: string;
-    if (preset === "watch_together") {
-      text = `Should we watch this together?\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
-      await handleShareExternal(text);
-    } else if (preset === "recommend") {
-      text = `This looks like your type of title.\n\n${activeCard.title} (${activeCard.year ?? ""})\n`;
-      await handleShareExternal(text);
-    } else {
-      // DM preset: always copy formatted DM text
-      text = `Hey, I found this on MoviNesta:\n${activeCard.title} (${activeCard.year ?? ""})\n\nWhat do you think?\n${url}`;
-      try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-          alert("Message copied for DM");
-        } else {
-          alert(text);
-        }
-      } catch {
-        alert(text);
-      }
-    }
-
-    setShowSharePresetSheet(false);
   };
 
   const showActivePoster = Boolean(activeCard?.posterUrl && !activePosterFailed);
@@ -568,9 +503,10 @@ const SwipePage: React.FC = () => {
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
 
+  // onboarding
   useEffect(() => {
-    const hasSeen =
-      typeof window !== "undefined" ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
+    if (typeof window === "undefined") return;
+    const hasSeen = localStorage.getItem(ONBOARDING_STORAGE_KEY);
     setShowOnboarding(!hasSeen);
   }, []);
 
@@ -578,7 +514,7 @@ const SwipePage: React.FC = () => {
     setActivePosterFailed(false);
     setShowFullFriendReview(false);
     setIsDetailMode(false);
-    setShowFullOverview(false);
+    setIsFullDetailOpen(false);
     setShowSharePresetSheet(false);
   }, [activeCard?.id]);
 
@@ -589,11 +525,11 @@ const SwipePage: React.FC = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const idle = (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback })
-      .requestIdleCallback;
-    const runner = idle ?? ((cb: () => void) => window.setTimeout(cb, 180));
+    const idle =
+      (window as any).requestIdleCallback ??
+      ((cb: () => void) => window.setTimeout(cb, 180));
 
-    runner(() => {
+    idle(() => {
       const upcoming = cards.slice(currentIndex + 1, currentIndex + 4);
       for (const card of upcoming) {
         if (!card?.posterUrl) continue;
@@ -608,18 +544,10 @@ const SwipePage: React.FC = () => {
   useEffect(
     () => () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (longPressTimeoutRef.current != null) {
-        window.clearTimeout(longPressTimeoutRef.current);
-      }
-      if (undoTimeoutRef.current != null) {
-        window.clearTimeout(undoTimeoutRef.current);
-      }
-      if (smartHintTimeoutRef.current != null) {
-        window.clearTimeout(smartHintTimeoutRef.current);
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
-      }
+      if (longPressTimeoutRef.current != null) window.clearTimeout(longPressTimeoutRef.current);
+      if (undoTimeoutRef.current != null) window.clearTimeout(undoTimeoutRef.current);
+      if (smartHintTimeoutRef.current != null) window.clearTimeout(smartHintTimeoutRef.current);
+      if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
     },
     [],
   );
@@ -627,40 +555,29 @@ const SwipePage: React.FC = () => {
   useEffect(() => {
     if (!nextCard) return;
     setIsNextPreviewActive(false);
-    const timeout = window.setTimeout(() => {
-      setIsNextPreviewActive(true);
-    }, 16);
+    const timeout = window.setTimeout(() => setIsNextPreviewActive(true), 16);
     return () => window.clearTimeout(timeout);
   }, [nextCard?.id]);
 
   useEffect(() => {
     const remaining = cards.length - currentIndex;
-    if (remaining < 3) {
-      fetchMore(Math.max(24, remaining + 12));
-    }
+    if (remaining < 3) fetchMore(Math.max(24, remaining + 12));
   }, [cards.length, currentIndex, fetchMore]);
 
   useEffect(() => {
     if (currentIndex <= 10) return;
-    const drop = Math.min(currentIndex - 6, cards.length);
+    const drop = Math.min(Math.max(currentIndex - 6, 0), cards.length);
     if (drop > 0) {
       trimConsumed(drop);
       setCurrentIndex((idx) => Math.max(4, idx - drop));
     }
   }, [cards.length, currentIndex, trimConsumed]);
 
-  const setCardTransform = (
-    x: number,
-    {
-      withTransition = false,
-      clampDrag = true,
-      elastic = false,
-    }: { withTransition?: boolean; clampDrag?: boolean; elastic?: boolean } = {},
-  ) => {
+  const setCardTransform = (x: number, withTransition = false) => {
     const node = cardRef.current;
     if (!node) return;
 
-    const finalX = clampDrag ? clamp(x, -MAX_DRAG, MAX_DRAG) : x;
+    const finalX = clamp(x, -MAX_DRAG, MAX_DRAG);
 
     const rotateZ = clamp(finalX / ROTATION_FACTOR, -12, 12);
     const dragRotateY = clamp(finalX / 26, -10, 10);
@@ -669,17 +586,13 @@ const SwipePage: React.FC = () => {
     const scale = baseScale + extraScale;
 
     const hover = hoverTiltRef.current;
-    const hoverRotateX = hover.y * -4; // tilt up/down with mouse
-    const hoverRotateYExtra = hover.x * 5; // add a bit of horizontal tilt
+    const hoverRotateX = hover.y * -4;
+    const hoverRotateYExtra = hover.x * 5;
     const hoverTranslateY = hover.y * -4;
 
-    if (withTransition) {
-      node.style.transition = elastic
-        ? "transform 360ms cubic-bezier(0.18,0.89,0.32,1.28)"
-        : "transform 260ms cubic-bezier(0.22,0.61,0.36,1)";
-    } else {
-      node.style.transition = "none";
-    }
+    node.style.transition = withTransition
+      ? "transform 260ms cubic-bezier(0.22,0.61,0.36,1)"
+      : "none";
 
     node.style.transform = `
       perspective(1400px)
@@ -696,7 +609,7 @@ const SwipePage: React.FC = () => {
 
   const resetCardPosition = () => {
     hoverTiltRef.current = { x: 0, y: 0 };
-    setCardTransform(0, { withTransition: true, elastic: true });
+    setCardTransform(0, true);
     dragDelta.current = 0;
     dragStartX.current = null;
     lastMoveX.current = null;
@@ -710,12 +623,8 @@ const SwipePage: React.FC = () => {
     setLastAction({ card, direction });
     setShowUndo(true);
 
-    if (undoTimeoutRef.current != null) {
-      window.clearTimeout(undoTimeoutRef.current);
-    }
-    undoTimeoutRef.current = window.setTimeout(() => {
-      setShowUndo(false);
-    }, 2800);
+    if (undoTimeoutRef.current != null) window.clearTimeout(undoTimeoutRef.current);
+    undoTimeoutRef.current = window.setTimeout(() => setShowUndo(false), 2800);
   };
 
   const clearUndo = () => {
@@ -734,25 +643,18 @@ const SwipePage: React.FC = () => {
       const candidate = prev - 1;
       if (candidate < 0) return prev;
       const previousCard = cards[candidate];
-      if (previousCard && previousCard.id === lastAction.card.id) {
-        return candidate;
-      }
+      if (previousCard && previousCard.id === lastAction.card.id) return candidate;
       return prev;
     });
 
     clearUndo();
   };
 
-  // Simple rule-based hint system (smarter)
   const setSmartHintWithTimeout = (hint: string | null) => {
     setSmartHint(hint);
-    if (smartHintTimeoutRef.current != null) {
-      window.clearTimeout(smartHintTimeoutRef.current);
-    }
+    if (smartHintTimeoutRef.current != null) window.clearTimeout(smartHintTimeoutRef.current);
     if (hint) {
-      smartHintTimeoutRef.current = window.setTimeout(() => {
-        setSmartHint(null);
-      }, 3200);
+      smartHintTimeoutRef.current = window.setTimeout(() => setSmartHint(null), 3200);
     }
   };
 
@@ -822,14 +724,12 @@ const SwipePage: React.FC = () => {
     setDragIntent(null);
     setNextParallaxX(0);
 
-    // Long skip streak tracking
     if (direction === "dislike" && (activeCard.runtimeMinutes ?? 0) > 130) {
       setLongSkipStreak((s) => s + 1);
     } else {
       setLongSkipStreak(0);
     }
 
-    // smart hint – only after a few swipes, and not on every swipe
     setSessionSwipeCount((prev) => {
       const next = prev + 1;
       const hint = computeSmartHint(activeCard, direction);
@@ -849,7 +749,8 @@ const SwipePage: React.FC = () => {
         node.style.transform =
           "perspective(1400px) translateX(0px) translateY(4px) scale(1.03) rotateZ(-1deg)";
         window.setTimeout(() => {
-          node.style.transform = "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
+          node.style.transform =
+            "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
         }, 16);
         node.style.opacity = "0";
       }
@@ -904,7 +805,7 @@ const SwipePage: React.FC = () => {
     }, 260);
   };
 
-  const handlePointerDown = (x: number, pointerId: number) => {
+  const handlePointerDown = (x: number, pointerId: number, target: EventTarget | null) => {
     if (!activeCard) return;
 
     setIsDragging(true);
@@ -918,9 +819,7 @@ const SwipePage: React.FC = () => {
 
     ensureAudioContext();
 
-    if (longPressTimeoutRef.current != null) {
-      window.clearTimeout(longPressTimeoutRef.current);
-    }
+    if (longPressTimeoutRef.current != null) window.clearTimeout(longPressTimeoutRef.current);
     longPressTriggeredRef.current = false;
 
     longPressTimeoutRef.current = window.setTimeout(() => {
@@ -931,9 +830,14 @@ const SwipePage: React.FC = () => {
       setIsDetailMode((prev) => !prev);
     }, 550);
 
+    const startedInDetail =
+      isDetailMode &&
+      detailContentRef.current &&
+      detailContentRef.current.contains(target as Node);
+    dragStartedInDetailAreaRef.current = startedInDetail;
+
     const node = cardRef.current;
     if (!node) return;
-
     try {
       node.setPointerCapture(pointerId);
     } catch {
@@ -952,14 +856,13 @@ const SwipePage: React.FC = () => {
       longPressTimeoutRef.current = null;
     }
 
-    setCardTransform(dx, { withTransition: false });
+    setCardTransform(dx);
+    setNextParallaxX(-dx * 0.06);
 
     let nextIntent: "like" | "dislike" | null = null;
     if (dx > DRAG_INTENT_THRESHOLD) nextIntent = "like";
     else if (dx < -DRAG_INTENT_THRESHOLD) nextIntent = "dislike";
     setDragIntent(nextIntent);
-
-    setNextParallaxX(-dx * 0.06);
 
     if (lastMoveX.current !== null && lastMoveTime.current !== null) {
       const dt = now - lastMoveTime.current;
@@ -968,7 +871,6 @@ const SwipePage: React.FC = () => {
         velocityRef.current = vx;
       }
     }
-
     lastMoveX.current = x;
     lastMoveTime.current = now;
 
@@ -1038,7 +940,6 @@ const SwipePage: React.FC = () => {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCard, actionsDisabled, isDragging]);
 
   const renderDeckIndicator = () => {
@@ -1049,9 +950,7 @@ const SwipePage: React.FC = () => {
 
     const half = Math.floor(total / 2);
     let start = Math.max(0, currentIndex - half);
-    if (start + total > cards.length) {
-      start = Math.max(0, cards.length - total);
-    }
+    if (start + total > cards.length) start = Math.max(0, cards.length - total);
 
     return (
       <div className="mb-3 flex justify-center">
@@ -1084,7 +983,7 @@ const SwipePage: React.FC = () => {
         : "Saved for ‘Not now’";
 
     return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:static sm:mt-3 sm:px-0 sm:pointer-events-auto">
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:px-0">
         <div className="pointer-events-auto inline-flex items-center gap-3 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[12px] text-mn-text-primary shadow-mn-card backdrop-blur">
           <span>{label}</span>
           <button
@@ -1102,7 +1001,7 @@ const SwipePage: React.FC = () => {
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-4 sm:px-0 transition-all duration-300 ease-out">
+      <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-4 sm:px-0">
         <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-mn-border-subtle/80 bg-mn-bg/95 px-3 py-2 text-[11px] text-mn-text-secondary shadow-mn-card backdrop-blur">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 text-mn-primary" />
           <span>{smartHint}</span>
@@ -1158,23 +1057,19 @@ const SwipePage: React.FC = () => {
     return null;
   })();
 
-  // Hover parallax (desktop only)
   const handleMouseMoveOnCard = (e: React.MouseEvent<HTMLDivElement>) => {
     if (typeof window !== "undefined" && window.matchMedia) {
-      if (window.matchMedia("(pointer: coarse)").matches) {
-        return;
-      }
+      if (window.matchMedia("(pointer: coarse)").matches) return;
     }
-
     if (isDragging) return;
     const node = cardRef.current;
     if (!node) return;
     const rect = node.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width; // 0..1
-    const relY = (e.clientY - rect.top) / rect.height; // 0..1
+    const relX = (e.clientX - rect.left) / rect.width;
+    const relY = (e.clientY - rect.top) / rect.height;
     hoverTiltRef.current = {
-      x: (relX - 0.5) * 2, // -1..1
-      y: (relY - 0.5) * 2, // -1..1
+      x: (relX - 0.5) * 2,
+      y: (relY - 0.5) * 2,
     };
     setCardTransform(dragDelta.current);
   };
@@ -1182,20 +1077,8 @@ const SwipePage: React.FC = () => {
   const handleMouseLeaveCard = () => {
     if (isDragging) return;
     hoverTiltRef.current = { x: 0, y: 0 };
-    setCardTransform(dragDelta.current, { withTransition: true });
+    setCardTransform(dragDelta.current, true);
   };
-
-  const currentUserRating = diaryEntry?.rating ?? null;
-  const handleStarClick = (value: number) => {
-    const next = currentUserRating === value ? null : value;
-    setDiaryRating(next);
-  };
-
-  const activeCardAny = activeCard as any;
-  const detailCertification: string | null =
-    (activeCardAny?.certification as string | undefined) ??
-    (activeCardAny?.rated as string | undefined) ??
-    null;
 
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col">
@@ -1258,12 +1141,9 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* Intent glow behind card */}
+              {/* Intent glow */}
               {dragIntent && (
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 -z-0"
-                >
+                <div className="pointer-events-none absolute inset-0 -z-0">
                   {dragIntent === "like" && (
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.22),transparent_60%)]" />
                   )}
@@ -1273,7 +1153,7 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* Next-card preview with mild parallax */}
+              {/* Next card preview */}
               {nextCard && (
                 <div
                   aria-hidden="true"
@@ -1307,24 +1187,15 @@ const SwipePage: React.FC = () => {
                 </div>
               )}
 
-              {/* Active swipe card */}
+              {/* Active card */}
               <article
                 ref={cardRef}
-                className={`relative z-10 mx-auto flex ${
-                  isFullDetailOpen ? "h-[82%] max-h-[560px]" : "h-[72%] max-h-[480px]"
-                } w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${
+                className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-mn-bg-elevated/95 via-mn-bg/95 to-mn-bg-elevated/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${
                   isDetailMode ? "ring-1 ring-mn-primary/40" : "border border-white/5"
                 }`}
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
-
-                  const startedInDetail =
-                    isDetailMode &&
-                    detailContentRef.current &&
-                    detailContentRef.current.contains(e.target as Node);
-
-                  dragStartedInDetailAreaRef.current = startedInDetail;
-                  handlePointerDown(e.clientX, e.pointerId);
+                  handlePointerDown(e.clientX, e.pointerId, e.target);
                 }}
                 onPointerMove={(e) => handlePointerMove(e.clientX)}
                 onPointerUp={finishDrag}
@@ -1334,7 +1205,7 @@ const SwipePage: React.FC = () => {
                 aria-label={buildSwipeCardLabel(activeCard)}
                 style={{ touchAction: "pan-y" }}
               >
-                {/* Light leak + subtle grain overlay */}
+                {/* Light leak */}
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 mix-blend-screen opacity-[0.14]"
@@ -1342,7 +1213,7 @@ const SwipePage: React.FC = () => {
                   <div className="absolute -top-20 left-0 right-0 h-40 bg-[radial-gradient(circle_at_10%_0%,rgba(255,255,255,0.18),transparent_60%),radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.1),transparent_60%)]" />
                 </div>
 
-                {/* Poster / visual header */}
+                {/* Poster header */}
                 <div
                   className={`relative overflow-hidden bg-gradient-to-br from-mn-bg/90 via-mn-bg/85 to-mn-bg/95 transition-all duration-300 ease-out ${
                     isDetailMode ? "h-[40%]" : "h-[58%]"
@@ -1364,7 +1235,7 @@ const SwipePage: React.FC = () => {
                             "filter 260ms cubic-bezier(0.22,0.61,0.36,1), transform 260ms cubic-bezier(0.22,0.61,1)",
                         }}
                       />
-                      {/* foreground adaptive mini-poster in detail mode */}
+                      {/* adaptive mini-poster in detail mode */}
                       {isDetailMode && (
                         <div
                           className="pointer-events-none absolute left-3 flex items-start"
@@ -1393,7 +1264,7 @@ const SwipePage: React.FC = () => {
 
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-mn-bg/95" />
 
-                  {/* Swipe intent overlays */}
+                  {/* swipe overlays */}
                   {dragIntent === "like" && (
                     <>
                       <div className="pointer-events-none absolute inset-x-8 bottom-3 flex justify-start">
@@ -1417,13 +1288,12 @@ const SwipePage: React.FC = () => {
                     </>
                   )}
 
-                  {/* top status strip + index */}
+                  {/* badges top */}
                   <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                     <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/80 px-2 py-1 text-[10px] font-semibold text-mn-text-primary shadow-mn-soft">
                       <span className="h-1.5 w-1.5 rounded-sm bg-mn-primary" />
                       {overlaySourceLabel}
                     </span>
-
                     <span className="inline-flex items-center gap-1 rounded-md bg-mn-bg/70 px-2 py-1 text-[10px] font-medium text-mn-text-secondary/85 shadow-mn-soft">
                       <Sparkles className="h-3 w-3 text-mn-primary/80" />
                       {currentIndex + 1} / {cards.length || 1}
@@ -1431,264 +1301,222 @@ const SwipePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Content & detail mode */}
-                <div className="relative flex flex-1 flex-col justify-between bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
-                  <div>
+                {/* Content + modes (swipe / detail / full-detail) */}
+                <div className="relative flex flex-1 flex-col bg-gradient-to-b from-mn-bg/92 via-mn-bg/96 to-mn-bg px-4 pb-4 pt-3 backdrop-blur-md">
+                  {/* Swipe mode metadata */}
+                  {!isDetailMode && (
+                    <CardMetadata
+                      card={activeCard}
+                      metaLine={metaLine}
+                      highlightLabel={highlightLabel}
+                    />
+                  )}
+
+                  {/* Detail / full detail content */}
+                  {isDetailMode && activeCard && (
                     <div
-                      className={`transition-opacity transition-transform duration-250 ${
-                        isDetailMode ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
-                      }`}
+                      ref={detailContentRef}
+                      className={`mt-2 flex-1 ${
+                        isFullDetailOpen ? "overflow-y-auto" : "overflow-hidden"
+                      } text-left text-[11px] text-mn-text-secondary`}
+                      style={isFullDetailOpen ? { WebkitOverflowScrolling: "touch" } : undefined}
                     >
-                      <CardMetadata
-                        card={activeCard}
-                        metaLine={metaLine}
-                        highlightLabel={!isDetailMode ? highlightLabel : null}
-                      />
-                    </div>
-
-                    {isDetailMode && activeCard && (
-                      <div
-                        ref={detailContentRef}
-                        className="mt-3 space-y-3 text-left text-[11px] text-mn-text-secondary"
-                      >
-                        {/* Title & compact metadata for detail mode */}
-                        <div className="space-y-1.5">
-                          <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
-                            {activeCard.title}
-                          </h3>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
-                            {detailGenres && (
-                              <span className="inline-flex items-center gap-1">
-                                <span className="font-medium text-mn-text-primary/90">Genres</span>
-                                <span className="truncate max-w-[180px]">
-                                  {Array.isArray(detailGenres)
-                                    ? (detailGenres as string[]).slice(0, 3).join(", ")
-                                    : String(detailGenres)}
+                      {!isFullDetailOpen ? (
+                        // DETAIL SUMMARY (non-scrolling, compact)
+                        <div className="space-y-3 pr-1">
+                          {/* Title + meta badges */}
+                          <div className="space-y-1.5">
+                            <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
+                              {activeCard.title}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
+                              {detailGenres && (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="font-medium text-mn-text-primary/90">
+                                    Genres
+                                  </span>
+                                  <span className="truncate max-w-[180px]">
+                                    {Array.isArray(detailGenres)
+                                      ? (detailGenres as string[]).slice(0, 3).join(", ")
+                                      : String(detailGenres)}
+                                  </span>
                                 </span>
-                              </span>
-                            )}
-                            {detailCertification && (
-                              <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
-                                {detailCertification}
-                              </span>
-                            )}
-                            {detailPrimaryCountryAbbr && (
-                              <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
-                                {detailPrimaryCountryAbbr}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {detailOverview && (
-                          <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
-                            {detailOverview}
-                          </p>
-                        )}
-
-                        {/* Director / cast summary */}
-                        {(detailDirector || detailActors) && (
-                          <div className="space-y-1.5 text-[10.5px]">
-                            {detailDirector && (
-                              <p>
-                                <span className="font-medium text-mn-text-primary/90">
-                                  Director:
-                                </span>{" "}
-                                <span>{detailDirector}</span>
-                              </p>
-                            )}
-                            {detailActors && (
-                              <p>
-                                <span className="font-medium text-mn-text-primary/90">Cast:</span>{" "}
-                                <span>
-                                  {detailActors
-                                    .split(",")
-                                    .map((a) => a.trim())
-                                    .filter(Boolean)
-                                    .slice(0, 3)
-                                    .join(", ")}
+                              )}
+                              {detailCertification && (
+                                <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
+                                  {detailCertification}
                                 </span>
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Rating + actions row */}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
-                            <span className="text-[10px] text-mn-text-secondary/80">
-                              Your rating
-                            </span>
-                            <div className="flex items-center gap-0.5">
-                              {Array.from({ length: 5 }).map((_, idx) => {
-                                const value = idx + 1;
-                                const filled =
-                                  currentUserRating != null && currentUserRating >= value;
-                                return (
-                                  <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => handleStarClick(value)}
-                                    className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
-                                  >
-                                    <Star
-                                      className={`h-3.5 w-3.5 ${
-                                        filled
-                                          ? "fill-yellow-400 text-yellow-400"
-                                          : "text-mn-border-subtle"
-                                      }`}
-                                    />
-                                  </button>
-                                );
-                              })}
+                              )}
+                              {detailPrimaryCountryAbbr && (
+                                <span className="rounded-full bg-mn-bg-elevated/80 px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                  {detailPrimaryCountryAbbr}
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
-                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                                statusIs(WATCHLIST_STATUS)
-                                  ? "bg-mn-primary/90 text-mn-bg"
-                                  : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                              }`}
-                            >
-                              Watchlist
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDiaryStatus(WATCHED_STATUS)}
-                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                                statusIs(WATCHED_STATUS)
-                                  ? "bg-emerald-500/90 text-mn-bg"
-                                  : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
-                              }`}
-                            >
-                              Watched
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleShareExternal()}
-                              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
-                            >
-                              <Share2 className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Share</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Friends info block */}
-                        {(typeof activeCard.friendLikesCount === "number" &&
-                          activeCard.friendLikesCount > 0) ||
-                        (activeCard.topFriendName &&
-                          activeCard.topFriendReviewSnippet) ? (
-                          <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
-                            {typeof activeCard.friendLikesCount === "number" &&
-                              activeCard.friendLikesCount > 0 && (
-                                <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                                  <Flame className="h-4 w-4 text-mn-primary/80" />
-                                  {activeCard.friendLikesCount === 1
-                                    ? "1 friend likes this"
-                                    : `${activeCard.friendLikesCount} friends like this`}
-                                </div>
-                              )}
-                            {activeCard.topFriendName &&
-                              activeCard.topFriendReviewSnippet && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setShowFullFriendReview((v) => !v)
-                                  }
-                                  className="mt-1 inline-flex w-full items-start gap-2 text-left"
-                                >
-                                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                                  <div
-                                    className={`overflow-hidden transition-all duration-200 ${
-                                      showFullFriendReview ? "max-h-32" : "max-h-10"
-                                    }`}
-                                  >
-                                    <span
-                                      className={`block text-[11px] ${
-                                        showFullFriendReview ? "" : "line-clamp-2"
-                                      }`}
-                                    >
-                                      {activeCard.topFriendName}: “
-                                      {activeCard.topFriendReviewSnippet}”
-                                    </span>
-                                  </div>
-                                </button>
-                              )}
-                          </div>
-                        ) : null}
-
-                        {/* Full details trigger */}
-                        <div className="flex justify-end pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setIsFullDetailOpen(true)}
-                            className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
-                          >
-                            <span>Full details</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Social / friends row for main card (compact) */}
-                    {!isDetailMode && (
-                      <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
-                        {typeof activeCard.friendLikesCount === "number" &&
-                          activeCard.friendLikesCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
-                              <Flame className="h-4 w-4 text-mn-primary/80" />
-                              {activeCard.friendLikesCount === 1
-                                ? "1 friend likes this"
-                                : `${activeCard.friendLikesCount} friends like this`}
-                            </span>
+                          {/* Overview (3 lines only) */}
+                          {detailOverview && (
+                            <p className="line-clamp-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
+                              {detailOverview}
+                            </p>
                           )}
 
-                        {activeCard.topFriendName &&
-                          activeCard.topFriendReviewSnippet && (
-                            <button
-                              type="button"
-                              onClick={() => setShowFullFriendReview((v) => !v)}
-                              className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
-                            >
-                              <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
-                              <div
-                                className={`overflow-hidden transition-all duration-200 ${
-                                  showFullFriendReview ? "max-h-32" : "max-h-10"
+                          {/* Director / cast (3 actors) */}
+                          {(detailDirector || detailActors) && (
+                            <div className="space-y-1.5 text-[10.5px]">
+                              {detailDirector && (
+                                <p>
+                                  <span className="font-medium text-mn-text-primary/90">
+                                    Director:
+                                  </span>{" "}
+                                  <span>{detailDirector}</span>
+                                </p>
+                              )}
+                              {detailActors && (
+                                <p>
+                                  <span className="font-medium text-mn-text-primary/90">
+                                    Cast:
+                                  </span>{" "}
+                                  <span>
+                                    {detailActors
+                                      .split(",")
+                                      .map((a) => a.trim())
+                                      .filter(Boolean)
+                                      .slice(0, 3)
+                                      .join(", ")}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Your rating + actions */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <div className="inline-flex items-center gap-1 rounded-full bg-mn-bg-elevated/80 px-2.5 py-1">
+                              <span className="text-[10px] text-mn-text-secondary/80">
+                                Your rating
+                              </span>
+                              <div className="flex items-center gap-0.5">
+                                {Array.from({ length: 5 }).map((_, idx) => {
+                                  const value = idx + 1;
+                                  const filled =
+                                    currentUserRating != null && currentUserRating >= value;
+                                  return (
+                                    <button
+                                      key={value}
+                                      type="button"
+                                      onClick={() => handleStarClick(value)}
+                                      className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
+                                    >
+                                      <Star
+                                        className={`h-3.5 w-3.5 ${
+                                          filled
+                                            ? "fill-yellow-400 text-yellow-400"
+                                            : "text-mn-border-subtle"
+                                        }`}
+                                      />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
+                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                  statusIs(WATCHLIST_STATUS)
+                                    ? "bg-mn-primary/90 text-mn-bg"
+                                    : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
                                 }`}
                               >
-                                <span
-                                  className={`block text-[11px] ${
-                                    showFullFriendReview ? "" : "line-clamp-2"
-                                  }`}
-                                >
-                                  {activeCard.topFriendName}: “
-                                  {activeCard.topFriendReviewSnippet}”
-                                </span>
-                              </div>
-                            </button>
-                          )}
-                      </div>
-                    )}
-                  </div>
+                                Watchlist
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDiaryStatus(WATCHED_STATUS)}
+                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                                  statusIs(WATCHED_STATUS)
+                                    ? "bg-emerald-500/90 text-mn-bg"
+                                    : "border border-mn-border-subtle/70 bg-mn-bg-elevated/80 text-mn-text-secondary hover:border-emerald-400/80 hover:text-emerald-300"
+                                }`}
+                              >
+                                Watched
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleShareExternal()}
+                                className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 bg-mn-bg-elevated/80 px-2.5 py-1 text-[10px] font-medium text-mn-text-secondary hover:border-mn-primary/70 hover:text-mn-primary"
+                              >
+                                <Share2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Share</span>
+                              </button>
+                            </div>
+                          </div>
 
-                  {/* Full details sheet overlay: same footprint as detail area, scrollable */}
-                  {isDetailMode && isFullDetailOpen && (
-                    <div className="pointer-events-auto absolute inset-0 z-20 flex flex-col">
-                      <div className="mt-1 flex-1 rounded-3xl border border-mn-border-subtle/80 bg-mn-bg-elevated/95 shadow-mn-card">
-                        <div className="flex items-center justify-center pt-2">
-                          <div className="h-1 w-12 rounded-full bg-mn-border-subtle/80" />
+                          {/* Friends info (summary mode) */}
+                          {(typeof activeCard.friendLikesCount === "number" &&
+                            activeCard.friendLikesCount > 0) ||
+                          (activeCard.topFriendName &&
+                            activeCard.topFriendReviewSnippet) ? (
+                            <div className="space-y-1.5 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-[11px] text-mn-text-primary shadow-mn-soft">
+                              {typeof activeCard.friendLikesCount === "number" &&
+                                activeCard.friendLikesCount > 0 && (
+                                  <div className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                                    <Flame className="h-4 w-4 text-mn-primary/80" />
+                                    {activeCard.friendLikesCount === 1
+                                      ? "1 friend likes this"
+                                      : `${activeCard.friendLikesCount} friends like this`}
+                                  </div>
+                                )}
+                              {activeCard.topFriendName &&
+                                activeCard.topFriendReviewSnippet && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowFullFriendReview((v) => !v)
+                                    }
+                                    className="mt-1 inline-flex w-full items-start gap-2 text-left"
+                                  >
+                                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                                    <div
+                                      className={`overflow-hidden transition-all duration-200 ${
+                                        showFullFriendReview ? "max-h-32" : "max-h-10"
+                                      }`}
+                                    >
+                                      <span
+                                        className={`block text-[11px] ${
+                                          showFullFriendReview ? "" : "line-clamp-2"
+                                        }`}
+                                      >
+                                        {activeCard.topFriendName}: “
+                                        {activeCard.topFriendReviewSnippet}”
+                                      </span>
+                                    </div>
+                                  </button>
+                                )}
+                            </div>
+                          ) : null}
+
+                          {/* Full details trigger */}
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsFullDetailOpen(true)}
+                              className="inline-flex items-center gap-1 rounded-full border border-mn-border-subtle/70 px-2.5 py-1 text-[10px] font-medium text-mn-text-primary hover:border-mn-primary/70 hover:text-mn-primary"
+                            >
+                              <span>Full details</span>
+                            </button>
+                          </div>
                         </div>
-                        <div
-                          className="mt-2 h-[calc(100%-0.75rem)] overflow-y-auto px-3 pb-3 pt-1 text-[11px] leading-relaxed text-mn-text-secondary/90"
-                          style={{ WebkitOverflowScrolling: "touch" }}
-                        >
+                      ) : (
+                        // FULL DETAILS (same footprint, scrollable)
+                        <div className="h-full space-y-3 pr-1 text-[11px] leading-relaxed text-mn-text-secondary/90">
+                          {/* Tagline + full overview */}
                           {(titleDetail?.tagline || detailOverview) && (
-                            <section className="space-y-1 pb-3">
+                            <section className="space-y-1 pb-2">
                               {titleDetail?.tagline && (
                                 <p className="text-[11px] font-semibold text-mn-text-primary/90">
                                   {titleDetail.tagline}
@@ -1702,7 +1530,7 @@ const SwipePage: React.FC = () => {
                             </section>
                           )}
 
-                          {/* Basic info & structure */}
+                          {/* Basic info */}
                           <section className="mt-1 grid gap-2 rounded-2xl bg-mn-bg/60 px-3 py-2 text-[11px]">
                             <div className="flex flex-wrap items-center gap-1.5">
                               {activeCard.year && (
@@ -1840,7 +1668,46 @@ const SwipePage: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Social / friends row in SWIPE mode only */}
+                  {!isDetailMode && (
+                    <div className="mt-4 flex flex-wrap items-start gap-2 text-[11px] text-mn-text-secondary">
+                      {typeof activeCard.friendLikesCount === "number" &&
+                        activeCard.friendLikesCount > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-mn-text-secondary">
+                            <Flame className="h-4 w-4 text-mn-primary/80" />
+                            {activeCard.friendLikesCount === 1
+                              ? "1 friend likes this"
+                              : `${activeCard.friendLikesCount} friends like this`}
+                          </span>
+                        )}
+
+                      {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
+                        <button
+                          type="button"
+                          onClick={() => setShowFullFriendReview((v) => !v)}
+                          className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-mn-bg-elevated/80 px-3 py-2 text-left text-mn-text-primary shadow-mn-soft hover:bg-mn-bg-elevated"
+                        >
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-mn-primary" />
+                          <div
+                            className={`overflow-hidden transition-all duration-200 ${
+                              showFullFriendReview ? "max-h-32" : "max-h-10"
+                            }`}
+                          >
+                            <span
+                              className={`block text-[11px] ${
+                                showFullFriendReview ? "" : "line-clamp-2"
+                              }`}
+                            >
+                              {activeCard.topFriendName}: “
+                              {activeCard.topFriendReviewSnippet}”
+                            </span>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1849,7 +1716,9 @@ const SwipePage: React.FC = () => {
               {showOnboarding && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-mn-bg/70 via-mn-bg/50 to-mn-bg/80">
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-mn-border-subtle/70 bg-mn-bg/95 p-4 text-center shadow-mn-card">
-                    <p className="text-sm font-semibold text-mn-text-primary">Swipe to decide</p>
+                    <p className="text-sm font-semibold text-mn-text-primary">
+                      Swipe to decide
+                    </p>
                     <p className="mt-1 text-[12px] text-mn-text-secondary">
                       Swipe left to pass, right to save what you love.
                     </p>
