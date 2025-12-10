@@ -76,25 +76,6 @@ const abbreviateCountry = (value?: string | null): string | null => {
   return cleaned;
 };
 
-const safeNumber = (
-  value?: number | string | null,
-): number | null => {
-  if (value == null) return null;
-  if (typeof value === "number") {
-    if (Number.isNaN(value)) return null;
-    return value;
-  }
-  const parsed = parseFloat(value);
-  if (Number.isNaN(parsed)) return null;
-  return parsed;
-};
-
-const formatInt = (value?: number | string | null): string | null => {
-  const num = safeNumber(value);
-  if (num == null) return null;
-  return Math.round(num).toLocaleString();
-};
-
 const getSourceLabel = (source?: SwipeDeckKind) => {
   switch (source) {
     case "from-friends":
@@ -223,7 +204,6 @@ interface TitleDetailRow {
   tagline: string | null;
 
   omdb_director: string | null;
-  omdb_writer: string | null;
   omdb_actors: string | null;
 
   genres: string[] | null;
@@ -234,25 +214,13 @@ interface TitleDetailRow {
   country: string | null;
   omdb_country: string | null;
 
-  imdb_rating: number | string | null;
-  imdb_votes: number | string | null;
-  metascore: number | string | null;
-  rt_tomato_pct: number | string | null;
+  imdb_rating: number | null;
+  metascore: number | null;
+  rt_tomato_pct: number | null;
 
   poster_url: string | null;
   tmdb_poster_path: string | null;
   backdrop_url: string | null;
-
-  omdb_awards: string | null;
-  omdb_box_office_str: string | null;
-  omdb_box_office: number | string | null;
-  omdb_released: string | null;
-
-  tmdb_vote_average: number | string | null;
-  tmdb_vote_count: number | string | null;
-  tmdb_popularity: number | string | null;
-
-  tmdb_episode_run_time: number | number[] | null;
 }
 
 const WATCHLIST_STATUS = "watchlist" as DiaryStatus;
@@ -402,7 +370,6 @@ const SwipePage: React.FC = () => {
           tmdb_overview,
           tagline,
           omdb_director,
-          omdb_writer,
           omdb_actors,
           genres,
           tmdb_genre_names,
@@ -412,20 +379,11 @@ const SwipePage: React.FC = () => {
           country,
           omdb_country,
           imdb_rating,
-          imdb_votes,
           metascore,
           rt_tomato_pct,
           poster_url,
           tmdb_poster_path,
-          backdrop_url,
-          omdb_awards,
-          omdb_box_office_str,
-          omdb_box_office,
-          omdb_released,
-          tmdb_vote_average,
-          tmdb_vote_count,
-          tmdb_popularity,
-          tmdb_episode_run_time
+          backdrop_url
         `,
         )
         .eq("title_id", activeTitleId)
@@ -466,21 +424,11 @@ const SwipePage: React.FC = () => {
   const detailPrimaryCountryAbbr = abbreviateCountry(detailPrimaryCountry);
 
   const detailDirector = cleanText(titleDetail?.omdb_director);
-  const detailWriter = cleanText(titleDetail?.omdb_writer);
   const detailActors = cleanText(titleDetail?.omdb_actors);
 
   const externalImdbRating = titleDetail?.imdb_rating ?? activeCard?.imdbRating ?? null;
   const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
   const externalMetascore = titleDetail?.metascore ?? null;
-
-  const imdbVotes = titleDetail?.imdb_votes ?? null;
-  const tmdbVoteAverage = titleDetail?.tmdb_vote_average ?? null;
-  const tmdbVoteCount = titleDetail?.tmdb_vote_count ?? null;
-  const tmdbPopularity = titleDetail?.tmdb_popularity ?? null;
-
-  const detailAwards = cleanText(titleDetail?.omdb_awards);
-  const detailBoxOffice = cleanText(titleDetail?.omdb_box_office_str);
-  const detailReleased = cleanText(titleDetail?.omdb_released);
 
   const normalizedContentType: TitleType | null =
     titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
@@ -491,42 +439,8 @@ const SwipePage: React.FC = () => {
   const rawCertification: string | null =
     (activeCardAny?.certification as string | undefined) ??
     (activeCardAny?.rated as string | undefined) ??
-    (titleDetail?.omdb_rated as string | undefined) ??
     null;
   const detailCertification = cleanText(rawCertification);
-
-  // extra derived for full details
-  const allGenresArray: string[] =
-    (Array.isArray(detailGenres)
-      ? (detailGenres as string[])
-      : detailGenres
-      ? String(detailGenres).split(",").map((g) => g.trim())
-      : []) ?? [];
-  const moreGenres =
-    allGenresArray.length > 3 ? allGenresArray.slice(3).filter(Boolean) : [];
-
-  const allLanguagesRaw: (string | null)[] = [
-    titleDetail?.language ?? null,
-    titleDetail?.omdb_language ?? null,
-    titleDetail?.tmdb_original_language ?? null,
-    activeCard?.language ?? null,
-  ];
-  const languages = Array.from(
-    new Set(
-      allLanguagesRaw
-        .map((l) => cleanText(l))
-        .filter((l): l is string => !!l),
-    ),
-  );
-
-  let episodeRuntimeMinutes: number | null = null;
-  if (Array.isArray(titleDetail?.tmdb_episode_run_time)) {
-    if (titleDetail.tmdb_episode_run_time.length > 0) {
-      episodeRuntimeMinutes = safeNumber(titleDetail.tmdb_episode_run_time[0]) ?? null;
-    }
-  } else if (titleDetail?.tmdb_episode_run_time != null) {
-    episodeRuntimeMinutes = safeNumber(titleDetail.tmdb_episode_run_time);
-  }
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -773,7 +687,7 @@ const SwipePage: React.FC = () => {
       if (isSeries) {
         return "Nice — we’ll bring in more series that match this vibe.";
       }
-      if (externalImdbRating != null && safeNumber(externalImdbRating) != null && safeNumber(externalImdbRating)! >= 7.5) {
+      if (externalImdbRating != null && externalImdbRating >= 7.5) {
         return "Nice pick — we’ll show more highly rated titles like this.";
       }
       if (card.friendLikesCount && card.friendLikesCount >= 3) {
@@ -927,6 +841,7 @@ const SwipePage: React.FC = () => {
       resetCardPosition();
       safeVibrate(20);
       setIsDetailMode((prev) => !prev);
+      // when exiting detail mode, also close full details so we return to clean state
       setIsFullDetailOpen(false);
     }, 550);
 
@@ -1114,16 +1029,16 @@ const SwipePage: React.FC = () => {
   const primaryImdbForMeta =
     typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
       ? activeCard.imdbRating
-      : typeof titleDetail?.imdb_rating === "number" && !Number.isNaN(titleDetail.imdb_rating as number)
-      ? (titleDetail.imdb_rating as number)
-      : safeNumber(titleDetail?.imdb_rating);
+      : typeof titleDetail?.imdb_rating === "number" && !Number.isNaN(titleDetail.imdb_rating)
+      ? titleDetail.imdb_rating
+      : null;
 
   const primaryRtForMeta =
     typeof activeCard?.rtTomatoMeter === "number" && !Number.isNaN(activeCard.rtTomatoMeter)
       ? activeCard.rtTomatoMeter
-      : typeof titleDetail?.rt_tomato_pct === "number" && !Number.isNaN(titleDetail.rt_tomato_pct as number)
-      ? (titleDetail.rt_tomato_pct as number)
-      : safeNumber(titleDetail?.rt_tomato_pct);
+      : typeof titleDetail?.rt_tomato_pct === "number" && !Number.isNaN(titleDetail.rt_tomato_pct)
+      ? titleDetail.rt_tomato_pct
+      : null;
 
   const metaLine = activeCard
     ? (() => {
@@ -1469,13 +1384,7 @@ const SwipePage: React.FC = () => {
                               <h3 className="line-clamp-2 text-base font-semibold text-mn-text-primary sm:text-lg">
                                 {activeCard.title}
                               </h3>
-                              {/* old info (same meta line as swipe) */}
-                              {metaLine && (
-                                <p className="text-[11px] text-mn-text-secondary/90">
-                                  {metaLine}
-                                </p>
-                              )}
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
+                              <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-mn-text-secondary/90">
                                 {detailGenres && (
                                   <span className="inline-flex items-center gap-1">
                                     <span className="font-medium text-mn-text-primary/90">
@@ -1484,11 +1393,7 @@ const SwipePage: React.FC = () => {
                                     <span className="truncate max-w-[180px]">
                                       {Array.isArray(detailGenres)
                                         ? (detailGenres as string[]).slice(0, 3).join(", ")
-                                        : String(detailGenres)
-                                            .split(",")
-                                            .map((g) => g.trim())
-                                            .slice(0, 3)
-                                            .join(", ")}
+                                        : String(detailGenres)}
                                     </span>
                                   </span>
                                 )}
@@ -1611,7 +1516,7 @@ const SwipePage: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Friends info block (same data as swipe, but in summary layout) */}
+                            {/* Friends info block (same as before) */}
                             {(typeof activeCard.friendLikesCount === "number" &&
                               activeCard.friendLikesCount > 0) ||
                             (activeCard.topFriendName &&
@@ -1656,109 +1561,112 @@ const SwipePage: React.FC = () => {
                             ) : null}
                           </div>
                         ) : (
-                          // FULL DETAILS: only new info (beyond summary), small sections first
+                          // FULL DETAILS: only "new" info, small sections first, big story last
                           <div className="h-full space-y-3 text-[11px] leading-relaxed text-mn-text-secondary/90">
-                            {/* INFO: more genres, languages, episode runtime */}
-                            {(moreGenres.length > 0 ||
-                              languages.length > 0 ||
-                              episodeRuntimeMinutes) && (
-                              <section aria-label="Detailed info">
-                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
-                                  Info
-                                </h3>
-                                <div className="mt-1 grid gap-1.5 rounded-2xl bg-mn-bg/60 px-3 py-2 text-[10.5px]">
-                                  {moreGenres.length > 0 && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        More genres:
-                                      </span>{" "}
-                                      <span>{moreGenres.join(", ")}</span>
-                                    </p>
+                            {/* INFO */}
+                            <section aria-label="Detailed info">
+                              <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
+                                Info
+                              </h3>
+                              <div className="mt-1 grid gap-1.5 rounded-2xl bg-mn-bg/60 px-3 py-2">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {activeCard.year && (
+                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-[10px] font-medium text-mn-text-primary/90">
+                                      {activeCard.year}
+                                    </span>
                                   )}
-                                  {languages.length > 0 && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Languages:
-                                      </span>{" "}
-                                      <span>{languages.join(", ")}</span>
-                                    </p>
+                                  {normalizedContentType && (
+                                    <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                      {normalizedContentType === "movie" ? "Movie" : "Series"}
+                                    </span>
                                   )}
-                                  {episodeRuntimeMinutes &&
-                                    normalizedContentType === "series" && (
-                                      <p>
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          Episode runtime:
-                                        </span>{" "}
-                                        <span>
-                                          {formatRuntime(episodeRuntimeMinutes)}
-                                        </span>
-                                      </p>
+                                  {typeof activeCard.runtimeMinutes === "number" &&
+                                    activeCard.runtimeMinutes > 0 && (
+                                      <span className="rounded-full bg-mn-bg-elevated px-2 py-0.5 text-[10px] text-mn-text-secondary/90">
+                                        {formatRuntime(activeCard.runtimeMinutes)}
+                                      </span>
                                     )}
                                 </div>
-                              </section>
-                            )}
 
-                            {/* RATINGS: only extra stats (no raw IMDb/RT scores) */}
-                            {(imdbVotes ||
-                              externalMetascore ||
-                              tmdbVoteAverage ||
-                              tmdbVoteCount ||
-                              tmdbPopularity) && (
+                                {(detailGenres ||
+                                  detailPrimaryCountry ||
+                                  detailPrimaryLanguage) && (
+                                  <div className="space-y-1 text-[10.5px]">
+                                    {detailGenres && (
+                                      <p className="text-mn-text-secondary/90">
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          All genres:{" "}
+                                        </span>
+                                        {Array.isArray(detailGenres)
+                                          ? (detailGenres as string[]).join(", ")
+                                          : String(detailGenres)}
+                                      </p>
+                                    )}
+                                    {(detailPrimaryCountry || detailPrimaryLanguage) && (
+                                      <p className="text-mn-text-secondary/90">
+                                        {detailPrimaryCountry && (
+                                          <>
+                                            <span className="font-medium text-mn-text-primary/90">
+                                              Country:{" "}
+                                            </span>
+                                            <span>{detailPrimaryCountry}</span>
+                                          </>
+                                        )}
+                                        {detailPrimaryCountry && detailPrimaryLanguage && (
+                                          <span> · </span>
+                                        )}
+                                        {detailPrimaryLanguage && (
+                                          <>
+                                            <span className="font-medium text-mn-text-primary/90">
+                                              Language:{" "}
+                                            </span>
+                                            <span>{detailPrimaryLanguage}</span>
+                                          </>
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </section>
+
+                            {/* RATINGS */}
+                            {(externalImdbRating ||
+                              externalTomato ||
+                              externalMetascore) && (
                               <section aria-label="Ratings breakdown" className="mt-1">
                                 <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
                                   Ratings
                                 </h3>
                                 <div className="mt-1 grid gap-1.5">
-                                  {imdbVotes && formatInt(imdbVotes) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">
-                                        IMDb votes
-                                      </span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {formatInt(imdbVotes)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {externalMetascore &&
-                                    safeNumber(externalMetascore) != null && (
+                                  {typeof externalImdbRating === "number" &&
+                                    !Number.isNaN(externalImdbRating) && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">IMDb</span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {externalImdbRating.toFixed(1)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  {typeof externalTomato === "number" &&
+                                    !Number.isNaN(externalTomato) && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-mn-text-secondary/90">
+                                          Rotten Tomatoes
+                                        </span>
+                                        <span className="font-medium text-mn-text-primary/90">
+                                          {externalTomato}%
+                                        </span>
+                                      </div>
+                                    )}
+                                  {typeof externalMetascore === "number" &&
+                                    !Number.isNaN(externalMetascore) && (
                                       <div className="flex items-center justify-between">
                                         <span className="text-mn-text-secondary/90">
                                           Metascore
                                         </span>
                                         <span className="font-medium text-mn-text-primary/90">
-                                          {safeNumber(externalMetascore)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  {tmdbVoteAverage &&
-                                    safeNumber(tmdbVoteAverage) != null && (
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-mn-text-secondary/90">
-                                          TMDB score
-                                        </span>
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          {safeNumber(tmdbVoteAverage)?.toFixed(1)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  {tmdbVoteCount && formatInt(tmdbVoteCount) && (
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-mn-text-secondary/90">
-                                        TMDB votes
-                                      </span>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        {formatInt(tmdbVoteCount)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {tmdbPopularity &&
-                                    safeNumber(tmdbPopularity) != null && (
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-mn-text-secondary/90">
-                                          TMDB popularity
-                                        </span>
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          {safeNumber(tmdbPopularity)?.toFixed(1)}
+                                          {externalMetascore}
                                         </span>
                                       </div>
                                     )}
@@ -1766,77 +1674,51 @@ const SwipePage: React.FC = () => {
                               </section>
                             )}
 
-                            {/* CREDITS: writers + more cast (beyond first 3) */}
-                            {detailActors || detailWriter ? (
+                            {/* CREDITS / FULL CAST */}
+                            {detailActors && (
                               <section aria-label="Credits" className="mt-1">
                                 <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
                                   Credits
                                 </h3>
                                 <div className="mt-1 space-y-1.5 text-[11px]">
-                                  {detailWriter && (
+                                  {detailDirector && (
                                     <p>
                                       <span className="font-medium text-mn-text-primary/90">
-                                        Writers:
+                                        Director:
                                       </span>{" "}
-                                      <span>{detailWriter}</span>
+                                      <span>{detailDirector}</span>
                                     </p>
                                   )}
-                                  {detailActors && (() => {
-                                    const allNames = detailActors
-                                      .split(",")
-                                      .map((a) => a.trim())
-                                      .filter(Boolean);
-                                    const extra = allNames.slice(3);
-                                    if (!extra.length) return null;
-                                    return (
-                                      <p>
-                                        <span className="font-medium text-mn-text-primary/90">
-                                          More cast:
-                                        </span>{" "}
-                                        <span>{extra.join(", ")}</span>
-                                      </p>
-                                    );
-                                  })()}
+                                  <p>
+                                    <span className="font-medium text-mn-text-primary/90">
+                                      Full cast:
+                                    </span>{" "}
+                                    <span>{detailActors}</span>
+                                  </p>
                                 </div>
                               </section>
-                            ) : null}
+                            )}
 
-                            {/* RELEASE & PRODUCTION: release date, awards, box office */}
-                            {(detailReleased || detailAwards || detailBoxOffice) && (
-                              <section aria-label="Release and production" className="mt-1">
+                            {/* STORY (full overview & tagline last so big text sits at the bottom and can clip) */}
+                            {(cleanText(titleDetail?.tagline) || detailOverview) && (
+                              <section aria-label="Story" className="mt-1">
                                 <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mn-text-secondary/80">
-                                  Release &amp; production
+                                  Story
                                 </h3>
-                                <div className="mt-1 space-y-1.5 text-[11px]">
-                                  {detailReleased && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Released:
-                                      </span>{" "}
-                                      <span>{detailReleased}</span>
+                                <div className="mt-1 space-y-1">
+                                  {cleanText(titleDetail?.tagline) && (
+                                    <p className="text-[11px] font-semibold text-mn-text-primary/90">
+                                      {cleanText(titleDetail?.tagline)}
                                     </p>
                                   )}
-                                  {detailAwards && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Awards:
-                                      </span>{" "}
-                                      <span>{detailAwards}</span>
-                                    </p>
-                                  )}
-                                  {detailBoxOffice && (
-                                    <p>
-                                      <span className="font-medium text-mn-text-primary/90">
-                                        Box office:
-                                      </span>{" "}
-                                      <span>{detailBoxOffice}</span>
+                                  {detailOverview && (
+                                    <p className="text-[11px] leading-relaxed text-mn-text-secondary">
+                                      {detailOverview}
                                     </p>
                                   )}
                                 </div>
                               </section>
                             )}
-
-                            {/* NOTE: no story/overview here, to keep full-details only "new" compact data */}
                           </div>
                         )}
                       </div>
