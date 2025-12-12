@@ -16,7 +16,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   style,
   ...formProps
 }) => {
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const containerRef = React.useRef<HTMLFormElement | null>(null);
 
   React.useEffect(() => {
     if (!onHeightChange || !containerRef.current) return;
@@ -32,20 +32,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   }, [onHeightChange]);
 
   return (
-    <div ref={containerRef} className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
-      <div className="w-full bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <form
-          {...formProps}
-          className={cn(
-            "pointer-events-auto flex w-full flex-col gap-2 rounded-3xl border border-border/60 bg-card/85 p-3 shadow-[0_-12px_40px_rgba(0,0,0,0.16)] backdrop-blur-xl supports-[backdrop-filter]:bg-card/65",
-            "ring-1 ring-black/5",
-            className,
-          )}
-          style={{ minHeight, ...style }}
-        >
-          {children}
-        </form>
-      </div>
-    </div>
+    <form
+      ref={containerRef}
+      {...formProps}
+      className={cn(
+        "sticky bottom-0 z-20 flex-shrink-0 space-y-2 border-t border-border bg-background/90 px-4 py-3 backdrop-blur",
+        className,
+      )}
+      style={{ minHeight, ...style }}
+    >
+      {children}
+    </form>
   );
 };

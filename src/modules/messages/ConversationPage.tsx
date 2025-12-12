@@ -1808,7 +1808,7 @@ const ConversationPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                   <PopoverTrigger asChild>
                     <Button
@@ -1816,7 +1816,7 @@ const ConversationPage: React.FC = () => {
                       variant="ghost"
                       size="icon"
                       aria-label="Add emoji"
-                      className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted"
+                      className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       <Smile className="h-4 w-4" aria-hidden="true" />
                     </Button>
@@ -1852,7 +1852,7 @@ const ConversationPage: React.FC = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted"
+                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   onClick={handleCameraClick}
                   aria-label="Send photo"
                 >
@@ -1866,7 +1866,7 @@ const ConversationPage: React.FC = () => {
                   onChange={handleImageSelected}
                 />
 
-                <div className="flex max-h-[160px] flex-1 items-center gap-2 rounded-full border border-input/70 bg-muted/40 px-3 py-1.5 shadow-inner">
+                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-full bg-background px-4 py-2.5 text-sm text-foreground shadow-inner ring-1 ring-border/70 focus-within:outline-none focus-within:ring-0 focus-within:shadow-none">
                   <Textarea
                     id="conversation-message"
                     value={draft}
@@ -1881,8 +1881,8 @@ const ConversationPage: React.FC = () => {
                       }
                     }}
                     rows={1}
-                    placeholder="Message"
-                    className="h-auto max-h-[140px] min-h-[38px] flex-1 resize-none border-0 bg-transparent px-0 py-0 text-sm leading-6 placeholder:text-muted-foreground focus-visible:ring-0"
+                    placeholder="Message…"
+                    className="max-h-[160px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-transparent focus:outline-none focus:ring-0 focus:shadow-none"
                   />
                 </div>
 
@@ -1890,7 +1890,7 @@ const ConversationPage: React.FC = () => {
                   type="submit"
                   variant="default"
                   size="icon"
-                  className="h-10 w-10 rounded-full shadow-sm"
+                  className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-primary to-blue-500 text-white shadow-lg shadow-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   onMouseDown={(e) => e.preventDefault()}
                   onTouchStart={(e) => e.preventDefault()}
                   disabled={!draft.trim()}
