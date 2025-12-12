@@ -1,45 +1,34 @@
 import { supabase } from "./supabase";
 
-interface CallSupabaseFunctionOptions {
-  timeoutMs?: number;
-  signal?: AbortSignal;
-}
-
 export async function callSupabaseFunction<T>(
   name: string,
-  body: any,
-  opts?: CallSupabaseFunctionOptions,
+  body: unknown,
+  opts?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<T> {
-  if (opts?.signal?.aborted) {
-    throw opts.signal.reason ?? new DOMException("Aborted", "AbortError");
-  }
+  const timeoutMs = opts?.timeoutMs ?? 25_000;
 
   const controller = new AbortController();
-  const timeoutMs = opts?.timeoutMs ?? 25000;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
-  const forwardAbort = () => controller.abort();
-  opts?.signal?.addEventListener("abort", forwardAbort);
+  const abort = () => controller.abort();
+  opts?.signal?.addEventListener("abort", abort);
 
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
     const { data, error } = await supabase.functions.invoke<T>(name, {
       body,
+      // 👇 make the JWT explicit (prevents “never triggered” due to missing auth)
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       signal: controller.signal,
     });
 
-    if (error) {
-      const err = new Error(error.message ?? `Error invoking ${name}`);
-      (err as Error & { status?: number }).status = error.status;
-      throw err;
-    }
-
-    if (data === null || data === undefined) {
-      throw new Error(`Missing data from ${name}`);
-    }
-
+    if (error) throw error;
+    if (data == null) throw new Error("No data returned from function");
     return data;
   } finally {
-    clearTimeout(timeoutId);
-    opts?.signal?.removeEventListener("abort", forwardAbort);
+    window.clearTimeout(timeoutId);
+    opts?.signal?.removeEventListener("abort", abort);
   }
 }
