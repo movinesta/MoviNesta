@@ -3,3 +3,9 @@ verify_jwt = false
 
 [functions.catalog-sync]
 verify_jwt = false
+
+[functions.swipe-for-you]
+verify_jwt = false
+
+[functions.swipe-more-like-this]
+verify_jwt = false
