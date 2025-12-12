@@ -55,7 +55,7 @@ export function MessageList<T>({
       <Virtuoso
         ref={virtuosoRef}
         data={items}
-        style={{ height: "100%", width: "100%", paddingBottom: bottomPadding ?? "10rem" }}
+        style={{ height: "100%", width: "100%" }}
         className="px-4 pt-6"
         alignToBottom
         followOutput={followOutput}
@@ -64,13 +64,16 @@ export function MessageList<T>({
         computeItemKey={computeItemKey}
         itemContent={(index, item) => itemContent(index, item)}
         components={
-          footer
-            ? {
-                Footer: () => (
-                  <div className="px-1 pb-2 pt-1 text-xs text-muted-foreground">{footer}</div>
-                ),
-              }
-            : undefined
+          {
+            Footer: () => (
+              <div
+                className="px-1 pb-2 pt-1 text-xs text-muted-foreground"
+                style={{ paddingBottom: bottomPadding ?? "10rem" }}
+              >
+                {footer}
+              </div>
+            ),
+          }
         }
       />
     </div>
