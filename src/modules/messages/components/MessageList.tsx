@@ -54,7 +54,7 @@ export function MessageList<T>({
         ref={virtuosoRef}
         data={items}
         style={{ height: "100%", width: "100%" }}
-        className="px-4 py-4"
+        className="px-4 pb-40 pt-6"
         alignToBottom
         followOutput={followOutput}
         atBottomStateChange={onAtBottomChange}
