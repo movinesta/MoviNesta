@@ -557,7 +557,14 @@ const ConversationPage: React.FC = () => {
     onRecovered: handleSendRecovered,
     otherUserId: !isGroupConversation ? (otherParticipant?.id ?? null) : null,
   });
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState<number>(72);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [composerHeight, setComposerHeight] = useState<number>(160);
+  const handleComposerHeightChange = useCallback(
+    (height: number) => setComposerHeight(Math.max(height, headerHeight)),
+    [headerHeight],
+  );
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -604,6 +611,33 @@ const ConversationPage: React.FC = () => {
   const isLoading = isConversationsLoading || isMessagesLoading || isBlockStatusLoading;
 
   const currentUserId = user?.id ?? null;
+  const showComposer = !isBlocked && !blockedYou;
+  const messageListBottomPadding = showComposer
+    ? `calc(${Math.max(composerHeight, 0)}px + 20px)`
+    : "2.5rem";
+
+  useEffect(() => {
+    if (!headerRef.current) return;
+
+    const element = headerRef.current;
+    const updateSize = () => setHeaderHeight(Math.max(element.getBoundingClientRect().height, 0));
+
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(element);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    setComposerHeight((prev) => Math.max(prev, headerHeight));
+  }, [headerHeight]);
+
+  useEffect(() => {
+    if (!showComposer) {
+      setComposerHeight(0);
+    }
+  }, [showComposer]);
 
   // Only show "seen" indicator on the very last outgoing message (not on every message)
   const lastOwnMessageId = useMemo(() => {
@@ -1339,26 +1373,28 @@ const ConversationPage: React.FC = () => {
   return (
     <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background">
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
-        <ConversationHeader
-          conversation={conversation}
-          isLoading={isConversationsLoading}
-          isGroupConversation={isGroupConversation}
-          otherParticipant={otherParticipant ?? undefined}
-          onBack={() => navigate("/messages")}
-          onToggleBlock={
-            !isGroupConversation && otherParticipant
-              ? () => {
-                  if (youBlocked) {
-                    unblock.mutate();
-                  } else {
-                    block.mutate();
+        <div ref={headerRef}>
+          <ConversationHeader
+            conversation={conversation}
+            isLoading={isConversationsLoading}
+            isGroupConversation={isGroupConversation}
+            otherParticipant={otherParticipant ?? undefined}
+            onBack={() => navigate("/messages")}
+            onToggleBlock={
+              !isGroupConversation && otherParticipant
+                ? () => {
+                    if (youBlocked) {
+                      unblock.mutate();
+                    } else {
+                      block.mutate();
+                    }
                   }
-                }
-              : undefined
-          }
-          blockPending={block.isPending || unblock.isPending}
-          youBlocked={youBlocked}
-        />
+                : undefined
+            }
+            blockPending={block.isPending || unblock.isPending}
+            youBlocked={youBlocked}
+          />
+        </div>
 
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1418,6 +1454,7 @@ const ConversationPage: React.FC = () => {
                   <div className="h-1" aria-hidden />
                 )
               }
+              bottomPadding={messageListBottomPadding}
               followOutput={isAtBottom ? "smooth" : false}
               onAtBottomChange={setIsAtBottom}
               computeItemKey={(_, item) => item.message.id}
@@ -1732,10 +1769,12 @@ const ConversationPage: React.FC = () => {
           </div>
 
           {/* Input */}
-          {!isBlocked && !blockedYou && (
+          {showComposer && (
             <MessageComposer
               onSubmit={handleSubmit}
               className="space-y-3"
+              onHeightChange={handleComposerHeightChange}
+              minHeight={headerHeight}
             >
               {sendError && (
                 <div
@@ -1769,7 +1808,7 @@ const ConversationPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                   <PopoverTrigger asChild>
                     <Button
@@ -1777,21 +1816,25 @@ const ConversationPage: React.FC = () => {
                       variant="ghost"
                       size="icon"
                       aria-label="Add emoji"
-                      className="h-10 w-10"
+                      className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted"
                     >
                       <Smile className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent side="top" align="start" className="p-3">
+                  <PopoverContent
+                    side="top"
+                    align="start"
+                    className="rounded-2xl border border-border/70 bg-popover/95 p-3 shadow-2xl backdrop-blur"
+                  >
                     <ScrollArea className="max-h-64">
-                      <div className="grid grid-cols-8 gap-1.5">
-                        {["😀","😁","😂","🤣","😅","😆","😉","😊","😎","😍","🥰","😘","🤩","🥹","🙂","🙃","🤔","🤨","😏","😒","😭","😢","😡","🤯","🥳","👍","👎","🙌","👏","🙏","❤️","🧡","💛","💚","💙","💜","🔥","⭐","✨","👀","🎬","🍿","🎉","💯"].map((emoji) => (
+                      <div className="grid grid-cols-9 gap-2">
+                        {["😀","😁","😂","🤣","😅","😆","😉","😊","😎","😍","🥰","😘","🤩","🥹","🙂","🙃","🤔","🤨","😏","😒","😭","😢","😡","🤯","🥳","👍","👎","🙌","👏","🙏","❤️","🧡","💛","💚","💙","💜","🩵","🪄","✨","🔥","⭐","🌙","🎬","🍿","🎉","💯"].map((emoji) => (
                           <Button
                             key={emoji}
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-lg"
+                            className="h-9 w-9 rounded-xl text-lg transition hover:bg-muted"
                             onClick={() => {
                               handleEmojiSelect(emoji);
                               setShowEmojiPicker(false);
@@ -1809,7 +1852,7 @@ const ConversationPage: React.FC = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10"
+                  className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted"
                   onClick={handleCameraClick}
                   aria-label="Send photo"
                 >
@@ -1823,7 +1866,7 @@ const ConversationPage: React.FC = () => {
                   onChange={handleImageSelected}
                 />
 
-                <div className="flex max-h-[160px] flex-1 items-center rounded-md border border-input bg-background px-3 py-2">
+                <div className="flex max-h-[160px] flex-1 items-center gap-2 rounded-full border border-input/70 bg-muted/40 px-3 py-1.5 shadow-inner">
                   <Textarea
                     id="conversation-message"
                     value={draft}
@@ -1838,7 +1881,8 @@ const ConversationPage: React.FC = () => {
                       }
                     }}
                     rows={1}
-                    className="h-auto max-h-[140px] min-h-[44px] resize-none border-0 bg-transparent px-0 py-0 text-sm focus-visible:ring-0"
+                    placeholder="Message"
+                    className="h-auto max-h-[140px] min-h-[38px] flex-1 resize-none border-0 bg-transparent px-0 py-0 text-sm leading-6 placeholder:text-muted-foreground focus-visible:ring-0"
                   />
                 </div>
 
@@ -1846,7 +1890,7 @@ const ConversationPage: React.FC = () => {
                   type="submit"
                   variant="default"
                   size="icon"
-                  className="h-11 w-11"
+                  className="h-10 w-10 rounded-full shadow-sm"
                   onMouseDown={(e) => e.preventDefault()}
                   onTouchStart={(e) => e.preventDefault()}
                   disabled={!draft.trim()}
@@ -1855,6 +1899,10 @@ const ConversationPage: React.FC = () => {
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
+
+              <p className="px-2 text-[11px] leading-5 text-muted-foreground">
+                Tip: Press Enter to send or tap the smile to browse a refreshed emoji palette.
+              </p>
             </MessageComposer>
           )}
 
