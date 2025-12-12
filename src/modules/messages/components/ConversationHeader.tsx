@@ -19,7 +19,8 @@ interface ConversationHeaderProps {
   blockedYou?: boolean;
 }
 
-export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
+export const ConversationHeader = React.forwardRef<HTMLElement, ConversationHeaderProps>(
+({
   conversation,
   isLoading,
   isGroupConversation,
@@ -29,7 +30,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   blockPending,
   youBlocked,
   blockedYou,
-}) => {
+}, ref) => {
   const title = conversation?.title ?? otherParticipant?.displayName ?? otherParticipant?.username ?? "Conversation";
   const subtitle = conversation?.subtitle ??
     (isGroupConversation
@@ -44,7 +45,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
     : (otherParticipant?.displayName ?? otherParticipant?.username ?? "?").slice(0, 2).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
+    <header ref={ref} className="fixed inset-x-0 top-0 z-30 w-full border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to messages">
           <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -94,4 +95,6 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
       </div>
     </header>
   );
-};
+});
+
+ConversationHeader.displayName = "ConversationHeader";

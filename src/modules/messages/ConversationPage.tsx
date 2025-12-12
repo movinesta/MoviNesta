@@ -38,6 +38,7 @@ import { MessageList } from "./components/MessageList";
 import { MessageBubble } from "./components/MessageBubble";
 import { MessageComposer } from "./components/MessageComposer";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -556,7 +557,7 @@ const ConversationPage: React.FC = () => {
     onRecovered: handleSendRecovered,
     otherUserId: !isGroupConversation ? (otherParticipant?.id ?? null) : null,
   });
-  const headerRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(72);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [composerHeight, setComposerHeight] = useState<number>(160);
@@ -564,7 +565,7 @@ const ConversationPage: React.FC = () => {
     (height: number) => setComposerHeight(Math.max(height, headerHeight)),
     [headerHeight],
   );
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const textareaRef = useRef<HTMLInputElement | null>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -1171,7 +1172,7 @@ const ConversationPage: React.FC = () => {
     }
   };
 
-  const handleDraftChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleDraftChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value;
     setDraft(next);
     if (showEmojiPicker) setShowEmojiPicker(false);
@@ -1352,31 +1353,33 @@ const ConversationPage: React.FC = () => {
   };
 
   return (
-    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background">
+    <div
+      className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background"
+      style={{ paddingTop: headerHeight }}
+    >
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
-        <div ref={headerRef}>
-          <ConversationHeader
-            conversation={conversation}
-            isLoading={isConversationsLoading}
-            isGroupConversation={isGroupConversation}
-            otherParticipant={otherParticipant ?? undefined}
-            onBack={() => navigate("/messages")}
-            onToggleBlock={
-              !isGroupConversation && otherParticipant
-                ? () => {
-                    if (youBlocked) {
-                      unblock.mutate();
-                    } else if (!blockedYou) {
-                      block.mutate();
-                    }
+        <ConversationHeader
+          ref={headerRef}
+          conversation={conversation}
+          isLoading={isConversationsLoading}
+          isGroupConversation={isGroupConversation}
+          otherParticipant={otherParticipant ?? undefined}
+          onBack={() => navigate("/messages")}
+          onToggleBlock={
+            !isGroupConversation && otherParticipant
+              ? () => {
+                  if (youBlocked) {
+                    unblock.mutate();
+                  } else if (!blockedYou) {
+                    block.mutate();
                   }
-                : undefined
-            }
-            blockPending={block.isPending || unblock.isPending}
-            youBlocked={youBlocked}
-            blockedYou={blockedYou}
-          />
-        </div>
+                }
+              : undefined
+          }
+          blockPending={block.isPending || unblock.isPending}
+          youBlocked={youBlocked}
+          blockedYou={blockedYou}
+        />
 
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1849,12 +1852,14 @@ const ConversationPage: React.FC = () => {
                 />
 
                 <div className="flex max-h-[160px] flex-1 items-center gap-2 rounded-full border border-input/70 bg-muted/40 px-3 py-1.5 shadow-inner">
-                  <Textarea
+                  <Input
                     id="conversation-message"
+                    type="text"
                     value={draft}
                     ref={textareaRef}
+                    autoComplete="off"
                     onChange={handleDraftChange}
-                    onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                    onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
                         if (draft.trim()) {
@@ -1862,9 +1867,8 @@ const ConversationPage: React.FC = () => {
                         }
                       }
                     }}
-                    rows={1}
                     placeholder="Message"
-                    className="h-auto max-h-[140px] min-h-[38px] flex-1 resize-none border-0 bg-transparent px-0 py-0 text-sm leading-6 placeholder:text-muted-foreground focus-visible:ring-0"
+                    className="h-auto max-h-[140px] min-h-[38px] flex-1 border-0 bg-transparent px-0 py-0 text-sm leading-6 shadow-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
                   />
                 </div>
 
