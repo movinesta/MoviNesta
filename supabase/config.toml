@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.swipe-more-like-this]
 verify_jwt = false
+
+[functions.debug-tastedive]
+verify_jwt = false
