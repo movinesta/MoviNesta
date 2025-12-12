@@ -80,3 +80,39 @@ export async function loadSeenTitleIdsForUser(
 
   return seen;
 }
+
+export interface SwipeApiCard {
+  id: string;
+  title: string;
+  year?: number | null;
+  type?: string | null;
+  contentType?: string | null;
+  posterUrl?: string | null;
+  tmdbPosterPath?: string | null;
+  tmdbBackdropPath?: string | null;
+  imdbRating?: number | null;
+  rtTomatoMeter?: number | null;
+  runtimeMinutes?: number | null;
+  tagline?: string | null;
+  overview?: string | null;
+  genres?: string[] | null;
+}
+
+export function mapTitleRowToSwipeCard(title: Record<string, any>): SwipeApiCard {
+  return {
+    id: String(title.title_id),
+    title: title.primary_title ?? "(Untitled)",
+    year: title.release_year ?? null,
+    type: title.content_type ?? null,
+    contentType: title.content_type ?? null,
+    posterUrl: title.poster_url ?? null,
+    tmdbPosterPath: title.tmdb_poster_path ?? null,
+    tmdbBackdropPath: title.tmdb_backdrop_path ?? title.backdrop_url ?? null,
+    imdbRating: title.imdb_rating ?? null,
+    rtTomatoMeter: title.rt_tomato_pct ?? null,
+    runtimeMinutes: title.runtime_minutes ?? title.tmdb_runtime ?? null,
+    tagline: title.tagline ?? null,
+    overview: title.tmdb_overview ?? title.plot ?? null,
+    genres: title.genres ?? title.tmdb_genre_names ?? null,
+  };
+}

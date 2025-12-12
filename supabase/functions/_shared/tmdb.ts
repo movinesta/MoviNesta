@@ -71,6 +71,20 @@ export async function fetchTmdbTitle(
   };
 }
 
+export async function searchTmdbByTitle(
+  mediaType: TmdbMediaType,
+  query: string,
+): Promise<any[]> {
+  const path = mediaType === "movie" ? "/search/movie" : "/search/tv";
+  const data = await tmdbFetch(path, {
+    query,
+    include_adult: "false",
+    page: "1",
+  });
+
+  return Array.isArray(data?.results) ? data.results : [];
+}
+
 /**
  * Find a TMDb item by IMDb ID.
  * Returns the first movie or tv result plus its media_type, or null.

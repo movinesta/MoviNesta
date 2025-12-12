@@ -7,11 +7,13 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
-import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
+import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
-import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { loadSeenTitleIdsForUser, mapTitleRowToSwipeCard } from "../_shared/swipe.ts";
+import { buildSortTitle, fetchTasteDiveSimilar } from "../_shared/tastedive.ts";
+import { searchTmdbByTitle, type TmdbMediaType } from "../_shared/tmdb.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "swipe-more-like-this";
@@ -33,6 +35,12 @@ type SwipeCard = Pick<
   | "tmdb_id"
   | "omdb_imdb_id"
   | "content_type"
+  | "tmdb_poster_path"
+  | "tmdb_overview"
+  | "runtime_minutes"
+  | "tmdb_runtime"
+  | "tagline"
+  | "tmdb_genre_names"
 >;
 
 const TITLE_COLUMNS = [
@@ -49,11 +57,24 @@ const TITLE_COLUMNS = [
   "deleted_at",
   "tmdb_popularity",
   "genres",
+  "tmdb_poster_path",
+  "tmdb_overview",
+  "runtime_minutes",
+  "tmdb_runtime",
+  "tagline",
+  "tmdb_genre_names",
+  "sort_title",
 ].join(",");
 
 const RequestQuerySchema = z.object({
-  title_id: z.string().uuid("Invalid 'title_id' query parameter"),
+  title_id: z.string().uuid("Invalid 'title_id' query parameter").optional(),
 });
+
+const RequestBodySchema = z.object({
+  titleId: z.string().uuid("Invalid 'titleId' body parameter"),
+});
+
+const debugTasteDive = Boolean(Deno.env.get("DEBUG_TASTEDIVE"));
 
 // ============================================================================
 // Main Request Handler
@@ -75,10 +96,10 @@ export async function handler(req: Request){
       return jsonError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const url = new URL(req.url);
-    const { title_id: seedTitleId } = RequestQuerySchema.parse({
-      title_id: url.searchParams.get("title_id"),
-    });
+    const seedTitleId = await resolveSeedTitleId(req);
+    if (!seedTitleId) {
+      return jsonError("Missing seed title id", 400, "BAD_REQUEST");
+    }
 
     log(logCtx, "Request received", { userId: user.id, seedTitleId });
 
@@ -93,12 +114,20 @@ export async function handler(req: Request){
       return jsonError("Seed title not found", 404, "SEED_NOT_FOUND");
     }
 
-    const scored = scoreCandidates(seedTitle, candidates, seenTitleIds, profile);
-    const deck = buildDeck(scored, 50);
+    const { matches: tasteDiveMatches, boostIds } = await fetchTasteDiveMatches(
+      supabaseAdmin,
+      seedTitle,
+      req,
+    );
 
-    triggerBackgroundSync(req, deck.slice(0, 3));
+    const mergedCandidates = mergeCandidates(candidates, tasteDiveMatches, seedTitleId);
+    const scored = scoreCandidates(seedTitle, mergedCandidates, seenTitleIds, profile, boostIds);
+    const deckTitles = buildDeck(scored, 50);
+    const cards = deckTitles.map(mapTitleRowToSwipeCard);
 
-    return jsonResponse({ ok: true, seedTitleId: seedTitle.title_id, cards: deck });
+    triggerBackgroundSync(req, deckTitles.slice(0, 3));
+
+    return jsonResponse({ ok: true, seedTitleId: seedTitle.title_id, cards });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return jsonError("Invalid query parameters", 400, "BAD_REQUEST");
@@ -113,6 +142,26 @@ serve(handler);
 // ============================================================================
 // Data Fetching
 // ============================================================================
+
+async function resolveSeedTitleId(req: Request): Promise<string | null> {
+  const url = new URL(req.url);
+  const parsedQuery = RequestQuerySchema.safeParse({ title_id: url.searchParams.get("title_id") });
+  if (parsedQuery.success && parsedQuery.data.title_id) {
+    return parsedQuery.data.title_id;
+  }
+
+  if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      const parsedBody = RequestBodySchema.safeParse(body);
+      if (parsedBody.success) return parsedBody.data.titleId;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  return null;
+}
 
 async function fetchTitle(supabase: SupabaseClient<Database>, titleId: string): Promise<Title | null> {
   const { data, error } = await supabase
@@ -142,6 +191,106 @@ async function fetchCandidates(supabase: SupabaseClient<Database>, seedTitleId: 
   return data as Title[];
 }
 
+async function fetchTasteDiveMatches(
+  supabase: SupabaseClient<Database>,
+  seedTitle: Title,
+  req: Request,
+): Promise<{ matches: Title[]; boostIds: Set<string> }> {
+  const seedTitleText = seedTitle.primary_title ?? seedTitle.original_title;
+  if (!seedTitleText) return { matches: [], boostIds: new Set<string>() };
+
+  const tasteType = seedTitle.content_type === "series" ? "show" : "movie";
+  const results = await fetchTasteDiveSimilar({
+    q: `${tasteType}:${seedTitleText}`,
+    type: tasteType,
+    limit: 25,
+  });
+
+  const sortTitles = Array.from(
+    new Set(
+      results
+        .map((r) => buildSortTitle(r.Name))
+        .filter((val): val is string => Boolean(val)),
+    ),
+  );
+
+  if (debugTasteDive) {
+    console.log(`[TasteDive] fetched ${results.length} results, normalized ${sortTitles.length}`);
+  }
+
+  if (!sortTitles.length) return { matches: [], boostIds: new Set<string>() };
+
+  const { data, error } = await supabase
+    .from("titles")
+    .select(TITLE_COLUMNS)
+    .eq("content_type", seedTitle.content_type)
+    .in("sort_title", sortTitles)
+    .is("deleted_at", null)
+    .limit(50);
+
+  if (error) {
+    if (debugTasteDive) {
+      console.log("[TasteDive] lookup error", error.message);
+    }
+    return { matches: [], boostIds: new Set<string>() };
+  }
+
+  const matches = (data ?? []) as Title[];
+  const matchedSortTitles = new Set(
+    matches
+      .map((m) => m.sort_title)
+      .filter((st): st is string => Boolean(st))
+      .map((st) => st.toLowerCase()),
+  );
+
+  const misses = sortTitles.filter((st) => !matchedSortTitles.has(st.toLowerCase()));
+  if (misses.length) {
+    triggerTasteDiveSeedSearch(req, misses.slice(0, 5), seedTitle.content_type);
+  }
+
+  return { matches, boostIds: new Set(matches.map((m) => m.title_id)) };
+}
+
+function triggerTasteDiveSeedSearch(
+  req: Request,
+  titles: string[],
+  contentType: Title["content_type"],
+) {
+  if (!titles.length) return;
+  const mediaType: TmdbMediaType = contentType === "series" ? "tv" : "movie";
+
+  Promise.allSettled(
+    titles.map(async (name) => {
+      try {
+        const results = await searchTmdbByTitle(mediaType, name);
+        const hit = results?.find((r: any) => r?.id);
+        if (hit?.id) {
+          await triggerCatalogSyncForTitle(req, { tmdbId: hit.id, contentType });
+        }
+      } catch (err) {
+        if (debugTasteDive) console.log("[TasteDive] seed search failed", name, err?.message ?? err);
+      }
+    }),
+  ).catch((err) => {
+    if (debugTasteDive) console.log("[TasteDive] seed search batch failed", err?.message ?? err);
+  });
+}
+
+function mergeCandidates(base: Title[], tasteDive: Title[], seedTitleId: string): Title[] {
+  const merged = new Map<string, Title>();
+  for (const cand of base) {
+    if (cand.title_id !== seedTitleId) {
+      merged.set(cand.title_id, cand);
+    }
+  }
+  for (const cand of tasteDive) {
+    if (cand.title_id !== seedTitleId) {
+      merged.set(cand.title_id, cand);
+    }
+  }
+  return Array.from(merged.values());
+}
+
 // ============================================================================
 // Scoring and Deck Building
 // ============================================================================
@@ -151,6 +300,7 @@ function scoreCandidates(
   candidates: Title[],
   seen: Set<string>,
   profile: UserProfile | null,
+  tasteDiveBoostIds?: Set<string>,
 ): { score: number; candidate: Title }[] {
   const seedGenres = new Set(seed.genres?.map((g) => g.toLowerCase()));
   const favGenres = new Set(profile?.favoriteGenres?.map((g) => g.toLowerCase()));
@@ -158,7 +308,11 @@ function scoreCandidates(
 
   return candidates
     .filter((c) => !seen.has(c.title_id))
-    .map((c) => ({ score: calculateScore(c, seed, seedGenres, favGenres, dislikedGenres), candidate: c }))
+    .map((c) => {
+      let score = calculateScore(c, seed, seedGenres, favGenres, dislikedGenres);
+      if (tasteDiveBoostIds?.has(c.title_id)) score += 2;
+      return { score, candidate: c };
+    })
     .filter(({ score }) => score > 0);
 }
 

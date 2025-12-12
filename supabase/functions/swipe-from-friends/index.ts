@@ -11,7 +11,7 @@ import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
 import { computeUserProfile, type UserProfile } from "../_shared/preferences.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
-import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { loadSeenTitleIdsForUser, mapTitleRowToSwipeCard } from "../_shared/swipe.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "swipe-from-friends";
@@ -34,6 +34,12 @@ type SwipeCard = Pick<
   | "tmdb_id"
   | "omdb_imdb_id"
   | "content_type"
+  | "tmdb_poster_path"
+  | "tmdb_overview"
+  | "runtime_minutes"
+  | "tmdb_runtime"
+  | "tagline"
+  | "tmdb_genre_names"
 >;
 
 const MAX_DECK_SIZE = 30;
@@ -49,11 +55,18 @@ const CANDIDATE_COLUMNS = [
   "primary_title",
   "release_year",
   "poster_url",
+  "tmdb_poster_path",
+  "tmdb_overview",
   "backdrop_url",
   "imdb_rating",
   "rt_tomato_pct",
   "tmdb_popularity",
   "genres",
+  "runtime_minutes",
+  "tmdb_runtime",
+  "tagline",
+  "tmdb_genre_names",
+  "sort_title",
 ].join(",");
 
 // ============================================================================
@@ -93,7 +106,9 @@ serve(async (req: Request) => {
     const cards = await buildDeck(supabaseAdmin, followedIds, seenTitleIds, profile);
     triggerBackgroundSync(req, cards.slice(0, 3));
 
-    return jsonResponse({ ok: true, cards });
+    const apiCards = cards.map(mapTitleRowToSwipeCard);
+
+    return jsonResponse({ ok: true, cards: apiCards });
   } catch (err) {
     log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
