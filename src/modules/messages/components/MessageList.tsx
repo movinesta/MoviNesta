@@ -9,6 +9,7 @@ interface MessageListProps<T> {
   errorContent?: React.ReactNode;
   emptyContent?: React.ReactNode;
   footer?: React.ReactNode;
+  bottomPadding?: string | number;
   followOutput?: "smooth" | boolean;
   onAtBottomChange?: (atBottom: boolean) => void;
   computeItemKey?: (index: number, item: T) => React.Key;
@@ -22,6 +23,7 @@ export function MessageList<T>({
   errorContent,
   emptyContent,
   footer,
+  bottomPadding,
   followOutput = false,
   onAtBottomChange,
   computeItemKey,
@@ -53,8 +55,8 @@ export function MessageList<T>({
       <Virtuoso
         ref={virtuosoRef}
         data={items}
-        style={{ height: "100%", width: "100%" }}
-        className="px-4 pb-40 pt-6"
+        style={{ height: "100%", width: "100%", paddingBottom: bottomPadding ?? "10rem" }}
+        className="px-4 pt-6"
         alignToBottom
         followOutput={followOutput}
         atBottomStateChange={onAtBottomChange}
