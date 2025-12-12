@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TopBar from "../../components/shared/TopBar";
+import { Button } from "@/components/ui/Button";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
@@ -144,10 +145,9 @@ const SettingsNotificationsPage: React.FC = () => {
     );
   }
 
-    if (isLoading) {
+  if (isLoading) {
     return <LoadingScreen message="Loading your notification preferences…" />;
   }
-
 
   if (isError || !storedPrefs) {
     return (
@@ -296,12 +296,7 @@ const SettingsNotificationsPage: React.FC = () => {
               </div>
             )}
           </div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSave}
-            disabled={savePrefs.isPending}
-          >
+          <Button type="button" size="sm" onClick={handleSave} disabled={savePrefs.isPending}>
             {savePrefs.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             ) : (

@@ -1,6 +1,6 @@
 // supabase/functions/tmdb-proxy/index.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handler } from "./index.ts";
+import * as mod from "./index.ts";
 import { __setConfigForTesting } from "../_shared/config.ts";
 
 vi.mock("https://deno.land/std@0.224.0/http/server.ts", () => ({

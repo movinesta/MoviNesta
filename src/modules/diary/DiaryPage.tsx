@@ -50,23 +50,27 @@ const DiaryPage: React.FC = () => {
         subtitle="Log what you watch, manage your library, and keep tabs on your habits without the noise."
       />
 
-{/* Tabs */}
-<section className="px-2">
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div className="w-full sm:max-w-lg">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DiaryTabKey)}>
-  <TabsList className="w-full">
-    {DIARY_TABS.map((tab) => (
-      <TabsTrigger key={tab.key} value={tab.key} icon={<tab.icon className="h-3.5 w-3.5" aria-hidden="true" />}>
-        {tab.label}
-      </TabsTrigger>
-    ))}
-  </TabsList>
-</Tabs>
-    </div>
-  </div>
-  <p className="mt-1 px-1 text-xs text-muted-foreground">{activeConfig.description}</p>
-</section>
+      {/* Tabs */}
+      <section className="px-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:max-w-lg">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DiaryTabKey)}>
+              <TabsList className="w-full">
+                {DIARY_TABS.map((tab) => (
+                  <TabsTrigger
+                    key={tab.key}
+                    value={tab.key}
+                    icon={<tab.icon className="h-3.5 w-3.5" aria-hidden="true" />}
+                  >
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+        <p className="mt-1 px-1 text-xs text-muted-foreground">{activeConfig.description}</p>
+      </section>
       {/* Content */}
       <section aria-live="polite" className="flex-1">
         {activeTab === "timeline" && (

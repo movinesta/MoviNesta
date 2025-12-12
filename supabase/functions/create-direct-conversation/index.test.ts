@@ -7,6 +7,8 @@ vi.mock("https://deno.land/std@0.224.0/http/server.ts", () => ({
   serve: vi.fn(),
 }));
 
+vi.mock("https://deno.land/x/zod@v3.23.8/mod.ts", async () => vi.importActual("zod"));
+
 vi.mock("../_shared/supabase.ts", () => ({
   getUserClient: vi.fn(),
   getAdminClient: vi.fn(),

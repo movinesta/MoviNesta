@@ -172,9 +172,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {displayName}
-                  </p>
+                  <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
                   {handle && <p className="mt-0.5 text-xs text-muted-foreground">{handle}</p>}
                   {person.bio && (
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">

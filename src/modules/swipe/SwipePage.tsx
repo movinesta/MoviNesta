@@ -25,12 +25,22 @@ import {
 import { useConversations } from "../messages/useConversations";
 import { useSendMessage } from "../messages/ConversationPage";
 import { supabase } from "../../lib/supabase";
-import type { SwipeCardData, SwipeDirection, SwipeDeckKind } from "./useSwipeDeck";
-import { clamp, cleanText, formatRuntime, abbreviateCountry, safeNumber, formatInt, getSourceLabel, buildSwipeCardLabel } from "./swipeCardMeta";
+import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
+import {
+  clamp,
+  cleanText,
+  formatRuntime,
+  abbreviateCountry,
+  safeNumber,
+  formatInt,
+  getSourceLabel,
+  buildSwipeCardLabel,
+} from "./swipeCardMeta";
 import { useSwipeDeck } from "./useSwipeDeck";
 import SwipeSyncBanner from "./SwipeSyncBanner";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { TitleType } from "@/types/supabase-helpers";
+import { CardMetadata, PosterFallback } from "./SwipeCardComponents";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -56,13 +66,9 @@ const CardMetadata: React.FC<CardMetadataProps> = ({ card, metaLine, highlightLa
           <h2 className="line-clamp-2 text-2xl font-heading font-semibold text-foreground">
             {card.title}
           </h2>
-          {metaLine && (
-            <p className="truncate text-xs text-muted-foreground/90">{metaLine}</p>
-          )}
+          {metaLine && <p className="truncate text-xs text-muted-foreground/90">{metaLine}</p>}
           {highlightLabel && (
-            <p className="text-xs font-medium text-primary/90">
-              {highlightLabel}
-            </p>
+            <p className="text-xs font-medium text-primary/90">{highlightLabel}</p>
           )}
         </div>
       </div>
@@ -81,14 +87,11 @@ const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
       </div>
       <span className="text-[12px] font-semibold">Artwork unavailable</span>
       {title && (
-        <span className="max-w-[240px] truncate text-xs text-muted-foreground/80">
-          for {title}
-        </span>
+        <span className="max-w-[240px] truncate text-xs text-muted-foreground/80">for {title}</span>
       )}
     </div>
   </div>
 );
-
 
 interface TitleDetailRow {
   title_id: string;
@@ -151,10 +154,23 @@ const SwipePage: React.FC = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    const hasSeen = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+    return !hasSeen;
+  });
   const [isNextPreviewActive, setIsNextPreviewActive] = useState(false);
-  const [activePosterFailed, setActivePosterFailed] = useState(false);
-  const [nextPosterFailed, setNextPosterFailed] = useState(false);
+  const [failedPosterIds, setFailedPosterIds] = useState<string[]>([]);
+  const onPosterError = (id: string | undefined) => {
+    if (id && !failedPosterIds.includes(id)) {
+      setFailedPosterIds((ids) => [...ids, id]);
+    }
+  };
+
+  const activePosterFailed = !!activeCard?.id && failedPosterIds.includes(activeCard.id);
+  const nextPosterFailed = !!nextCard?.id && failedPosterIds.includes(nextCard.id);
 
   const [dragIntent, setDragIntent] = useState<"like" | "dislike" | null>(null);
   const [nextParallaxX, setNextParallaxX] = useState(0);
@@ -203,8 +219,7 @@ const SwipePage: React.FC = () => {
     if (!FEEDBACK_ENABLED) return null;
     if (typeof window === "undefined") return null;
     if (audioContextRef.current) return audioContextRef.current;
-    const AC =
-      (window as any).AudioContext || (window as any).webkitAudioContext;
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AC) return null;
     const ctx = new AC();
     audioContextRef.current = ctx;
@@ -323,10 +338,7 @@ const SwipePage: React.FC = () => {
     null;
 
   const detailGenres =
-    titleDetail?.tmdb_genre_names ??
-    titleDetail?.genres ??
-    activeCard?.genres ??
-    null;
+    titleDetail?.tmdb_genre_names ?? titleDetail?.genres ?? activeCard?.genres ?? null;
 
   const primaryLanguageRaw =
     titleDetail?.language ??
@@ -337,10 +349,7 @@ const SwipePage: React.FC = () => {
   const detailPrimaryLanguage = cleanText(primaryLanguageRaw);
 
   const primaryCountryRaw =
-    titleDetail?.country ??
-    titleDetail?.omdb_country ??
-    activeCard?.country ??
-    null;
+    titleDetail?.country ?? titleDetail?.omdb_country ?? activeCard?.country ?? null;
   const detailPrimaryCountry = cleanText(primaryCountryRaw);
   const detailPrimaryCountryAbbr = abbreviateCountry(detailPrimaryCountry);
 
@@ -364,7 +373,7 @@ const SwipePage: React.FC = () => {
   const normalizedContentType: TitleType | null =
     titleDetail?.content_type === "movie" || titleDetail?.content_type === "series"
       ? titleDetail.content_type
-      : activeCard?.type ?? null;
+      : (activeCard?.type ?? null);
 
   const activeCardAny = activeCard as any;
   const rawCertification: string | null =
@@ -379,10 +388,11 @@ const SwipePage: React.FC = () => {
     (Array.isArray(detailGenres)
       ? (detailGenres as string[])
       : detailGenres
-      ? String(detailGenres).split(",").map((g) => g.trim())
-      : []) ?? [];
-  const moreGenres =
-    allGenresArray.length > 3 ? allGenresArray.slice(3).filter(Boolean) : [];
+        ? String(detailGenres)
+            .split(",")
+            .map((g) => g.trim())
+        : []) ?? [];
+  const moreGenres = allGenresArray.length > 3 ? allGenresArray.slice(3).filter(Boolean) : [];
 
   const allLanguagesRaw: (string | null)[] = [
     titleDetail?.language ?? null,
@@ -391,11 +401,7 @@ const SwipePage: React.FC = () => {
     activeCard?.language ?? null,
   ];
   const languages = Array.from(
-    new Set(
-      allLanguagesRaw
-        .map((l) => cleanText(l))
-        .filter((l): l is string => !!l),
-    ),
+    new Set(allLanguagesRaw.map((l) => cleanText(l)).filter((l): l is string => !!l)),
   );
 
   let episodeRuntimeMinutes: number | null = null;
@@ -510,8 +516,7 @@ const SwipePage: React.FC = () => {
     if (typeof window === "undefined") return;
 
     const idle =
-      (window as any).requestIdleCallback ??
-      ((cb: () => void) => window.setTimeout(cb, 180));
+      (window as any).requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 180));
 
     idle(() => {
       const upcoming = cards.slice(currentIndex + 1, currentIndex + 4);
@@ -662,7 +667,11 @@ const SwipePage: React.FC = () => {
       if (isSeries) {
         return "Nice — we’ll bring in more series that match this vibe.";
       }
-      if (externalImdbRating != null && safeNumber(externalImdbRating) != null && safeNumber(externalImdbRating)! >= 7.5) {
+      if (
+        externalImdbRating != null &&
+        safeNumber(externalImdbRating) != null &&
+        safeNumber(externalImdbRating)! >= 7.5
+      ) {
         return "Nice pick — we’ll show more highly rated titles like this.";
       }
       if (card.friendLikesCount && card.friendLikesCount >= 3) {
@@ -737,8 +746,7 @@ const SwipePage: React.FC = () => {
         node.style.transform =
           "perspective(1400px) translateX(0px) translateY(4px) scale(1.03) rotateZ(-1deg)";
         window.setTimeout(() => {
-          node.style.transform =
-            "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
+          node.style.transform = "perspective(1400px) translateX(0px) translateY(24px) scale(0.95)";
         }, 16);
         node.style.opacity = "0";
       }
@@ -820,9 +828,7 @@ const SwipePage: React.FC = () => {
     }, 550);
 
     const startedInDetail =
-      isDetailMode &&
-      detailContentRef.current &&
-      detailContentRef.current.contains(target as Node);
+      isDetailMode && detailContentRef.current && detailContentRef.current.contains(target as Node);
     dragStartedInDetailAreaRef.current = startedInDetail;
 
     const node = cardRef.current;
@@ -840,7 +846,11 @@ const SwipePage: React.FC = () => {
     const now = performance.now();
     const dx = x - dragStartX.current;
 
-    if (longPressTimeoutRef.current != null && Math.abs(dx) > 10 && !longPressTriggeredRef.current) {
+    if (
+      longPressTimeoutRef.current != null &&
+      Math.abs(dx) > 10 &&
+      !longPressTriggeredRef.current
+    ) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
@@ -889,8 +899,12 @@ const SwipePage: React.FC = () => {
     const projected = distance + velocityRef.current * 180;
 
     const isDetailDrag = isDetailMode && dragStartedInDetailAreaRef.current;
-    const distanceThreshold = isDetailDrag ? SWIPE_DISTANCE_THRESHOLD * 1.6 : SWIPE_DISTANCE_THRESHOLD;
-    const velocityThreshold = isDetailDrag ? SWIPE_VELOCITY_THRESHOLD * 1.4 : SWIPE_VELOCITY_THRESHOLD;
+    const distanceThreshold = isDetailDrag
+      ? SWIPE_DISTANCE_THRESHOLD * 1.6
+      : SWIPE_DISTANCE_THRESHOLD;
+    const velocityThreshold = isDetailDrag
+      ? SWIPE_VELOCITY_THRESHOLD * 1.4
+      : SWIPE_VELOCITY_THRESHOLD;
 
     const shouldSwipe =
       Math.abs(projected) >= distanceThreshold ||
@@ -969,8 +983,8 @@ const SwipePage: React.FC = () => {
       lastAction.direction === "like"
         ? "Loved it"
         : lastAction.direction === "dislike"
-        ? "Marked as ‘No thanks’"
-        : "Saved for ‘Not now’";
+          ? "Marked as ‘No thanks’"
+          : "Saved for ‘Not now’";
 
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:px-0">
@@ -1003,16 +1017,18 @@ const SwipePage: React.FC = () => {
   const primaryImdbForMeta =
     typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
       ? activeCard.imdbRating
-      : typeof titleDetail?.imdb_rating === "number" && !Number.isNaN(titleDetail.imdb_rating as number)
-      ? (titleDetail.imdb_rating as number)
-      : safeNumber(titleDetail?.imdb_rating);
+      : typeof titleDetail?.imdb_rating === "number" &&
+          !Number.isNaN(titleDetail.imdb_rating as number)
+        ? (titleDetail.imdb_rating as number)
+        : safeNumber(titleDetail?.imdb_rating);
 
   const primaryRtForMeta =
     typeof activeCard?.rtTomatoMeter === "number" && !Number.isNaN(activeCard.rtTomatoMeter)
       ? activeCard.rtTomatoMeter
-      : typeof titleDetail?.rt_tomato_pct === "number" && !Number.isNaN(titleDetail.rt_tomato_pct as number)
-      ? (titleDetail.rt_tomato_pct as number)
-      : safeNumber(titleDetail?.rt_tomato_pct);
+      : typeof titleDetail?.rt_tomato_pct === "number" &&
+          !Number.isNaN(titleDetail.rt_tomato_pct as number)
+        ? (titleDetail.rt_tomato_pct as number)
+        : safeNumber(titleDetail?.rt_tomato_pct);
 
   const metaLine = activeCard
     ? (() => {
@@ -1118,7 +1134,6 @@ const SwipePage: React.FC = () => {
             <>
               {/* intent glow */}
 
-
               {/* next preview */}
               {nextCard && (
                 <div
@@ -1177,8 +1192,7 @@ const SwipePage: React.FC = () => {
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 mix-blend-screen opacity-[0.14]"
-                >
-                </div>
+                ></div>
 
                 {/* header / poster */}
                 <div
@@ -1308,8 +1322,7 @@ const SwipePage: React.FC = () => {
                                   showFullFriendReview ? "" : "line-clamp-2"
                                 }`}
                               >
-                                {activeCard.topFriendName}: “
-                                {activeCard.topFriendReviewSnippet}”
+                                {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
                               </span>
                             </div>
                           </button>
@@ -1338,16 +1351,12 @@ const SwipePage: React.FC = () => {
                               </h3>
                               {/* old info (same meta line as swipe) */}
                               {metaLine && (
-                                <p className="text-xs text-muted-foreground/90">
-                                  {metaLine}
-                                </p>
+                                <p className="text-xs text-muted-foreground/90">{metaLine}</p>
                               )}
                               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground/90">
                                 {detailGenres && (
                                   <span className="inline-flex items-center gap-1">
-                                    <span className="font-medium text-foreground/90">
-                                      Genres
-                                    </span>
+                                    <span className="font-medium text-foreground/90">Genres</span>
                                     <span className="truncate max-w-[180px]">
                                       {Array.isArray(detailGenres)
                                         ? (detailGenres as string[]).slice(0, 3).join(", ")
@@ -1397,9 +1406,7 @@ const SwipePage: React.FC = () => {
                                 )}
                                 {detailActors && (
                                   <p>
-                                    <span className="font-medium text-foreground/90">
-                                      Cast:
-                                    </span>{" "}
+                                    <span className="font-medium text-foreground/90">Cast:</span>{" "}
                                     <span>
                                       {detailActors
                                         .split(",")
@@ -1481,8 +1488,7 @@ const SwipePage: React.FC = () => {
                             {/* Friends info block (same data as swipe, but in summary layout) */}
                             {(typeof activeCard.friendLikesCount === "number" &&
                               activeCard.friendLikesCount > 0) ||
-                            (activeCard.topFriendName &&
-                              activeCard.topFriendReviewSnippet) ? (
+                            (activeCard.topFriendName && activeCard.topFriendReviewSnippet) ? (
                               <div className="space-y-1.5 rounded-2xl bg-card/80 px-3 py-2 text-xs text-foreground shadow-md">
                                 {typeof activeCard.friendLikesCount === "number" &&
                                   activeCard.friendLikesCount > 0 && (
@@ -1493,32 +1499,29 @@ const SwipePage: React.FC = () => {
                                         : `${activeCard.friendLikesCount} friends like this`}
                                     </div>
                                   )}
-                                {activeCard.topFriendName &&
-                                  activeCard.topFriendReviewSnippet && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setShowFullFriendReview((v) => !v)
-                                      }
-                                      className="mt-1 inline-flex w-full items-start gap-2 text-left"
+                                {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowFullFriendReview((v) => !v)}
+                                    className="mt-1 inline-flex w-full items-start gap-2 text-left"
+                                  >
+                                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
+                                    <div
+                                      className={`overflow-hidden transition-all duration-200 ${
+                                        showFullFriendReview ? "max-h-32" : "max-h-10"
+                                      }`}
                                     >
-                                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
-                                      <div
-                                        className={`overflow-hidden transition-all duration-200 ${
-                                          showFullFriendReview ? "max-h-32" : "max-h-10"
+                                      <span
+                                        className={`block text-xs ${
+                                          showFullFriendReview ? "" : "line-clamp-2"
                                         }`}
                                       >
-                                        <span
-                                          className={`block text-xs ${
-                                            showFullFriendReview ? "" : "line-clamp-2"
-                                          }`}
-                                        >
-                                          {activeCard.topFriendName}: “
-                                          {activeCard.topFriendReviewSnippet}”
-                                        </span>
-                                      </div>
-                                    </button>
-                                  )}
+                                        {activeCard.topFriendName}: “
+                                        {activeCard.topFriendReviewSnippet}”
+                                      </span>
+                                    </div>
+                                  </button>
+                                )}
                               </div>
                             ) : null}
                           </div>
@@ -1550,17 +1553,14 @@ const SwipePage: React.FC = () => {
                                       <span>{languages.join(", ")}</span>
                                     </p>
                                   )}
-                                  {episodeRuntimeMinutes &&
-                                    normalizedContentType === "series" && (
-                                      <p>
-                                        <span className="font-medium text-foreground/90">
-                                          Episode runtime:
-                                        </span>{" "}
-                                        <span>
-                                          {formatRuntime(episodeRuntimeMinutes)}
-                                        </span>
-                                      </p>
-                                    )}
+                                  {episodeRuntimeMinutes && normalizedContentType === "series" && (
+                                    <p>
+                                      <span className="font-medium text-foreground/90">
+                                        Episode runtime:
+                                      </span>{" "}
+                                      <span>{formatRuntime(episodeRuntimeMinutes)}</span>
+                                    </p>
+                                  )}
                                 </div>
                               </section>
                             )}
@@ -1578,57 +1578,46 @@ const SwipePage: React.FC = () => {
                                 <div className="mt-1 grid gap-1.5">
                                   {imdbVotes && formatInt(imdbVotes) && (
                                     <div className="flex items-center justify-between">
-                                      <span className="text-muted-foreground/90">
-                                        IMDb votes
-                                      </span>
+                                      <span className="text-muted-foreground/90">IMDb votes</span>
                                       <span className="font-medium text-foreground/90">
                                         {formatInt(imdbVotes)}
                                       </span>
                                     </div>
                                   )}
-                                  {externalMetascore &&
-                                    safeNumber(externalMetascore) != null && (
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground/90">
-                                          Metascore
-                                        </span>
-                                        <span className="font-medium text-foreground/90">
-                                          {safeNumber(externalMetascore)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  {tmdbVoteAverage &&
-                                    safeNumber(tmdbVoteAverage) != null && (
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground/90">
-                                          TMDB score
-                                        </span>
-                                        <span className="font-medium text-foreground/90">
-                                          {safeNumber(tmdbVoteAverage)?.toFixed(1)}
-                                        </span>
-                                      </div>
-                                    )}
+                                  {externalMetascore && safeNumber(externalMetascore) != null && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground/90">Metascore</span>
+                                      <span className="font-medium text-foreground/90">
+                                        {safeNumber(externalMetascore)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {tmdbVoteAverage && safeNumber(tmdbVoteAverage) != null && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground/90">TMDB score</span>
+                                      <span className="font-medium text-foreground/90">
+                                        {safeNumber(tmdbVoteAverage)?.toFixed(1)}
+                                      </span>
+                                    </div>
+                                  )}
                                   {tmdbVoteCount && formatInt(tmdbVoteCount) && (
                                     <div className="flex items-center justify-between">
-                                      <span className="text-muted-foreground/90">
-                                        TMDB votes
-                                      </span>
+                                      <span className="text-muted-foreground/90">TMDB votes</span>
                                       <span className="font-medium text-foreground/90">
                                         {formatInt(tmdbVoteCount)}
                                       </span>
                                     </div>
                                   )}
-                                  {tmdbPopularity &&
-                                    safeNumber(tmdbPopularity) != null && (
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground/90">
-                                          TMDB popularity
-                                        </span>
-                                        <span className="font-medium text-foreground/90">
-                                          {safeNumber(tmdbPopularity)?.toFixed(1)}
-                                        </span>
-                                      </div>
-                                    )}
+                                  {tmdbPopularity && safeNumber(tmdbPopularity) != null && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground/90">
+                                        TMDB popularity
+                                      </span>
+                                      <span className="font-medium text-foreground/90">
+                                        {safeNumber(tmdbPopularity)?.toFixed(1)}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </section>
                             )}
@@ -1648,22 +1637,23 @@ const SwipePage: React.FC = () => {
                                       <span>{detailWriter}</span>
                                     </p>
                                   )}
-                                  {detailActors && (() => {
-                                    const allNames = detailActors
-                                      .split(",")
-                                      .map((a) => a.trim())
-                                      .filter(Boolean);
-                                    const extra = allNames.slice(3);
-                                    if (!extra.length) return null;
-                                    return (
-                                      <p>
-                                        <span className="font-medium text-foreground/90">
-                                          More cast:
-                                        </span>{" "}
-                                        <span>{extra.join(", ")}</span>
-                                      </p>
-                                    );
-                                  })()}
+                                  {detailActors &&
+                                    (() => {
+                                      const allNames = detailActors
+                                        .split(",")
+                                        .map((a) => a.trim())
+                                        .filter(Boolean);
+                                      const extra = allNames.slice(3);
+                                      if (!extra.length) return null;
+                                      return (
+                                        <p>
+                                          <span className="font-medium text-foreground/90">
+                                            More cast:
+                                          </span>{" "}
+                                          <span>{extra.join(", ")}</span>
+                                        </p>
+                                      );
+                                    })()}
                                 </div>
                               </section>
                             ) : null}
@@ -1728,9 +1718,7 @@ const SwipePage: React.FC = () => {
               {showOnboarding && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-background/70 via-background/50 to-background/80">
                   <div className="pointer-events-auto max-w-xs rounded-2xl border border-border bg-background/95 p-4 text-center shadow-lg">
-                    <p className="text-sm font-semibold text-foreground">
-                      Swipe to decide
-                    </p>
+                    <p className="text-sm font-semibold text-foreground">Swipe to decide</p>
                     <p className="mt-1 text-[12px] text-muted-foreground">
                       Swipe left to pass, right to save what you love.
                     </p>
@@ -1803,7 +1791,6 @@ const SwipePage: React.FC = () => {
   );
 };
 
-
 interface SwipeShareSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1841,12 +1828,27 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
     }
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter" || event.key === " ") {
+      onClose();
+    }
+  };
+
   return (
     <div
+      role="button"
+      tabIndex={0}
       className="fixed inset-0 z-[9999] flex flex-col justify-end bg-black/55"
       onClick={handleBackdropClick}
+      onKeyDown={handleKeyDown}
     >
-      <div className="pointer-events-auto mb-[72px] w-full max-w-md self-center rounded-t-2xl bg-card pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="pointer-events-auto mb-[72px] w-full max-w-md self-center rounded-t-2xl bg-card pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-4 pb-2">
           <button
             type="button"
@@ -1854,9 +1856,7 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
           >
             <Search className="h-4 w-4" />
           </button>
-          <span className="text-sm font-semibold text-foreground">
-            Send to
-          </span>
+          <span className="text-sm font-semibold text-foreground">Send to</span>
           <button
             type="button"
             onClick={onClose}
@@ -1880,9 +1880,7 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
               ))}
             </div>
           ) : !user ? (
-            <p className="text-[12px] text-muted-foreground/80">
-              Sign in to share via messages.
-            </p>
+            <p className="text-[12px] text-muted-foreground/80">Sign in to share via messages.</p>
           ) : conversations.length === 0 ? (
             <p className="text-[12px] text-muted-foreground/80">
               No conversations yet. Start a chat from a profile or the Messages tab.
@@ -1890,11 +1888,7 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-1 pt-0.5">
               {conversations.map((conversation) => (
-                <ShareRecipientChip
-                  key={conversation.id}
-                  conversation={conversation}
-                  text={text}
-                />
+                <ShareRecipientChip key={conversation.id} conversation={conversation} text={text} />
               ))}
             </div>
           )}
@@ -1918,14 +1912,10 @@ interface ShareRecipientChipProps {
   text: string;
 }
 
-const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({
-  conversation,
-  text,
-}) => {
+const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, text }) => {
   const primaryOther = conversation.isGroup
     ? null
-    : conversation.participants?.find((p: any) => !p.isSelf) ??
-      conversation.participants?.[0];
+    : (conversation.participants?.find((p: any) => !p.isSelf) ?? conversation.participants?.[0]);
 
   const displayName = primaryOther?.displayName ?? conversation.title ?? "Conversation";
   const avatarUrl = primaryOther?.avatarUrl;
@@ -1952,11 +1942,7 @@ const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({
       <div className="relative">
         <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-muted text-xs text-muted-foreground">
           {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={displayName}
-              className="h-full w-full object-cover"
-            />
+            <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
           ) : (
             <span>{initials}</span>
           )}
@@ -1967,9 +1953,7 @@ const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({
           </div>
         )}
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">
-        {displayName}
-      </span>
+      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">{displayName}</span>
     </button>
   );
 };
@@ -1998,9 +1982,7 @@ const ShareCopyLinkChip: React.FC<ShareCopyLinkChipProps> = ({ shareUrl }) => {
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary">
         <Link2 className="h-4 w-4 text-primary-foreground" />
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">
-        Copy link
-      </span>
+      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">Copy link</span>
     </button>
   );
 };
@@ -2027,9 +2009,7 @@ const WhatsAppShareChip: React.FC<WhatsAppShareChipProps> = ({ shareUrl, title }
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary">
         <span className="text-[16px] font-semibold text-white">W</span>
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">
-        WhatsApp
-      </span>
+      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">WhatsApp</span>
     </button>
   );
 };
@@ -2058,9 +2038,7 @@ const TelegramShareChip: React.FC<TelegramShareChipProps> = ({ shareUrl, title }
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary">
         <span className="text-[16px] font-semibold text-white">T</span>
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">
-        Telegram
-      </span>
+      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">Telegram</span>
     </button>
   );
 };
@@ -2083,9 +2061,7 @@ const MoreShareChip: React.FC<MoreShareChipProps> = ({ onShareExternal }) => {
       <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted">
         <Share2 className="h-4 w-4 text-muted-foreground" />
       </div>
-      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">
-        More
-      </span>
+      <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">More</span>
     </button>
   );
 };

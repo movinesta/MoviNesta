@@ -90,4 +90,3 @@ export const EmptyForYouState: React.FC = () => {
     </section>
   );
 };
-

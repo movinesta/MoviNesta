@@ -91,9 +91,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           )}
           <div className="min-w-0 leading-tight">
             <p className="truncate text-lg font-semibold text-foreground">{title}</p>
-            {description && (
-              <p className="truncate text-xs text-muted-foreground">{description}</p>
-            )}
+            {description && <p className="truncate text-xs text-muted-foreground">{description}</p>}
           </div>
         </div>
       </div>

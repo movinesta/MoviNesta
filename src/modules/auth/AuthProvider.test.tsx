@@ -69,7 +69,7 @@ describe("AuthProvider", () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.user).not.toBeNull());
     expect(result.current.user).toEqual(mockUser);
 
     await act(async () => {

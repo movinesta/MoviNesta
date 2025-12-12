@@ -233,9 +233,7 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
                     >
                       {entry.title}
                     </Link>
-                    {entry.year && (
-                      <p className="text-xs text-muted-foreground">({entry.year})</p>
-                    )}
+                    {entry.year && <p className="text-xs text-muted-foreground">({entry.year})</p>}
                   </div>
 
                   <div className="flex items-center justify-between gap-1">

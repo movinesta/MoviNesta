@@ -60,10 +60,7 @@ export type TmdbTitle = {
   voteAverage: number | null;
 };
 
-export async function fetchTrendingTitles(
-  limit = 20,
-  signal?: AbortSignal,
-): Promise<TmdbTitle[]> {
+export async function fetchTrendingTitles(limit = 20, signal?: AbortSignal): Promise<TmdbTitle[]> {
   const body = (await fetchTmdbJson(
     "/trending/all/week",
     {
@@ -79,8 +76,8 @@ export async function fetchTrendingTitles(
     .filter((item): item is TmdbTitleResult & { id: number; media_type: "movie" | "tv" } => {
       return Boolean(
         item &&
-          typeof item.id === "number" &&
-          (item.media_type === "movie" || item.media_type === "tv"),
+        typeof item.id === "number" &&
+        (item.media_type === "movie" || item.media_type === "tv"),
       );
     })
     .slice(0, limit)

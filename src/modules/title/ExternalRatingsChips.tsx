@@ -51,4 +51,3 @@ export const ExternalRatingsChips: React.FC<RatingsProps> = ({
     </div>
   );
 };
-

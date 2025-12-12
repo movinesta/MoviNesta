@@ -118,10 +118,7 @@ const HomeFeedTab: React.FC<HomeFeedTabProps> = ({ quickFilter }) => {
               aria-pressed={isActive}
               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <Chip
-                variant={isActive ? "accent" : "outline"}
-                className="flex items-center gap-1"
-              >
+              <Chip variant={isActive ? "accent" : "outline"} className="flex items-center gap-1">
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{filter.label}</span>
               </Chip>

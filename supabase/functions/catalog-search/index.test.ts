@@ -34,9 +34,11 @@ describe("catalog-search handler", () => {
 
   it("should search for a title", async () => {
     mockFetch.mockResolvedValue(
-      new Response(JSON.stringify({
-        results: [{ id: 123, title: "Test Movie" }],
-      })),
+      new Response(
+        JSON.stringify({
+          results: [{ id: 123, title: "Test Movie" }],
+        }),
+      ),
     );
 
     const req = new Request("http://example.com/catalog-search", {

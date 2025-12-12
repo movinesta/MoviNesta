@@ -30,8 +30,6 @@ const MessagesPage = React.lazy(() => import("./modules/messages/MessagesPage"))
 const ConversationPage = React.lazy(() => import("./modules/messages/ConversationPage"));
 const TitleDetailPage = React.lazy(() => import("./modules/title/TitleDetailPage"));
 
-
-
 const AppRoutes: React.FC = () => {
   return (
     <React.Suspense fallback={<LoadingScreen />}>

@@ -7,14 +7,12 @@ import App from "./App";
 import "./index.css";
 import { AuthProvider } from "./modules/auth/AuthProvider";
 import { queryClient } from "./lib/react-query";
- 
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <AuthProvider>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter
-          basename={(import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") || "/"}        >
+        <BrowserRouter basename={(import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") || "/"}>
           <App />
         </BrowserRouter>
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}

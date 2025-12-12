@@ -77,9 +77,7 @@ const SettingsAccountPage: React.FC = () => {
             </span>
             <div className="space-y-0.5">
               <h2 className="text-sm font-heading font-semibold text-foreground">Email</h2>
-              <p className="text-xs text-muted-foreground">
-                This is the email you use to sign in.
-              </p>
+              <p className="text-xs text-muted-foreground">This is the email you use to sign in.</p>
             </div>
           </div>
 
