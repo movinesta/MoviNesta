@@ -520,7 +520,6 @@ const ConversationPage: React.FC = () => {
   const handleSendFailed = (tempId: string, payload: FailedMessagePayload) => {
     setSendError("Couldn't send. Please try again.");
     setDraft(payload.text);
-    resizeTextarea();
     setLastFailedPayload(payload);
     setFailedMessages((prev) => ({ ...prev, [tempId]: payload }));
   };
@@ -1123,20 +1122,6 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, queryClient]);
 
-  const resizeTextarea = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    textarea.style.height = "auto";
-    const nextHeight = Math.min(140, textarea.scrollHeight);
-    textarea.style.height = `${nextHeight}px`;
-    textarea.style.overflowY = textarea.scrollHeight > nextHeight ? "auto" : "hidden";
-  };
-
-  useEffect(() => {
-    resizeTextarea();
-  }, [draft]);
-
   const notifyTyping = (nextDraft: string) => {
     const channel = typingChannelRef.current;
     if (!channel || !conversationId || !user) return;
@@ -1189,7 +1174,6 @@ const ConversationPage: React.FC = () => {
   const handleDraftChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setDraft(next);
-    resizeTextarea();
     if (showEmojiPicker) setShowEmojiPicker(false);
     notifyTyping(next);
   };
@@ -1198,7 +1182,6 @@ const ConversationPage: React.FC = () => {
     if (!emoji) return;
     setDraft((prev) => {
       const next = `${prev}${emoji}`;
-      resizeTextarea();
       notifyTyping(next);
       return next;
     });
@@ -1212,7 +1195,6 @@ const ConversationPage: React.FC = () => {
           console.error("[ConversationPage] sendMessage mutate error", error);
           setSendError("Couldn't send. Please try again.");
           setDraft(payload.text);
-          resizeTextarea();
           setLastFailedPayload(payload);
         },
         onSuccess: () => {
@@ -1232,7 +1214,6 @@ const ConversationPage: React.FC = () => {
     if (!text) return;
 
     setDraft("");
-    resizeTextarea();
     setSendError(null);
     setLastFailedPayload(null);
     notifyTyping("");
@@ -1385,7 +1366,7 @@ const ConversationPage: React.FC = () => {
                 ? () => {
                     if (youBlocked) {
                       unblock.mutate();
-                    } else {
+                    } else if (!blockedYou) {
                       block.mutate();
                     }
                   }
@@ -1393,6 +1374,7 @@ const ConversationPage: React.FC = () => {
             }
             blockPending={block.isPending || unblock.isPending}
             youBlocked={youBlocked}
+            blockedYou={blockedYou}
           />
         </div>
 
@@ -1808,7 +1790,7 @@ const ConversationPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center gap-2">
                 <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                   <PopoverTrigger asChild>
                     <Button
@@ -1899,10 +1881,6 @@ const ConversationPage: React.FC = () => {
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
-
-              <p className="px-2 text-[11px] leading-5 text-muted-foreground">
-                Tip: Press Enter to send or tap the smile to browse a refreshed emoji palette.
-              </p>
             </MessageComposer>
           )}
 

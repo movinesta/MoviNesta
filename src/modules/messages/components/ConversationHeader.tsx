@@ -16,6 +16,7 @@ interface ConversationHeaderProps {
   onToggleBlock?: () => void;
   blockPending?: boolean;
   youBlocked?: boolean;
+  blockedYou?: boolean;
 }
 
 export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
@@ -27,6 +28,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   onToggleBlock,
   blockPending,
   youBlocked,
+  blockedYou,
 }) => {
   const title = conversation?.title ?? otherParticipant?.displayName ?? otherParticipant?.username ?? "Conversation";
   const subtitle = conversation?.subtitle ??
@@ -81,12 +83,12 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             variant={youBlocked ? "destructive" : "outline"}
             size="sm"
             className="gap-2"
-            disabled={blockPending || isLoading}
+            disabled={blockPending || isLoading || (blockedYou && !youBlocked)}
             onClick={onToggleBlock}
           >
             {blockPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
             <ShieldX className="h-4 w-4" aria-hidden />
-            {youBlocked ? "Unblock" : "Block"}
+            {youBlocked ? "Unblock" : blockedYou ? "Blocked" : "Block"}
           </Button>
         )}
       </div>
