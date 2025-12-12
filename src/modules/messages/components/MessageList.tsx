@@ -49,7 +49,7 @@ export function MessageList<T>({
   }
 
   return (
-    <div className="relative flex flex-1">
+    <div className="relative flex flex-1 overflow-hidden">
       <Virtuoso
         ref={virtuosoRef}
         data={items}
