@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Filter, Languages, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,7 +13,6 @@ import type { TitleSearchFilters } from "./useSearchTitles";
 import {
   parseTabFromParams,
   parseTitleFiltersFromParams,
-  areFiltersEqual,
   clampYear,
   type SearchTabKey,
 } from "./searchState";
@@ -22,117 +21,120 @@ import SearchPeopleTab from "./SearchPeopleTab";
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = parseTabFromParams(searchParams);
-  const initialQuery = searchParams.get("q") ?? "";
-  const initialFilters = useMemo(() => parseTitleFiltersFromParams(searchParams), [searchParams]);
+  const activeTab = useMemo(() => parseTabFromParams(searchParams), [searchParams]);
+  const queryFromParams = searchParams.get("q") ?? "";
+  const debouncedQuery = useDebouncedValue(queryFromParams, 300);
+  const titleFilters = useMemo(() => parseTitleFiltersFromParams(searchParams), [searchParams]);
 
-  const [activeTab, setActiveTab] = useState<SearchTabKey>(initialTab);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-  const [query, setQuery] = useState(initialQuery);
-  const debouncedQuery = useDebouncedValue(query, 300);
-  const [titleFilters, setTitleFilters] = useState<TitleSearchFilters>(initialFilters);
+  const updateSearchParams = useCallback(
+    (updater: (params: URLSearchParams) => void) => {
+      const params = new URLSearchParams(searchParams);
+      updater(params);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
-  // Hide filters when switching away from the titles tab
-  useEffect(() => {
-    if (activeTab !== "titles") {
-      setIsFiltersOpen(false);
-    }
-  }, [activeTab]);
+  const clearFilterParams = useCallback((params: URLSearchParams) => {
+    params.delete("type");
+    params.delete("minYear");
+    params.delete("maxYear");
+    params.delete("lang");
+  }, []);
 
-  // If the query has been cleared, hide the filters sheet to keep the UI tidy.
-  useEffect(() => {
-    if (!debouncedQuery.trim() && isFiltersOpen) {
-      setIsFiltersOpen(false);
-    }
-  }, [debouncedQuery, isFiltersOpen]);
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const nextTab = value as SearchTabKey;
+      updateSearchParams((params) => {
+        params.set("tab", nextTab);
+        if (!params.get("q")) {
+          clearFilterParams(params);
+        }
+      });
 
-  // Keep tab and query in sync with the URL so back/forward navigation keeps state.
-  const nextSearchParams = useMemo(() => {
-    const params = new URLSearchParams(searchParams);
-    params.set("tab", activeTab);
-    if (query.trim()) {
-      params.set("q", query.trim());
-    } else {
-      params.delete("q");
-    }
-
-    if (activeTab === "titles" && query.trim()) {
-      params.set("type", titleFilters.type ?? "all");
-      if (titleFilters.minYear) {
-        params.set("minYear", String(titleFilters.minYear));
-      } else {
-        params.delete("minYear");
+      if (nextTab !== "titles") {
+        setIsFiltersOpen(false);
       }
-
-      if (titleFilters.maxYear) {
-        params.set("maxYear", String(titleFilters.maxYear));
-      } else {
-        params.delete("maxYear");
-      }
-
-      if (titleFilters.originalLanguage) {
-        params.set("lang", titleFilters.originalLanguage);
-      } else {
-        params.delete("lang");
-      }
-    } else {
-      params.delete("type");
-      params.delete("minYear");
-      params.delete("maxYear");
-      params.delete("lang");
-    }
-    return params;
-  }, [activeTab, query, searchParams, titleFilters]);
-
-  useEffect(() => {
-    if (nextSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(nextSearchParams, { replace: true });
-    }
-  }, [nextSearchParams, searchParams, setSearchParams]);
-
-  // Respond to external URL changes (e.g., back/forward) by syncing local state.
-  useEffect(() => {
-    const tabFromParams = parseTabFromParams(searchParams);
-    const queryFromParams = searchParams.get("q") ?? "";
-    const filtersFromParams = parseTitleFiltersFromParams(searchParams);
-
-    if (activeTab !== tabFromParams) setActiveTab(tabFromParams);
-    if (query !== queryFromParams) setQuery(queryFromParams);
-    setTitleFilters((prev) =>
-      areFiltersEqual(prev, filtersFromParams) ? prev : filtersFromParams,
-    );
-  }, [searchParams, activeTab, query]);
-
-  useEffect(() => {
-    const normalizedMin = clampYear(titleFilters.minYear);
-    const normalizedMax = clampYear(titleFilters.maxYear);
-
-    if (normalizedMin && normalizedMax && normalizedMin > normalizedMax) {
-      setTitleFilters((prev) => ({ ...prev, minYear: normalizedMax, maxYear: normalizedMin }));
-      return;
-    }
-
-    if (normalizedMin !== titleFilters.minYear || normalizedMax !== titleFilters.maxYear) {
-      setTitleFilters((prev) => ({ ...prev, minYear: normalizedMin, maxYear: normalizedMax }));
-    }
-  }, [titleFilters.maxYear, titleFilters.minYear]);
+    },
+    [clearFilterParams, updateSearchParams],
+  );
 
   const handleClearQuery = () => {
-    setQuery("");
+    updateSearchParams((params) => {
+      params.delete("q");
+      clearFilterParams(params);
+    });
     setIsFiltersOpen(false);
   };
 
-  const updateFilters = useCallback((updates: Partial<TitleSearchFilters>) => {
-    setTitleFilters((prev) => ({ ...prev, ...updates }));
-  }, []);
+  const handleQueryChange = (value: string) => {
+    const trimmed = value.trim();
+    updateSearchParams((params) => {
+      if (trimmed) {
+        params.set("q", trimmed);
+        params.set("tab", "titles");
+      } else {
+        params.delete("q");
+        clearFilterParams(params);
+      }
+    });
+
+    if (!trimmed) {
+      setIsFiltersOpen(false);
+    }
+  };
+
+  const updateFilters = useCallback(
+    (updates: Partial<TitleSearchFilters>) => {
+      updateSearchParams((params) => {
+        const merged = { ...titleFilters, ...updates };
+        const normalizedMin = clampYear(merged.minYear);
+        const normalizedMax = clampYear(merged.maxYear);
+
+        const next: TitleSearchFilters = {
+          ...merged,
+          minYear: normalizedMin ?? undefined,
+          maxYear: normalizedMax ?? undefined,
+        };
+
+        if (next.minYear && next.maxYear && next.minYear > next.maxYear) {
+          [next.minYear, next.maxYear] = [next.maxYear, next.minYear];
+        }
+
+        params.set("tab", "titles");
+        params.set("type", next.type ?? "all");
+
+        if (next.minYear) {
+          params.set("minYear", String(next.minYear));
+        } else {
+          params.delete("minYear");
+        }
+
+        if (next.maxYear) {
+          params.set("maxYear", String(next.maxYear));
+        } else {
+          params.delete("maxYear");
+        }
+
+        if (next.originalLanguage) {
+          params.set("lang", next.originalLanguage);
+        } else {
+          params.delete("lang");
+        }
+      });
+    },
+    [titleFilters, updateSearchParams],
+  );
 
   const handleResetFilters = () => {
-    setTitleFilters({
-      type: "all",
-      minYear: undefined,
-      maxYear: undefined,
-      originalLanguage: undefined,
+    updateSearchParams((params) => {
+      params.set("tab", "titles");
+      params.set("type", "all");
+      params.delete("minYear");
+      params.delete("maxYear");
+      params.delete("lang");
     });
     setIsFiltersOpen(false);
   };
@@ -169,7 +171,8 @@ const SearchPage: React.FC = () => {
   const activeFilterCount = activeFilterChips.length;
   const filtersButtonLabel =
     activeFilterCount > 0 ? `Filters (${activeFilterCount} active)` : "Filters (none applied)";
-  const canOpenFilters = activeTab === "titles" && (Boolean(query.trim()) || activeFilterCount > 0);
+  const canOpenFilters =
+    activeTab === "titles" && (Boolean(queryFromParams.trim()) || activeFilterCount > 0);
   const filterAvailabilityLabel = canOpenFilters
     ? filtersButtonLabel
     : "Filters are locked until you start typing a title";
@@ -192,13 +195,13 @@ const SearchPage: React.FC = () => {
           <div className="flex flex-1 items-center gap-2">
             <SearchField
               placeholder="Search for movies, shows, or people..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={queryFromParams}
+              onChange={(event) => handleQueryChange(event.target.value)}
               autoCorrect="off"
               autoCapitalize="none"
               className="flex-1"
             />
-            {query ? (
+            {queryFromParams ? (
               <Button
                 type="button"
                 onClick={handleClearQuery}
@@ -411,7 +414,7 @@ const SearchPage: React.FC = () => {
       <section className="flex flex-1 flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full sm:max-w-lg">
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SearchTabKey)}>
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
               <TabsList className="w-full">
                 <TabsTrigger value="titles">Titles</TabsTrigger>
                 <TabsTrigger value="people">People</TabsTrigger>
