@@ -1,4 +1,6 @@
 import React from "react";
+
+import { cn } from "@/lib/utils";
 import { getBubbleAppearance } from "../messageModel";
 
 interface MessageBubbleProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -19,10 +21,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <button
       type="button"
-      className={`inline-flex max-w-[80%] px-4 py-2.5 text-sm ${bubbleShape} ${bubbleColors} select-none transition-transform duration-150 ease-out ${className}`}
+      className={cn(
+        "inline-flex max-w-[80%] px-4 py-2.5 text-sm transition-transform duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        bubbleShape,
+        bubbleColors,
+        className,
+      )}
       {...bubbleProps}
     >
-      <div className="flex flex-col">{children}</div>
+      <div className="flex flex-col gap-1 text-left leading-relaxed">{children}</div>
     </button>
   );
 };
