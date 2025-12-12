@@ -1,1 +1,0 @@
-import{u as i,R as n,j as u}from"./index-DhZ1aP8k.js";import{a as p}from"./PageChrome-D5rVYUnf.js";const l=({title:s,subtitle:t,onBack:e,actions:r})=>{const a=i(),o=n.useCallback(()=>{if(e){e();return}a(-1)},[a,e]);return u.jsx(p,{title:s??"",description:t,showLogo:!0,onBack:e?o:void 0,actions:r,dense:!1})};export{l as T};
