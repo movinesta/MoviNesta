@@ -1023,6 +1023,7 @@ const SwipePage: React.FC = () => {
 
   const highlightLabel = (() => {
     if (!activeCard) return null;
+    if (activeCard.why) return activeCard.why;
     if (activeCard.friendLikesCount && activeCard.friendLikesCount >= 3) {
       return "Friends love this";
     }

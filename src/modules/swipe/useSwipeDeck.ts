@@ -51,6 +51,9 @@ export type SwipeCardData = {
   // Source of this card (for-you, from-friends, trending)
   source?: SwipeDeckKind;
 
+  // Optional explanation label (e.g., "More like Inception")
+  why?: string | null;
+
   // 🔥 New: richer metadata pulled from the same fields TitleDetailPage uses
   overview?: string | null; // plot / tmdb_overview
   genres?: string[] | null; // genres / tmdb_genre_names

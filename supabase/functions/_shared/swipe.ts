@@ -96,6 +96,9 @@ export interface SwipeApiCard {
   tagline?: string | null;
   overview?: string | null;
   genres?: string[] | null;
+
+  // Optional explanation label (e.g., "More like Inception")
+  why?: string | null;
 }
 
 export function mapTitleRowToSwipeCard(title: Record<string, any>): SwipeApiCard {

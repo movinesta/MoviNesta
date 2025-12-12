@@ -55,6 +55,12 @@ const MAX_DECK_SIZE = 30;
 const MAX_CANDIDATES = 400;
 const MAX_PER_GENRE = 5;
 
+// Make TasteDive "More like this" visible inside the For You deck.
+// Inject up to N TasteDive-scored recommendations into the first window.
+const MORE_LIKE_THIS_QUOTA = 6;
+const MORE_LIKE_THIS_WINDOW = 20;
+const MORE_LIKE_THIS_SLICE_LIMIT = 20;
+
 const CANDIDATE_COLUMNS = [
   "title_id",
   "content_type",
@@ -107,8 +113,11 @@ serve(async (req: Request) => {
       return null;
     });
 
-    const deckTitles = await buildDeck(supabaseAdmin, user.id, seenTitleIds, profile, req);
-    const cards = deckTitles.map(mapTitleRowToSwipeCard);
+    const { deckTitles, whyById } = await buildDeck(supabaseAdmin, user.id, seenTitleIds, profile, req);
+    const cards = deckTitles.map((title) => ({
+      ...mapTitleRowToSwipeCard(title),
+      why: whyById.get(title.title_id) ?? null,
+    }));
 
     // Trigger background sync for the top few cards to keep them fresh.
     triggerBackgroundSync(req, deckTitles.slice(0, 3));
@@ -130,16 +139,20 @@ async function buildDeck(
   seenTitleIds: Set<string>,
   profile: UserProfile | null,
   req: Request,
-): Promise<SwipeCard[]> {
+): Promise<{ deckTitles: SwipeCard[]; whyById: Map<string, string> }> {
   const [candidates, tasteDive] = await Promise.all([
     fetchCandidates(supabase, profile),
-    fetchTasteDiveCandidates(supabase, userId, req),
+    fetchTasteDiveSeededBundle(supabase, userId, req, seenTitleIds, profile),
   ]);
 
+  // Base personalization scoring (existing logic)
   const merged = mergeCandidates(candidates, tasteDive.matches);
   const scored = scoreCandidates(merged, seenTitleIds, profile, tasteDive.boostIds);
-  const deck = applyDiversityAndCaps(scored, seenTitleIds);
-  return deck;
+  const baseDeck = applyDiversityAndCaps(scored, seenTitleIds);
+
+  // Inject visible TasteDive "more like this" picks up front.
+  const { deckTitles, whyById } = injectMoreLikeThis(baseDeck, tasteDive.moreLikeThis, tasteDive.seedLabel);
+  return { deckTitles, whyById };
 }
 
 async function fetchCandidates(
@@ -170,38 +183,62 @@ async function fetchCandidates(
   return data as Title[];
 }
 
-async function fetchTasteDiveCandidates(
+type TasteDiveSeededBundle = {
+  // Raw DB matches for any TasteDive results we already have in the catalog.
+  matches: Title[];
+  boostIds: Set<string>;
+
+  // A scored, seed-specific "more like this" slice to inject into the For You deck.
+  moreLikeThis: Title[];
+
+  // Label used by the UI (optional)
+  seedLabel: string | null;
+};
+
+async function fetchTasteDiveSeededBundle(
   supabase: SupabaseClient<Database>,
   userId: string,
   req: Request,
-): Promise<{ matches: Title[]; boostIds: Set<string> }> {
-  const seeds = await pickTasteDiveSeeds(supabase, userId);
-  if (!seeds.length) return { matches: [], boostIds: new Set<string>() };
+  seenTitleIds: Set<string>,
+  profile: UserProfile | null,
+): Promise<TasteDiveSeededBundle> {
+  const seed = await pickTasteDiveSeed(supabase, userId);
+  if (!seed) {
+    return { matches: [], boostIds: new Set<string>(), moreLikeThis: [], seedLabel: null };
+  }
 
-  const matched = new Map<string, Title>();
+  const seedTitleText = (seed.primary_title ?? "").trim();
+  if (!seedTitleText) {
+    return { matches: [], boostIds: new Set<string>(), moreLikeThis: [], seedLabel: null };
+  }
+
+  const tasteType = seed.content_type === "series" ? "show" : "movie";
+  const results = await fetchTasteDiveSimilar({
+    q: `${tasteType}:${seedTitleText}`,
+    type: tasteType,
+    limit: 25,
+    info: 1,
+    slimit: 1,
+  });
+
+  const sortTitles = Array.from(
+    new Set(
+      results
+        .map((r) => buildSortTitle(r.Name))
+        .filter((val): val is string => Boolean(val)),
+    ),
+  );
+
+  if (debugTasteDive) {
+    console.log(`[swipe-for-you] TasteDive seed="${seedTitleText}" results=${results.length} normalized=${sortTitles.length}`);
+  }
+
+  let matches: Title[] = [];
   const boostIds = new Set<string>();
+
   const misses: { name: string; contentType: Title["content_type"] }[] = [];
 
-  for (const seed of seeds.slice(0, 3)) {
-    const seedTitle = seed.primary_title ?? seed.original_title;
-    if (!seedTitle) continue;
-    const tasteType = seed.content_type === "series" ? "show" : "movie";
-    const results = await fetchTasteDiveSimilar({
-      q: `${tasteType}:${seedTitle}`,
-      type: tasteType,
-      limit: 25,
-    });
-
-    const sortTitles = Array.from(
-      new Set(
-        results
-          .map((r) => buildSortTitle(r.Name))
-          .filter((val): val is string => Boolean(val)),
-      ),
-    );
-
-    if (!sortTitles.length) continue;
-
+  if (sortTitles.length) {
     const { data, error } = await supabase
       .from("titles")
       .select(CANDIDATE_COLUMNS)
@@ -210,27 +247,26 @@ async function fetchTasteDiveCandidates(
       .is("deleted_at", null)
       .limit(50);
 
-    if (error) {
-      if (debugTasteDive) console.log("[swipe-for-you] TasteDive lookup failed", error.message);
-      continue;
-    }
-
-    const rows = (data ?? []) as Title[];
-    for (const row of rows) {
-      matched.set(row.title_id, row);
-      boostIds.add(row.title_id);
-    }
-
-    const matchedSorts = new Set(
-      rows
-        .map((r) => r.sort_title)
-        .filter((v): v is string => Boolean(v))
-        .map((v) => v.toLowerCase()),
-    );
-    for (const st of sortTitles) {
-      if (!matchedSorts.has(st.toLowerCase())) {
-        misses.push({ name: st, contentType: seed.content_type });
+    if (!error) {
+      matches = (data ?? []) as Title[];
+      for (const row of matches) {
+        boostIds.add(row.title_id);
       }
+
+      const matchedSorts = new Set(
+        matches
+          .map((r) => r.sort_title)
+          .filter((v): v is string => Boolean(v))
+          .map((v) => v.toLowerCase()),
+      );
+
+      for (const st of sortTitles) {
+        if (!matchedSorts.has(st.toLowerCase())) {
+          misses.push({ name: st, contentType: seed.content_type });
+        }
+      }
+    } else if (debugTasteDive) {
+      console.log("[swipe-for-you] TasteDive lookup failed", error.message);
     }
   }
 
@@ -238,51 +274,65 @@ async function fetchTasteDiveCandidates(
     triggerTasteDiveSeedSearch(req, misses.slice(0, 5));
   }
 
-  return { matches: Array.from(matched.values()), boostIds };
+  // Build a seed-specific "more like this" slice we can inject into the deck.
+  const pool = await fetchMoreLikeThisCandidatePool(supabase, seed.title_id, seed.content_type);
+  const mergedPool = mergeCandidates(pool, matches);
+  const scored = scoreMoreLikeThisCandidates(seed, mergedPool, seenTitleIds, profile, boostIds);
+  const moreLikeThis = buildMoreLikeThisDeck(scored, MORE_LIKE_THIS_SLICE_LIMIT);
+
+  const seedLabel = seed.primary_title ? `More like ${seed.primary_title}` : "More like this";
+
+  return { matches, boostIds, moreLikeThis, seedLabel };
 }
 
-async function pickTasteDiveSeeds(
+async function pickTasteDiveSeed(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<Title[]> {
-  const seedIds: string[] = [];
+): Promise<Title | null> {
+  // Priority: strong ratings (8+), else recent liked (6+), else recent library.
+  const strong = await fetchUserRatingsByScore(supabase, userId, 8, 15);
+  const recentLiked = strong.length ? [] : await fetchUserRatingsByScore(supabase, userId, 6, 25, true);
+  const library = (!strong.length && !recentLiked.length)
+    ? await fetchRecentLibrarySeeds(supabase, userId, 25)
+    : [];
 
-  const strongRatings = await fetchUserRatingsByScore(supabase, userId, 8, 15);
-  for (const id of strongRatings) {
-    if (!seedIds.includes(id)) seedIds.push(id);
-    if (seedIds.length >= 3) break;
-  }
-
-  if (seedIds.length < 3) {
-    const recentLiked = await fetchUserRatingsByScore(supabase, userId, 6, 25, true);
-    for (const id of recentLiked) {
-      if (!seedIds.includes(id)) seedIds.push(id);
-      if (seedIds.length >= 3) break;
-    }
-  }
-
-  if (seedIds.length < 3) {
-    const librarySeeds = await fetchRecentLibrarySeeds(supabase, userId, 25);
-    for (const id of librarySeeds) {
-      if (!seedIds.includes(id)) seedIds.push(id);
-      if (seedIds.length >= 3) break;
-    }
-  }
-
-  if (!seedIds.length) return [];
+  const seedId = strong[0] ?? recentLiked[0] ?? library[0] ?? null;
+  if (!seedId) return null;
 
   const { data, error } = await supabase
     .from("titles")
-    .select(`${CANDIDATE_COLUMNS}, sort_title`)
-    .in("title_id", seedIds)
-    .is("deleted_at", null);
+    .select(CANDIDATE_COLUMNS)
+    .eq("title_id", seedId)
+    .is("deleted_at", null)
+    .single();
 
   if (error) {
-    if (debugTasteDive) console.log("[swipe-for-you] failed to load seed titles", error.message);
-    return [];
+    if (debugTasteDive) console.log("[swipe-for-you] failed to load seed title", error.message);
+    return null;
   }
 
-  return (data ?? []).slice(0, 3) as Title[];
+  return data as Title;
+}
+
+async function fetchMoreLikeThisCandidatePool(
+  supabase: SupabaseClient<Database>,
+  seedTitleId: string,
+  contentType: Title["content_type"],
+): Promise<Title[]> {
+  const { data, error } = await supabase
+    .from("titles")
+    .select(CANDIDATE_COLUMNS)
+    .eq("content_type", contentType)
+    .is("deleted_at", null)
+    .neq("title_id", seedTitleId)
+    .order("tmdb_popularity", { ascending: false })
+    .limit(MAX_CANDIDATES);
+
+  if (error) {
+    if (debugTasteDive) console.log("[swipe-for-you] more-like-this candidate pool fetch failed", error.message);
+    return [];
+  }
+  return (data ?? []) as Title[];
 }
 
 async function fetchUserRatingsByScore(
@@ -434,6 +484,145 @@ function applyDiversityAndCaps(
     genres.forEach((g) => genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1));
   }
   return deck;
+}
+
+// ============================================================================
+// TasteDive "More like this" scoring + injection
+// ============================================================================
+
+function scoreMoreLikeThisCandidates(
+  seed: Title,
+  candidates: Title[],
+  seen: Set<string>,
+  profile: UserProfile | null,
+  tasteDiveBoostIds?: Set<string>,
+): { score: number; candidate: Title }[] {
+  const seedGenres = new Set((seed.genres ?? []).map((g) => g.toLowerCase()));
+  const favGenres = new Set(profile?.favoriteGenres?.map((g) => g.toLowerCase()));
+  const dislikedGenres = new Set(profile?.dislikedGenres?.map((g) => g.toLowerCase()));
+
+  return candidates
+    .filter((c) => !seen.has(c.title_id) && c.title_id !== seed.title_id)
+    .map((c) => {
+      let score = calculateMoreLikeThisScore(c, seed, seedGenres, favGenres, dislikedGenres);
+      if (tasteDiveBoostIds?.has(c.title_id)) score += 2;
+      return { score, candidate: c };
+    })
+    .filter(({ score }) => score > 0);
+}
+
+function calculateMoreLikeThisScore(
+  candidate: Title,
+  seed: Title,
+  seedGenres: Set<string>,
+  favGenres: Set<string>,
+  dislikedGenres: Set<string>,
+): number {
+  const candGenres = new Set((candidate.genres ?? []).map((g) => g.toLowerCase()));
+  const intersection = new Set([...seedGenres].filter((g) => candGenres.has(g))).size;
+  const union = new Set([...seedGenres, ...candGenres]).size;
+  const jaccard = union > 0 ? intersection / union : 0;
+
+  const yearDiff = Math.abs((seed.release_year ?? 0) - (candidate.release_year ?? 0));
+  const yearScore = Math.max(0, 1 - yearDiff / 20);
+
+  const pop = candidate.tmdb_popularity ?? 0;
+  const popScore = Math.log10(1 + pop);
+
+  const tasteAdj = (candidate.genres ?? []).reduce((adj, g) => {
+    const lg = g.toLowerCase();
+    if (favGenres.has(lg)) return adj + 0.3;
+    if (dislikedGenres.has(lg)) return adj - 0.5;
+    return adj;
+  }, 0);
+
+  let score = jaccard * 6 + yearScore * 2 + popScore * 0.5 + tasteAdj;
+  if (candidate.content_type === seed.content_type) score += 1;
+  if (jaccard === 0 && yearScore < 0.2) score -= 2;
+
+  // tiny randomization to avoid identical ordering
+  return score + (Math.random() - 0.5) * 0.25;
+}
+
+function buildMoreLikeThisDeck(scored: { score: number; candidate: Title }[], limit: number): Title[] {
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(0, limit))
+    .map(({ candidate }) => candidate);
+}
+
+function injectMoreLikeThis(
+  baseDeck: SwipeCard[],
+  moreLikeThis: Title[],
+  seedLabel: string | null,
+): { deckTitles: SwipeCard[]; whyById: Map<string, string> } {
+  const whyById = new Map<string, string>();
+  if (!moreLikeThis.length || !seedLabel) {
+    return { deckTitles: baseDeck.slice(0, MAX_DECK_SIZE), whyById };
+  }
+
+  const quota = Math.min(MORE_LIKE_THIS_QUOTA, moreLikeThis.length, MAX_DECK_SIZE);
+  const window = Math.min(Math.max(quota, MORE_LIKE_THIS_WINDOW), MAX_DECK_SIZE);
+
+  const base = baseDeck ?? [];
+  const taste = moreLikeThis ?? [];
+  const used = new Set<string>();
+  const deck: SwipeCard[] = [];
+
+  const tryAdd = (title: Title | undefined, why?: string) => {
+    if (!title) return false;
+    const id = title.title_id;
+    if (!id || used.has(id)) return false;
+    used.add(id);
+    deck.push(title);
+    if (why) whyById.set(id, why);
+    return true;
+  };
+
+  let tIdx = 0;
+  let bIdx = 0;
+  let injected = 0;
+
+  while (deck.length < MAX_DECK_SIZE && (bIdx < base.length || tIdx < taste.length)) {
+    const pos = deck.length;
+
+    if (pos < window && injected < quota) {
+      // Prefer TasteDive picks in the early window.
+      let added = false;
+      while (tIdx < taste.length && !added) {
+        const cand = taste[tIdx++];
+        added = tryAdd(cand, seedLabel);
+      }
+      if (added) {
+        injected += 1;
+        continue;
+      }
+    }
+
+    // Fill with the base deck.
+    while (bIdx < base.length) {
+      const cand = base[bIdx++];
+      if (tryAdd(cand)) break;
+    }
+
+    // If base is exhausted, append remaining TasteDive picks.
+    if (bIdx >= base.length && tIdx < taste.length) {
+      while (tIdx < taste.length && deck.length < MAX_DECK_SIZE) {
+        const cand = taste[tIdx++];
+        tryAdd(cand, seedLabel);
+      }
+    }
+  }
+
+  // If a TasteDive pick also appears later via base scoring, label it too.
+  const tasteIds = new Set(taste.map((t) => t.title_id));
+  for (const t of deck) {
+    if (tasteIds.has(t.title_id) && !whyById.has(t.title_id)) {
+      whyById.set(t.title_id, seedLabel);
+    }
+  }
+
+  return { deckTitles: deck.slice(0, MAX_DECK_SIZE), whyById };
 }
 
 // ============================================================================

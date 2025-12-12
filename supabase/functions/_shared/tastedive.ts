@@ -4,6 +4,7 @@
 export type TasteDiveType = "movie" | "show";
 
 export interface TasteDiveResult {
+  // Keep the legacy TitleCase keys to avoid refactors in existing functions.
   Name: string;
   Type: string;
   wTeaser?: string;
@@ -22,21 +23,19 @@ interface TasteDiveQueryOptions {
 
 function normalizeTasteDiveResult(raw: any): TasteDiveResult | null {
   const Name =
-    typeof raw?.Name === "string" ? raw.Name :
-    typeof raw?.name === "string" ? raw.name :
-    null;
-
+    typeof raw?.Name === "string" ? raw.Name : typeof raw?.name === "string" ? raw.name : null;
   const Type =
-    typeof raw?.Type === "string" ? raw.Type :
-    typeof raw?.type === "string" ? raw.type :
-    null;
+    typeof raw?.Type === "string" ? raw.Type : typeof raw?.type === "string" ? raw.type : null;
 
   if (!Name || !Type) return null;
 
+  // Some payloads use `description` instead of `wTeaser`.
   const wTeaser =
-    typeof raw?.wTeaser === "string" ? raw.wTeaser :
-    typeof raw?.description === "string" ? raw.description : // newer lowercase payloads
-    undefined;
+    typeof raw?.wTeaser === "string"
+      ? raw.wTeaser
+      : typeof raw?.description === "string"
+        ? raw.description
+        : undefined;
 
   return {
     Name,
@@ -63,9 +62,9 @@ export async function fetchTasteDiveSimilar({
     q,
     type,
     k: apiKey,
-    limit: String(limit),
+    limit: String(Math.max(1, Math.min(50, limit))),
     info: String(info ? 1 : 0),
-    slimit: String(slimit),
+    slimit: String(Math.max(1, Math.min(3, slimit))),
   }).toString();
 
   try {
@@ -74,7 +73,7 @@ export async function fetchTasteDiveSimilar({
 
     const json = await res.json().catch(() => null);
 
-    // Support both legacy ("Similar"/"Results") and current ("similar"/"results") payloads
+    // Support both legacy (Similar.Results) and current (similar.results) shapes.
     const rawResults =
       json?.Similar?.Results ??
       json?.Similar?.results ??
