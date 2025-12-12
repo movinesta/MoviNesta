@@ -12,13 +12,6 @@
   "settings.start.description": "Choose which tab you land on when you open MoviNesta.",
   "settings.start.note": "This is stored locally. You can later hook it into navigation logic if needed.",
 
-  "settings.theme.title": "Theme",
-  "settings.theme.description": "Choose how MoviNesta should follow your device theme.",
-  "settings.theme.matchSystem": "Match system",
-  "settings.theme.alwaysDark": "Always dark",
-  "settings.theme.light": "Light",
-  "settings.theme.note": "Your choice is saved on this device and updates immediately.",
-
   "settings.language.title": "Language",
   "settings.language.description": "Language selector is coming soon. We start with English and Spanish while we wire full translations.",
   "settings.language.matchSystem": "Match system",

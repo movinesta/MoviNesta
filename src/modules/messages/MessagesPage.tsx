@@ -29,10 +29,8 @@ export const ConversationListRow: React.FC<{ conversation: ConversationListItem 
   const participantCount = conversation.participants.length;
 
   const rowBase =
-    "group flex items-center gap-3 rounded-2xl px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-  const rowState = conversation.hasUnread
-    ? "bg-card/90 border border-primary/25 shadow-md"
-    : "hover:bg-card/70 hover:-translate-y-0.5 hover:shadow-md";
+    "group flex items-center gap-3 rounded-xl px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+  const rowState = conversation.hasUnread ? "bg-muted border border-border" : "hover:bg-muted/60";
 
   return (
     <li className="py-1 sm:py-1.5">
@@ -64,9 +62,7 @@ export const ConversationListRow: React.FC<{ conversation: ConversationListItem 
           ) : (
             <span
               className={`inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-[12px] font-semibold text-foreground ${
-                conversation.hasUnread
-                  ? "bg-gradient-to-br from-primary/80 to-amber-400 text-primary-foreground"
-                  : "bg-card"
+                conversation.hasUnread ? "bg-primary/20" : "bg-muted"
               }`}
             >
               {primaryParticipant?.avatarUrl ? (
@@ -81,9 +77,7 @@ export const ConversationListRow: React.FC<{ conversation: ConversationListItem 
               )}
             </span>
           )}
-          {conversation.hasUnread && (
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-primary shadow-md" />
-          )}
+          {conversation.hasUnread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-primary" />}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -193,12 +187,7 @@ const MessagesPage: React.FC = () => {
         title="Messages"
         subtitle="Chat with friends, plan movie nights"
         actions={
-          <Button
-            type="button"
-            onClick={handleNewConversation}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:-translate-y-0.5"
-            aria-label="New conversation"
-          >
+          <Button type="button" onClick={handleNewConversation} className="h-11 w-11 p-0" aria-label="New conversation">
             <Plus className="h-5 w-5" />
           </Button>
         }
@@ -207,23 +196,13 @@ const MessagesPage: React.FC = () => {
       {/* Status + filters row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1 rounded-full bg-card/80 px-2 py-1 shadow-md">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            </span>
+          <span className="inline-flex items-center gap-2 rounded-full bg-muted px-2 py-1">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             <span className="font-medium">
               {totalUnread > 0 ? `${totalUnread} unread` : "Inbox is caught up"}
             </span>
           </span>
-          {isFetching && !isLoading && (
-            <Chip className="gap-1 px-2 py-1 text-xs text-muted-foreground">
-              <span className="h-1.5 w-6 overflow-hidden rounded-full bg-border/40">
-                <span className="block h-full w-1/3 animate-[shimmer_1.1s_linear_infinite] bg-primary/60" />
-              </span>
-              Syncing…
-            </Chip>
-          )}
+          {isFetching && !isLoading && <Chip className="px-2 py-1 text-xs">Syncing…</Chip>}
         </div>
 
         <div className="w-full sm:max-w-xs">
@@ -282,8 +261,8 @@ const MessagesPage: React.FC = () => {
 
       {/* Conversation list */}
       {!isLoading && !isError && conversations.length > 0 && (
-        <div className="rounded-2xl border border-border bg-background/90 shadow-lg">
-          <ul className="divide-y divide-border/70 px-2 py-1 sm:px-3">
+        <div className="rounded-xl border border-border bg-background">
+          <ul className="divide-y divide-border px-2 py-1 sm:px-3">
             {conversations.map((conv) => (
               <ConversationListRow key={conv.id} conversation={conv} />
             ))}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Monitor, Film, Moon, SunMedium, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Monitor, Film, Moon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import TopBar from "../../components/shared/TopBar";
 import { useUIStore } from "../../lib/ui-store";
@@ -12,8 +12,6 @@ const SettingsAppPage: React.FC = () => {
   const {
     startTab,
     setStartTab,
-    theme,
-    setTheme,
     reduceMotion,
     setReduceMotion,
     language,
@@ -73,61 +71,6 @@ const SettingsAppPage: React.FC = () => {
             })}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{t("settings.start.note")}</p>
-        </div>
-
-        {/* Theme */}
-        <div className="space-y-3 rounded-2xl border border-border bg-card/80 p-4 shadow-lg">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-border/50">
-              <Monitor className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            </span>
-            <div className="space-y-0.5">
-              <h2 className="text-sm font-heading font-semibold text-foreground">
-                {t("settings.theme.title")}
-              </h2>
-              <p className="text-xs text-muted-foreground">{t("settings.theme.description")}</p>
-            </div>
-          </div>
-
-          <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
-            <button
-              type="button"
-              onClick={() => setTheme("system")}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                theme === "system"
-                  ? "border-primary bg-primary/20 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:border-border hover:bg-card"
-              }`}
-            >
-              <SunMedium className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t("settings.theme.matchSystem")}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                theme === "dark"
-                  ? "border-primary bg-primary/20 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:border-border hover:bg-card"
-              }`}
-            >
-              <Moon className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t("settings.theme.alwaysDark")}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                theme === "light"
-                  ? "border-primary bg-primary/20 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:border-border hover:bg-card"
-              }`}
-            >
-              <SunMedium className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t("settings.theme.light")}</span>
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">{t("settings.theme.note")}</p>
         </div>
 
         {/* Language */}

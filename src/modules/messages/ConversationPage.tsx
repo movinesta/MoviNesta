@@ -1358,7 +1358,7 @@ const ConversationPage: React.FC = () => {
   if (!conversationId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="max-w-md rounded-2xl border border-border bg-card/80 px-5 py-6 text-center text-sm text-foreground shadow-lg">
+        <div className="max-w-md rounded-xl border border-border bg-card px-5 py-6 text-center text-sm text-foreground">
           <h1 className="text-base font-heading font-semibold">Conversation not found</h1>
           <p className="mt-2 text-xs text-muted-foreground">
             This page is meant to be opened from your messages list.
@@ -1366,7 +1366,7 @@ const ConversationPage: React.FC = () => {
           <p className="mt-4">
             <Link
               to="/messages"
-              className="inline-flex items-center justify-center rounded-full border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground shadow-md transition hover:border-primary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground"
             >
               Back to messages
             </Link>
@@ -1386,12 +1386,7 @@ const ConversationPage: React.FC = () => {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col items-stretch bg-background">
-      <div
-        className="pointer-events-none absolute inset-x-10 top-4 h-32 rounded-full bg-gradient-to-r from-fuchsia-500/15 via-primary/10 to-blue-500/15 blur-3xl"
-        aria-hidden="true"
-      />
-
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-none border border-border bg-background shadow-xl shadow-primary/5 backdrop-blur sm:rounded-3xl">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
         <ConversationHeader
           conversation={conversation}
           isLoading={isConversationsLoading}
@@ -1415,11 +1410,7 @@ const ConversationPage: React.FC = () => {
 
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col">
-          <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-background via-background to-background">
-            <div
-              className="pointer-events-none absolute inset-x-8 top-4 h-20 rounded-full bg-gradient-to-r from-fuchsia-500/10 via-primary/10 to-blue-500/10 blur-3xl"
-              aria-hidden="true"
-            />
+          <div className="relative flex min-h-0 flex-1 flex-col bg-background">
             <MessageList
               items={visibleMessages}
               isLoading={isLoading && !hasMessages}
@@ -1562,17 +1553,11 @@ const ConversationPage: React.FC = () => {
                     {showDateDivider && (
                       <div className="my-4 flex items-center justify-center">
                         <div className="inline-flex items-center gap-3 text-xs text-muted-foreground">
-                          <span
-                            className="h-px w-12 bg-gradient-to-r from-transparent via-border to-transparent"
-                            aria-hidden="true"
-                          />
-                          <span className="rounded-full bg-background px-3 py-0.5 text-xs font-medium text-muted-foreground shadow-md/60 ring-1 ring-border/70">
+                          <span className="h-px w-12 bg-border" aria-hidden="true" />
+                          <span className="rounded-full bg-muted px-3 py-0.5 text-xs font-medium text-muted-foreground">
                             {formatMessageDateLabel(message.createdAt)}
                           </span>
-                          <span
-                            className="h-px w-12 bg-gradient-to-r from-transparent via-border to-transparent"
-                            aria-hidden="true"
-                          />
+                          <span className="h-px w-12 bg-border" aria-hidden="true" />
                         </div>
                       </div>
                     )}
@@ -1586,7 +1571,7 @@ const ConversationPage: React.FC = () => {
                         {!isSelf && (
                           <>
                             {showAvatarAndName ? (
-                              <div className="mt-auto h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-background/80 ring-1 ring-border">
+                              <div className="mt-auto h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-muted">
                                 {sender?.avatarUrl ? (
                                   <img
                                     src={sender.avatarUrl}
@@ -1643,7 +1628,7 @@ const ConversationPage: React.FC = () => {
                             isSelf ? "justify-end pr-6" : "justify-start pl-6"
                           }`}
                         >
-                          <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-card/80 px-1.5 py-0.5 text-xs text-foreground shadow-md ring-1 ring-border/70">
+                          <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-xs text-foreground">
                             {reactions.map((reaction) => (
                               <button
                                 key={reaction.emoji}
@@ -1654,10 +1639,8 @@ const ConversationPage: React.FC = () => {
                                     emoji: reaction.emoji,
                                   })
                                 }
-                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 transition transform hover:bg-background hover:scale-110 active:scale-90 ${
-                                  reaction.reactedBySelf
-                                    ? "bg-primary/5 ring-1 ring-primary/40"
-                                    : ""
+                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 transition hover:bg-background ${
+                                  reaction.reactedBySelf ? "bg-primary/10" : ""
                                 }`}
                               >
                                 <span className="text-[17px]">{reaction.emoji}</span>
@@ -1678,7 +1661,7 @@ const ConversationPage: React.FC = () => {
                             isSelf ? "justify-end pr-6" : "justify-start pl-6"
                           }`}
                         >
-                          <div className="inline-flex flex-col items-stretch gap-1 rounded-2xl bg-card/95 px-2.5 py-1.5 text-xs text-foreground shadow-md ring-1 ring-border/70 select-none">
+                          <div className="inline-flex flex-col items-stretch gap-1 rounded-2xl bg-muted px-2.5 py-1.5 text-xs text-foreground select-none">
                             <div className="flex items-center justify-center gap-1">
                               {REACTION_EMOJIS.map((emoji) => (
                                 <button
@@ -1691,7 +1674,7 @@ const ConversationPage: React.FC = () => {
                                     });
                                     setActiveActionMessageId(null);
                                   }}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full transition transform hover:bg-background hover:-translate-y-0.5 hover:scale-110 active:scale-90"
+                                  className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-background"
                                 >
                                   <span className="text-[17px]">{emoji}</span>
                                 </button>
@@ -1798,7 +1781,7 @@ const ConversationPage: React.FC = () => {
             {showEmojiPicker && (
               <div
                 ref={emojiPickerRef}
-                className="absolute bottom-[4.25rem] left-4 z-30 rounded-2xl border border-border bg-card/95 p-2 shadow-lg"
+                className="absolute bottom-[4.25rem] left-4 z-30 rounded-2xl border border-border bg-card p-2"
               >
                 <div className="flex max-w-[260px] flex-wrap gap-1.5">
                   {[
@@ -1883,7 +1866,7 @@ const ConversationPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleRetrySend}
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary ring-1 ring-primary/40 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary ring-1 ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span>Retry</span>
                     </button>
@@ -1903,7 +1886,7 @@ const ConversationPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setUploadError(null)}
-                    className="inline-flex items-center gap-1 rounded-full bg-card/80 px-2 py-1 text-xs font-semibold text-muted-foreground ring-1 ring-border/70 transition hover:-translate-y-0.5 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground"
                   >
                     <span>Dismiss</span>
                   </button>
@@ -1915,7 +1898,7 @@ const ConversationPage: React.FC = () => {
                   type="button"
                   ref={emojiButtonRef}
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Add emoji"
                 >
                   <Smile className="h-4 w-4" aria-hidden="true" />
@@ -1924,7 +1907,7 @@ const ConversationPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCameraClick}
-                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Send photo"
                 >
                   <Camera className="h-4 w-4" aria-hidden="true" />
@@ -1937,7 +1920,7 @@ const ConversationPage: React.FC = () => {
                   onChange={handleImageSelected}
                 />
 
-                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-full bg-background px-4 py-2.5 text-sm text-foreground shadow-inner ring-1 ring-border/70 focus-within:outline-none focus-within:ring-0 focus-within:shadow-none">
+                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
                   <textarea
                     id="conversation-message"
                     value={draft}
@@ -1953,7 +1936,7 @@ const ConversationPage: React.FC = () => {
                     }}
                     placeholder="Message…"
                     rows={1}
-                    className="max-h-[160px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-transparent focus:outline-none focus:ring-0 focus:shadow-none"
+                    className="max-h-[160px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -1962,7 +1945,7 @@ const ConversationPage: React.FC = () => {
                   onMouseDown={(e) => e.preventDefault()}
                   onTouchStart={(e) => e.preventDefault()}
                   disabled={!draft.trim()}
-                  className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 via-primary to-blue-500 text-white shadow-lg shadow-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send message"
                 >
                   <Send className="h-4 w-4" aria-hidden="true" />
@@ -1993,7 +1976,7 @@ const ConversationPage: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-message-title"
-            className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5 shadow-2xl"
+            className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5"
           >
             <div className="flex items-center justify-between gap-3">
               <h2 id="edit-message-title" className="text-[15px] font-semibold text-foreground">
@@ -2002,14 +1985,14 @@ const ConversationPage: React.FC = () => {
               <button
                 type="button"
                 onClick={closeEditDialog}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Close edit message"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="mt-3 rounded-2xl bg-background px-3 py-2 ring-1 ring-border/70">
+            <div className="mt-3 rounded-xl border border-border bg-background px-3 py-2">
               <textarea
                 ref={editTextareaRef}
                 value={editingMessage.text}
@@ -2064,10 +2047,10 @@ const ConversationPage: React.FC = () => {
       {/* Delete message dialog (Delete for me / Delete for everyone) */}
       {deleteDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[min(420px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5 shadow-2xl">
+          <div className="w-[min(420px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive">
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </div>
                 <h2 className="text-[15px] font-semibold text-foreground">Delete message</h2>
@@ -2075,7 +2058,7 @@ const ConversationPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeleteDialog(null)}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Close delete dialog"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -2098,7 +2081,7 @@ const ConversationPage: React.FC = () => {
                     }));
                     setDeleteDialog(null);
                   }}
-                  className="flex-1 rounded-full bg-background px-3 py-2 text-sm font-semibold text-foreground shadow-md ring-1 ring-border/80 transition hover:-translate-y-0.5 hover:bg-card"
+                    className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
                 >
                   Delete for me
                 </button>
@@ -2115,7 +2098,7 @@ const ConversationPage: React.FC = () => {
                       },
                     );
                   }}
-                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-destructive px-3 py-2 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {deleteMessageMutation.isPending && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -2138,18 +2121,18 @@ const ConversationPage: React.FC = () => {
       {/* Gallery picker */}
       {showGalleryPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-border bg-background/95 p-5 shadow-2xl">
+          <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-border bg-background p-5">
             <button
               type="button"
               onClick={handleCloseGallery}
-              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-card/80 text-muted-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Close gallery picker"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
 
             <div className="flex items-start gap-3 pr-10">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500/10 via-primary/10 to-blue-500/10 text-foreground ring-1 ring-border">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-foreground">
                 <Camera className="h-4 w-4" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -2180,22 +2163,22 @@ const ConversationPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded-full bg-card/80 px-4 py-2 text-sm font-semibold text-foreground shadow-md transition hover:-translate-y-0.5 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <ImageIcon className="h-4 w-4" aria-hidden="true" />
-                  <span>Choose another photo</span>
-                </button>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                    <span>Choose another photo</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleSendSelectedImage}
-                  disabled={!selectedImageFile || isUploadingImage}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 via-primary to-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                  <button
+                    type="button"
+                    onClick={handleSendSelectedImage}
+                    disabled={!selectedImageFile || isUploadingImage}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                  >
                   {isUploadingImage ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (

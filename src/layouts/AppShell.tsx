@@ -1,13 +1,13 @@
 import React from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, Flame, MessageCircle, Search, BookOpen } from "lucide-react";
-import { applyThemePreference, syncSystemThemePreference, useUIStore } from "../lib/ui-store";
+import { useUIStore } from "../lib/ui-store";
 import { useI18n } from "@/i18n/useI18n";
 
 const AppShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { setLastVisitedTab, startTab, theme } = useUIStore();
+  const { setLastVisitedTab, startTab } = useUIStore();
   const hasAppliedStartTab = React.useRef(false);
   const { t } = useI18n();
 
@@ -21,12 +21,6 @@ const AppShell: React.FC = () => {
     ],
     [t],
   );
-
-  React.useEffect(() => {
-    applyThemePreference(theme);
-    const cleanup = syncSystemThemePreference();
-    return cleanup;
-  }, [theme]);
 
   React.useEffect(() => {
     if (hasAppliedStartTab.current) return;
