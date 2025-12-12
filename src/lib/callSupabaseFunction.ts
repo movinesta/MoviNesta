@@ -1,17 +1,25 @@
 import { supabase } from "./supabase";
 
+interface CallSupabaseFunctionOptions {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
 export async function callSupabaseFunction<T>(
   name: string,
-  body: unknown,
-  opts?: { signal?: AbortSignal; timeoutMs?: number },
+  body: any,
+  opts?: CallSupabaseFunctionOptions,
 ): Promise<T> {
-  const timeoutMs = opts?.timeoutMs ?? 25_000;
+  if (opts?.signal?.aborted) {
+    throw opts.signal.reason ?? new DOMException("Aborted", "AbortError");
+  }
 
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutMs = opts?.timeoutMs ?? 25000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const abort = () => controller.abort();
-  opts?.signal?.addEventListener("abort", abort);
+  const forwardAbort = () => controller.abort();
+  opts?.signal?.addEventListener("abort", forwardAbort);
 
   try {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -19,16 +27,23 @@ export async function callSupabaseFunction<T>(
 
     const { data, error } = await supabase.functions.invoke<T>(name, {
       body,
-      // 👇 make the JWT explicit (prevents “never triggered” due to missing auth)
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       signal: controller.signal,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
 
-    if (error) throw error;
-    if (data == null) throw new Error("No data returned from function");
+    if (error) {
+      const err = new Error(error.message ?? `Error invoking ${name}`);
+      (err as Error & { status?: number }).status = error.status;
+      throw err;
+    }
+
+    if (data === null || data === undefined) {
+      throw new Error(`Missing data from ${name}`);
+    }
+
     return data;
   } finally {
-    window.clearTimeout(timeoutId);
-    opts?.signal?.removeEventListener("abort", abort);
+    clearTimeout(timeoutId);
+    opts?.signal?.removeEventListener("abort", forwardAbort);
   }
 }
