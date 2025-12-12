@@ -20,6 +20,34 @@ interface TasteDiveQueryOptions {
   slimit?: number;
 }
 
+function normalizeTasteDiveResult(raw: any): TasteDiveResult | null {
+  const Name =
+    typeof raw?.Name === "string" ? raw.Name :
+    typeof raw?.name === "string" ? raw.name :
+    null;
+
+  const Type =
+    typeof raw?.Type === "string" ? raw.Type :
+    typeof raw?.type === "string" ? raw.type :
+    null;
+
+  if (!Name || !Type) return null;
+
+  const wTeaser =
+    typeof raw?.wTeaser === "string" ? raw.wTeaser :
+    typeof raw?.description === "string" ? raw.description : // newer lowercase payloads
+    undefined;
+
+  return {
+    Name,
+    Type,
+    wTeaser,
+    wUrl: typeof raw?.wUrl === "string" ? raw.wUrl : undefined,
+    yUrl: typeof raw?.yUrl === "string" ? raw.yUrl : undefined,
+    yID: typeof raw?.yID === "string" ? raw.yID : undefined,
+  };
+}
+
 export async function fetchTasteDiveSimilar({
   q,
   type,
@@ -36,22 +64,31 @@ export async function fetchTasteDiveSimilar({
     type,
     k: apiKey,
     limit: String(limit),
-    info: String(info),
+    info: String(info ? 1 : 0),
     slimit: String(slimit),
   }).toString();
 
   try {
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
     if (!res.ok) return [];
+
     const json = await res.json().catch(() => null);
-    const results = json?.Similar?.Results;
-    if (Array.isArray(results)) {
-      return results as TasteDiveResult[];
-    }
-  } catch (_err) {
+
+    // Support both legacy ("Similar"/"Results") and current ("similar"/"results") payloads
+    const rawResults =
+      json?.Similar?.Results ??
+      json?.Similar?.results ??
+      json?.similar?.Results ??
+      json?.similar?.results;
+
+    if (!Array.isArray(rawResults)) return [];
+
+    return rawResults
+      .map(normalizeTasteDiveResult)
+      .filter((r): r is TasteDiveResult => Boolean(r));
+  } catch {
     return [];
   }
-  return [];
 }
 
 export function buildSortTitle(title: string | null): string | null {
