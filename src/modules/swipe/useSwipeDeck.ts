@@ -52,12 +52,11 @@ export type SwipeCardData = {
   source?: SwipeDeckKind;
 
   // 🔥 New: richer metadata pulled from the same fields TitleDetailPage uses
-  overview?: string | null;      // plot / tmdb_overview
-  genres?: string[] | null;      // genres / tmdb_genre_names
-  language?: string | null;      // primary language
-  country?: string | null;       // primary country
+  overview?: string | null; // plot / tmdb_overview
+  genres?: string[] | null; // genres / tmdb_genre_names
+  language?: string | null; // primary language
+  country?: string | null; // primary country
 };
-
 
 export type SwipeDeckKind = "for-you" | "from-friends" | "trending";
 export type SwipeDeckKindOrCombined = SwipeDeckKind | "combined";

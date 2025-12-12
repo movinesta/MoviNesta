@@ -58,10 +58,7 @@ interface HomeTabPillProps {
 
 const HomeTabPill: React.FC<HomeTabPillProps> = ({ icon: Icon, description, variant }) => (
   <div className="flex justify-center">
-    <Chip
-      variant={variant === "feed" ? "default" : "accent"}
-      className="gap-1"
-    >
+    <Chip variant={variant === "feed" ? "default" : "accent"} className="gap-1">
       <Icon className="h-3 w-3" aria-hidden="true" />
       {description}
     </Chip>
@@ -111,14 +108,14 @@ const HomePage = () => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full sm:max-w-lg">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as HomeTabKey)}>
-  <TabsList className="w-full">
-    {HOME_TABS_LIST.map((tab) => (
-      <TabsTrigger key={tab.key} value={tab.key}>
-        {tab.label}
-      </TabsTrigger>
-    ))}
-  </TabsList>
-</Tabs>
+              <TabsList className="w-full">
+                {HOME_TABS_LIST.map((tab) => (
+                  <TabsTrigger key={tab.key} value={tab.key}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
         </div>
 

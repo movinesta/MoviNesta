@@ -7,11 +7,14 @@ import { getBubbleAppearance } from "../modules/messages/messageModel";
 import { TitleSearchResultRow } from "../modules/search/SearchTitlesTab";
 import { FeedSkeleton } from "../modules/home/HomeFeedTab";
 import { CarouselsSkeleton, TonightPickSkeleton } from "../modules/home/HomeForYouTab";
-import { CardMetadata, LoadingSwipeCard, PosterFallback } from "../modules/swipe/SwipePage";
+import {
+  CardMetadata,
+  LoadingSwipeCard,
+  PosterFallback,
+} from "../modules/swipe/SwipeCardComponents";
 import type { ConversationListItem } from "../modules/messages/useConversations";
 import type { TitleSearchResult } from "../modules/search/useSearchTitles";
 import type { SwipeCardData } from "../modules/swipe/useSwipeDeck";
- 
 
 const baseConversation: ConversationListItem = {
   id: "conv-1",
@@ -71,7 +74,8 @@ describe("ConversationListRow", () => {
       hasUnread: true,
     };
 
-    const { container } = render(      <MemoryRouter>
+    const { container } = render(
+      <MemoryRouter>
         <ul>
           <ConversationListRow conversation={baseConversation} />
           <ConversationListRow conversation={unread} />
@@ -111,7 +115,8 @@ describe("Message bubble appearance", () => {
 
 describe("TitleSearchResultRow", () => {
   it("shows poster fallback and metadata summary", () => {
-    render(      <MemoryRouter>
+    render(
+      <MemoryRouter>
         <ul>
           <TitleSearchResultRow item={sampleTitle} />
         </ul>
@@ -126,12 +131,13 @@ describe("TitleSearchResultRow", () => {
 
 describe("Swipe card presentation", () => {
   it("renders key metadata for a swipe card", () => {
-    render(<CardMetadata card={swipeCard} />);
+    const metaLine = "2016 · Movie · IMDb 8.1 · RT 94%";
+    render(<CardMetadata card={swipeCard} metaLine={metaLine} highlightLabel={null} />);
 
     expect(screen.getByText("Arrival")).toBeInTheDocument();
     expect(screen.getByText(/2016/)).toBeInTheDocument();
     expect(screen.getByText(/IMDb 8.1/)).toBeInTheDocument();
-    expect(screen.getByText(/94% RT/)).toBeInTheDocument();
+    expect(screen.getByText(/RT 94%/)).toBeInTheDocument();
   });
 
   it("shows a friendly poster fallback message when artwork is missing", () => {
@@ -164,11 +170,12 @@ describe("Skeleton components", () => {
 
 describe("LoadingSwipeCard", () => {
   it("displays loading badges", () => {
-    render(      <MemoryRouter>
+    render(
+      <MemoryRouter>
         <LoadingSwipeCard />
       </MemoryRouter>,
     );
-    expect(screen.getByText(/Getting picks/i)).toBeInTheDocument();
-    expect(screen.getByText(/Finding what friends like/i)).toBeInTheDocument();
+    expect(screen.getByText(/Getting picks.../i)).toBeInTheDocument();
+    expect(screen.getByText(/Finding what friends like.../i)).toBeInTheDocument();
   });
 });

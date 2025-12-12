@@ -1434,9 +1434,7 @@ const ConversationPage: React.FC = () => {
                   <div className="mb-3 rounded-md border border-border bg-background/90 px-3 py-2 text-[12px] text-destructive">
                     <p className="font-medium">We couldn&apos;t load this conversation.</p>
                     {messagesError instanceof Error && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {messagesError.message}
-                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{messagesError.message}</p>
                     )}
                   </div>
                 ) : undefined
@@ -1998,10 +1996,7 @@ const ConversationPage: React.FC = () => {
             className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2
-                id="edit-message-title"
-                className="text-[15px] font-semibold text-foreground"
-              >
+              <h2 id="edit-message-title" className="text-[15px] font-semibold text-foreground">
                 Edit message
               </h2>
               <button
@@ -2029,43 +2024,38 @@ const ConversationPage: React.FC = () => {
             {editError && <p className="mt-2 text-xs text-destructive">{editError}</p>}
 
             <div className="mt-4 flex justify-end gap-2 text-sm">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={closeEditDialog}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={closeEditDialog}>
                 Cancel
               </Button>
               <Button
-  type="button"
-  size="sm"
-  disabled={!editingMessage.text.trim() || editMessageMutation.isPending}
-  onClick={() => {
-    const text = editingMessage.text.trim();
-    if (!text) return;
-    setEditError(null);
-    editMessageMutation.mutate(
-      {
-        messageId: editingMessage.messageId,
-        text,
-      },
-      {
-        onSuccess: () => {
-          closeEditDialog();
-        },
-        onError: () => {
-          setEditError("Couldn't save changes. Please try again.");
-        },
-      },
-    );
-  }}
->
-  {editMessageMutation.isPending && (
-    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-  )}
-  <span>Save</span>
-</Button>
+                type="button"
+                size="sm"
+                disabled={!editingMessage.text.trim() || editMessageMutation.isPending}
+                onClick={() => {
+                  const text = editingMessage.text.trim();
+                  if (!text) return;
+                  setEditError(null);
+                  editMessageMutation.mutate(
+                    {
+                      messageId: editingMessage.messageId,
+                      text,
+                    },
+                    {
+                      onSuccess: () => {
+                        closeEditDialog();
+                      },
+                      onError: () => {
+                        setEditError("Couldn't save changes. Please try again.");
+                      },
+                    },
+                  );
+                }}
+              >
+                {editMessageMutation.isPending && (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                )}
+                <span>Save</span>
+              </Button>
             </div>
           </div>
         </div>

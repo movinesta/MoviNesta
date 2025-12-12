@@ -40,9 +40,7 @@ export const abbreviateCountry = (value?: string | null): string | null => {
   return cleaned;
 };
 
-export const safeNumber = (
-  value?: number | string | null,
-): number | null => {
+export const safeNumber = (value?: number | string | null): number | null => {
   if (value == null) return null;
   if (typeof value === "number") {
     if (Number.isNaN(value)) return null;
@@ -87,4 +85,3 @@ export const buildSwipeCardLabel = (card?: SwipeCardData) => {
   const descriptor = [...pieces, ...ratingBits].filter(Boolean).join(" · ");
   return descriptor ? `${card.title} (${descriptor})` : card.title;
 };
-

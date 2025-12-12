@@ -327,46 +327,45 @@ const ProfilePage: React.FC = () => {
 
             <div className="flex flex-1 flex-wrap items-start justify-end gap-2">
               {profile.isCurrentUser ? (
-                <Button
-  type="button"
-  variant="outline"
-  size="sm"
-  onClick={handlePrimaryAction}
->
-  <Settings className="h-4 w-4" aria-hidden="true" />
-  <span>Edit profile</span>
-</Button>
+                <Button type="button" variant="outline" size="sm" onClick={handlePrimaryAction}>
+                  <Settings className="h-4 w-4" aria-hidden="true" />
+                  <span>Edit profile</span>
+                </Button>
               ) : (
                 <>
                   <Button
-  type="button"
-  size="sm"
-  onClick={handlePrimaryAction}
-  disabled={toggleFollow.isPending}
-  className={profile.isFollowing ? "border border-border bg-card text-foreground hover:bg-background" : ""}
->
-  {toggleFollow.isPending ? (
-    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-  ) : (
-    <PrimaryActionIcon className="h-4 w-4" aria-hidden="true" />
-  )}
-  <span>{primaryActionLabel}</span>
-</Button>
+                    type="button"
+                    size="sm"
+                    onClick={handlePrimaryAction}
+                    disabled={toggleFollow.isPending}
+                    className={
+                      profile.isFollowing
+                        ? "border border-border bg-card text-foreground hover:bg-background"
+                        : ""
+                    }
+                  >
+                    {toggleFollow.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <PrimaryActionIcon className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>{primaryActionLabel}</span>
+                  </Button>
 
                   <Button
-  type="button"
-  variant="outline"
-  size="sm"
-  onClick={handleStartConversation}
-  disabled={startingConversation}
->
-  {startingConversation ? (
-    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-  ) : (
-    <MessageCircle className="h-4 w-4" aria-hidden="true" />
-  )}
-  <span>{startingConversation ? "Starting…" : "Message"}</span>
-</Button>
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStartConversation}
+                    disabled={startingConversation}
+                  >
+                    {startingConversation ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>{startingConversation ? "Starting…" : "Message"}</span>
+                  </Button>
                 </>
               )}
             </div>

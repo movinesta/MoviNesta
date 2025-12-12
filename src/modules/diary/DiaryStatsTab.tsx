@@ -20,10 +20,7 @@ const DiaryStatsTab: React.FC = () => {
       <div className="px-2 pb-4">
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="rounded-2xl border border-border bg-card/80 p-3 shadow-lg"
-            >
+            <div key={idx} className="rounded-2xl border border-border bg-card/80 p-3 shadow-lg">
               <div className="mb-2 h-3 w-1/3 rounded bg-background/70" />
               <div className="flex gap-1.5">
                 {Array.from({ length: 6 }).map((__, jdx) => (

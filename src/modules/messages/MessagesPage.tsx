@@ -13,8 +13,6 @@ import { Chip } from "@/components/ui/Chip";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 
-
-
 type ConversationFilter = "all" | "unread" | "groups";
 
 export const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
@@ -195,8 +193,7 @@ const MessagesPage: React.FC = () => {
         title="Messages"
         subtitle="Chat with friends, plan movie nights"
         actions={
-          
-<Button
+          <Button
             type="button"
             onClick={handleNewConversation}
             className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:-translate-y-0.5"
@@ -246,9 +243,7 @@ const MessagesPage: React.FC = () => {
       />
 
       {/* Loading state – use global loading screen */}
-      {isLoading && (
-        <LoadingScreen />
-      )}
+      {isLoading && <LoadingScreen />}
 
       {/* Error state */}
       {isError && !isLoading && (

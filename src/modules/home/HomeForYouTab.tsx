@@ -3,7 +3,12 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Clock, Film, ListChecks, Play, Sparkles, Users } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
-import { TonightPickSkeleton, CarouselsSkeleton, EmptyTonightPickState, EmptyForYouState } from "./HomeForYouSkeletons";
+import {
+  TonightPickSkeleton,
+  CarouselsSkeleton,
+  EmptyTonightPickState,
+  EmptyForYouState,
+} from "./HomeForYouSkeletons";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { TitleType } from "@/types/supabase-helpers";
@@ -664,9 +669,7 @@ const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ sec
             )}
           </div>
           {section.subtitle && (
-            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
-              {section.subtitle}
-            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{section.subtitle}</p>
           )}
         </div>
 

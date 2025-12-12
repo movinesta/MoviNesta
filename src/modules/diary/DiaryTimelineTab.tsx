@@ -165,9 +165,7 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
                       >
                         {item.title ?? "Untitled"}
                         {item.year ? (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({item.year})
-                          </span>
+                          <span className="ml-1 text-xs text-muted-foreground">({item.year})</span>
                         ) : null}
                       </Link>
                     ) : (

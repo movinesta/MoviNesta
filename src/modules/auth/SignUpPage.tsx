@@ -248,13 +248,9 @@ const SignUpPage: React.FC = () => {
           )}
         </div>
 
-        <Button
-  type="submit"
-  className="w-full"
-  disabled={submitting || !isFormValid}
->
-  {submitting ? "Creating your account…" : "Create account"}
-</Button>
+        <Button type="submit" className="w-full" disabled={submitting || !isFormValid}>
+          {submitting ? "Creating your account…" : "Create account"}
+        </Button>
       </form>
     </AuthLayout>
   );

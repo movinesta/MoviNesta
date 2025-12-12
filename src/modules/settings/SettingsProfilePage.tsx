@@ -21,20 +21,20 @@ const SettingsProfilePage: React.FC = () => {
   const { data: profile, isLoading, isError, error } = useCurrentProfile();
   const queryClient = useQueryClient();
 
-  const [form, setForm] = useState<ProfileFormState>({
-    displayName: "",
-    bio: "",
+  const [form, setForm] = useState<ProfileFormState>(() => ({
+    displayName: profile?.displayName ?? "",
+    bio: profile?.bio ?? "",
     avatarFile: null,
-  });
+  }));
 
   // Keep local form state in sync with loaded profile
   useEffect(() => {
     if (!profile) return;
-    setForm({
+    setForm((prev) => ({
+      ...prev,
       displayName: profile.displayName ?? "",
       bio: profile.bio ?? "",
-      avatarFile: null,
-    });
+    }));
   }, [profile]);
 
   const updateProfile = useMutation<void, Error, ProfileFormState>({
@@ -117,10 +117,9 @@ const SettingsProfilePage: React.FC = () => {
     );
   }
 
-    if (isLoading) {
+  if (isLoading) {
     return <LoadingScreen message="Loading your profile…" />;
   }
-
 
   if (isError || !profile) {
     return (
@@ -253,11 +252,7 @@ const SettingsProfilePage: React.FC = () => {
               >
                 Reset
               </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={updateProfile.isPending}
-              >
+              <Button type="submit" size="sm" disabled={updateProfile.isPending}>
                 {updateProfile.isPending && (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 )}

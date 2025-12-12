@@ -37,7 +37,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 }) => {
   return (
     <div className="relative min-h-screen bg-background text-foreground">
-<div className="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-4 py-10">
+      <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-4 py-10">
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-6 rounded-3xl border border-border bg-card/90 p-6 shadow-lg backdrop-blur">
             <div className="space-y-2 text-center sm:text-left">

@@ -6,7 +6,7 @@ import { MOVINESTA_LOGO_URL } from "../../constants/brand";
 const OnboardingPage: React.FC = () => {
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-foreground">
-<div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">
         <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="space-y-8 rounded-3xl border border-border bg-card/80 p-8 shadow-lg backdrop-blur">
             <div className="flex items-center gap-3">
@@ -75,7 +75,10 @@ const OnboardingPage: React.FC = () => {
                   copy: "Follow your crew, swap recommendations, and plan your next movie night together.",
                 },
               ].map(({ icon: Icon, title, copy }) => (
-                <div key={title} className="flex items-start gap-3 rounded-2xl bg-background/60 p-4">
+                <div
+                  key={title}
+                  className="flex items-start gap-3 rounded-2xl bg-background/60 p-4"
+                >
                   <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-border/50">
                     <Icon className="h-5 w-5 text-primary" aria-hidden />
                   </span>

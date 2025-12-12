@@ -20,13 +20,7 @@ const SwipeSyncBanner: React.FC<SwipeSyncBannerProps> = ({ message, onRetry, isR
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" aria-hidden={true} />
         <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="leading-snug">{message}</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onRetry}
-            disabled={isRetrying}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
             <RotateCw className="h-3.5 w-3.5" aria-hidden={true} />
             {isRetrying ? "Retrying…" : "Retry"}
           </Button>

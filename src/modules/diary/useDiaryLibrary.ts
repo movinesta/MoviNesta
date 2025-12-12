@@ -70,7 +70,10 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
           .select("title_id, primary_title, release_year, content_type, poster_url, backdrop_url")
           .in("title_id", titleIds);
         if (titlesError) {
-          console.warn("[useDiaryLibrary] Failed to load titles for library entries", titlesError.message);
+          console.warn(
+            "[useDiaryLibrary] Failed to load titles for library entries",
+            titlesError.message,
+          );
         } else {
           titlesById = new Map(titles.map((row) => [row.title_id, row]));
         }

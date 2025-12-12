@@ -66,7 +66,13 @@ describe("swipe-trending handler", () => {
         return {
           ...mockQueryBuilder,
           limit: vi.fn().mockResolvedValue({
-            data: [{ title_id: "1", created_at: new Date().toISOString(), event_type: "rating_created" }],
+            data: [
+              {
+                title_id: "1",
+                created_at: new Date().toISOString(),
+                event_type: "rating_created",
+              },
+            ],
             error: null,
           }),
         };
@@ -74,8 +80,10 @@ describe("swipe-trending handler", () => {
       if (table === "titles") {
         return {
           ...mockQueryBuilder,
-          is: vi.fn().mockReturnThis(),
-          then: (resolve: any) => resolve({ data: [{ title_id: "1", genres: ["Action"], tmdb_popularity: 100 }], error: null }),
+          in: vi.fn().mockResolvedValue({
+            data: [{ title_id: "1", genres: ["Action"], tmdb_popularity: 100 }],
+            error: null,
+          }),
         };
       }
       return mockQueryBuilder;
@@ -87,6 +95,6 @@ describe("swipe-trending handler", () => {
 
     expect(res.status).toBe(200);
     expect(json.cards.length).toBe(1);
-    expect(json.cards[0].title_id).toBe("1");
+    expect(json.cards[0].id).toBe("1");
   });
 });

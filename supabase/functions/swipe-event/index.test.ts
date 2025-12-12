@@ -7,6 +7,10 @@ vi.mock("https://deno.land/std@0.224.0/http/server.ts", () => ({
   serve: vi.fn(),
 }));
 
+vi.mock("https://esm.sh/@supabase/supabase-js@2", () => ({
+  SupabaseClient: vi.fn(),
+}));
+
 vi.mock("../_shared/supabase.ts", () => ({
   getUserClient: vi.fn(),
   getAdminClient: vi.fn(),

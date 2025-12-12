@@ -103,13 +103,9 @@ const ForgotPasswordPage: React.FC = () => {
           />
         </div>
 
-        <Button
-  type="submit"
-  className="w-full"
-  disabled={submitting || !email}
->
-  {submitting ? "Sending reset link…" : "Send reset link"}
-</Button>
+        <Button type="submit" className="w-full" disabled={submitting || !email}>
+          {submitting ? "Sending reset link…" : "Send reset link"}
+        </Button>
       </form>
     </AuthLayout>
   );

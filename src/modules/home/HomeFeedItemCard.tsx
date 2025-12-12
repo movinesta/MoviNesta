@@ -14,9 +14,7 @@ interface HomeFeedItemCardProps {
 }
 
 const StatPill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Chip className="gap-1 px-2 py-0.5 text-xs shadow-md">
-    {children}
-  </Chip>
+  <Chip className="gap-1 px-2 py-0.5 text-xs shadow-md">{children}</Chip>
 );
 
 const TitleBadge: React.FC<{ title: HomeFeedItem["title"] }> = ({ title }) => (

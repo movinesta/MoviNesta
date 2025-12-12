@@ -11,7 +11,6 @@ import {
 } from "../diary/useDiaryLibrary";
 import { diaryStatusLabel, diaryStatusPillClasses } from "../diary/diaryStatus";
 import { PageSection } from "../../components/PageChrome";
-import { Chip } from "@/components/ui/Chip";
 import { ExternalRatingsChips } from "./ExternalRatingsChips";
 import TopBar from "../../components/shared/TopBar";
 import { supabase } from "../../lib/supabase";
@@ -63,7 +62,6 @@ interface TitleRow {
   poster_url: string | null;
   tmdb_poster_path: string | null;
   backdrop_url: string | null;
-
 }
 
 interface CreateDirectConversationResponse {
@@ -479,9 +477,7 @@ const TitleDetailPage: React.FC = () => {
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 {displayContentType ?? "Title"}
               </p>
-              <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
-                {displayTitle}
-              </h1>
+              <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{displayTitle}</h1>
               <p className="text-[12.5px] text-muted-foreground">{metaLine}</p>
             </div>
 

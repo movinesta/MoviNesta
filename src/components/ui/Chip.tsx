@@ -6,8 +6,7 @@ export interface ChipProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: ChipVariant;
 }
 
-const baseClasses =
-  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium";
+const baseClasses = "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium";
 
 const variantClasses: Record<ChipVariant, string> = {
   default: "bg-card/80 text-muted-foreground border border-border",

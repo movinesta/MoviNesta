@@ -181,13 +181,9 @@ const SignInPage: React.FC = () => {
           )}
         </div>
 
-        <Button
-  type="submit"
-  className="w-full"
-  disabled={submitting || !isFormValid}
->
-  {submitting ? "Signing you in…" : "Sign in"}
-</Button>
+        <Button type="submit" className="w-full" disabled={submitting || !isFormValid}>
+          {submitting ? "Signing you in…" : "Sign in"}
+        </Button>
       </form>
     </AuthLayout>
   );

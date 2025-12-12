@@ -71,7 +71,7 @@ async function fetchFromTmdb(url: URL) {
 // Main handler
 // ---------------------------------------------------------------------------
 
-serve(async (req: Request) => {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -113,4 +113,6 @@ serve(async (req: Request) => {
     log(logCtx, "Unhandled error", { error: String(err) });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
-});
+}
+
+serve(handler);

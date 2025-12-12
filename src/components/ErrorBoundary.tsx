@@ -51,11 +51,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             )}
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               <Button type="button" onClick={this.handleRetry}>
-  Try again
-</Button>
+                Try again
+              </Button>
               <Button type="button" variant="outline" onClick={this.handleReload}>
-  Reload app
-</Button>
+                Reload app
+              </Button>
             </div>
           </div>
         </div>

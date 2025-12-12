@@ -10,7 +10,13 @@ import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import type { TitleSearchFilters } from "./useSearchTitles";
-import { parseTabFromParams, parseTitleFiltersFromParams, areFiltersEqual, clampYear, type SearchTabKey } from "./searchState";
+import {
+  parseTabFromParams,
+  parseTitleFiltersFromParams,
+  areFiltersEqual,
+  clampYear,
+  type SearchTabKey,
+} from "./searchState";
 import SearchTitlesTab from "./SearchTitlesTab";
 import SearchPeopleTab from "./SearchPeopleTab";
 
@@ -91,12 +97,12 @@ const SearchPage: React.FC = () => {
     const queryFromParams = searchParams.get("q") ?? "";
     const filtersFromParams = parseTitleFiltersFromParams(searchParams);
 
-    setActiveTab(tabFromParams);
-    setQuery(queryFromParams);
+    if (activeTab !== tabFromParams) setActiveTab(tabFromParams);
+    if (query !== queryFromParams) setQuery(queryFromParams);
     setTitleFilters((prev) =>
       areFiltersEqual(prev, filtersFromParams) ? prev : filtersFromParams,
     );
-  }, [searchParams]);
+  }, [searchParams, activeTab, query]);
 
   useEffect(() => {
     const normalizedMin = clampYear(titleFilters.minYear);
@@ -182,59 +188,59 @@ const SearchPage: React.FC = () => {
 
       {/* Search bar + filters */}
       <PageSection tone="default" padded>
-  <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-    <div className="flex flex-1 items-center gap-2">
-      <SearchField
-        placeholder="Search for movies, shows, or people..."
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        autoCorrect="off"
-        autoCapitalize="none"
-        className="flex-1"
-      />
-      {query ? (
-        <Button
-          type="button"
-          onClick={handleClearQuery}
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-full text-xs text-muted-foreground hover:bg-border/60 hover:text-foreground"
-          aria-label="Clear search"
-        >
-          <X className="h-3 w-3" aria-hidden="true" />
-        </Button>
-      ) : null}
-    </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-2">
+            <SearchField
+              placeholder="Search for movies, shows, or people..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              autoCorrect="off"
+              autoCapitalize="none"
+              className="flex-1"
+            />
+            {query ? (
+              <Button
+                type="button"
+                onClick={handleClearQuery}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full text-xs text-muted-foreground hover:bg-border/60 hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </Button>
+            ) : null}
+          </div>
 
-    <Button
-      type="button"
-      onClick={() => {
-        if (!canOpenFilters) return;
-        setIsFiltersOpen((prev) => !prev);
-      }}
-      variant="outline"
-      size="sm"
-      className={`inline-flex items-center justify-center gap-1 rounded-full px-3 py-2 text-xs font-medium shadow-md ${
-        canOpenFilters
-          ? "border-border bg-background text-muted-foreground hover:border-primary/70 hover:text-foreground"
-          : "cursor-not-allowed border-border bg-background/70 text-muted-foreground"
-      } ${isFiltersOpen ? "border-primary/70 text-foreground" : ""}`}
-      disabled={!canOpenFilters}
-      aria-pressed={canOpenFilters && isFiltersOpen}
-      aria-expanded={canOpenFilters && isFiltersOpen}
-      aria-controls="search-title-filters"
-      aria-label={filterAvailabilityLabel}
-      title={filterAvailabilityLabel}
-    >
-      <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-      <span>{isFiltersOpen ? "Hide filters" : "Filters"}</span>
-      {activeFilterCount > 0 ? (
-        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/15 px-1 text-xs font-semibold text-primary">
-          {activeFilterCount}
-        </span>
-      ) : null}
-    </Button>
-  </form>
+          <Button
+            type="button"
+            onClick={() => {
+              if (!canOpenFilters) return;
+              setIsFiltersOpen((prev) => !prev);
+            }}
+            variant="outline"
+            size="sm"
+            className={`inline-flex items-center justify-center gap-1 rounded-full px-3 py-2 text-xs font-medium shadow-md ${
+              canOpenFilters
+                ? "border-border bg-background text-muted-foreground hover:border-primary/70 hover:text-foreground"
+                : "cursor-not-allowed border-border bg-background/70 text-muted-foreground"
+            } ${isFiltersOpen ? "border-primary/70 text-foreground" : ""}`}
+            disabled={!canOpenFilters}
+            aria-pressed={canOpenFilters && isFiltersOpen}
+            aria-expanded={canOpenFilters && isFiltersOpen}
+            aria-controls="search-title-filters"
+            aria-label={filterAvailabilityLabel}
+            title={filterAvailabilityLabel}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{isFiltersOpen ? "Hide filters" : "Filters"}</span>
+            {activeFilterCount > 0 ? (
+              <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/15 px-1 text-xs font-semibold text-primary">
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </Button>
+        </form>
 
         {activeTab === "titles" && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -402,33 +408,33 @@ const SearchPage: React.FC = () => {
       </PageSection>
 
       {/* Tabs + results */}
-<section className="flex flex-1 flex-col gap-3">
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div className="w-full sm:max-w-lg">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SearchTabKey)}>
-  <TabsList className="w-full">
-    <TabsTrigger value="titles">Titles</TabsTrigger>
-    <TabsTrigger value="people">People</TabsTrigger>
-  </TabsList>
-</Tabs>
-    </div>
-  </div>
+      <section className="flex flex-1 flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:max-w-lg">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SearchTabKey)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="titles">Titles</TabsTrigger>
+                <TabsTrigger value="people">People</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
 
-  <div
-    aria-live="polite"
-    className="flex-1 rounded-2xl border border-dashed border-border bg-card/60 px-3 py-3 text-[12px] text-muted-foreground"
-  >
-    {activeTab === "titles" ? (
-      <SearchTitlesTab
-        query={debouncedQuery}
-        filters={titleFilters}
-        onResetFilters={handleResetFilters}
-      />
-    ) : (
-      <SearchPeopleTab query={debouncedQuery} />
-    )}
-  </div>
-</section>
+        <div
+          aria-live="polite"
+          className="flex-1 rounded-2xl border border-dashed border-border bg-card/60 px-3 py-3 text-[12px] text-muted-foreground"
+        >
+          {activeTab === "titles" ? (
+            <SearchTitlesTab
+              query={debouncedQuery}
+              filters={titleFilters}
+              onResetFilters={handleResetFilters}
+            />
+          ) : (
+            <SearchPeopleTab query={debouncedQuery} />
+          )}
+        </div>
+      </section>
     </div>
   );
 };

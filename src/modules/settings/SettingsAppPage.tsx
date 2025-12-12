@@ -21,13 +21,10 @@ const SettingsAppPage: React.FC = () => {
   } = useUIStore();
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
-  useEffect(() => {
-    setStatus("idle");
-  }, [language, reduceMotion, startTab, theme]);
-
   const handleSave = () => {
     try {
       setStatus("saved");
+      setTimeout(() => setStatus("idle"), 2000);
     } catch {
       setStatus("error");
     }
@@ -48,9 +45,7 @@ const SettingsAppPage: React.FC = () => {
               <h2 className="text-sm font-heading font-semibold text-foreground">
                 {t("settings.start.title")}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.start.description")}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("settings.start.description")}</p>
             </div>
           </div>
 
@@ -90,9 +85,7 @@ const SettingsAppPage: React.FC = () => {
               <h2 className="text-sm font-heading font-semibold text-foreground">
                 {t("settings.theme.title")}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.theme.description")}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("settings.theme.description")}</p>
             </div>
           </div>
 
@@ -147,9 +140,7 @@ const SettingsAppPage: React.FC = () => {
               <h2 className="text-sm font-heading font-semibold text-foreground">
                 {t("settings.language.title")}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.language.description")}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("settings.language.description")}</p>
             </div>
           </div>
 
@@ -194,17 +185,13 @@ const SettingsAppPage: React.FC = () => {
               <h2 className="text-sm font-heading font-semibold text-foreground">
                 {t("settings.motion.title")}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.motion.description")}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("settings.motion.description")}</p>
             </div>
           </div>
 
           <label className="mt-2 flex items-center justify-between gap-3 text-[12px]">
             <div>
-              <span className="block text-foreground">
-                {t("settings.motion.reduceMotion")}
-              </span>
+              <span className="block text-foreground">{t("settings.motion.reduceMotion")}</span>
               <span className="block text-xs text-muted-foreground">
                 {t("settings.motion.detail")}
               </span>
@@ -235,11 +222,7 @@ const SettingsAppPage: React.FC = () => {
               </div>
             )}
           </div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSave}
-          >
+          <Button type="button" size="sm" onClick={handleSave}>
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{t("settings.save.cta")}</span>
           </Button>
