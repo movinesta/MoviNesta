@@ -59,12 +59,12 @@ export const getBubbleAppearance = ({
   isDeleted: boolean;
 }) => {
   const baseBubbleColors = isSelf
-    ? "bg-primary/90 text-white shadow-md shadow-primary/20"
-    : "bg-card text-foreground border border-border shadow-md";
+    ? "bg-primary text-primary-foreground"
+    : "bg-muted text-foreground";
 
   return {
     bubbleColors: isDeleted
-      ? "bg-card/80 text-muted-foreground border border-dashed border-border"
+      ? "bg-muted text-muted-foreground border border-dashed border-border"
       : baseBubbleColors,
     bubbleShape: isSelf
       ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"

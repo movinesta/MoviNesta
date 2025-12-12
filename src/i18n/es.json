@@ -12,13 +12,6 @@
   "settings.start.description": "Elige la pestaña que ves al abrir MoviNesta.",
   "settings.start.note": "Se guarda localmente. Más adelante podrás conectarlo a la navegación.",
 
-  "settings.theme.title": "Tema",
-  "settings.theme.description": "Elige cómo MoviNesta debe seguir el tema de tu dispositivo.",
-  "settings.theme.matchSystem": "Seguir el sistema",
-  "settings.theme.alwaysDark": "Siempre oscuro",
-  "settings.theme.light": "Claro",
-  "settings.theme.note": "Se guarda en este dispositivo y se actualiza al instante.",
-
   "settings.language.title": "Idioma",
   "settings.language.description": "El selector de idioma llegará pronto. Empezamos con inglés y español mientras añadimos más traducciones.",
   "settings.language.matchSystem": "Seguir el sistema",

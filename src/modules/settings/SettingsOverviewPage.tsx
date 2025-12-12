@@ -36,7 +36,7 @@ const items: SettingsItem[] = [
   },
   {
     title: "App",
-    description: "Start screen, theme, and motion preferences.",
+    description: "Start screen and motion preferences.",
     icon: <Monitor className="h-4 w-4 text-muted-foreground" aria-hidden="true" />,
     to: "/settings/app",
     label: "App settings",
