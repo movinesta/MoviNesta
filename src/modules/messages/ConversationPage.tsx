@@ -1337,7 +1337,7 @@ const ConversationPage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-stretch bg-background">
+    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background">
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
         <ConversationHeader
           conversation={conversation}
