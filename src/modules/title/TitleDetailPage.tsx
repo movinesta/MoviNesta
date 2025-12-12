@@ -17,6 +17,7 @@ import { supabase } from "../../lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { tmdbImageUrl } from "@/lib/tmdb";
 import { TitleType } from "@/types/supabase-helpers";
+import type { SwipeCardData } from "../swipe/useSwipeDeck";
 
 interface TitleRow {
   title_id: string;
@@ -286,6 +287,24 @@ const TitleDetailPage: React.FC = () => {
     },
   });
 
+  const { data: moreLikeThisCards, isLoading: moreLikeThisLoading } = useQuery<SwipeCardData[]>({
+    queryKey: qk.moreLikeThis(titleId),
+    enabled: Boolean(titleId),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+    queryFn: async () => {
+      if (!titleId) return [];
+      const payload = await callSupabaseFunction<{ cards?: SwipeCardData[] }>(
+        "swipe-more-like-this",
+        { titleId },
+        { timeoutMs: 25000 },
+      );
+
+      const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+      return cards.filter((card) => Boolean(card?.id && card?.title));
+    },
+  });
+
   const posterImage = data
     ? (data.poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
     : null;
@@ -397,6 +416,8 @@ const TitleDetailPage: React.FC = () => {
     [];
 
   const overview = data.plot ?? data.tmdb_overview ?? null;
+
+  const moreLikeCards = moreLikeThisCards ?? [];
 
   const metaPieces: string[] = [];
   if (derivedYear) metaPieces.push(String(derivedYear));
@@ -555,6 +576,61 @@ const TitleDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <PageSection>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-foreground">More like this</h2>
+          {moreLikeThisLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
+        </div>
+
+        {moreLikeThisLoading ? (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="h-40 w-28 flex-shrink-0 animate-pulse rounded-xl border border-border bg-card/70"
+              />
+            ))}
+          </div>
+        ) : moreLikeCards.length > 0 ? (
+          <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
+            {moreLikeCards.map((card) => {
+              const posterSrc =
+                card.posterUrl ??
+                (card.tmdbPosterPath ? tmdbImageUrl(card.tmdbPosterPath, "w342") : null);
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => navigate(`/title/${card.id}`)}
+                  className="flex w-28 flex-shrink-0 flex-col gap-1 text-left"
+                >
+                  <div className="aspect-[2/3] w-28 overflow-hidden rounded-xl border border-border bg-card/80">
+                    {posterSrc ? (
+                      <img
+                        src={posterSrc}
+                        alt={card.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">
+                        No poster
+                      </div>
+                    )}
+                  </div>
+                  <span className="line-clamp-2 text-[12px] text-foreground">{card.title}</span>
+                  {card.year && (
+                    <span className="text-[11px] text-muted-foreground">{card.year}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">No similar titles yet.</p>
+        )}
+      </PageSection>
 
       <PageSection>
         <div className="flex flex-col gap-4 md:flex-row">

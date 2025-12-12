@@ -9,6 +9,7 @@ export const qk = {
   titleDiary: (userId: string | null | undefined, titleId: string | null | undefined) =>
     ["title-diary", userId, titleId] as const,
   titleDetail: (titleId: string | null | undefined) => ["title-detail", titleId] as const,
+  moreLikeThis: (titleId: string | null | undefined) => ["more-like-this", titleId] as const,
   conversations: (userId: string | null | undefined) =>
     ["messages", "conversations", userId] as const,
   friendsTitleReactions: (userId: string | null | undefined, titleId: string | null | undefined) =>

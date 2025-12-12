@@ -19,7 +19,7 @@ import {
   type UserProfile,
 } from "../_shared/preferences.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
-import { loadSeenTitleIdsForUser } from "../_shared/swipe.ts";
+import { loadSeenTitleIdsForUser, mapTitleRowToSwipeCard } from "../_shared/swipe.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "swipe-trending";
@@ -56,11 +56,17 @@ const CANDIDATE_COLUMNS = [
   "primary_title",
   "release_year",
   "poster_url",
+  "tmdb_poster_path",
+  "tmdb_overview",
   "backdrop_url",
   "imdb_rating",
   "rt_tomato_pct",
   "tmdb_popularity",
   "genres",
+  "runtime_minutes",
+  "tmdb_runtime",
+  "tagline",
+  "tmdb_genre_names",
 ].join(",");
 
 // ============================================================================
@@ -99,17 +105,7 @@ export async function handler(req: Request) {
     }
 
     // Map DB rows -> API shape expected by useSwipeDeck
-    const apiCards = cards.map((card) => ({
-      id: card.title_id,                           // REQUIRED
-      title: card.primary_title ?? "(Untitled)",   // REQUIRED
-      year: card.release_year ?? null,
-      type: card.content_type ?? null,
-      posterUrl: card.poster_url ?? null,
-      tmdbPosterPath: null,                        // optional: you could expose tmdb_poster_path here
-      tmdbBackdropPath: null,                      // optional: or tmdb_backdrop_path
-      imdbRating: card.imdb_rating ?? null,
-      rtTomatoMeter: card.rt_tomato_pct ?? null,
-    }));
+    const apiCards = cards.map(mapTitleRowToSwipeCard);
 
     triggerBackgroundSync(req, cards.slice(0, 3));
 
