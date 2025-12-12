@@ -33,7 +33,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   return (
     <div ref={containerRef} className="pointer-events-none fixed inset-x-0 bottom-0 z-40 w-full">
-      <div className="w-full bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="w-full">
         <form
           {...formProps}
           className={cn(
