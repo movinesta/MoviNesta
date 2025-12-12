@@ -96,4 +96,16 @@ describe("useSendMessage", () => {
       expect(mockSupabase.messageBuilder.insert).toHaveBeenCalled();
     });
   });
+
+  it("rejects empty messages without attachments", async () => {
+    const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ text: "   \n\t  ", attachmentPath: null }),
+    ).rejects.toThrow(/empty message/i);
+
+    expect(mockSupabase.messageBuilder.insert).not.toHaveBeenCalled();
+  });
 });

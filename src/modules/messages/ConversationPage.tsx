@@ -6,12 +6,10 @@ import {
   Check,
   CheckCheck,
   Edit3,
-  Image as ImageIcon,
   Loader2,
   Send,
   Smile,
   Trash2,
-  X,
 } from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +37,18 @@ import { ConversationHeader } from "./components/ConversationHeader";
 import { MessageList } from "./components/MessageList";
 import { MessageBubble } from "./components/MessageBubble";
 import { MessageComposer } from "./components/MessageComposer";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface UiMessage {
   message: ConversationMessage;
@@ -59,6 +69,24 @@ const buildAttachmentPath = (conversationId: string, userId: string, fileName: s
   const randomId =
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now();
   return `message_attachments/${conversationId}/${userId}/${Date.now()}-${randomId}.${ext}`;
+};
+
+const buildMessagePayload = (text: string, attachmentPath: string | null) => {
+  const trimmed = text.trim();
+
+  if (!attachmentPath && !trimmed) {
+    return { payload: null, trimmed } as const;
+  }
+
+  if (attachmentPath && trimmed) {
+    return { payload: { type: "text+image", text: trimmed }, trimmed } as const;
+  }
+
+  if (attachmentPath) {
+    return { payload: { type: "image", text: "" }, trimmed } as const;
+  }
+
+  return { payload: { type: "text", text: trimmed }, trimmed } as const;
 };
 
 const useConversationReadReceipts = (conversationId: string | null) => {
@@ -159,20 +187,17 @@ export const useSendMessage = (
         }
       }
 
-      const trimmed = text.trim();
-      const bodyPayload =
-        attachmentPath && trimmed
-          ? { type: "text+image", text: trimmed }
-          : attachmentPath
-            ? { type: "image", text: "" }
-            : { type: "text", text: trimmed };
+      const { payload } = buildMessagePayload(text, attachmentPath ?? null);
+      if (!payload) {
+        throw new Error("Cannot send an empty message.");
+      }
 
       const { data, error } = await supabase
         .from("messages")
         .insert({
           conversation_id: conversationId,
           user_id: userId,
-          body: JSON.stringify(bodyPayload),
+          body: JSON.stringify(payload),
           attachment_url: attachmentPath ?? null,
         })
         .select("id, conversation_id, user_id, body, attachment_url, created_at")
@@ -206,6 +231,11 @@ export const useSendMessage = (
     onMutate: async ({ text, attachmentPath }) => {
       if (!conversationId || !userId) return { previousMessages: undefined, tempId: null };
 
+      const { payload, trimmed } = buildMessagePayload(text, attachmentPath ?? null);
+      if (!payload) {
+        throw new Error("Cannot send an empty message.");
+      }
+
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const createdAt = new Date().toISOString();
 
@@ -213,7 +243,7 @@ export const useSendMessage = (
         id: tempId,
         conversationId,
         senderId: userId,
-        body: JSON.stringify({ type: "text", text: text.trim() }),
+        body: JSON.stringify(payload),
         attachmentUrl: attachmentPath ?? null,
         createdAt,
       };
@@ -241,7 +271,7 @@ export const useSendMessage = (
         previousMessages,
         tempId,
         optimistic,
-        payload: { text: text.trim(), attachmentPath: attachmentPath ?? null },
+        payload: { text: trimmed, attachmentPath: attachmentPath ?? null },
       };
     },
     onError: (error, _variables, context) => {
@@ -419,6 +449,16 @@ export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
 
   useEffect(() => {
     let cancelled = false;
+    setUrl(null);
+    setError(false);
+
+    if (!path) {
+      setError(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const run = async () => {
       const { data, error: err } = await supabase.storage
         .from(CHAT_MEDIA_BUCKET)
@@ -521,23 +561,10 @@ const ConversationPage: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
-  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
-  const [showGalleryPicker, setShowGalleryPicker] = useState(false);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
-  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (selectedImagePreview) {
-        URL.revokeObjectURL(selectedImagePreview);
-      }
-    };
-  }, [selectedImagePreview]);
 
   useEffect(() => {
     if (!messages) return;
@@ -635,7 +662,6 @@ const ConversationPage: React.FC = () => {
     messageId: string;
     text: string;
   } | null>(null);
-  const editDialogRef = useRef<HTMLDivElement | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const editTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -650,49 +676,12 @@ const ConversationPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!editingMessage) {
-      return undefined;
-    }
-
-    const dialogEl = editDialogRef.current;
-
-    const focusable = dialogEl?.querySelectorAll<HTMLElement>(
-      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-    );
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!dialogEl) return;
-
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeEditDialog();
-        return;
-      }
-
-      if (event.key !== "Tab" || !focusable || focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (event.shiftKey) {
-        if (document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    dialogEl?.addEventListener("keydown", handleKeyDown);
+    if (!editingMessage) return;
 
     queueMicrotask(() => {
       editTextareaRef.current?.focus();
     });
-
-    return () => dialogEl?.removeEventListener("keydown", handleKeyDown);
-  }, [editingMessage, closeEditDialog]);
+  }, [editingMessage]);
 
   const uiMessages = useMemo<UiMessage[]>(() => {
     if (!messages) return [];
@@ -1100,26 +1089,6 @@ const ConversationPage: React.FC = () => {
     };
   }, [conversationId, queryClient]);
 
-  // Close emoji when clicking outside
-  useEffect(() => {
-    if (!showEmojiPicker) return;
-
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (
-        emojiPickerRef.current &&
-        !emojiPickerRef.current.contains(target) &&
-        emojiButtonRef.current &&
-        !emojiButtonRef.current.contains(target)
-      ) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showEmojiPicker]);
-
   const resizeTextarea = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -1256,41 +1225,25 @@ const ConversationPage: React.FC = () => {
     event.target.value = "";
 
     if (!file || !conversationId || !user?.id) return;
+    if (isUploadingImage) return;
     if (isBlocked || blockedYou) return;
 
-    const previewUrl = URL.createObjectURL(file);
-    if (selectedImagePreview) {
-      URL.revokeObjectURL(selectedImagePreview);
-    }
-
-    setSelectedImageFile(file);
-    setSelectedImagePreview(previewUrl);
-    setShowGalleryPicker(true);
+    await handleSendImageFile(file);
   };
 
-  const handleCloseGallery = () => {
-    if (selectedImagePreview) {
-      URL.revokeObjectURL(selectedImagePreview);
-    }
-    setSelectedImagePreview(null);
-    setSelectedImageFile(null);
-    setShowGalleryPicker(false);
-    setUploadError(null);
-  };
-
-  const handleSendSelectedImage = async () => {
-    if (!selectedImageFile || !conversationId || !user?.id) return;
+  const handleSendImageFile = async (file: File) => {
+    if (!conversationId || !user?.id) return;
     if (isBlocked || blockedYou) return;
 
     setUploadError(null);
     setIsUploadingImage(true);
 
     try {
-      const path = buildAttachmentPath(conversationId, user.id, selectedImageFile.name);
+      const path = buildAttachmentPath(conversationId, user.id, file.name);
 
       const { error: uploadErrorResult } = await supabase.storage
         .from(CHAT_MEDIA_BUCKET)
-        .upload(path, selectedImageFile, {
+        .upload(path, file, {
           cacheControl: "3600",
           upsert: false,
         });
@@ -1312,9 +1265,8 @@ const ConversationPage: React.FC = () => {
       }
 
       attemptSend({ text: "", attachmentPath: path });
-      handleCloseGallery();
     } catch (error) {
-      console.error("[ConversationPage] handleSendSelectedImage failed", error);
+      console.error("[ConversationPage] handleSendImageFile failed", error);
       setUploadError("Something went wrong while sending your image.");
     } finally {
       setIsUploadingImage(false);
@@ -1777,74 +1729,6 @@ const ConversationPage: React.FC = () => {
               }}
             />
 
-            {/* Emoji picker popover */}
-            {showEmojiPicker && (
-              <div
-                ref={emojiPickerRef}
-                className="absolute bottom-[4.25rem] left-4 z-30 rounded-2xl border border-border bg-card p-2"
-              >
-                <div className="flex max-w-[260px] flex-wrap gap-1.5">
-                  {[
-                    "😀",
-                    "😁",
-                    "😂",
-                    "🤣",
-                    "😅",
-                    "😆",
-                    "😉",
-                    "😊",
-                    "😎",
-                    "😍",
-                    "🥰",
-                    "😘",
-                    "🤩",
-                    "🥹",
-                    "🙂",
-                    "🙃",
-                    "🤔",
-                    "🤨",
-                    "😏",
-                    "😒",
-                    "😭",
-                    "😢",
-                    "😡",
-                    "🤯",
-                    "🥳",
-                    "👍",
-                    "👎",
-                    "🙌",
-                    "👏",
-                    "🙏",
-                    "❤️",
-                    "🧡",
-                    "💛",
-                    "💚",
-                    "💙",
-                    "💜",
-                    "🔥",
-                    "⭐",
-                    "✨",
-                    "👀",
-                    "🎬",
-                    "🍿",
-                    "🎉",
-                    "💯",
-                  ].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => {
-                        handleEmojiSelect(emoji);
-                        setShowEmojiPicker(false);
-                      }}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background text-lg transition hover:bg-background/70"
-                    >
-                      <span>{emoji}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Input */}
@@ -1863,13 +1747,9 @@ const ConversationPage: React.FC = () => {
                     <p className="font-semibold">Couldn&apos;t send. Please try again.</p>
                   </div>
                   {lastFailedPayload && (
-                    <button
-                      type="button"
-                      onClick={handleRetrySend}
-                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary ring-1 ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <span>Retry</span>
-                    </button>
+                    <Button type="button" size="sm" variant="outline" onClick={handleRetrySend}>
+                      Retry
+                    </Button>
                   )}
                 </div>
               )}
@@ -1883,35 +1763,58 @@ const ConversationPage: React.FC = () => {
                     <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
                     <p className="font-semibold">{uploadError}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setUploadError(null)}
-                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground"
-                  >
-                    <span>Dismiss</span>
-                  </button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setUploadError(null)}>
+                    Dismiss
+                  </Button>
                 </div>
               )}
 
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  ref={emojiButtonRef}
-                  onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  aria-label="Add emoji"
-                >
-                  <Smile className="h-4 w-4" aria-hidden="true" />
-                </button>
+                <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Add emoji"
+                      className="h-10 w-10"
+                    >
+                      <Smile className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" align="start" className="p-3">
+                    <ScrollArea className="max-h-64">
+                      <div className="grid grid-cols-8 gap-1.5">
+                        {["😀","😁","😂","🤣","😅","😆","😉","😊","😎","😍","🥰","😘","🤩","🥹","🙂","🙃","🤔","🤨","😏","😒","😭","😢","😡","🤯","🥳","👍","👎","🙌","👏","🙏","❤️","🧡","💛","💚","💙","💜","🔥","⭐","✨","👀","🎬","🍿","🎉","💯"].map((emoji) => (
+                          <Button
+                            key={emoji}
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-lg"
+                            onClick={() => {
+                              handleEmojiSelect(emoji);
+                              setShowEmojiPicker(false);
+                            }}
+                          >
+                            <span>{emoji}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
 
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10"
                   onClick={handleCameraClick}
-                  className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Send photo"
                 >
                   <Camera className="h-4 w-4" aria-hidden="true" />
-                </button>
+                </Button>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -1920,8 +1823,8 @@ const ConversationPage: React.FC = () => {
                   onChange={handleImageSelected}
                 />
 
-                <div className="flex min-h-[44px] max-h-[160px] flex-1 items-center rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
-                  <textarea
+                <div className="flex max-h-[160px] flex-1 items-center rounded-md border border-input bg-background px-3 py-2">
+                  <Textarea
                     id="conversation-message"
                     value={draft}
                     ref={textareaRef}
@@ -1934,22 +1837,23 @@ const ConversationPage: React.FC = () => {
                         }
                       }
                     }}
-                    placeholder="Message…"
                     rows={1}
-                    className="max-h-[160px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                    className="h-auto max-h-[140px] min-h-[44px] resize-none border-0 bg-transparent px-0 py-0 text-sm focus-visible:ring-0"
                   />
                 </div>
 
-                <button
+                <Button
                   type="submit"
+                  variant="default"
+                  size="icon"
+                  className="h-11 w-11"
                   onMouseDown={(e) => e.preventDefault()}
                   onTouchStart={(e) => e.preventDefault()}
                   disabled={!draft.trim()}
-                  className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send message"
                 >
                   <Send className="h-4 w-4" aria-hidden="true" />
-                </button>
+                </Button>
               </div>
             </MessageComposer>
           )}
@@ -1968,229 +1872,120 @@ const ConversationPage: React.FC = () => {
         </section>
       </div>
 
-      {/* Edit message modal */}
-      {editingMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div
-            ref={editDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-message-title"
-            className="w-[min(480px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h2 id="edit-message-title" className="text-[15px] font-semibold text-foreground">
-                Edit message
-              </h2>
-              <button
-                type="button"
-                onClick={closeEditDialog}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Close edit message"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
+      <Dialog open={Boolean(editingMessage)} onOpenChange={(open) => (!open ? closeEditDialog() : undefined)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit message</DialogTitle>
+            <DialogDescription>Update your message for everyone in the conversation.</DialogDescription>
+          </DialogHeader>
 
-            <div className="mt-3 rounded-xl border border-border bg-background px-3 py-2">
-              <textarea
-                ref={editTextareaRef}
-                value={editingMessage.text}
-                onChange={(event) =>
-                  setEditingMessage((prev) => (prev ? { ...prev, text: event.target.value } : prev))
-                }
-                rows={3}
-                className="w-full resize-none border-0 bg-transparent text-sm text-foreground outline-none focus:outline-none focus:ring-0"
-              />
-            </div>
+          {editingMessage && (
+            <Textarea
+              ref={editTextareaRef}
+              value={editingMessage.text}
+              onChange={(event) =>
+                setEditingMessage((prev) => (prev ? { ...prev, text: event.target.value } : prev))
+              }
+              rows={3}
+              className="min-h-[120px]"
+            />
+          )}
 
-            {editError && <p className="mt-2 text-xs text-destructive">{editError}</p>}
+          {editError && <p className="text-xs text-destructive">{editError}</p>}
 
-            <div className="mt-4 flex justify-end gap-2 text-sm">
-              <Button type="button" variant="ghost" size="sm" onClick={closeEditDialog}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={!editingMessage.text.trim() || editMessageMutation.isPending}
-                onClick={() => {
-                  const text = editingMessage.text.trim();
-                  if (!text) return;
-                  setEditError(null);
-                  editMessageMutation.mutate(
-                    {
-                      messageId: editingMessage.messageId,
-                      text,
-                    },
-                    {
-                      onSuccess: () => {
-                        closeEditDialog();
-                      },
-                      onError: () => {
-                        setEditError("Couldn't save changes. Please try again.");
-                      },
-                    },
-                  );
-                }}
-              >
-                {editMessageMutation.isPending && (
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                )}
-                <span>Save</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete message dialog (Delete for me / Delete for everyone) */}
-      {deleteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[min(420px,calc(100%-2.5rem))] rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive">
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                </div>
-                <h2 className="text-[15px] font-semibold text-foreground">Delete message</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDeleteDialog(null)}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Close delete dialog"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <p className="mt-3 text-[12px] text-muted-foreground">
-              Choose whether to remove this message only from your chat or from the conversation for
-              everyone.
-            </p>
-
-            <div className="mt-5 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHiddenMessageIds((prev) => ({
-                      ...prev,
-                      [deleteDialog.messageId]: true,
-                    }));
-                    setDeleteDialog(null);
-                  }}
-                    className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
-                >
-                  Delete for me
-                </button>
-                <button
-                  type="button"
-                  disabled={deleteMessageMutation.isPending}
-                  onClick={() => {
-                    deleteMessageMutation.mutate(
-                      { messageId: deleteDialog.messageId },
-                      {
-                        onSettled: () => {
-                          setDeleteDialog(null);
-                        },
-                      },
-                    );
-                  }}
-                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {deleteMessageMutation.isPending && (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  )}
-                  <span>Delete for everyone</span>
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDeleteDialog(null)}
-                className="self-center text-[12px] text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Gallery picker */}
-      {showGalleryPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="relative w-[min(520px,calc(100%-2rem))] rounded-3xl border border-border bg-background p-5">
-            <button
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="ghost" onClick={closeEditDialog}>
+              Cancel
+            </Button>
+            <Button
               type="button"
-              onClick={handleCloseGallery}
-              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label="Close gallery picker"
+              disabled={!editingMessage?.text.trim() || editMessageMutation.isPending}
+              onClick={() => {
+                if (!editingMessage) return;
+                const text = editingMessage.text.trim();
+                if (!text) return;
+                setEditError(null);
+                editMessageMutation.mutate(
+                  {
+                    messageId: editingMessage.messageId,
+                    text,
+                  },
+                  {
+                    onSuccess: () => {
+                      closeEditDialog();
+                    },
+                    onError: () => {
+                      setEditError("Couldn't save changes. Please try again.");
+                    },
+                  },
+                );
+              }}
             >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-
-            <div className="flex items-start gap-3 pr-10">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-foreground">
-                <Camera className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-[15px] font-semibold text-foreground">
-                  Send from your gallery
-                </h2>
-                <p className="text-[12px] text-muted-foreground">
-                  Pick a recent photo to drop into the chat—just like Instagram DMs.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-dashed border-border bg-background/80 p-4">
-              {selectedImagePreview ? (
-                <div className="overflow-hidden rounded-xl border border-border bg-card/80">
-                  <img
-                    src={selectedImagePreview}
-                    alt="Selected"
-                    className="max-h-[320px] w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
-                  <ImageIcon className="h-8 w-8" aria-hidden="true" />
-                  <p className="text-sm text-muted-foreground">
-                    Choose a photo from your camera roll.
-                  </p>
-                </div>
+              {editMessageMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
+              <span>Save</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <ImageIcon className="h-4 w-4" aria-hidden="true" />
-                    <span>Choose another photo</span>
-                  </button>
+      <Dialog open={Boolean(deleteDialog)} onOpenChange={(open) => (!open ? setDeleteDialog(null) : undefined)}>
+        <DialogContent>
+          <DialogHeader className="gap-1">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </span>
+              Delete message
+            </DialogTitle>
+            <DialogDescription>
+              Choose whether to remove this message only from your chat or from the conversation for everyone.
+            </DialogDescription>
+          </DialogHeader>
 
-                  <button
-                    type="button"
-                    onClick={handleSendSelectedImage}
-                    disabled={!selectedImageFile || isUploadingImage}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                  {isUploadingImage ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Send className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  <span>{isUploadingImage ? "Sending…" : "Send photo"}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                if (!deleteDialog) return;
+                setHiddenMessageIds((prev) => ({
+                  ...prev,
+                  [deleteDialog.messageId]: true,
+                }));
+                setDeleteDialog(null);
+              }}
+            >
+              Delete for me
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteMessageMutation.isPending}
+              onClick={() => {
+                if (!deleteDialog) return;
+                deleteMessageMutation.mutate(
+                  { messageId: deleteDialog.messageId },
+                  {
+                    onSettled: () => {
+                      setDeleteDialog(null);
+                    },
+                  },
+                );
+              }}
+            >
+              {deleteMessageMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
+              <span>Delete for everyone</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

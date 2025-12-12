@@ -1,6 +1,6 @@
 import React from "react";
-import { describe, it, beforeEach, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, beforeEach, expect, vi, afterEach } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { ChatImage } from "./ConversationPage";
 
 const createSignedUrl = vi.fn();
@@ -18,6 +18,10 @@ vi.mock("../../lib/supabase", () => ({
 beforeEach(() => {
   vi.useRealTimers();
   createSignedUrl.mockReset();
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 describe("ChatImage", () => {
@@ -52,6 +56,25 @@ describe("ChatImage", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Image unavailable/i)).toBeInTheDocument();
+    });
+  });
+
+  it("recovers when the path changes after an error", async () => {
+    createSignedUrl
+      .mockResolvedValueOnce({ data: null, error: new Error("boom") })
+      .mockResolvedValueOnce({ data: { signedUrl: "https://cdn.example.com/new.png" }, error: null });
+
+    const { rerender } = render(<ChatImage path="conversation/123/file.png" />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Image unavailable/i)).toBeInTheDocument();
+    });
+
+    rerender(<ChatImage path="conversation/456/other.png" />);
+
+    await waitFor(() => {
+      const image = screen.getByAltText("Attachment") as HTMLImageElement;
+      expect(image.src).toContain("cdn.example.com/new.png");
     });
   });
 });
