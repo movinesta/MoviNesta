@@ -124,11 +124,22 @@ const SwipePage: React.FC = () => {
   });
   const [isNextPreviewActive, setIsNextPreviewActive] = useState(false);
   const [failedPosterIds, setFailedPosterIds] = useState<string[]>([]);
-  const onPosterError = (id: string | undefined) => {
-    if (id && !failedPosterIds.includes(id)) {
-      setFailedPosterIds((ids) => [...ids, id]);
-    }
+  const updatePosterFailure = (id: string | undefined, failed: boolean) => {
+    if (!id) return;
+
+    setFailedPosterIds((ids) => {
+      const alreadyFailed = ids.includes(id);
+
+      if (failed) {
+        return alreadyFailed ? ids : [...ids, id];
+      }
+
+      return alreadyFailed ? ids.filter((existingId) => existingId !== id) : ids;
+    });
   };
+
+  const setActivePosterFailed = (failed: boolean) => updatePosterFailure(activeCard?.id, failed);
+  const setNextPosterFailed = (failed: boolean) => updatePosterFailure(nextCard?.id, failed);
 
   const activePosterFailed = !!activeCard?.id && failedPosterIds.includes(activeCard.id);
   const nextPosterFailed = !!nextCard?.id && failedPosterIds.includes(nextCard.id);
