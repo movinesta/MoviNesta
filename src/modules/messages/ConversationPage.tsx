@@ -1735,7 +1735,7 @@ const ConversationPage: React.FC = () => {
           {!isBlocked && !blockedYou && (
             <MessageComposer
               onSubmit={handleSubmit}
-              className="sticky bottom-0 z-20 flex-shrink-0 space-y-2"
+              className="space-y-3"
             >
               {sendError && (
                 <div
