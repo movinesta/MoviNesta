@@ -58,7 +58,7 @@ const AppShell: React.FC = () => {
     <div className="relative flex min-h-screen flex-col bg-background text-foreground">
       <div className={shellContentClassName}>
         {/* Swipe route: prevent scroll in this area */}
-        <main className={isSwipeRoute ? "flex-1 overflow-hidden" : "flex-1"}>
+        <main className={isSwipeRoute ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0"}>
           <Outlet />
         </main>
       </div>
