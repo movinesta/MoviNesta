@@ -22,6 +22,7 @@ export const TitleSearchResultRow: React.FC<{ item: TitleSearchResult }> = ({ it
   if (item.year) metaPieces.push(String(item.year));
   if (item.type === "movie") metaPieces.push("Movie");
   if (item.type === "series") metaPieces.push("Series");
+  if (item.type === "anime") metaPieces.push("Anime");
   if (item.originalLanguage) metaPieces.push(`Language: ${item.originalLanguage}`);
   if (item.ageRating) metaPieces.push(item.ageRating);
   if (item.imdbRating) metaPieces.push(`IMDb ${item.imdbRating.toFixed(1)}`);
@@ -85,13 +86,19 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       filters,
     });
 
-  // 🔥 FIX: flatten react-query infinite data
   const results = data?.pages.flatMap((page) => page.results) ?? [];
   const totalResults = results.length;
 
   const activeFilterLabels: string[] = [];
   if (filters.type && filters.type !== "all") {
-    activeFilterLabels.push(filters.type === "movie" ? "Movies" : "Series");
+    const labelByType: Record<NonNullable<TitleSearchFilters["type"]>, string> = {
+      movie: "Movies",
+      series: "Series",
+      anime: "Anime",
+      all: "All",
+    };
+
+    activeFilterLabels.push(labelByType[filters.type]);
   }
   if (typeof filters.minYear === "number") {
     activeFilterLabels.push(`From ${filters.minYear}`);

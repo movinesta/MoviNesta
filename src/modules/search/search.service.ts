@@ -125,9 +125,7 @@ const searchSupabaseTitles = async (
     );
   }
 
-  builder = builder
-    .order("release_year", { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+  builder = builder.range(offset, offset + PAGE_SIZE - 1);
 
   if (signal) {
     builder = builder.abortSignal(signal);
@@ -153,6 +151,11 @@ const searchSupabaseTitles = async (
   if (filters?.originalLanguage) {
     builder = builder.eq("language", filters.originalLanguage);
   }
+
+  builder = builder.order("release_year", { ascending: false, nullsLast: true }).order(
+    "primary_title",
+    { ascending: true, nullsLast: false },
+  );
 
   const { data, error, count } = await builder;
 
@@ -203,9 +206,15 @@ export const searchTitles = async (params: {
   }
 
   const seenTmdbIds = new Set<number>();
+  const seenImdbIds = new Set<string>();
+
   for (const item of supabaseResults) {
     if (item.tmdbId) {
       seenTmdbIds.add(item.tmdbId);
+    }
+
+    if (item.imdbId) {
+      seenImdbIds.add(item.imdbId);
     }
   }
 
@@ -226,7 +235,6 @@ export const searchTitles = async (params: {
           items: batchCandidates.map((item) => ({
             tmdbId: item.tmdbId,
             imdbId: item.imdbId ?? undefined,
-            // 🔧 FIX: edge function expects `contentType: "movie" | "series"`
             contentType: item.type === "tv" ? "series" : "movie",
           })),
           options: {
@@ -253,7 +261,10 @@ export const searchTitles = async (params: {
     externalResults.map(async (item) => {
       throwIfAborted(signal);
 
-      if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return null;
+      const isTmdbDuplicate = Boolean(item.tmdbId && seenTmdbIds.has(item.tmdbId));
+      const isImdbDuplicate = Boolean(item.imdbId && seenImdbIds.has(item.imdbId));
+
+      if (isTmdbDuplicate || isImdbDuplicate) return null;
 
       const type: TitleType | null = item.type === "tv" ? "series" : "movie";
       const titleId =
@@ -261,6 +272,13 @@ export const searchTitles = async (params: {
           ? syncedTitleIdsByTmdb.get(item.tmdbId)!
           : `tmdb-${item.tmdbId}`;
       const isSynced = titleId.startsWith("tmdb-") === false;
+
+      if (item.tmdbId) {
+        seenTmdbIds.add(item.tmdbId);
+      }
+      if (item.imdbId) {
+        seenImdbIds.add(item.imdbId);
+      }
 
       return {
         id: titleId,
