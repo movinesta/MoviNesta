@@ -1,26 +1,22 @@
 import React from "react";
 import { describe, it, beforeEach, expect, vi, afterEach } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChatImage } from "./components/ChatImage";
 
-const createSignedUrl = vi.fn();
-const getPublicUrl = vi.fn(() => ({ data: { publicUrl: "" } }));
+const resolveStorageUrl = vi.fn<(...args: unknown[]) => Promise<string | null>>();
+const getPublicStorageUrl = vi.fn<(...args: unknown[]) => string | null>();
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    storage: {
-      from: () => ({
-        createSignedUrl,
-        getPublicUrl,
-      }),
-    },
-  },
+vi.mock("./storageUrls", () => ({
+  resolveStorageUrl: (...args: unknown[]) => resolveStorageUrl(...args),
+  getPublicStorageUrl: (...args: unknown[]) => getPublicStorageUrl(...args),
+  isHttpUrl: (value: string) => /^https?:\/\//i.test(value),
 }));
 
 beforeEach(() => {
   vi.useRealTimers();
-  createSignedUrl.mockReset();
-  getPublicUrl.mockReset();
+  resolveStorageUrl.mockReset();
+  getPublicStorageUrl.mockReset();
+  resolveStorageUrl.mockResolvedValue("https://cdn.example.com/file.png");
 });
 
 afterEach(() => {
@@ -29,19 +25,12 @@ afterEach(() => {
 
 describe("ChatImage", () => {
   it("shows loading skeleton while signing URL", () => {
-    createSignedUrl.mockResolvedValue({ data: null, error: null });
-
     const { container } = render(<ChatImage path="conversation/123/file.png" />);
 
     expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
   });
 
   it("renders signed image with lazy loading", async () => {
-    createSignedUrl.mockResolvedValue({
-      data: { signedUrl: "https://cdn.example.com/file.png" },
-      error: null,
-    });
-
     render(<ChatImage path="conversation/123/file.png" />);
 
     await waitFor(() => {
@@ -52,8 +41,19 @@ describe("ChatImage", () => {
     });
   });
 
+  it("uses external URLs directly without signing", async () => {
+    const external = "https://example.com/path/to/image.png";
+
+    render(<ChatImage path={external} />);
+
+    const image = await screen.findByAltText("Attachment");
+    expect(image).toBeInTheDocument();
+    expect(image.getAttribute("src")).toBe(external);
+    expect(resolveStorageUrl).not.toHaveBeenCalled();
+  });
+
   it("shows fallback text on signing error", async () => {
-    createSignedUrl.mockResolvedValue({ data: null, error: new Error("boom") });
+    resolveStorageUrl.mockRejectedValue(new Error("boom"));
 
     render(<ChatImage path="conversation/123/file.png" />);
 
@@ -63,9 +63,9 @@ describe("ChatImage", () => {
   });
 
   it("recovers when the path changes after an error", async () => {
-    createSignedUrl
-      .mockResolvedValueOnce({ data: null, error: new Error("boom") })
-      .mockResolvedValueOnce({ data: { signedUrl: "https://cdn.example.com/new.png" }, error: null });
+    resolveStorageUrl
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce("https://cdn.example.com/new.png");
 
     const { rerender } = render(<ChatImage path="conversation/123/file.png" />);
 
@@ -79,5 +79,34 @@ describe("ChatImage", () => {
       const image = screen.getByAltText("Attachment") as HTMLImageElement;
       expect(image.src).toContain("cdn.example.com/new.png");
     });
+  });
+
+  it("retries once before falling back when refreshed URL stays the same", async () => {
+    resolveStorageUrl
+      .mockResolvedValueOnce("https://cdn.example.com/signed.png")
+      .mockResolvedValueOnce("https://cdn.example.com/signed.png");
+    getPublicStorageUrl.mockReturnValue(null);
+
+    render(<ChatImage path="conversation/123/file.png" />);
+
+    const image = await screen.findByAltText("Attachment");
+    fireEvent.error(image);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Image unavailable/i)).toBeInTheDocument();
+    });
+  });
+
+  it("surfaces external URL errors without retrying", async () => {
+    render(<ChatImage path="https://example.com/path/to/image.png" />);
+
+    const image = await screen.findByAltText("Attachment");
+    fireEvent.error(image);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Image unavailable/i)).toBeInTheDocument();
+    });
+
+    expect(resolveStorageUrl).not.toHaveBeenCalled();
   });
 });
