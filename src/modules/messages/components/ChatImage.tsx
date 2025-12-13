@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import { CHAT_MEDIA_BUCKET } from "../chatMedia";
-import { getPublicStorageUrl, resolveStorageUrl } from "../storageUrls";
+import { getPublicStorageUrl, isHttpUrl, resolveStorageUrl } from "../storageUrls";
 
 /**
  * Displays an image attachment stored in Supabase Storage using a signed URL.
@@ -10,14 +10,24 @@ import { getPublicStorageUrl, resolveStorageUrl } from "../storageUrls";
 export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const mountedRef = useRef(true);
+  const activePathRef = useRef<string | null>(null);
   const retriedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
+    activePathRef.current = path || null;
+    retriedRef.current = false;
+
     setUrl(null);
     setError(false);
-    retriedRef.current = false;
 
     if (!path) {
       setError(true);
@@ -26,16 +36,33 @@ export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
       };
     }
 
+    if (isHttpUrl(path)) {
+      setUrl(path);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     (async () => {
-      const resolved = await resolveStorageUrl(CHAT_MEDIA_BUCKET, path, { allowPublicFallback: true });
-      if (cancelled) return;
+      try {
+        const resolved = await resolveStorageUrl(CHAT_MEDIA_BUCKET, path, {
+          allowPublicFallback: true,
+          forceRefresh: true,
+        });
 
-      if (!resolved) {
-        setError(true);
-        return;
+        if (cancelled || activePathRef.current !== path || !mountedRef.current) return;
+
+        if (!resolved) {
+          setError(true);
+          return;
+        }
+
+        setUrl(resolved);
+      } catch {
+        if (!cancelled && mountedRef.current && activePathRef.current === path) {
+          setError(true);
+        }
       }
-
-      setUrl(resolved);
     })();
 
     return () => {
@@ -59,31 +86,46 @@ export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
         className="max-h-64 w-full object-cover"
         loading="lazy"
         onError={async () => {
-          // If we already fell back to the public URL and it fails, there's nothing else to do.
-          const publicUrl = getPublicStorageUrl(CHAT_MEDIA_BUCKET, path);
-          if (publicUrl && url === publicUrl) {
+          if (!mountedRef.current || activePathRef.current !== path) return;
+
+          // External URLs cannot be resolved through Supabase, so surface the error immediately.
+          if (isHttpUrl(path)) {
             setError(true);
             return;
           }
 
-          // If we already retried once for this path, stop.
-          if (retriedRef.current) {
-            setError(true);
-            return;
+          try {
+            // If we already fell back to the public URL and it fails, there's nothing else to do.
+            const publicUrl = getPublicStorageUrl(CHAT_MEDIA_BUCKET, path);
+            if (publicUrl && url === publicUrl) {
+              setError(true);
+              return;
+            }
+
+            // If we already retried once for this path, stop.
+            if (retriedRef.current) {
+              setError(true);
+              return;
+            }
+            retriedRef.current = true;
+
+            const refreshed = await resolveStorageUrl(CHAT_MEDIA_BUCKET, path, {
+              allowPublicFallback: true,
+              forceRefresh: true,
+            });
+
+            if (!refreshed || refreshed === url) {
+              setError(true);
+              return;
+            }
+
+            if (!mountedRef.current || activePathRef.current !== path) return;
+            setUrl(refreshed);
+          } catch {
+            if (mountedRef.current && activePathRef.current === path) {
+              setError(true);
+            }
           }
-          retriedRef.current = true;
-
-          const refreshed = await resolveStorageUrl(CHAT_MEDIA_BUCKET, path, {
-            allowPublicFallback: true,
-            forceRefresh: true,
-          });
-
-          if (!refreshed || refreshed === url) {
-            setError(true);
-            return;
-          }
-
-          setUrl(refreshed);
         }}
       />
     </div>

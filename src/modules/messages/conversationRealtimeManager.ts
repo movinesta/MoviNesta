@@ -18,7 +18,6 @@ import type {
  * the last listener is removed.
  */
 
-
 export type ConversationRealtimeStatus = string;
 
 export type ConversationRealtimeHandlers = {
