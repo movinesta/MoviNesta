@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Filter, Languages, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -23,7 +23,12 @@ const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = useMemo(() => parseTabFromParams(searchParams), [searchParams]);
   const queryFromParams = searchParams.get("q") ?? "";
-  const debouncedQuery = useDebouncedValue(queryFromParams, 300);
+
+  // State for the input field's value
+  const [inputValue, setInputValue] = useState(queryFromParams);
+  // Debounced version of the input value
+  const debouncedInputValue = useDebouncedValue(inputValue, 300);
+
   const titleFilters = useMemo(() => parseTitleFiltersFromParams(searchParams), [searchParams]);
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -62,6 +67,7 @@ const SearchPage: React.FC = () => {
   );
 
   const handleClearQuery = () => {
+    setInputValue("");
     updateSearchParams((params) => {
       params.delete("q");
       clearFilterParams(params);
@@ -69,7 +75,8 @@ const SearchPage: React.FC = () => {
     setIsFiltersOpen(false);
   };
 
-  const handleQueryChange = (value: string) => {
+  // This function now only updates the URL params
+  const handleQueryChange = useCallback((value: string) => {
     const trimmed = value.trim();
     updateSearchParams((params) => {
       if (trimmed) {
@@ -84,7 +91,20 @@ const SearchPage: React.FC = () => {
     if (!trimmed) {
       setIsFiltersOpen(false);
     }
-  };
+  }, [clearFilterParams, updateSearchParams]);
+
+  // useEffect to sync URL with debounced input value
+  useEffect(() => {
+    handleQueryChange(debouncedInputValue);
+  }, [debouncedInputValue, handleQueryChange]);
+
+  // useEffect to sync input field with URL (e.g., browser back/forward)
+  useEffect(() => {
+    if (queryFromParams !== inputValue) {
+      setInputValue(queryFromParams);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryFromParams]);
 
   const updateFilters = useCallback(
     (updates: Partial<TitleSearchFilters>) => {
@@ -195,13 +215,13 @@ const SearchPage: React.FC = () => {
           <div className="flex flex-1 items-center gap-2">
             <SearchField
               placeholder="Search for movies, shows, or people..."
-              value={queryFromParams}
-              onChange={(event) => handleQueryChange(event.target.value)}
+              value={inputValue}
+              onChange={(event) => setInputValue(event.target.value)}
               autoCorrect="off"
               autoCapitalize="none"
               className="flex-1"
             />
-            {queryFromParams ? (
+            {inputValue ? (
               <Button
                 type="button"
                 onClick={handleClearQuery}
@@ -429,12 +449,12 @@ const SearchPage: React.FC = () => {
         >
           {activeTab === "titles" ? (
             <SearchTitlesTab
-              query={debouncedQuery}
+              query={debouncedInputValue}
               filters={titleFilters}
               onResetFilters={handleResetFilters}
             />
           ) : (
-            <SearchPeopleTab query={debouncedQuery} />
+            <SearchPeopleTab query={debouncedInputValue} />
           )}
         </div>
       </section>
