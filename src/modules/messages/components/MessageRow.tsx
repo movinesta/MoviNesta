@@ -109,6 +109,7 @@ export const MessageRow = React.memo(function MessageRow({
   const isDeletedMessage = meta.deleted === true;
   const editedAt = meta.editedAt;
   const deletedAt = meta.deletedAt;
+  const createdTime = formatMessageTime(message.createdAt);
 
   const name = sender?.displayName ?? (isSelf ? "You" : "Someone");
   const text = isDeletedMessage ? "This message was deleted" : parseMessageText(message.body);
@@ -172,6 +173,24 @@ export const MessageRow = React.memo(function MessageRow({
               New messages
             </span>
             <span className="h-px w-12 bg-border" aria-hidden="true" />
+          </div>
+        </div>
+      )}
+
+      {startsGroup && (
+        <div
+          className={`mb-1 flex ${
+            isSelf ? "justify-end pr-1" : "justify-start pl-9"
+          }`}
+        >
+          <div
+            className="inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-muted/80 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm"
+            aria-label={`Start of new message from ${isSelf ? "You" : name} at ${createdTime}`}
+            title={`${isSelf ? "You" : name} · ${formatMessageDateLabel(message.createdAt)} ${createdTime}`}
+          >
+            <span className="max-w-[10rem] truncate text-foreground">{isSelf ? "You" : name}</span>
+            <span className="h-1 w-1 rounded-full bg-border" aria-hidden />
+            <span>{createdTime}</span>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import type { VirtuosoHandle } from "react-virtuoso";
 import { useAuth } from "../auth/AuthProvider";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
 import { useConversations } from "./useConversations";
@@ -26,9 +27,12 @@ import { useConversationUnreadDivider } from "./useConversationUnreadDivider";
 import { ConversationHeader } from "./components/ConversationHeader";
 import { MessageList } from "./components/MessageList";
 import { MessageRow } from "./components/MessageRow";
+import { MessageScrollToLatest } from "./components/MessageScrollToLatest";
+import { MessageScrollToUnread } from "./components/MessageScrollToUnread";
 import { ConversationComposerBar } from "./components/ConversationComposerBar";
 import { EditMessageDialog } from "./components/EditMessageDialog";
 import { DeleteMessageDialog } from "./components/DeleteMessageDialog";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 // Re-export for modules that import message hooks from this file (e.g. SwipePage.tsx).
 // Note: This is intentionally a named export alongside the default export.
@@ -39,6 +43,8 @@ const ConversationPage: React.FC = () => {
     conversationId: string;
   }>();
   const conversationId = conversationIdParam ?? null;
+
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -58,6 +64,7 @@ const ConversationPage: React.FC = () => {
     hasMore: hasMoreMessages,
     isLoadingOlder: isLoadingOlderMessages,
     firstItemIndex,
+    pollWhenRealtimeDown,
   } = useConversationMessages(conversationId, { onInsert: handleInsertedMessage });
 
   // If Postgres realtime isn't delivering change events (common when replication isn't enabled),
@@ -246,6 +253,9 @@ const ConversationPage: React.FC = () => {
   );
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
+  const lastSeenLastMessageIdRef = useRef<string | null>(null);
+  const [pendingNewCount, setPendingNewCount] = useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const {
     activeActionMessageId,
@@ -313,7 +323,72 @@ const ConversationPage: React.FC = () => {
     visibleMessages,
   });
 
+  const unreadFromOthersCount = useMemo(() => {
+    if (firstUnreadIndex == null) return 0;
+    return visibleMessages
+      .slice(firstUnreadIndex)
+      .filter((item) => !item.isSelf && !item.meta.deleted)
+      .length;
+  }, [firstUnreadIndex, visibleMessages]);
+
   const hasVisibleMessages = visibleMessages.length > 0;
+
+  useEffect(() => {
+    const lastMessageId = visibleMessages.length
+      ? visibleMessages[visibleMessages.length - 1]?.message.id ?? null
+      : null;
+
+    if (isAtBottom) {
+      lastSeenLastMessageIdRef.current = lastMessageId;
+      setPendingNewCount(0);
+      return;
+    }
+
+    if (!lastMessageId) return;
+
+    const lastSeen = lastSeenLastMessageIdRef.current;
+    if (lastSeen === lastMessageId) return;
+
+    const lastSeenIndex = lastSeen
+      ? visibleMessages.findIndex((m) => m.message.id === lastSeen)
+      : -1;
+
+    const unseen = visibleMessages.slice(Math.max(0, lastSeenIndex + 1));
+    const newCount = unseen.filter((item) => !item.isSelf).length;
+
+    if (newCount <= 0) return;
+
+    setPendingNewCount(newCount);
+  }, [isAtBottom, visibleMessages]);
+
+  useEffect(() => {
+    lastSeenLastMessageIdRef.current = null;
+    setPendingNewCount(0);
+  }, [conversationId]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Jump to latest: End, Meta+ArrowDown, or Ctrl+End
+      if (
+        event.key === "End" ||
+        (event.key === "ArrowDown" && (event.metaKey || event.ctrlKey)) ||
+        (event.key === "End" && (event.metaKey || event.ctrlKey))
+      ) {
+        event.preventDefault();
+        handleJumpToLatest();
+        return;
+      }
+
+      // Jump to first unread: Alt+U
+      if (event.key.toLowerCase() === "u" && event.altKey) {
+        event.preventDefault();
+        handleJumpToUnread();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleJumpToLatest, handleJumpToUnread]);
 
   useEffect(() => {
     return () => {
@@ -406,6 +481,46 @@ const ConversationPage: React.FC = () => {
     [discardFailedMessage],
   );
 
+  const scrollBehavior: ScrollBehavior = prefersReducedMotion ? "auto" : "smooth";
+
+  const handleJumpToLatest = useCallback(() => {
+    const lastIndex = visibleMessages.length - 1;
+    if (lastIndex < 0) return;
+
+    const lastMessageId = visibleMessages[lastIndex]?.message.id ?? null;
+    if (lastMessageId) {
+      lastSeenLastMessageIdRef.current = lastMessageId;
+    }
+
+    setPendingNewCount(0);
+
+    virtuosoRef.current?.scrollToIndex({
+      index: firstItemIndex + lastIndex,
+      align: "end",
+      behavior: scrollBehavior,
+    });
+
+    // After a brief delay (to allow the scroll), return focus to the composer so
+    // keyboard users can resume typing immediately.
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, prefersReducedMotion ? 0 : 200);
+  }, [firstItemIndex, scrollBehavior, prefersReducedMotion, visibleMessages]);
+
+  const handleJumpToUnread = useCallback(() => {
+    if (firstUnreadIndex == null) return;
+
+    virtuosoRef.current?.scrollToIndex({
+      index: firstItemIndex + firstUnreadIndex,
+      align: "start",
+      behavior: scrollBehavior,
+    });
+
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, prefersReducedMotion ? 0 : 150);
+  }, [firstItemIndex, firstUnreadIndex, scrollBehavior, prefersReducedMotion]);
+
   return (
     <div
       className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background"
@@ -438,6 +553,14 @@ const ConversationPage: React.FC = () => {
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+            {pollWhenRealtimeDown && (
+              <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-4">
+                <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50/95 px-3 py-1 text-[12px] text-amber-800 shadow-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <span>Live updates slowed — polling for changes</span>
+                </div>
+              </div>
+            )}
             <MessageList
               items={visibleMessages}
               isLoading={isMessagesLoading && !hasVisibleMessages}
@@ -487,9 +610,10 @@ const ConversationPage: React.FC = () => {
                 ) : null
               }
               bottomPadding={messageListBottomPadding}
-              followOutput={false}
+              followOutput={isAtBottom ? (prefersReducedMotion ? true : "smooth") : false}
               autoScrollOnNewLastItem
-              autoScrollBehavior="smooth"
+              autoScrollBehavior={scrollBehavior}
+              autoScrollEnabled={isAtBottom}
               onAtBottomChange={setIsAtBottom}
               onStartReached={() => {
                 if (hasMoreMessages && !isLoadingOlderMessages) {
@@ -497,6 +621,7 @@ const ConversationPage: React.FC = () => {
                 }
               }}
               firstItemIndex={firstItemIndex}
+              virtuosoRef={virtuosoRef}
               computeItemKey={(_, item) => item.message.id}
               itemContent={(index, uiMessage) => {
                 const { message, meta, sender, isSelf, deliveryStatus, reactions, showDeliveryStatus } = uiMessage;
@@ -531,6 +656,24 @@ const ConversationPage: React.FC = () => {
                   />
                 );
               }}
+            />
+
+            <MessageScrollToUnread
+              show={Boolean(firstUnreadIndex != null && !isAtBottom)}
+              unreadCount={unreadFromOthersCount}
+              onClick={handleJumpToUnread}
+              shortcutHint="Alt+U"
+            />
+
+            <MessageScrollToLatest
+              show={!isAtBottom && pendingNewCount > 0}
+              pendingCount={pendingNewCount}
+              onClick={handleJumpToLatest}
+              shortcutHint={
+                typeof navigator !== "undefined" && navigator.platform?.includes("Mac")
+                  ? "⌘+↓"
+                  : "End"
+              }
             />
 
           </div>

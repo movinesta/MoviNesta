@@ -31,6 +31,19 @@ interface MessageListProps<T> {
    */
   autoScrollOnNewLastItem?: boolean;
   autoScrollBehavior?: ScrollBehavior;
+
+  /**
+   * Explicit toggle for the auto-scroll effect. Useful for disabling the jump
+   * when the user is intentionally reading older content (e.g. scrolled away
+   * from the bottom) while still keeping the "new item" detection logic.
+   */
+  autoScrollEnabled?: boolean;
+
+  /**
+   * Optional external ref to control the underlying Virtuoso instance
+   * (e.g. to imperatively scroll to the bottom).
+   */
+  virtuosoRef?: React.MutableRefObject<VirtuosoHandle | null>;
 }
 
 export function MessageList<T>({
@@ -51,13 +64,15 @@ export function MessageList<T>({
   ariaLabel,
   autoScrollOnNewLastItem,
   autoScrollBehavior,
+  autoScrollEnabled = true,
+  virtuosoRef: externalVirtuosoRef,
 }: MessageListProps<T>) {
-  const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+  const virtuosoRef = externalVirtuosoRef ?? React.useRef<VirtuosoHandle | null>(null);
   const baseIndex = Math.max(0, firstItemIndex ?? 0);
 
   const prevLastKeyRef = React.useRef<React.Key | null>(null);
   React.useEffect(() => {
-    if (!autoScrollOnNewLastItem) return;
+    if (!autoScrollOnNewLastItem || !autoScrollEnabled) return;
     if (!items || items.length === 0) return;
 
     const lastIndex = items.length - 1;
@@ -78,7 +93,7 @@ export function MessageList<T>({
         behavior: autoScrollBehavior ?? "smooth",
       });
     });
-  }, [autoScrollBehavior, autoScrollOnNewLastItem, baseIndex, computeItemKey, items]);
+  }, [autoScrollBehavior, autoScrollOnNewLastItem, autoScrollEnabled, baseIndex, computeItemKey, items]);
 
   if (isLoading) {
     return (
