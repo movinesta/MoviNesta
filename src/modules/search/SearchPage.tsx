@@ -76,22 +76,27 @@ const SearchPage: React.FC = () => {
   };
 
   // This function now only updates the URL params
-  const handleQueryChange = useCallback((value: string) => {
-    const trimmed = value.trim();
-    updateSearchParams((params) => {
-      if (trimmed) {
-        params.set("q", trimmed);
-        params.set("tab", "titles");
-      } else {
-        params.delete("q");
-        clearFilterParams(params);
-      }
-    });
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      updateSearchParams((params) => {
+        const currentTab = parseTabFromParams(params);
 
-    if (!trimmed) {
-      setIsFiltersOpen(false);
-    }
-  }, [clearFilterParams, updateSearchParams]);
+        if (trimmed) {
+          params.set("q", trimmed);
+          params.set("tab", currentTab);
+        } else {
+          params.delete("q");
+          clearFilterParams(params);
+        }
+      });
+
+      if (!trimmed) {
+        setIsFiltersOpen(false);
+      }
+    },
+    [clearFilterParams, updateSearchParams],
+  );
 
   // useEffect to sync URL with debounced input value
   useEffect(() => {

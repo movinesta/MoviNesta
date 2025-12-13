@@ -20,7 +20,9 @@ interface CreateDirectConversationResponse {
 
 const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const trimmedQuery = query.trim();
-  const { data, isLoading, isError, error } = useSearchPeople(trimmedQuery);
+  const normalizedQuery = trimmedQuery.replace(/^@+/, "");
+  const effectiveQuery = normalizedQuery || trimmedQuery;
+  const { data, isLoading, isError, error } = useSearchPeople(normalizedQuery);
   const toggleFollow = useToggleFollow();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -80,7 +82,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     }
   };
 
-  if (!trimmedQuery) {
+  if (!normalizedQuery) {
     return (
       <div className="space-y-3">
         <p className="text-[12px] text-muted-foreground">
@@ -123,7 +125,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
         <p className="text-[12px] text-muted-foreground">
           No people found for{" "}
           <span className="rounded border border-border bg-card px-1.5 py-0.5 text-xs font-medium text-foreground">
-            &ldquo;{trimmedQuery}&rdquo;
+            &ldquo;{effectiveQuery}&rdquo;
           </span>
           . Try a different name or username.
         </p>
@@ -138,7 +140,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
           Showing {results.length} profile
           {results.length === 1 ? "" : "s"} for{" "}
           <span className="rounded border border-border bg-card px-1.5 py-0.5 text-xs font-medium text-foreground">
-            &ldquo;{trimmedQuery}&rdquo;
+            &ldquo;{effectiveQuery}&rdquo;
           </span>
         </p>
       </div>
@@ -147,6 +149,8 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
         {results.map((person) => {
           const displayName = person.displayName ?? person.username ?? "Unknown user";
           const handle = person.username ? `@${person.username}` : null;
+          const isTogglingThis =
+            toggleFollow.isPending && toggleFollow.variables?.targetUserId === person.id;
 
           return (
             <li
@@ -207,7 +211,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                       currentlyFollowing: person.isFollowing,
                     })
                   }
-                  disabled={toggleFollow.isPending}
+                  disabled={isTogglingThis}
                   variant={person.isFollowing ? "outline" : "default"}
                   size="sm"
                   className={`h-auto rounded-full px-2.5 py-1.5 text-xs font-medium ${
@@ -216,10 +220,12 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                       : "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                   }`}
                 >
-                  {person.isFollowing ? (
-                    <>
-                      <UserMinus className="h-3 w-3" aria-hidden="true" />
-                      <span>Following</span>
+                    {isTogglingThis ? (
+                      <span>Updating…</span>
+                    ) : person.isFollowing ? (
+                      <>
+                        <UserMinus className="h-3 w-3" aria-hidden="true" />
+                        <span>Following</span>
                     </>
                   ) : (
                     <>

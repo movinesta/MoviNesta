@@ -33,6 +33,33 @@ const throwIfAborted = (signal?: AbortSignal) => {
   }
 };
 
+async function enrichWithImdbIds(
+  items: ExternalTitleResult[],
+  signal?: AbortSignal,
+): Promise<ExternalTitleResult[]> {
+  const fetches = items.map(async (item) => {
+    if (item.imdbId || !item.tmdbId) return item;
+
+    throwIfAborted(signal);
+    try {
+      const body = (await fetchTmdbJson(
+        `/${item.type === "tv" ? "tv" : "movie"}/${item.tmdbId}/external_ids`,
+        {},
+        signal,
+      )) as { imdb_id?: string | null };
+
+      throwIfAborted(signal);
+
+      return { ...item, imdbId: body?.imdb_id ?? null } satisfies ExternalTitleResult;
+    } catch (err) {
+      console.warn("[externalMovieSearch] Failed to fetch external ids for", item.tmdbId, err);
+      return item;
+    }
+  });
+
+  return Promise.all(fetches);
+}
+
 export async function searchExternalTitles(
   query: string,
   page = 1,
@@ -60,30 +87,31 @@ export async function searchExternalTitles(
 
   const totalPages = typeof body?.total_pages === "number" ? body.total_pages : 1;
 
-  return {
-    results: results
-      .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
-        return Boolean(
-          item &&
-          typeof item.id === "number" &&
-          (item.media_type === "movie" || item.media_type === "tv"),
-        );
-      })
-      .slice(0, 20)
-      .map((item) => {
-        const mediaType: ExternalMediaType = item.media_type === "tv" ? "tv" : "movie";
-        const releaseDate: string | null = item.release_date ?? item.first_air_date ?? null;
-        const year = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
+  const trimmedResults = results
+    .filter((item): item is TmdbMultiResult & { id: number; media_type: ExternalMediaType } => {
+      return Boolean(
+        item &&
+        typeof item.id === "number" &&
+        (item.media_type === "movie" || item.media_type === "tv"),
+      );
+    })
+    .slice(0, 20)
+    .map((item) => {
+      const mediaType: ExternalMediaType = item.media_type === "tv" ? "tv" : "movie";
+      const releaseDate: string | null = item.release_date ?? item.first_air_date ?? null;
+      const year = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
 
-        return {
-          tmdbId: Number(item.id),
-          imdbId: item.imdb_id ?? null,
-          title: item.title ?? item.name ?? "Untitled",
-          year: Number.isNaN(year) ? null : year,
-          type: mediaType,
-          posterUrl: tmdbImageUrl(item.poster_path ?? null),
-        } satisfies ExternalTitleResult;
-      }),
-    hasMore: page < totalPages,
-  };
+      return {
+        tmdbId: Number(item.id),
+        imdbId: item.imdb_id ?? null,
+        title: item.title ?? item.name ?? "Untitled",
+        year: Number.isNaN(year) ? null : year,
+        type: mediaType,
+        posterUrl: tmdbImageUrl(item.poster_path ?? null),
+      } satisfies ExternalTitleResult;
+    });
+
+  const enriched = await enrichWithImdbIds(trimmedResults, signal);
+
+  return { results: enriched, hasMore: page < totalPages };
 }

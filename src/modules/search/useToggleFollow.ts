@@ -74,9 +74,20 @@ export const useToggleFollow = () => {
         (existing) => {
           if (!existing) return existing;
 
-          return existing.map((person) =>
-            person.id === targetUserId ? { ...person, isFollowing } : person,
-          );
+          return existing.map((person) => {
+            if (person.id !== targetUserId) return person;
+
+            const nextFollowers = Math.max(
+              0,
+              (person.followersCount ?? 0) + (isFollowing ? 1 : -1),
+            );
+
+            return {
+              ...person,
+              isFollowing,
+              followersCount: nextFollowers,
+            };
+          });
         },
       );
 
