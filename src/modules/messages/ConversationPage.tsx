@@ -362,35 +362,6 @@ const ConversationPage: React.FC = () => {
   }, [isAtBottom, visibleMessages]);
 
   useEffect(() => {
-    lastSeenLastMessageIdRef.current = null;
-    setPendingNewCount(0);
-  }, [conversationId]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Jump to latest: End, Meta+ArrowDown, or Ctrl+End
-      if (
-        event.key === "End" ||
-        (event.key === "ArrowDown" && (event.metaKey || event.ctrlKey)) ||
-        (event.key === "End" && (event.metaKey || event.ctrlKey))
-      ) {
-        event.preventDefault();
-        handleJumpToLatest();
-        return;
-      }
-
-      // Jump to first unread: Alt+U
-      if (event.key.toLowerCase() === "u" && event.altKey) {
-        event.preventDefault();
-        handleJumpToUnread();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleJumpToLatest, handleJumpToUnread]);
-
-  useEffect(() => {
     return () => {
       if (longPressTimeoutRef.current != null) {
         window.clearTimeout(longPressTimeoutRef.current);
@@ -520,6 +491,35 @@ const ConversationPage: React.FC = () => {
       textareaRef.current?.focus();
     }, prefersReducedMotion ? 0 : 150);
   }, [firstItemIndex, firstUnreadIndex, scrollBehavior, prefersReducedMotion]);
+
+  useEffect(() => {
+    lastSeenLastMessageIdRef.current = null;
+    setPendingNewCount(0);
+  }, [conversationId]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Jump to latest: End, Meta+ArrowDown, or Ctrl+End
+      if (
+        event.key === "End" ||
+        (event.key === "ArrowDown" && (event.metaKey || event.ctrlKey)) ||
+        (event.key === "End" && (event.metaKey || event.ctrlKey))
+      ) {
+        event.preventDefault();
+        handleJumpToLatest();
+        return;
+      }
+
+      // Jump to first unread: Alt+U
+      if (event.key.toLowerCase() === "u" && event.altKey) {
+        event.preventDefault();
+        handleJumpToUnread();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleJumpToLatest, handleJumpToUnread]);
 
   return (
     <div
