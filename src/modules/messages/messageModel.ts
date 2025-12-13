@@ -2,6 +2,9 @@ import type { Database } from "@/types/supabase";
 import { formatDate, formatTime } from "@/utils/format";
 
 export type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
+export type ReadReceiptRow = Database["public"]["Tables"]["message_read_receipts"]["Row"];
+export type DeliveryReceiptRow = Database["public"]["Tables"]["message_delivery_receipts"]["Row"];
+export type MessageReactionRow = Database["public"]["Tables"]["message_reactions"]["Row"];
 
 export interface ConversationMessage {
   id: string;
@@ -18,7 +21,6 @@ export interface ConversationReadReceipt {
   lastReadMessageId: string | null;
 }
 
-type MessageReactionRow = Database["public"]["Tables"]["message_reactions"]["Row"];
 
 export interface MessageReaction {
   id: MessageReactionRow["id"];
@@ -49,6 +51,7 @@ export interface MessageDeliveryStatus {
 export type FailedMessagePayload = {
   text: string;
   attachmentPath: string | null;
+  clientId: string;
 };
 
 export const getBubbleAppearance = ({
@@ -132,4 +135,33 @@ export const mapMessageRowToConversationMessage = (row: MessageRow): Conversatio
   body: row.body ?? null,
   attachmentUrl: row.attachment_url ?? null,
   createdAt: row.created_at ?? new Date().toISOString(),
+});
+
+export const mapReadReceiptRowToConversationReadReceipt = (
+  row: ReadReceiptRow,
+): ConversationReadReceipt => ({
+  userId: row.user_id,
+  lastReadAt: row.last_read_at ?? null,
+  lastReadMessageId: row.last_read_message_id ?? null,
+});
+
+export const mapDeliveryReceiptRowToMessageDeliveryReceipt = (
+  row: DeliveryReceiptRow,
+): MessageDeliveryReceipt => ({
+  id: row.id,
+  conversationId: row.conversation_id,
+  messageId: row.message_id,
+  userId: row.user_id,
+  deliveredAt: row.delivered_at ?? row.created_at ?? new Date().toISOString(),
+});
+
+export const mapReactionRowToMessageReaction = (
+  row: MessageReactionRow,
+): MessageReaction => ({
+  id: row.id,
+  conversationId: row.conversation_id,
+  messageId: row.message_id,
+  userId: row.user_id,
+  emoji: row.emoji,
+  createdAt: row.created_at,
 });

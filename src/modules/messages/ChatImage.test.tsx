@@ -1,15 +1,17 @@
 import React from "react";
 import { describe, it, beforeEach, expect, vi, afterEach } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { ChatImage } from "./ConversationPage";
+import { ChatImage } from "./components/ChatImage";
 
 const createSignedUrl = vi.fn();
+const getPublicUrl = vi.fn(() => ({ data: { publicUrl: "" } }));
 
-vi.mock("../../lib/supabase", () => ({
+vi.mock("@/lib/supabase", () => ({
   supabase: {
     storage: {
       from: () => ({
         createSignedUrl,
+        getPublicUrl,
       }),
     },
   },
@@ -18,6 +20,7 @@ vi.mock("../../lib/supabase", () => ({
 beforeEach(() => {
   vi.useRealTimers();
   createSignedUrl.mockReset();
+  getPublicUrl.mockReset();
 });
 
 afterEach(() => {

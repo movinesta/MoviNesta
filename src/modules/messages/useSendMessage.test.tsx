@@ -2,7 +2,10 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { useSendMessage } from "./ConversationPage";
+import { useSendMessage } from "./useSendMessage";
+import { conversationMessagesQueryKey } from "./queryKeys";
+import type { InfiniteData } from "@tanstack/react-query";
+import type { ConversationMessagesPage } from "./useConversationMessages";
 
 const mockBlockStatus = vi.hoisted(() => ({ youBlocked: false, blockedYou: false }));
 const mockMessageRow = {
@@ -36,7 +39,7 @@ const mockSupabase = vi.hoisted(() => {
   return { from, messageBuilder, blockedBuilder };
 });
 
-vi.mock("../../lib/supabase", () => ({ supabase: mockSupabase }));
+vi.mock("@/lib/supabase", () => ({ supabase: mockSupabase }));
 vi.mock("../auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }));
 vi.mock("./useBlockStatus", () => ({
   fetchBlockStatus: vi.fn(async () => mockBlockStatus),
@@ -55,7 +58,6 @@ describe("useSendMessage", () => {
     mockSupabase.messageBuilder.eq.mockClear();
     mockSupabase.blockedBuilder.or.mockClear();
   });
-
   const createWrapper = () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -66,12 +68,13 @@ describe("useSendMessage", () => {
     );
     QueryClientWrapper.displayName = "QueryClientWrapper";
 
-    return QueryClientWrapper;
+    return { wrapper: QueryClientWrapper, client };
   };
 
   it("refuses to send when the other user has blocked you", async () => {
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
-      wrapper: createWrapper(),
+      wrapper,
     });
 
     mockBlockStatus.blockedYou = true;
@@ -85,8 +88,9 @@ describe("useSendMessage", () => {
     mockBlockStatus.youBlocked = false;
     mockBlockStatus.blockedYou = false;
 
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
-      wrapper: createWrapper(),
+      wrapper,
     });
 
     const response = await result.current.mutateAsync({ text: "hey", attachmentPath: null });
@@ -98,8 +102,9 @@ describe("useSendMessage", () => {
   });
 
   it("rejects empty messages without attachments", async () => {
+    const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
-      wrapper: createWrapper(),
+      wrapper,
     });
 
     await expect(
@@ -108,4 +113,32 @@ describe("useSendMessage", () => {
 
     expect(mockSupabase.messageBuilder.insert).not.toHaveBeenCalled();
   });
+
+  it("does not duplicate the optimistic message on send error", async () => {
+    const { wrapper, client } = createWrapper();
+
+    // Make the insert fail.
+    mockSupabase.messageBuilder.single.mockImplementationOnce(async () => ({
+      data: null,
+      error: { message: "fail" },
+    }));
+
+    const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
+      wrapper,
+    });
+
+    await expect(result.current.mutateAsync({ text: "hello", attachmentPath: null })).rejects.toThrow();
+
+    const cached = client.getQueryData(
+      conversationMessagesQueryKey("conv-1"),
+    ) as InfiniteData<ConversationMessagesPage> | undefined;
+
+    expect(cached).toBeDefined();
+    expect(Array.isArray(cached?.pages)).toBe(true);
+    const lastPage = cached?.pages?.[cached.pages.length - 1];
+    const items = lastPage?.items ?? [];
+    expect(items.length).toBe(1);
+    expect(items[0]?.id).toMatch(/^temp-/);
+  });
+
 });

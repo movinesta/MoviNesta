@@ -1,40 +1,24 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import type { Database } from "@/types/supabase";
 import { useAuth } from "../auth/AuthProvider";
-import type { MessageReaction, ReactionSummary } from "./messageModel";
-
-export const conversationReactionsQueryKey = (conversationId: string | null) =>
-  ["conversation", conversationId, "reactions"] as const;
-
-type MessageReactionRow = Database["public"]["Tables"]["message_reactions"]["Row"];
-
-const mapReactionRow = (row: MessageReactionRow): MessageReaction => ({
-  id: row.id,
-  conversationId: row.conversation_id,
-  messageId: row.message_id,
-  userId: row.user_id,
-  emoji: row.emoji,
-  createdAt: row.created_at,
-});
-
-const fetchConversationReactions = async (conversationId: string): Promise<MessageReaction[]> => {
-  const { data, error } = await supabase
-    .from("message_reactions")
-    .select("id, conversation_id, message_id, user_id, emoji, created_at")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
-    .returns<MessageReactionRow[]>();
-
-  if (error) {
-    console.error("[useConversationReactions] Failed to load reactions", error);
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map(mapReactionRow);
-};
+import {
+  mapReactionRowToMessageReaction,
+  type MessageReaction,
+  type MessageReactionRow,
+} from "./messageModel";
+import { conversationReactionsQueryKey } from "./queryKeys";
+import { fetchConversationReactions } from "./supabaseConversationQueries";
+import { safeTime } from "./time";
+import { buildReactionSummariesByMessageId } from "./reactionSummaries";
+import { useConversationRealtimeSubscription } from "./useConversationRealtimeSubscription";
+import { useRealtimeQueryFallbackOptions } from "./useRealtimeQueryFallbackOptions";
+import { createTimestampTempId } from "./idUtils";
+import {
+  createConversationScopedUpsertIntoListHandler,
+  createRealtimeDeleteFromListHandler,
+} from "./realtimeListUpdaters";
 
 export const useConversationReactions = (conversationId: string | null) => {
   const { user } = useAuth();
@@ -42,18 +26,53 @@ export const useConversationReactions = (conversationId: string | null) => {
   const queryClient = useQueryClient();
   const queryKey = conversationReactionsQueryKey(conversationId);
 
+  const { pollWhenRealtimeDown, onRealtimeStatus, refetchOptions } = useRealtimeQueryFallbackOptions(
+    conversationId,
+  );
+
   const reactionsQuery = useQuery<MessageReaction[]>({
     queryKey,
     enabled: Boolean(conversationId),
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: conversationId ? 15000 : false,
-    refetchIntervalInBackground: true,
+    ...refetchOptions,
     queryFn: () => {
       if (!conversationId) return Promise.resolve([]);
       return fetchConversationReactions(conversationId);
     },
   });
+
+
+  const createRealtimeHandlers = useCallback(() => {
+    if (!conversationId) return {};
+
+    const upsert = createConversationScopedUpsertIntoListHandler<MessageReactionRow, MessageReaction>({
+      conversationId,
+      queryClient,
+      queryKey,
+      mapRow: mapReactionRowToMessageReaction,
+      key: (r) => r.id,
+      sort: (a, b) => {
+        const at = safeTime(a.createdAt);
+        const bt = safeTime(b.createdAt);
+        if (at !== bt) return at - bt;
+        return a.id.localeCompare(b.id);
+      },
+    });
+
+    const remove = createRealtimeDeleteFromListHandler<MessageReactionRow, MessageReaction>({
+      queryClient,
+      queryKey,
+      key: (r) => r.id,
+    });
+
+    return {
+      onStatus: onRealtimeStatus,
+      onReactionUpsert: upsert,
+      onReactionDelete: remove,
+    };
+  }, [conversationId, onRealtimeStatus, queryClient, queryKey]);
+
+  useConversationRealtimeSubscription(conversationId, createRealtimeHandlers, []);
+
 
   const toggleReaction = useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
@@ -109,7 +128,7 @@ export const useConversationReactions = (conversationId: string | null) => {
         }
 
         const optimistic: MessageReaction = {
-          id: `temp-${Date.now()}`,
+          id: createTimestampTempId(),
           conversationId,
           messageId,
           userId,
@@ -130,33 +149,15 @@ export const useConversationReactions = (conversationId: string | null) => {
       }
     },
     onSuccess: () => {
+      // Realtime should bring us in sync quickly; this is a safety net.
       if (!conversationId) return;
       queryClient.invalidateQueries({ queryKey });
     },
   });
 
   const reactionsByMessageId = useMemo(() => {
-    const map = new Map<string, ReactionSummary[]>();
     const reactions = reactionsQuery.data ?? [];
-
-    for (const reaction of reactions) {
-      const existing = map.get(reaction.messageId) ?? [];
-      let entry = existing.find((e) => e.emoji === reaction.emoji);
-      if (entry) {
-        entry.count += 1;
-        entry.reactedBySelf = entry.reactedBySelf || (userId ? reaction.userId === userId : false);
-      } else {
-        entry = {
-          count: 1,
-          emoji: reaction.emoji,
-          reactedBySelf: Boolean(userId && reaction.userId === userId),
-        };
-        existing.push(entry);
-      }
-      map.set(reaction.messageId, existing);
-    }
-
-    return map;
+    return buildReactionSummariesByMessageId(reactions, userId);
   }, [reactionsQuery.data, userId]);
 
   return {
@@ -164,6 +165,7 @@ export const useConversationReactions = (conversationId: string | null) => {
     reactionsByMessageId,
     isLoadingReactions: reactionsQuery.isLoading,
     toggleReaction,
+    pollWhenRealtimeDown,
     queryKey,
   } as const;
 };

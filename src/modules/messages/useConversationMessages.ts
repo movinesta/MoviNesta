@@ -1,107 +1,226 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  PostgrestSingleResponse,
-  RealtimePostgresChangesPayload,
-} from "@supabase/supabase-js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import type { PostgrestSingleResponse, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import type { Database } from "@/types/supabase";
-import { mapMessageRowToConversationMessage, type ConversationMessage } from "./messageModel";
+import { mapMessageRowToConversationMessage, type ConversationMessage, type MessageRow } from "./messageModel";
+import { conversationMessagesQueryKey } from "./queryKeys";
+import { useConversationRealtimeSubscription } from "./useConversationRealtimeSubscription";
+import { useRealtimeQueryFallbackOptions } from "./useRealtimeQueryFallbackOptions";
+import { stableSortMessages, upsertMessageRowIntoPages } from "./conversationMessagesCache";
+import { getRealtimeNewRow, getStringField, hasConversationId } from "./realtimeGuards";
+import { REALTIME_STALE_TIME_MS } from "./realtimeQueryDefaults";
+import { MESSAGE_SELECT } from "./messageSelect";
 
-const messageSelect = "id, conversation_id, user_id, body, attachment_url, created_at" as const;
+const PAGE_SIZE = 40;
 
-type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
+// react-virtuoso requires firstItemIndex >= 0.
+// For chat-style "prepend older messages", start from a large index and decrement as you prepend.
+const VIRTUOSO_START_INDEX = 100_000;
 
-const mergeMessages = (
-  existing: ConversationMessage[] | undefined,
-  incoming: MessageRow | MessageRow[],
-): ConversationMessage[] => {
-  const incomingArray = Array.isArray(incoming) ? incoming : [incoming];
-  const map = new Map<string, ConversationMessage>();
+export type ConversationMessagesCursor = { createdAt: string; id: string };
 
-  for (const row of existing ?? []) {
-    map.set(row.id, row);
-  }
-
-  for (const row of incomingArray) {
-    map.set(row.id, mapMessageRowToConversationMessage(row));
-  }
-
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(a.createdAt ?? "").getTime() - new Date(b.createdAt ?? "").getTime(),
-  );
+export type ConversationMessagesPage = {
+  items: ConversationMessage[];
+  hasMore: boolean;
+  cursor: ConversationMessagesCursor | null;
 };
 
-export const useConversationMessages = (conversationId: string | null) => {
+const buildOlderThanFilter = (cursor: ConversationMessagesCursor) => {
+  // created_at is not guaranteed unique. Use (created_at, id) as a stable cursor.
+  // Supabase OR syntax: "created_at.lt.X,and(created_at.eq.X,id.lt.Y)"
+  const createdAt = cursor.createdAt;
+  const id = cursor.id;
+  return `created_at.lt.${createdAt},and(created_at.eq.${createdAt},id.lt.${id})`;
+};
+
+const rowsToPage = (rows: MessageRow[]): ConversationMessagesPage => {
+  const items = stableSortMessages((rows ?? []).map(mapMessageRowToConversationMessage));
+  const hasMore = (rows ?? []).length >= PAGE_SIZE;
+  const cursor = items.length ? { createdAt: items[0].createdAt, id: items[0].id } : null;
+  return { items, hasMore, cursor };
+};
+
+export const useConversationMessages = (
+  conversationId: string | null,
+  options?: {
+    onInsert?: (message: ConversationMessage) => void;
+    onUpdate?: (message: ConversationMessage) => void;
+  },
+) => {
   const queryClient = useQueryClient();
+  const queryKey = conversationMessagesQueryKey(conversationId);
 
-  const queryResult = useQuery<ConversationMessage[]>({
-    queryKey: ["conversation", conversationId, "messages"],
+  // Virtuoso anchor: start from a high index (>= 0) and decrement as we prepend older pages,
+  // so the user's scroll position stays stable.
+  const [firstItemIndex, setFirstItemIndex] = useState(VIRTUOSO_START_INDEX);
+
+  // If realtime is unavailable, poll as a fallback.
+  const { pollWhenRealtimeDown, onRealtimeStatus, refetchOptions } = useRealtimeQueryFallbackOptions(
+    conversationId,
+  );
+
+  // Avoid resubscribe loops by keeping options in a ref.
+  const optionsRef = useRef<typeof options>(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  const previousCountsRef = useRef<{ pages: number; total: number }>({ pages: 0, total: 0 });
+
+  const infinite = useInfiniteQuery<ConversationMessagesPage>({
+    queryKey,
     enabled: Boolean(conversationId),
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    staleTime: 15_000,
-    queryFn: async () => {
-      if (!conversationId) return [];
+    initialPageParam: null as ConversationMessagesCursor | null,
+    ...refetchOptions,
+    staleTime: REALTIME_STALE_TIME_MS,
+    // When polling, refetch only the newest page to avoid reloading every loaded page.
+    // With getPreviousPageParam, older pages are prepended, so the newest page is the last.
+    refetchPage: (_page, index, allPages) => index === allPages.length - 1,
+    queryFn: async ({ pageParam }) => {
+      if (!conversationId) return { items: [], hasMore: false, cursor: null };
 
-      const { data, error }: PostgrestSingleResponse<MessageRow[]> = await supabase
+      let query = supabase
         .from("messages")
-        .select(messageSelect)
+        .select(MESSAGE_SELECT)
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
+
+      if (pageParam) {
+        query = query.or(buildOlderThanFilter(pageParam));
+      }
+
+      const { data, error }: PostgrestSingleResponse<MessageRow[]> = await query.limit(PAGE_SIZE);
 
       if (error) {
-        console.error("[useConversationMessages] Failed to load messages", error);
+        const label = pageParam ? "older messages" : "messages";
+        console.error(`[useConversationMessages] Failed to load ${label}`, error);
         throw new Error(error.message);
       }
 
-      const rows: MessageRow[] = data ?? [];
-      return rows.map(mapMessageRowToConversationMessage);
+      return rowsToPage(data ?? []);
+    },
+    // TanStack Query v5 expects getNextPageParam to be a function.
+    // We only page backwards (older messages), so there is no "next" page.
+    getNextPageParam: () => undefined,
+    getPreviousPageParam: (firstPage) => {
+      if (!firstPage.hasMore) return undefined;
+      return firstPage.cursor ?? undefined;
     },
   });
 
+  // Update Virtuoso anchoring when a previous page is prepended.
   useEffect(() => {
-    if (!conversationId) return undefined;
+    const pages = infinite.data?.pages ?? [];
+    const total = pages.reduce((sum, p) => sum + p.items.length, 0);
+    const prev = previousCountsRef.current;
 
-    const channel = supabase.channel(`conversation-messages-${conversationId}`);
+    if (pages.length === 0) {
+      previousCountsRef.current = { pages: 0, total: 0 };
+      setFirstItemIndex(VIRTUOSO_START_INDEX);
+      return;
+    }
 
-    const upsertFromPayload = (payload: RealtimePostgresChangesPayload<MessageRow>) => {
-      const row = payload.new as MessageRow;
-      if (!row || !row.id || row.conversation_id !== conversationId) return;
+    if (prev.pages === 0) {
+      previousCountsRef.current = { pages: pages.length, total };
+      setFirstItemIndex(VIRTUOSO_START_INDEX);
+      return;
+    }
 
-      queryClient.setQueryData<ConversationMessage[]>(
-        ["conversation", conversationId, "messages"],
-        (existing) => mergeMessages(existing, row),
+    const added = total - prev.total;
+    const pagesAdded = pages.length - prev.pages;
+
+    if (added > 0 && pagesAdded > 0) {
+      // Older page prepended.
+      setFirstItemIndex((idx) => Math.max(0, idx - added));
+    }
+
+    previousCountsRef.current = { pages: pages.length, total };
+  }, [infinite.data?.pages]);
+
+  const createMessageRealtimeHandlers = useCallback(() => {
+    if (!conversationId) return {};
+
+    const handleMessageUpsert = (
+      payload: RealtimePostgresChangesPayload<MessageRow>,
+      kind: "insert" | "update",
+    ) => {
+      const rowUnknown = getRealtimeNewRow(payload);
+      if (!hasConversationId(rowUnknown, conversationId)) return;
+      const id = getStringField(rowUnknown, "id");
+      if (!id) return;
+      const row = rowUnknown as MessageRow;
+      const mapped = mapMessageRowToConversationMessage(row);
+
+      queryClient.setQueryData<InfiniteData<ConversationMessagesPage>>(queryKey, (existing) =>
+        upsertMessageRowIntoPages(existing, row),
       );
+
+      if (kind === "insert") {
+        optionsRef.current?.onInsert?.(mapped);
+      } else {
+        optionsRef.current?.onUpdate?.(mapped);
+      }
     };
 
-    channel
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        upsertFromPayload,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        upsertFromPayload,
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+    return {
+      onStatus: onRealtimeStatus,
+      onMessageInsert: (payload: RealtimePostgresChangesPayload<MessageRow>) => {
+        handleMessageUpsert(payload, "insert");
+      },
+      onMessageUpdate: (payload: RealtimePostgresChangesPayload<MessageRow>) => {
+        handleMessageUpsert(payload, "update");
+      },
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, onRealtimeStatus, queryClient, queryKey]);
 
-  return queryResult;
+  useConversationRealtimeSubscription(conversationId, createMessageRealtimeHandlers, []);
+
+  // Reset anchoring when conversation changes.
+  useEffect(() => {
+    setFirstItemIndex(VIRTUOSO_START_INDEX);
+    previousCountsRef.current = { pages: 0, total: 0 };
+  }, [conversationId]);
+
+  const flatMessages = useMemo(() => {
+    const pages = infinite.data?.pages ?? [];
+    return pages.flatMap((p) => p.items);
+  }, [infinite.data?.pages]);
+
+  const loadOlder = useCallback(async () => {
+    if (!conversationId) return;
+    if (!infinite.hasPreviousPage) return;
+    await infinite.fetchPreviousPage();
+  }, [conversationId, infinite]);
+
+  return useMemo(
+    () => ({
+      data: flatMessages,
+      isLoading: infinite.isLoading,
+      isFetching: infinite.isFetching,
+      isError: infinite.isError,
+      error: infinite.error,
+      refetch: infinite.refetch,
+      loadOlder,
+      hasMore: Boolean(infinite.hasPreviousPage),
+      isLoadingOlder: infinite.isFetchingPreviousPage,
+      firstItemIndex,
+      queryKey,
+      pollWhenRealtimeDown,
+    }),
+    [
+      flatMessages,
+      infinite.isLoading,
+      infinite.isFetching,
+      infinite.isError,
+      infinite.error,
+      infinite.refetch,
+      loadOlder,
+      infinite.hasPreviousPage,
+      infinite.isFetchingPreviousPage,
+      firstItemIndex,
+      queryKey,
+      pollWhenRealtimeDown,
+    ],
+  );
 };

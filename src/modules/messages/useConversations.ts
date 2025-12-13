@@ -5,11 +5,13 @@
  * simple; a future realtime channel can replace the polling layer when ready.
  */
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { getMessagePreview } from "./messageText";
 import { formatTimeAgo } from "./formatTimeAgo";
+import { safeTime } from "./time";
+
 
 type ConversationSummaryRow =
   Database["public"]["Functions"]["get_conversation_summaries"]["Returns"][number];
@@ -119,8 +121,7 @@ export const fetchConversationSummaries = async (
         (selfLastReadMessageId && selfLastReadMessageId !== summary.last_message_id) ||
         (!selfLastReadMessageId &&
           lastMessageAt &&
-          (!selfLastReadAt ||
-            new Date(lastMessageAt).getTime() > new Date(selfLastReadAt).getTime()))
+          (!selfLastReadAt || safeTime(lastMessageAt) > safeTime(selfLastReadAt)))
       );
 
     const lastMessageIsFromSelf = summary.last_message_user_id === userId;

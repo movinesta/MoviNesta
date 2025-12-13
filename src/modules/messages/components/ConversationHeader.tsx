@@ -34,7 +34,7 @@ export const ConversationHeader = React.forwardRef<HTMLElement, ConversationHead
   const title = conversation?.title ?? otherParticipant?.displayName ?? otherParticipant?.username ?? "Conversation";
   const subtitle = conversation?.subtitle ??
     (isGroupConversation
-      ? `${conversation?.participants.length ?? ""} participants`
+      ? `${conversation?.participants?.length ?? ""} participants`
       : otherParticipant?.username
         ? `@${otherParticipant.username}`
         : "Direct message");

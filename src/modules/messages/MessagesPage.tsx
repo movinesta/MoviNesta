@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MessageCircle, Plus, Users } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabase";
+// React Query is used via hooks inside useConversations.
 
 import { useConversations, type ConversationListItem } from "./useConversations";
 import TopBar from "../../components/shared/TopBar";
@@ -15,18 +14,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 
 type ConversationFilter = "all" | "unread" | "groups";
 
-export const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
+const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
   conversation,
 }) => {
+  const participants = conversation.participants ?? [];
   const primaryParticipant =
-    conversation.participants.find((p) => !p.isSelf) ?? conversation.participants[0] ?? null;
+    participants.find((p) => !p.isSelf) ?? participants[0] ?? null;
   const avatarInitial =
     primaryParticipant?.displayName?.[0]?.toUpperCase() ??
     primaryParticipant?.username?.[0]?.toUpperCase() ??
     "?";
   const timeLabel = conversation.lastMessageAtLabel ?? "Now";
   const isGroup = conversation.isGroup;
-  const participantCount = conversation.participants.length;
+  const participantCount = participants.length;
 
   const rowBase =
     "group flex items-center gap-3 rounded-xl px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
@@ -38,7 +38,7 @@ export const ConversationListRow: React.FC<{ conversation: ConversationListItem 
         <div className="relative flex h-12 w-12 items-center justify-center">
           {isGroup && participantCount > 1 ? (
             <div className="flex -space-x-2">
-              {conversation.participants.slice(0, 2).map((participant, idx) => (
+              {participants.slice(0, 2).map((participant, idx) => (
                 <span
                   key={participant.id}
                   className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card text-xs font-semibold text-foreground ring-2 ring-background"
@@ -120,30 +120,9 @@ const MessagesPage: React.FC = () => {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ConversationFilter>("all");
 
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const channel = supabase.channel("supabase_realtime_messages_publication:messages-list").on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-      },
-      (payload) => {
-        console.log("[MessagesPage] Realtime message for list", payload);
-        queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      },
-    );
-
-    channel.subscribe((status) => {
-      console.log("[MessagesPage] Realtime channel status (list)", status);
-    });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // NOTE: We intentionally do not subscribe to *all* message inserts here.
+  // A global realtime subscription without a per-user/per-conversation filter can become noisy and expensive.
+  // The conversations query already refetches on focus/reconnect and is periodically refreshed by React Query.
 
   const trimmedQuery = query.trim().toLowerCase();
   const hasQuery = trimmedQuery.length > 0;
