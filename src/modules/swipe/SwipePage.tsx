@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Flame,
@@ -13,17 +13,13 @@ import {
   Link2,
 } from "lucide-react";
 import TopBar from "../../components/shared/TopBar";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  useDiaryLibraryMutations,
-  useTitleDiaryEntry,
-  type DiaryStatus,
-} from "../diary/useDiaryLibrary";
 import { useConversations } from "../messages/useConversations";
 import { useSendMessage } from "../messages/ConversationPage";
 import { supabase } from "../../lib/supabase";
+import { sendMediaSwipeEvent } from "./mediaSwipeApi";
 import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
 import {
   clamp,
@@ -35,7 +31,7 @@ import {
   getSourceLabel,
   buildSwipeCardLabel,
 } from "./swipeCardMeta";
-import { useSwipeDeck } from "./useSwipeDeck";
+import { useMediaSwipeDeck } from "./useMediaSwipeDeck";
 import SwipeSyncBanner from "./SwipeSyncBanner";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { TitleType } from "@/types/supabase-helpers";
@@ -50,6 +46,72 @@ const EXIT_MIN = 360;
 const ROTATION_FACTOR = 14;
 const DRAG_INTENT_THRESHOLD = 32;
 const FEEDBACK_ENABLED = true;
+
+
+// Swipe Brain v2 uses media_items + media_feedback (no titles/diary tables)
+type DiaryStatus = "want_to_watch" | "watched";
+
+const percentToNumber = (value: unknown): number | null => {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/%/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+};
+
+const rating0_10ToStars = (rating0_10: unknown): number | null => {
+  if (rating0_10 == null) return null;
+  const n = typeof rating0_10 === "number" ? rating0_10 : Number(String(rating0_10).trim());
+  if (!Number.isFinite(n)) return null;
+  const stars = Math.round(n / 2);
+  return stars <= 0 ? null : Math.min(5, Math.max(1, stars));
+};
+
+const starsToRating0_10 = (stars: number | null): number | null => {
+  if (stars == null) return null;
+  const s = Math.round(stars);
+  if (s <= 0) return null;
+  return Math.min(10, Math.max(2, s * 2));
+};
+
+const adaptMediaSwipeCard = (card: any): SwipeCardData => {
+  const source =
+    card?.source === "for-you" || card?.source === "from-friends" || card?.source === "trending"
+      ? card.source
+      : undefined;
+
+  const kind = card?.kind === "series" ? "series" : "movie";
+
+  const releaseYear =
+    typeof card?.releaseYear === "number"
+      ? card.releaseYear
+      : card?.releaseYear != null
+        ? Number(card.releaseYear)
+        : null;
+
+  const runtimeMinutes =
+    typeof card?.runtimeMinutes === "number"
+      ? card.runtimeMinutes
+      : card?.runtimeMinutes != null
+        ? Number(card.runtimeMinutes)
+        : null;
+
+  return {
+    id: String(card?.id ?? ""),
+    title: String(card?.title ?? "Untitled"),
+    year: Number.isFinite(releaseYear as any) ? releaseYear : null,
+    type: kind,
+    runtimeMinutes: Number.isFinite(runtimeMinutes as any) ? runtimeMinutes : null,
+    posterUrl: card?.posterUrl ?? null,
+    tmdbPosterPath: card?.tmdbPosterPath ?? null,
+    tmdbBackdropPath: card?.tmdbBackdropPath ?? null,
+    source,
+    why: card?.why ?? null,
+    overview: card?.overview ?? null,
+  };
+};
+
 
 interface TitleDetailRow {
   title_id: string;
@@ -97,20 +159,29 @@ const WATCHED_STATUS = "watched" as DiaryStatus;
 
 const SwipePage: React.FC = () => {
   const {
-    cards,
+    cards: rawCards,
+    sessionId,
     isLoading,
     isError,
+    deckError,
     swipe,
     fetchMore,
     trimConsumed,
     swipeSyncError,
     retryFailedSwipe,
     isRetryingSwipe,
-  } = useSwipeDeck("combined", {
+    trackImpression,
+    trackDwell,
+  } = useMediaSwipeDeck("combined", {
     limit: 72,
   });
 
+  const cards = useMemo(() => rawCards.map(adaptMediaSwipeCard), [rawCards]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
+  const activeCardRaw = rawCards[currentIndex];
+  const nextCardRaw = rawCards[currentIndex + 1];
+
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
 
@@ -172,9 +243,92 @@ const SwipePage: React.FC = () => {
   const activeTitleId = activeCard?.id ?? null;
 
   const { user } = useAuth();
-  const { updateStatus, updateRating } = useDiaryLibraryMutations();
-  const { data: diaryEntryData } = useTitleDiaryEntry(activeTitleId);
-  const diaryEntry = diaryEntryData ?? { status: null, rating: null };
+  const queryClient = useQueryClient();
+
+  const feedbackQueryKey = [
+    "mediaFeedback",
+    { userId: user?.id ?? null, mediaItemId: activeTitleId },
+  ] as const;
+
+  const { data: feedbackRow } = useQuery<{
+    in_watchlist: boolean | null;
+    rating_0_10: number | null;
+    last_action: string | null;
+  } | null>({
+    queryKey: feedbackQueryKey,
+    enabled: Boolean(user?.id && activeTitleId),
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (!user?.id || !activeTitleId) return null;
+
+      const { data, error } = await supabase
+        .from("media_feedback")
+        .select("in_watchlist, rating_0_10, last_action")
+        .eq("user_id", user.id)
+        .eq("media_item_id", activeTitleId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data ?? null) as any;
+    },
+  });
+
+  const serverStatus: DiaryStatus | null = feedbackRow?.in_watchlist
+    ? WATCHLIST_STATUS
+    : feedbackRow?.last_action === "like"
+      ? WATCHED_STATUS
+      : null;
+
+  const serverRating = rating0_10ToStars(feedbackRow?.rating_0_10);
+
+  const [localStatus, setLocalStatus] = useState<DiaryStatus | null>(null);
+
+  const diaryEntry = { status: localStatus ?? serverStatus, rating: localRating ?? serverRating };
+
+  const feedbackMutation = useMutation({
+    mutationFn: async (vars: {
+      status?: DiaryStatus | null;
+      ratingStars?: number | null;
+    }) => {
+      if (!user?.id || !activeCardRaw) return;
+
+      const eventType =
+        vars.status === WATCHED_STATUS ? ("like" as const) : ("dwell" as const);
+
+      const event: any = {
+        sessionId,
+        deckId: activeCardRaw.deckId ?? null,
+        position: activeCardRaw.position ?? null,
+        mediaItemId: activeCardRaw.id,
+        eventType,
+        source: activeCardRaw.source ?? null,
+        payload: {
+          ui: "SwipePage",
+          action: vars.status ? "status" : vars.ratingStars != null ? "rating" : "feedback",
+        },
+      };
+
+      if (eventType === "dwell") {
+        event.dwellMs = 0;
+      }
+
+      if (vars.ratingStars !== undefined) {
+        event.rating0_10 = starsToRating0_10(vars.ratingStars);
+      }
+
+      if (vars.status !== undefined) {
+        event.inWatchlist = vars.status === WATCHLIST_STATUS;
+      }
+
+      await sendMediaSwipeEvent(event);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feedbackQueryKey });
+    },
+  });
+
 
   const [localRating, setLocalRating] = useState<number | null>(null);
 
@@ -256,46 +410,62 @@ const SwipePage: React.FC = () => {
       if (!activeTitleId) return null;
 
       const { data, error } = await supabase
-        .from("titles")
+        .from("media_items")
         .select(
-          `
-          title_id,
-          content_type,
-          plot,
-          tmdb_overview,
-          tagline,
-          omdb_director,
-          omdb_writer,
-          omdb_actors,
-          genres,
-          tmdb_genre_names,
-          language,
-          omdb_language,
-          tmdb_original_language,
-          country,
-          omdb_country,
-          imdb_rating,
-          imdb_votes,
-          metascore,
-          rt_tomato_pct,
-          poster_url,
-          tmdb_poster_path,
-          backdrop_url,
-          omdb_awards,
-          omdb_box_office_str,
-          omdb_box_office,
-          omdb_released,
-          tmdb_vote_average,
-          tmdb_vote_count,
-          tmdb_popularity,
-          tmdb_episode_run_time
-        `,
+          "id, kind, omdb_plot, tmdb_overview, omdb_director, omdb_writer, omdb_actors, omdb_genre, omdb_language, tmdb_original_language, omdb_country, omdb_imdb_rating, omdb_imdb_votes, omdb_metascore, omdb_rating_rotten_tomatoes, omdb_poster, tmdb_poster_path, tmdb_backdrop_path, omdb_awards, omdb_box_office, omdb_released, tmdb_vote_average, tmdb_vote_count, tmdb_popularity, omdb_rated, omdb_runtime",
         )
-        .eq("title_id", activeTitleId)
+        .eq("id", activeTitleId)
         .maybeSingle();
 
-      if (error) throw error;
-      return data as TitleDetailRow | null;
+      if (error) {
+        throw error;
+      }
+
+      if (!data) return null;
+
+      const genres =
+        (data as any).omdb_genre != null
+          ? String((data as any).omdb_genre)
+              .split(",")
+              .map((g: string) => g.trim())
+              .filter(Boolean)
+          : null;
+
+      const rt = percentToNumber((data as any).omdb_rating_rotten_tomatoes);
+
+      return {
+        title_id: (data as any).id,
+        content_type: (data as any).kind ?? null,
+        plot: (data as any).omdb_plot ?? null,
+        tmdb_overview: (data as any).tmdb_overview ?? null,
+        tagline: null,
+        omdb_director: (data as any).omdb_director ?? null,
+        omdb_writer: (data as any).omdb_writer ?? null,
+        omdb_actors: (data as any).omdb_actors ?? null,
+        genres,
+        tmdb_genre_names: null,
+        language: null,
+        omdb_language: (data as any).omdb_language ?? null,
+        tmdb_original_language: (data as any).tmdb_original_language ?? null,
+        country: null,
+        omdb_country: (data as any).omdb_country ?? null,
+        imdb_rating: (data as any).omdb_imdb_rating ?? null,
+        imdb_votes: (data as any).omdb_imdb_votes ?? null,
+        metascore: (data as any).omdb_metascore ?? null,
+        rt_tomato_pct: rt,
+        poster_url: (data as any).omdb_poster ?? null,
+        tmdb_poster_path: (data as any).tmdb_poster_path ?? null,
+        backdrop_url: (data as any).tmdb_backdrop_path ?? null,
+        omdb_awards: (data as any).omdb_awards ?? null,
+        omdb_box_office_str: (data as any).omdb_box_office ?? null,
+        omdb_box_office: null,
+        omdb_released: (data as any).omdb_released ?? null,
+        tmdb_vote_average: (data as any).tmdb_vote_average ?? null,
+        tmdb_vote_count: (data as any).tmdb_vote_count ?? null,
+        tmdb_popularity: (data as any).tmdb_popularity ?? null,
+        tmdb_episode_run_time: null,
+        omdb_rated: (data as any).omdb_rated ?? null,
+      } as TitleDetailRow;
     },
   });
 
@@ -391,15 +561,25 @@ const SwipePage: React.FC = () => {
   };
 
   const setDiaryStatus = (status: DiaryStatus) => {
-    if (!activeTitleId || !ensureSignedIn() || updateStatus.isPending) return;
-    const type = normalizedContentType ?? "movie";
-    updateStatus.mutate({ titleId: activeTitleId, status, type });
+    if (!activeTitleId || !activeCardRaw || !ensureSignedIn() || feedbackMutation.isPending) return;
+
+    if (status === WATCHLIST_STATUS) {
+      const next = diaryEntry.status === WATCHLIST_STATUS ? null : WATCHLIST_STATUS;
+      setLocalStatus(next);
+      feedbackMutation.mutate({ status: next });
+      return;
+    }
+
+    if (status === WATCHED_STATUS) {
+      setLocalStatus(WATCHED_STATUS);
+      feedbackMutation.mutate({ status: WATCHED_STATUS });
+    }
   };
 
   const setDiaryRating = (nextRating: number | null) => {
-    if (!activeTitleId || !ensureSignedIn() || updateRating.isPending) return;
-    const type = normalizedContentType ?? "movie";
-    updateRating.mutate({ titleId: activeTitleId, rating: nextRating, type });
+    if (!activeTitleId || !activeCardRaw || !ensureSignedIn() || feedbackMutation.isPending) return;
+    setLocalRating(nextRating);
+    feedbackMutation.mutate({ ratingStars: nextRating });
   };
 
   const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
@@ -408,9 +588,10 @@ const SwipePage: React.FC = () => {
   const currentUserRating = localRating ?? serverRating;
 
   useEffect(() => {
-    // Reset local rating when the active title or server rating changes
+    // Reset local overrides when the active card or server feedback changes
     setLocalRating(null);
-  }, [activeTitleId, serverRating]);
+    setLocalStatus(null);
+  }, [activeTitleId, serverRating, serverStatus]);
 
   const handleStarClick = (value: number) => {
     const next = currentUserRating === value ? null : value;
@@ -426,7 +607,7 @@ const SwipePage: React.FC = () => {
   const shareUrl = getShareUrl();
 
   const handleShareExternal = async (messageOverride?: string) => {
-    if (!activeCard) return;
+    if (!activeCard || !activeCardRaw) return;
     const url = getShareUrl();
     const defaultText = `Check this out: ${activeCard.title}`;
     const text = messageOverride ?? defaultText;
@@ -459,6 +640,9 @@ const SwipePage: React.FC = () => {
   const lastMoveX = useRef<number | null>(null);
   const lastMoveTime = useRef<number | null>(null);
   const velocityRef = useRef(0);
+  const dwellStartRef = useRef<number | null>(null);
+  const dwellCardIdRef = useRef<string | null>(null);
+  const dwellCardRef = useRef<any | null>(null);
 
   // onboarding
   useEffect(() => {
@@ -479,6 +663,40 @@ const SwipePage: React.FC = () => {
   useEffect(() => {
     setNextPosterFailed(false);
   }, [nextCard?.id]);
+
+
+  // Track impressions + dwell time for the "Swipe Brain v2" learning loop
+  useEffect(() => {
+    if (!activeCardRaw) return;
+
+    const now = performance.now();
+
+    if (dwellCardRef.current && dwellCardIdRef.current && dwellCardIdRef.current !== activeCardRaw.id) {
+      const started = dwellStartRef.current;
+      if (started != null) {
+        const dwellMs = Math.max(0, Math.round(now - started));
+        trackDwell(dwellCardRef.current, dwellMs);
+      }
+    }
+
+    trackImpression(activeCardRaw);
+
+    dwellCardRef.current = activeCardRaw;
+    dwellCardIdRef.current = activeCardRaw.id;
+    dwellStartRef.current = now;
+  }, [activeCardRaw?.id, trackDwell, trackImpression]);
+
+  useEffect(() => {
+    return () => {
+      if (!dwellCardRef.current) return;
+      const started = dwellStartRef.current;
+      if (started == null) return;
+      const dwellMs = Math.max(0, Math.round(performance.now() - started));
+      trackDwell(dwellCardRef.current, dwellMs);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // preload next posters
   useEffect(() => {
@@ -670,7 +888,7 @@ const SwipePage: React.FC = () => {
   };
 
   const performSwipe = (direction: SwipeDirection, velocity = 0) => {
-    if (!activeCard) return;
+    if (!activeCard || !activeCardRaw) return;
 
     setShowOnboarding(false);
     if (typeof window !== "undefined") {
@@ -680,11 +898,10 @@ const SwipePage: React.FC = () => {
     setUndo(activeCard, direction);
 
     swipe({
-      cardId: activeCard.id,
+      card: activeCardRaw,
       direction,
-      rating: activeCard.initialRating ?? null,
-      inWatchlist: activeCard.initiallyInWatchlist ?? undefined,
-      sourceOverride: activeCard.source,
+      rating0_10: starsToRating0_10(currentUserRating),
+      inWatchlist: diaryEntry.status === WATCHLIST_STATUS,
     });
 
     setDragIntent(null);
@@ -771,7 +988,7 @@ const SwipePage: React.FC = () => {
   };
 
   const handlePointerDown = (x: number, pointerId: number, target: EventTarget | null) => {
-    if (!activeCard) return;
+    if (!activeCard || !activeCardRaw) return;
 
     setIsDragging(true);
     dragStartX.current = x;
