@@ -15,30 +15,24 @@ import {
 } from "./mediaSwipeApi";
 
 /**
- * Swipe Brain v2 (media_items-only) deck hook.
+ * Swipe Brain v2 (media_items-only) deck hook — performance-tuned.
  *
- * - Fetches decks from `media-swipe-deck`
- * - Sends events to `media-swipe-event`
- * - Tracks deckId + position per card (important for analytics + future learning)
- *
- * This hook is intentionally UI-agnostic: SwipePage tells it which card is active
- * (via `trackImpression` / `trackDwell`), and calls `swipe()` when user acts.
+ * Key optimizations:
+ * - Prefetch only a small number of upcoming images (not the whole deck).
+ * - Use smaller TMDB image size for swipe cards to reduce memory/CPU.
+ * - Avoid spamming events:
+ *   - impression is sent once per card per deck
+ *   - dwell is debounced + thresholded
+ * - Optional: disable heavy query invalidations (default OFF).
  */
 
 export type MediaSwipeDeckKind = "for-you" | "from-friends" | "trending";
 export type MediaSwipeDeckKindOrCombined = MediaSwipeDeckKind | "combined";
 
 export type MediaSwipeCardUI = MediaSwipeCard & {
-  /** media_items.id */
-  id: string;
-
-  /** deck id returned by Edge function */
-  deckId: string;
-
-  /** index inside the deck response (0-based) */
-  position: number;
-
-  /** normalized source for existing UI labels */
+  id: string;         // media_items.id
+  deckId: string;     // deck id returned by edge
+  position: number;   // index inside deck response (0-based)
   source: MediaSwipeDeckKind | "explore" | "combined" | null;
 };
 
@@ -55,6 +49,26 @@ type SwipeEventPayload = {
   direction: SwipeDirection;
   rating0_10?: number | null;
   inWatchlist?: boolean | null;
+};
+
+type UseMediaSwipeDeckOptions = {
+  limit?: number;
+  seed?: string | null;
+
+  /** How many images to prefetch in idle time (default 6). */
+  prefetchImages?: number;
+
+  /** Use smaller TMDB size for swipe posters (default "w342"). */
+  tmdbPosterSize?: "w185" | "w342" | "w500" | "w780";
+
+  /** Dwell threshold before sending (ms). Default 1200ms. */
+  dwellThresholdMs?: number;
+
+  /** Debounce dwell events per card (ms). Default 8000ms. */
+  dwellDebounceMs?: number;
+
+  /** Keep legacy invalidations (can be expensive). Default false. */
+  invalidateHomeQueries?: boolean;
 };
 
 function mapKindToMode(kind: MediaSwipeDeckKindOrCombined): MediaSwipeDeckMode {
@@ -80,39 +94,46 @@ function mapDirectionToEventType(direction: SwipeDirection): MediaSwipeEventType
   return "skip";
 }
 
-function normalizeCard(card: MediaSwipeCardUI): MediaSwipeCardUI {
-  // Prefer explicit posterUrl; otherwise derive from tmdb paths.
-  const tmdbPoster = tmdbImageUrl(card.tmdbPosterPath ?? card.tmdbBackdropPath, "w780");
+function normalizeCard(card: MediaSwipeCardUI, tmdbPosterSize: UseMediaSwipeDeckOptions["tmdbPosterSize"]): MediaSwipeCardUI {
+  const tmdbPoster = tmdbImageUrl(card.tmdbPosterPath ?? card.tmdbBackdropPath, tmdbPosterSize ?? "w342");
   const posterUrl = card.posterUrl ?? tmdbPoster ?? null;
 
-  // Ensure a title is always available to avoid empty UI states.
   const title = (card.title ?? "").trim() || "Untitled";
 
   return { ...card, posterUrl, title };
 }
 
-function scheduleAssetPrefetch(incoming: MediaSwipeCardUI[]) {
+function scheduleAssetPrefetch(incoming: MediaSwipeCardUI[], max: number) {
   if (typeof window === "undefined") return;
+  if (max <= 0) return;
 
-  const idle = (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback })
-    .requestIdleCallback;
-  const runner = idle ?? ((cb: () => void) => window.setTimeout(cb, 280));
+  const conn = (navigator as any).connection;
+  if (conn?.saveData) return; // be nice on data-saver
+
+  const idle = (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback }).requestIdleCallback;
+  const runner = idle ?? ((cb: () => void) => window.setTimeout(cb, 300));
+
+  const slice = incoming.slice(0, max);
 
   runner(() => {
-    for (const card of incoming) {
+    for (const card of slice) {
       if (!card.posterUrl) continue;
       const img = new Image();
+      img.decoding = "async";
       img.loading = "lazy";
       img.src = card.posterUrl;
     }
   });
 }
 
-export function useMediaSwipeDeck(
-  kind: MediaSwipeDeckKindOrCombined,
-  options?: { limit?: number; seed?: string | null },
-) {
+export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: UseMediaSwipeDeckOptions) {
   const limit = options?.limit ?? 60;
+  const prefetchImages = options?.prefetchImages ?? 6;
+  const tmdbPosterSize = options?.tmdbPosterSize ?? "w342";
+  const dwellThresholdMs = options?.dwellThresholdMs ?? 1200;
+  const dwellDebounceMs = options?.dwellDebounceMs ?? 8000;
+  const invalidateHomeQueries = options?.invalidateHomeQueries ?? false;
+
   const queryClient = useQueryClient();
 
   const sessionId = useMemo(() => getOrCreateMediaSwipeSessionId(), []);
@@ -121,16 +142,17 @@ export function useMediaSwipeDeck(
   const seenIdsRef = useRef<Set<string>>(new Set());
   const fetchingRef = useRef(false);
 
+  // Avoid spamming impression/dwell
+  const impressedRef = useRef<Set<string>>(new Set()); // key = `${deckId}:${mediaId}`
+  const lastDwellSentAtRef = useRef<Map<string, number>>(new Map()); // key = `${deckId}:${mediaId}` -> ts
+
   const [state, setState] = useState<DeckState>({
     status: "idle",
     cards: [],
     errorMessage: null,
   });
 
-  const [eventError, setEventError] = useState<{
-    payload: any;
-    message: string;
-  } | null>(null);
+  const [eventError, setEventError] = useState<{ payload: any; message: string } | null>(null);
 
   const setStateSafe = useCallback((updater: DeckState | ((prev: DeckState) => DeckState)) => {
     setState((prev) => (typeof updater === "function" ? (updater as any)(prev) : updater));
@@ -145,46 +167,38 @@ export function useMediaSwipeDeck(
     for (const raw of incoming) {
       if (seen.has(raw.id)) continue;
       seen.add(raw.id);
-      fresh.push(normalizeCard(raw));
+      fresh.push(normalizeCard(raw, tmdbPosterSize));
     }
 
     if (!fresh.length) return;
 
     setStateSafe((prev) => {
       const next = { ...prev, status: "ready" as const, cards: [...prev.cards, ...fresh], errorMessage: null };
-      scheduleAssetPrefetch(fresh);
+      scheduleAssetPrefetch(fresh, prefetchImages);
       return next;
     });
-  }, [setStateSafe]);
+  }, [prefetchImages, setStateSafe, tmdbPosterSize]);
 
   const fetchBatch = useCallback(async (batchSize = limit) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
-    setStateSafe((prev) => ({ ...prev, status: "loading", errorMessage: null }));
+    setStateSafe((prev) => ({ ...prev, status: prev.cards.length ? "ready" : "loading", errorMessage: null }));
 
     try {
       const resp = await fetchMediaSwipeDeck(
-        {
-          sessionId,
-          mode,
-          limit: batchSize,
-          seed: options?.seed ?? null,
-        },
+        { sessionId, mode, limit: batchSize, seed: options?.seed ?? null },
         { timeoutMs: 25000 },
       );
 
       const deckId = resp.deckId;
-      const incoming = (resp.cards ?? []).map((c, idx) => {
-        const mapped: MediaSwipeCardUI = {
-          ...c,
-          id: c.mediaItemId,
-          deckId,
-          position: idx,
-          source: mapBackendSource((c as any).source ?? null),
-        };
-        return mapped;
-      });
+      const incoming = (resp.cards ?? []).map((c, idx) => ({
+        ...c,
+        id: c.mediaItemId,
+        deckId,
+        position: idx,
+        source: mapBackendSource((c as any).source ?? null),
+      })) as MediaSwipeCardUI[];
 
       if (!incoming.length) {
         setStateSafe((prev) => ({
@@ -199,17 +213,17 @@ export function useMediaSwipeDeck(
     } catch (err) {
       const message =
         err instanceof Error ? err.message : typeof err === "string" ? err : "We couldn't load swipe cards.";
-
       setStateSafe((prev) => ({ ...prev, status: "error", errorMessage: message }));
     } finally {
       fetchingRef.current = false;
-      setStateSafe((prev) => (prev.status === "loading" && prev.cards.length ? { ...prev, status: "ready" } : prev));
     }
   }, [appendCards, limit, mode, options?.seed, sessionId, setStateSafe]);
 
   useEffect(() => {
     // reset when kind changes
     seenIdsRef.current = new Set();
+    impressedRef.current = new Set();
+    lastDwellSentAtRef.current = new Map();
     fetchingRef.current = false;
 
     setStateSafe({ status: "loading", cards: [], errorMessage: null });
@@ -218,6 +232,8 @@ export function useMediaSwipeDeck(
 
   const refresh = useCallback(() => {
     seenIdsRef.current = new Set();
+    impressedRef.current = new Set();
+    lastDwellSentAtRef.current = new Map();
     fetchingRef.current = false;
 
     setStateSafe({ status: "loading", cards: [], errorMessage: null });
@@ -226,17 +242,12 @@ export function useMediaSwipeDeck(
 
   const trimConsumed = useCallback((count: number) => {
     if (count <= 0) return;
-    setStateSafe((prev) => {
-      const remaining = prev.cards.slice(Math.min(count, prev.cards.length));
-      return { ...prev, cards: remaining };
-    });
+    setStateSafe((prev) => ({ ...prev, cards: prev.cards.slice(Math.min(count, prev.cards.length)) }));
   }, [setStateSafe]);
 
   // --- Events ---
   const eventMutation = useMutation({
-    mutationFn: async (payload: any) => {
-      return sendMediaSwipeEvent(payload, { timeoutMs: 20000 });
-    },
+    mutationFn: async (payload: any) => sendMediaSwipeEvent(payload, { timeoutMs: 20000 }),
     onError: (error, variables) => {
       const message =
         error instanceof Error ? error.message : typeof error === "string" ? error : "We couldn't save that action.";
@@ -245,14 +256,19 @@ export function useMediaSwipeDeck(
     onSuccess: () => {
       setEventError(null);
 
-      // Existing app may still rely on these invalidations; harmless if unused.
-      queryClient.invalidateQueries({ queryKey: qk.homeFeed(null) });
-      queryClient.invalidateQueries({ queryKey: qk.homeForYou(null) });
+      if (invalidateHomeQueries) {
+        queryClient.invalidateQueries({ queryKey: qk.homeFeed(null) });
+        queryClient.invalidateQueries({ queryKey: qk.homeForYou(null) });
+      }
     },
   });
 
   const trackImpression = useCallback((card: MediaSwipeCardUI | undefined, positionOverride?: number) => {
     if (!card) return;
+
+    const key = `${card.deckId}:${card.id}`;
+    if (impressedRef.current.has(key)) return;
+    impressedRef.current.add(key);
 
     eventMutation.mutate({
       sessionId,
@@ -266,7 +282,13 @@ export function useMediaSwipeDeck(
 
   const trackDwell = useCallback((card: MediaSwipeCardUI | undefined, dwellMs: number, positionOverride?: number) => {
     if (!card) return;
-    if (!Number.isFinite(dwellMs) || dwellMs <= 0) return;
+    if (!Number.isFinite(dwellMs) || dwellMs < dwellThresholdMs) return;
+
+    const key = `${card.deckId}:${card.id}`;
+    const now = Date.now();
+    const last = lastDwellSentAtRef.current.get(key) ?? 0;
+    if (now - last < dwellDebounceMs) return;
+    lastDwellSentAtRef.current.set(key, now);
 
     eventMutation.mutate({
       sessionId,
@@ -277,7 +299,7 @@ export function useMediaSwipeDeck(
       dwellMs: Math.round(dwellMs),
       source: card.source ?? null,
     });
-  }, [eventMutation, sessionId]);
+  }, [dwellDebounceMs, dwellThresholdMs, eventMutation, sessionId]);
 
   const swipe = useCallback((payload: SwipeEventPayload) => {
     const card = payload.card;
