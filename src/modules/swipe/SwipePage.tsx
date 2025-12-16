@@ -584,14 +584,14 @@ const SwipePage: React.FC = () => {
 
   const statusIs = (status: DiaryStatus) => diaryEntry?.status === status;
 
-  const serverRating = diaryEntry?.rating ?? null;
-  const currentUserRating = localRating ?? serverRating;
+  const diaryServerRating = diaryEntry?.rating ?? null;
+  const currentUserRating = localRating ?? diaryServerRating;
 
   useEffect(() => {
     // Reset local overrides when the active card or server feedback changes
     setLocalRating(null);
     setLocalStatus(null);
-  }, [activeTitleId, serverRating, serverStatus]);
+  }, [activeTitleId, diaryServerRating, serverStatus]);
 
   const handleStarClick = (value: number) => {
     const next = currentUserRating === value ? null : value;
