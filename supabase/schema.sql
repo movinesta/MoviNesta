@@ -145,6 +145,43 @@ CREATE TABLE public.lists (
   CONSTRAINT lists_pkey PRIMARY KEY (id),
   CONSTRAINT lists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.media_embeddings (
+  media_item_id uuid NOT NULL,
+  embedding USER-DEFINED NOT NULL,
+  model text NOT NULL DEFAULT 'jina-embeddings-v3'::text,
+  task text NOT NULL DEFAULT 'retrieval.passage'::text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_embeddings_pkey PRIMARY KEY (media_item_id),
+  CONSTRAINT media_embeddings_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
+CREATE TABLE public.media_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  session_id uuid NOT NULL,
+  deck_id uuid,
+  position integer,
+  media_item_id uuid NOT NULL,
+  event_type USER-DEFINED NOT NULL,
+  source text,
+  dwell_ms integer,
+  payload jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_events_pkey PRIMARY KEY (id),
+  CONSTRAINT media_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT media_events_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
+CREATE TABLE public.media_feedback (
+  user_id uuid NOT NULL,
+  media_item_id uuid NOT NULL,
+  last_action USER-DEFINED,
+  last_action_at timestamp with time zone NOT NULL DEFAULT now(),
+  rating_0_10 numeric,
+  in_watchlist boolean,
+  last_dwell_ms integer,
+  CONSTRAINT media_feedback_pkey PRIMARY KEY (user_id, media_item_id),
+  CONSTRAINT media_feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT media_feedback_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
 CREATE TABLE public.media_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -209,6 +246,28 @@ CREATE TABLE public.media_items (
   missing_count integer,
   completeness numeric,
   CONSTRAINT media_items_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.media_session_vectors (
+  user_id uuid NOT NULL,
+  session_id uuid NOT NULL,
+  taste USER-DEFINED,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_session_vectors_pkey PRIMARY KEY (user_id, session_id),
+  CONSTRAINT media_session_vectors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.media_trending_scores (
+  media_item_id uuid NOT NULL,
+  score_72h double precision NOT NULL,
+  computed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_trending_scores_pkey PRIMARY KEY (media_item_id),
+  CONSTRAINT media_trending_scores_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
+CREATE TABLE public.media_user_vectors (
+  user_id uuid NOT NULL,
+  taste USER-DEFINED,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_user_vectors_pkey PRIMARY KEY (user_id),
+  CONSTRAINT media_user_vectors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.message_delivery_receipts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -510,6 +569,16 @@ CREATE TABLE public.user_stats (
   last_active_at timestamp with time zone,
   CONSTRAINT user_stats_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_swipe_prefs (
+  user_id uuid NOT NULL,
+  year_min integer DEFAULT 1980,
+  year_max integer DEFAULT EXTRACT(year FROM now()),
+  runtime_min integer DEFAULT 30,
+  runtime_max integer DEFAULT 240,
+  completeness_min numeric DEFAULT 0.80,
+  CONSTRAINT user_swipe_prefs_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_swipe_prefs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
