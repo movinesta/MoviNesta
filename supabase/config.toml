@@ -13,7 +13,3 @@ verify_jwt = false
 [functions.debug-tastedive]
 verify_jwt = false
 
-
-[functions.media-trending-refresh]
-verify_jwt = false
-
