@@ -1,6 +1,3 @@
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
-
 CREATE TABLE public.activity_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -148,6 +145,71 @@ CREATE TABLE public.lists (
   CONSTRAINT lists_pkey PRIMARY KEY (id),
   CONSTRAINT lists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.media_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  kind USER-DEFINED NOT NULL DEFAULT 'other'::media_kind,
+  omdb_raw jsonb,
+  tmdb_raw jsonb,
+  omdb_title text,
+  omdb_year text,
+  omdb_rated text,
+  omdb_released text,
+  omdb_runtime text,
+  omdb_genre text,
+  omdb_director text,
+  omdb_writer text,
+  omdb_actors text,
+  omdb_plot text,
+  omdb_language text,
+  omdb_country text,
+  omdb_awards text,
+  omdb_poster text,
+  omdb_metascore text,
+  omdb_imdb_rating numeric,
+  omdb_imdb_votes text,
+  omdb_imdb_id text CHECK (omdb_imdb_id IS NULL OR omdb_imdb_id <> ''::text),
+  omdb_type text,
+  omdb_dvd text,
+  omdb_box_office text,
+  omdb_production text,
+  omdb_website text,
+  omdb_total_seasons integer,
+  omdb_response boolean,
+  omdb_rating_internet_movie_database text,
+  omdb_rating_rotten_tomatoes text,
+  omdb_rating_metacritic text,
+  tmdb_id bigint CHECK (tmdb_id IS NULL OR tmdb_id > 0),
+  tmdb_adult boolean,
+  tmdb_backdrop_path text,
+  tmdb_genre_ids ARRAY,
+  tmdb_original_language text,
+  tmdb_original_title text,
+  tmdb_overview text,
+  tmdb_popularity numeric,
+  tmdb_poster_path text,
+  tmdb_release_date date,
+  tmdb_title text,
+  tmdb_video boolean,
+  tmdb_vote_average numeric,
+  tmdb_vote_count integer,
+  tmdb_name text,
+  tmdb_original_name text,
+  tmdb_first_air_date date,
+  tmdb_media_type text,
+  tmdb_origin_country ARRAY,
+  tmdb_fetched_at timestamp with time zone,
+  tmdb_status text,
+  tmdb_error text,
+  omdb_fetched_at timestamp with time zone,
+  omdb_status text,
+  omdb_error text,
+  filled_count integer,
+  missing_count integer,
+  completeness numeric,
+  CONSTRAINT media_items_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.message_delivery_receipts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -225,6 +287,13 @@ CREATE TABLE public.notifications (
   is_read boolean NOT NULL DEFAULT false,
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.omdb_cache (
+  kind USER-DEFINED,
+  imdb_id text NOT NULL CHECK (imdb_id ~ '^tt[0-9]{7,8}$'::text),
+  fetched_at timestamp with time zone NOT NULL DEFAULT now(),
+  raw jsonb NOT NULL,
+  CONSTRAINT omdb_cache_pkey PRIMARY KEY (imdb_id)
 );
 CREATE TABLE public.people (
   id bigint NOT NULL DEFAULT nextval('people_id_seq'::regclass),
@@ -409,6 +478,13 @@ CREATE TABLE public.titles (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT titles_pkey PRIMARY KEY (title_id)
+);
+CREATE TABLE public.tmdb_cache (
+  kind USER-DEFINED NOT NULL,
+  tmdb_id bigint NOT NULL CHECK (tmdb_id > 0),
+  fetched_at timestamp with time zone NOT NULL DEFAULT now(),
+  raw jsonb NOT NULL,
+  CONSTRAINT tmdb_cache_pkey PRIMARY KEY (kind, tmdb_id)
 );
 CREATE TABLE public.user_settings (
   user_id uuid NOT NULL,
