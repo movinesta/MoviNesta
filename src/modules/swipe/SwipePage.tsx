@@ -285,6 +285,11 @@ const SwipePage: React.FC = () => {
 
   const [localStatus, setLocalStatus] = useState<DiaryStatus | null>(null);
 
+
+
+
+  const [localRating, setLocalRating] = useState<number | null>(null);
+
   const diaryEntry = { status: localStatus ?? serverStatus, rating: localRating ?? serverRating };
 
   const feedbackMutation = useMutation({
@@ -328,10 +333,6 @@ const SwipePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: feedbackQueryKey });
     },
   });
-
-
-  const [localRating, setLocalRating] = useState<number | null>(null);
-
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 
