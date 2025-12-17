@@ -103,6 +103,12 @@ function normalizeCard(card: MediaSwipeCardUI, tmdbPosterSize: UseMediaSwipeDeck
   return { ...card, posterUrl, title };
 }
 
+
+function makeClientEventId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 function scheduleAssetPrefetch(incoming: MediaSwipeCardUI[], max: number) {
   if (typeof window === "undefined") return;
   if (max <= 0) return;
@@ -275,6 +281,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       deckId: card.deckId,
       position: positionOverride ?? card.position,
       mediaItemId: card.id,
+      clientEventId: makeClientEventId(),
       eventType: "impression" satisfies MediaSwipeEventType,
       source: card.source ?? null,
     });
@@ -295,6 +302,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       deckId: card.deckId,
       position: positionOverride ?? card.position,
       mediaItemId: card.id,
+      clientEventId: makeClientEventId(),
       eventType: "dwell" satisfies MediaSwipeEventType,
       dwellMs: Math.round(dwellMs),
       source: card.source ?? null,
@@ -308,6 +316,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       deckId: card.deckId,
       position: card.position,
       mediaItemId: card.id,
+      clientEventId: makeClientEventId(),
       eventType: mapDirectionToEventType(payload.direction),
       source: card.source ?? null,
       rating0_10: payload.rating0_10 ?? null,
@@ -322,6 +331,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       deckId: card.deckId,
       position: card.position,
       mediaItemId: card.id,
+      clientEventId: makeClientEventId(),
       eventType: mapDirectionToEventType(payload.direction),
       source: card.source ?? null,
       rating0_10: payload.rating0_10 ?? null,
