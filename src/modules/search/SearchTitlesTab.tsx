@@ -135,23 +135,20 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
     toSync.forEach((item) => {
       already.add(item.id);
 
-      supabase.functions
-        .invoke("catalog-sync", {
-          body: {
-            external: {
-              tmdbId: item.tmdbId ?? undefined,
-              imdbId: item.imdbId ?? undefined,
-              // TitleType "series" maps to TMDb "tv"
-              type: item.type === "series" ? "tv" : "movie",
-            },
-            options: {
-              syncOmdb: true,
-              forceRefresh: false,
-            },
+      supabase
+        .from("media_items")
+        .upsert(
+          {
+            tmdb_id: item.tmdbId ?? null,
+            omdb_imdb_id: item.imdbId ?? null,
+            kind: item.type === "series" ? "series" : item.type ?? "movie",
+            tmdb_title: item.title,
+            tmdb_release_date: item.year ? `${item.year}-01-01` : null,
           },
-        })
+          { onConflict: "tmdb_id" },
+        )
         .catch((err) => {
-          console.warn("[SearchTitlesTab] catalog-sync failed for", item.id, err);
+          console.warn("[SearchTitlesTab] media_items upsert failed for", item.id, err);
         });
     });
   }, [results]);

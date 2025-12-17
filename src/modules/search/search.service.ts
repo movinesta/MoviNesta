@@ -1,8 +1,7 @@
-import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
-import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { searchExternalTitles } from "./externalMovieSearch";
 import { TitleType } from "@/types/supabase-helpers";
+import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
 
 export interface TitleSearchFilters {
   type?: TitleType | "all";
@@ -32,52 +31,28 @@ export interface TitleSearchResult {
   tmdbId: number | null;
 }
 
-type CatalogSyncBatchResult = {
-  tmdbId?: number | null;
-  imdbId?: string | null;
-  titleId?: string | null;
-};
-
-type TitleRow = Pick<
-  Database["public"]["Tables"]["titles"]["Row"],
-  | "title_id"
-  | "primary_title"
-  | "original_title"
-  | "release_year"
-  | "content_type"
-  | "poster_url"
-  | "backdrop_url"
-  | "language"
-  | "omdb_rated"
-  | "omdb_imdb_id"
-  | "tmdb_id"
-  | "imdb_rating"
-  | "rt_tomato_pct"
->;
-
 const throwIfAborted = (signal?: AbortSignal) => {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("Aborted", "AbortError");
   }
 };
-
-const mapTitleRowToResult = (row: TitleRow): TitleSearchResult => {
-  const posterUrl = row.poster_url ?? row.backdrop_url ?? null;
+const mapMediaItemRowToResult = (row: MediaItemRow): TitleSearchResult => {
+  const summary = mapMediaItemToSummary(row);
 
   return {
-    id: row.title_id,
-    title: row.primary_title ?? row.original_title ?? "Untitled",
-    year: row.release_year,
-    type: row.content_type,
+    id: summary.id,
+    title: summary.title,
+    year: summary.year,
+    type: summary.type,
     source: "library",
-    posterUrl,
-    originalLanguage: row.language,
-    ageRating: row.omdb_rated,
-    imdbRating: row.imdb_rating,
-    rtTomatoMeter: row.rt_tomato_pct,
-    imdbId: row.omdb_imdb_id,
-    tmdbId: row.tmdb_id,
-  };
+    posterUrl: summary.posterUrl ?? summary.backdropUrl,
+    originalLanguage: summary.originalLanguage,
+    ageRating: summary.ageRating,
+    imdbRating: summary.imdbRating,
+    rtTomatoMeter: summary.rtTomatoMeter,
+    imdbId: summary.imdbId,
+    tmdbId: summary.tmdbId,
+  } satisfies TitleSearchResult;
 };
 
 const PAGE_SIZE = 20;
@@ -92,38 +67,32 @@ const searchSupabaseTitles = async (
   throwIfAborted(signal);
 
   const columns = `
-    title_id,
-    primary_title,
-    original_title,
-    release_year,
-    content_type,
-    poster_url,
-    backdrop_url,
-    language,
-    omdb_rated,
-    omdb_imdb_id,
+    id,
+    kind,
     tmdb_id,
-    imdb_rating,
-    rt_tomato_pct
+    tmdb_title,
+    tmdb_name,
+    tmdb_original_title,
+    tmdb_original_name,
+    tmdb_release_date,
+    tmdb_first_air_date,
+    tmdb_poster_path,
+    tmdb_backdrop_path,
+    tmdb_original_language,
+    tmdb_genre_ids,
+    omdb_title,
+    omdb_year,
+    omdb_language,
+    omdb_imdb_id,
+    omdb_imdb_rating,
+    omdb_rating_rotten_tomatoes,
+    omdb_poster,
+    omdb_rated
   `;
 
   const offset = (page - 1) * PAGE_SIZE;
 
-  let builder = supabase.from("titles").select(columns, { count: "exact" });
-
-  if (filters?.genreIds?.length) {
-    const { data: titleIds, error } = await supabase
-      .from("title_genres")
-      .select("title_id")
-      .in("genre_id", filters.genreIds);
-    if (error) {
-      throw new Error(error.message);
-    }
-    builder = builder.in(
-      "title_id",
-      titleIds.map((t) => t.title_id),
-    );
-  }
+  let builder = supabase.from("media_items").select(columns, { count: "exact" });
 
   builder = builder.range(offset, offset + PAGE_SIZE - 1);
 
@@ -133,29 +102,37 @@ const searchSupabaseTitles = async (
 
   if (query) {
     const ilikeQuery = `%${query}%`;
-    builder = builder.or(`primary_title.ilike.${ilikeQuery},original_title.ilike.${ilikeQuery}`);
+    builder = builder.or(
+      `tmdb_title.ilike.${ilikeQuery},tmdb_name.ilike.${ilikeQuery},omdb_title.ilike.${ilikeQuery}`,
+    );
   }
 
   if (filters?.type && filters.type !== "all") {
-    builder = builder.eq("content_type", filters.type);
+    builder = builder.eq("kind", filters.type === "series" ? "series" : filters.type);
+  }
+
+  if (filters?.genreIds?.length) {
+    builder = builder.overlaps("tmdb_genre_ids", filters.genreIds);
   }
 
   if (typeof filters?.minYear === "number") {
-    builder = builder.gte("release_year", filters.minYear);
+    const minDate = `${filters.minYear}-01-01`;
+    builder = builder.or(`tmdb_release_date.gte.${minDate},tmdb_first_air_date.gte.${minDate}`);
   }
 
   if (typeof filters?.maxYear === "number") {
-    builder = builder.lte("release_year", filters.maxYear);
+    const maxDate = `${filters.maxYear}-12-31`;
+    builder = builder.or(`tmdb_release_date.lte.${maxDate},tmdb_first_air_date.lte.${maxDate}`);
   }
 
   if (filters?.originalLanguage) {
-    builder = builder.eq("language", filters.originalLanguage);
+    builder = builder.eq("tmdb_original_language", filters.originalLanguage);
   }
 
-  builder = builder.order("release_year", { ascending: false, nullsLast: true }).order(
-    "primary_title",
-    { ascending: true, nullsLast: false },
-  );
+  builder = builder
+    .order("tmdb_release_date", { ascending: false, nullsLast: true })
+    .order("tmdb_first_air_date", { ascending: false, nullsLast: true })
+    .order("tmdb_title", { ascending: true, nullsLast: false });
 
   const { data, error, count } = await builder;
 
@@ -165,11 +142,11 @@ const searchSupabaseTitles = async (
 
   throwIfAborted(signal);
 
-  const rows = (data as TitleRow[]) ?? [];
+  const rows = (data as MediaItemRow[]) ?? [];
   const totalCount = typeof count === "number" ? count : undefined;
   const hasMore = totalCount ? offset + rows.length < totalCount : rows.length === PAGE_SIZE;
 
-  return { results: rows.map(mapTitleRowToResult), hasMore };
+  return { results: rows.map(mapMediaItemRowToResult), hasMore };
 };
 
 export const searchTitles = async (params: {
@@ -212,66 +189,58 @@ export const searchTitles = async (params: {
     if (item.tmdbId) {
       seenTmdbIds.add(item.tmdbId);
     }
-
     if (item.imdbId) {
       seenImdbIds.add(item.imdbId);
     }
   }
 
-  const batchCandidates = externalResults
-    .filter((item) => item.tmdbId && !seenTmdbIds.has(item.tmdbId))
-    .slice(0, BATCH_SYNC_LIMIT);
+  const filteredExternal = externalResults.filter((item) => {
+    if (item.tmdbId && seenTmdbIds.has(item.tmdbId)) return false;
+    if (item.imdbId && seenImdbIds.has(item.imdbId)) return false;
+    return true;
+  });
 
-  const syncedTitleIdsByTmdb = new Map<number, string>();
+  const upsertedByTmdb = new Map<number, string>();
 
-  if (batchCandidates.length) {
+  if (filteredExternal.length) {
     try {
-      const batchResponse = await callSupabaseFunction<{
-        ok?: boolean;
-        results?: CatalogSyncBatchResult[];
-      }>(
-        "catalog-sync-batch",
-        {
-          items: batchCandidates.map((item) => ({
-            tmdbId: item.tmdbId,
-            imdbId: item.imdbId ?? undefined,
-            contentType: item.type === "tv" ? "series" : "movie",
+      const { data, error } = await supabase
+        .from("media_items")
+        .upsert(
+          filteredExternal.slice(0, BATCH_SYNC_LIMIT).map((item) => ({
+            tmdb_id: item.tmdbId,
+            omdb_imdb_id: item.imdbId ?? null,
+            kind: item.type === "tv" ? "series" : "movie",
+            tmdb_title: item.title,
+            tmdb_release_date: item.year ? `${item.year}-01-01` : null,
           })),
-          options: {
-            syncOmdb: true,
-            syncYoutube: true,
-            forceRefresh: false,
-          },
-        },
-        { signal },
-      );
+          { onConflict: "tmdb_id" },
+        )
+        .select("id, tmdb_id");
 
-      const results = batchResponse?.results ?? [];
-      for (const result of results) {
-        if (result.tmdbId && result.titleId) {
-          syncedTitleIdsByTmdb.set(result.tmdbId, result.titleId);
-        }
+      if (error) {
+        console.warn("[search.service] Failed to upsert media_items", error.message);
       }
+
+      (data ?? []).forEach((row) => {
+        if (row.tmdb_id != null && row.id) {
+          upsertedByTmdb.set(Number(row.tmdb_id), row.id);
+        }
+      });
     } catch (err) {
-      console.warn("[search.service] catalog-sync-batch failed", err);
+      console.warn("[search.service] media_items upsert failed", err);
     }
   }
 
   const hydratedExternal = await Promise.all(
-    externalResults.map(async (item) => {
+    filteredExternal.map(async (item) => {
       throwIfAborted(signal);
 
-      const isTmdbDuplicate = Boolean(item.tmdbId && seenTmdbIds.has(item.tmdbId));
-      const isImdbDuplicate = Boolean(item.imdbId && seenImdbIds.has(item.imdbId));
-
-      if (isTmdbDuplicate || isImdbDuplicate) return null;
-
-      const type: TitleType | null = item.type === "tv" ? "series" : "movie";
-      const titleId =
-        item.tmdbId && syncedTitleIdsByTmdb.get(item.tmdbId)
-          ? syncedTitleIdsByTmdb.get(item.tmdbId)!
-          : `tmdb-${item.tmdbId}`;
-      const isSynced = titleId.startsWith("tmdb-") === false;
+      const type: TitleType = item.type === "tv" ? "series" : "movie";
+      const resolvedId = item.tmdbId && upsertedByTmdb.get(item.tmdbId)
+        ? upsertedByTmdb.get(item.tmdbId)!
+        : `tmdb-${item.tmdbId ?? Math.random()}`;
+      const isSynced = !resolvedId.startsWith("tmdb-");
 
       if (item.tmdbId) {
         seenTmdbIds.add(item.tmdbId);
@@ -281,7 +250,7 @@ export const searchTitles = async (params: {
       }
 
       return {
-        id: titleId,
+        id: resolvedId,
         title: item.title,
         year: item.year ?? null,
         type,

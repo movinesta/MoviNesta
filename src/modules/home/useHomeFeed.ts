@@ -4,13 +4,11 @@ import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 import type { Database } from "@/types/supabase";
 import type { AvatarColorKey, FeedTitle, FeedUser, HomeFeedItem } from "./homeFeedTypes";
+import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
 
 type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
 type HomeFeedRow = Database["public"]["Functions"]["get_home_feed"]["Returns"][number];
-type PartialTitleRow = Pick<
-  Database["public"]["Tables"]["titles"]["Row"],
-  "title_id" | "primary_title" | "release_year" | "poster_url" | "backdrop_url"
->;
+type PartialTitleRow = ReturnType<typeof mapMediaItemToSummary>;
 type PartialProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
   "id" | "display_name" | "username" | "avatar_url"
@@ -135,10 +133,10 @@ const mapEventToFeedItem = (
 
   const title: FeedTitle = {
     id: row.title_id!,
-    name: titleRow.primary_title ?? "Untitled",
-    year: titleRow.release_year ?? new Date().getFullYear(),
-    posterUrl: titleRow.poster_url ?? undefined,
-    backdropUrl: titleRow.backdrop_url ?? null,
+    name: titleRow.title,
+    year: titleRow.year ?? new Date().getFullYear(),
+    posterUrl: titleRow.posterUrl ?? undefined,
+    backdropUrl: titleRow.backdropUrl ?? null,
   };
 
   const user: FeedUser = {
@@ -232,9 +230,30 @@ export const fetchHomeFeedPage = async (
   const [titlesResult, profilesResult] = await Promise.all([
     titleIds.length
       ? supabase
-          .from("titles")
-          .select("title_id, primary_title, release_year, poster_url, backdrop_url")
-          .in("title_id", titleIds)
+          .from("media_items")
+          .select(
+            `id,
+             kind,
+             tmdb_title,
+             tmdb_name,
+             tmdb_original_title,
+             tmdb_original_name,
+             tmdb_release_date,
+             tmdb_first_air_date,
+             tmdb_poster_path,
+             tmdb_backdrop_path,
+             tmdb_original_language,
+             omdb_title,
+             omdb_year,
+             omdb_language,
+             omdb_imdb_id,
+             omdb_imdb_rating,
+             omdb_rating_rotten_tomatoes,
+             omdb_poster,
+             omdb_rated,
+             tmdb_id`
+          )
+          .in("id", titleIds)
       : Promise.resolve({ data: [] as PartialTitleRow[], error: null }),
     actorUserIds.length
       ? supabase
@@ -253,8 +272,9 @@ export const fetchHomeFeedPage = async (
   }
 
   const titlesById = new Map<string, PartialTitleRow>();
-  ((titlesResult.data as PartialTitleRow[]) ?? []).forEach((row) => {
-    titlesById.set(row.title_id, row);
+  ((titlesResult.data as MediaItemRow[]) ?? []).forEach((row) => {
+    const mapped = mapMediaItemToSummary(row as MediaItemRow);
+    titlesById.set(row.id, mapped);
   });
 
   const profilesById = new Map<string, PartialProfileRow>();
