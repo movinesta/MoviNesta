@@ -12,6 +12,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { TitleType } from "@/types/supabase-helpers";
+import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
 
 type RecommendationSectionKind = "friends-trending" | "because-you-liked" | "anime" | "continue";
 
@@ -92,15 +93,54 @@ interface LibraryEntryRow {
 
 interface TitleBasicRow {
   id: string;
-  title: string | null;
+  title: string;
   year: number | null;
-  runtime_minutes: number | null;
-  type?: TitleType | null;
-  poster_url?: string | null;
-  backdrop_url?: string | null;
-  imdb_rating?: number | null;
-  omdb_rt_rating_pct?: number | null;
+  runtimeMinutes: number | null;
+  type: TitleType | null;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  imdbRating: number | null;
+  rtTomatoMeter: number | null;
 }
+
+const MEDIA_ITEM_COLUMNS = `
+  id,
+  kind,
+  tmdb_title,
+  tmdb_name,
+  tmdb_original_title,
+  tmdb_original_name,
+  tmdb_release_date,
+  tmdb_first_air_date,
+  tmdb_runtime,
+  tmdb_poster_path,
+  tmdb_backdrop_path,
+  tmdb_original_language,
+  omdb_title,
+  omdb_year,
+  omdb_language,
+  omdb_imdb_id,
+  omdb_imdb_rating,
+  omdb_rating_rotten_tomatoes,
+  omdb_poster,
+  omdb_rated,
+  tmdb_id
+`;
+
+const mapMediaItemToBasicRow = (row: MediaItemRow): TitleBasicRow => {
+  const summary = mapMediaItemToSummary(row);
+  return {
+    id: summary.id,
+    title: summary.title,
+    year: summary.year,
+    runtimeMinutes: row.tmdb_runtime ?? null,
+    type: summary.type,
+    posterUrl: summary.posterUrl,
+    backdropUrl: summary.backdropUrl,
+    imdbRating: summary.imdbRating,
+    rtTomatoMeter: summary.rtTomatoMeter,
+  };
+};
 
 interface FollowsRow {
   followed_id: string;
@@ -217,9 +257,11 @@ const fetchHomeRecommendations = async (
   });
 
   // Popular anime for now: just pull some recent anime titles.
-  const { data: animeTitleIdsData, error: animeError } = await supabase
-    .from("anime")
-    .select("title_id")
+  const { data: animeData, error: animeError } = await supabase
+    .from("media_items")
+    .select(MEDIA_ITEM_COLUMNS)
+    .eq("kind", "anime")
+    .order("tmdb_release_date", { ascending: false, nullsLast: true })
     .limit(16);
 
   if (animeError) {
@@ -227,22 +269,7 @@ const fetchHomeRecommendations = async (
     console.warn("[HomeForYouTab] Failed to load anime titles", animeError.message);
   }
 
-  const animeTitleIdsResult = (animeTitleIdsData ?? []).map((row) => row.title_id);
-  const animeResult = await supabase
-    .from("titles")
-    .select(
-      "id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, rt_tomato_pct",
-    )
-    .in("title_id", animeTitleIdsResult)
-    .order("release_year", { ascending: false })
-    .limit(16);
-
-  if (animeResult.error) {
-    hasPartialData = true;
-    console.warn("[HomeForYouTab] Failed to load anime titles", animeResult.error.message);
-  }
-
-  const animeTitles = (animeResult.data ?? []) as TitleBasicRow[];
+  const animeTitles = (animeData as MediaItemRow[] | null)?.map(mapMediaItemToBasicRow) ?? [];
   const animeTitleIds = animeTitles.map((row) => row.id);
 
   const allTitleIds = Array.from(
@@ -260,17 +287,15 @@ const fetchHomeRecommendations = async (
   }
 
   const titlesResult = await supabase
-    .from("titles")
-    .select(
-      `id:title_id, title:primary_title, year:release_year, runtime_minutes, type:content_type, poster_url, backdrop_url, imdb_rating, rt_tomato_pct`,
-    )
-    .in("title_id", allTitleIds);
+    .from("media_items")
+    .select(MEDIA_ITEM_COLUMNS)
+    .in("id", allTitleIds);
 
   if (titlesResult.error) {
     throw new Error(titlesResult.error.message);
   }
 
-  const titles = (titlesResult.data ?? []) as TitleBasicRow[];
+  const titles = ((titlesResult.data ?? []) as MediaItemRow[]).map(mapMediaItemToBasicRow);
   const titlesById = new Map<string, TitleBasicRow>();
   titles.forEach((row) => {
     titlesById.set(row.id, row);
@@ -291,7 +316,7 @@ const fetchHomeRecommendations = async (
       id: t.id,
       name: t.title ?? "Untitled",
       year: t.year ?? new Date().getFullYear(),
-      runtimeMinutes: t.runtime_minutes ?? undefined,
+      runtimeMinutes: t.runtimeMinutes ?? undefined,
       matchReason:
         seedRatingValue && seedRatingValue >= 4
           ? "Because you gave this a high rating."
@@ -303,9 +328,9 @@ const fetchHomeRecommendations = async (
           ? "Animated, emotional, and perfect for a late-night binge."
           : "Feels like the right vibe for tonight based on your recent watches.",
       friendsWatchingCount: friendRatings.filter((row) => row.title_id === seedTitleId).length,
-      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: t.imdb_rating ?? null,
-      rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
+      posterUrl: getPosterWithFallback(t.posterUrl, t.backdropUrl),
+      imdbRating: t.imdbRating ?? null,
+      rtTomatoMeter: t.rtTomatoMeter ?? null,
     };
     usedTitleIds.add(seedTitleId);
   }
@@ -329,9 +354,9 @@ const fetchHomeRecommendations = async (
       year: t.year ?? new Date().getFullYear(),
       friendsWatchingCount,
       moodTag: t.type === "anime" ? "Anime night" : "Friends love this",
-      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: t.imdb_rating ?? null,
-      rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
+      posterUrl: getPosterWithFallback(t.posterUrl, t.backdropUrl),
+      imdbRating: t.imdbRating ?? null,
+      rtTomatoMeter: t.rtTomatoMeter ?? null,
     });
     usedTitleIds.add(titleId);
   });
@@ -361,9 +386,9 @@ const fetchHomeRecommendations = async (
         name: t.title ?? "Untitled",
         year: t.year ?? new Date().getFullYear(),
         matchReason: `On your watchlist after ${seedTitle.title ?? "that favorite"}.`,
-        posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-        imdbRating: t.imdb_rating ?? null,
-        rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
+        posterUrl: getPosterWithFallback(t.posterUrl, t.backdropUrl),
+        imdbRating: t.imdbRating ?? null,
+        rtTomatoMeter: t.rtTomatoMeter ?? null,
       });
       usedTitleIds.add(titleId);
     });
@@ -390,9 +415,9 @@ const fetchHomeRecommendations = async (
       name: t.title ?? "Untitled",
       year: t.year ?? new Date().getFullYear(),
       matchReason: "Anime in your catalog and trending in MoviNesta.",
-      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
-      imdbRating: t.imdb_rating ?? null,
-      rtTomatoMeter: t.omdb_rt_rating_pct ?? null,
+      posterUrl: getPosterWithFallback(t.posterUrl, t.backdropUrl),
+      imdbRating: t.imdbRating ?? null,
+      rtTomatoMeter: t.rtTomatoMeter ?? null,
     });
     usedTitleIds.add(t.id);
   });
@@ -415,8 +440,8 @@ const fetchHomeRecommendations = async (
     if (!t || usedTitleIds.has(titleId)) return;
 
     const libraryEntry = libraryEntries.find((entry) => entry.title_id === titleId);
-    const imdbRating = t.imdb_rating ?? null;
-    const rtTomatoMeter = t.omdb_rt_rating_pct ?? null;
+    const imdbRating = t.imdbRating ?? null;
+    const rtTomatoMeter = t.rtTomatoMeter ?? null;
 
     let matchReason: string | undefined;
     if (libraryEntry?.status === "watching") {
@@ -429,9 +454,9 @@ const fetchHomeRecommendations = async (
       id: t.id,
       name: t.title ?? "Untitled",
       year: t.year ?? new Date().getFullYear(),
-      runtimeMinutes: t.runtime_minutes ?? undefined,
+      runtimeMinutes: t.runtimeMinutes ?? undefined,
       matchReason,
-      posterUrl: getPosterWithFallback(t.poster_url, t.backdrop_url),
+      posterUrl: getPosterWithFallback(t.posterUrl, t.backdropUrl),
       imdbRating,
       rtTomatoMeter,
     });
