@@ -5,7 +5,7 @@ import {
   type LibraryRow,
   computeTopGenres,
   mapGenresById,
-  type TitleGenreRow,
+  type MediaItemGenreRow,
   type GenreLookupRow,
 } from "../modules/diary/diaryStatsReducer";
 
@@ -65,11 +65,10 @@ describe("computeTopGenres", () => {
       { title_id: "c", status: "watching", updated_at: "2024-01-03" },
     ];
 
-    const titleGenres: TitleGenreRow[] = [
-      { title_id: "a", genre_id: 10 },
-      { title_id: "b", genre_id: 11 },
-      { title_id: "c", genre_id: 12 },
-      { title_id: "a", genre_id: 10 },
+    const mediaItems: MediaItemGenreRow[] = [
+      { id: "a", tmdb_genre_ids: [10, 10] },
+      { id: "b", tmdb_genre_ids: [11] },
+      { id: "c", tmdb_genre_ids: [12] },
     ];
 
     const genres: GenreLookupRow[] = [
@@ -78,7 +77,7 @@ describe("computeTopGenres", () => {
       { id: 12, name: "Horror" },
     ];
 
-    const result = computeTopGenres(watched, titleGenres, mapGenresById(genres));
+    const result = computeTopGenres(watched, mediaItems, mapGenresById(genres));
 
     expect(result).toEqual([
       { genre: "Drama", count: 2 },

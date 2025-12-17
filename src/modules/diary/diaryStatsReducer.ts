@@ -47,7 +47,7 @@ type GenreRow = Database["public"]["Tables"]["genres"]["Row"];
 
 type GenreLookupRow = Pick<GenreRow, "id" | "name">;
 
-type TitleGenreRow = Database["public"]["Tables"]["title_genres"]["Row"];
+type MediaItemGenreRow = Pick<Database["public"]["Tables"]["media_items"]["Row"], "id" | "tmdb_genre_ids">;
 
 export const mapGenresById = (rows: GenreLookupRow[]): Map<number, string> => {
   return new Map(rows.map((g) => [g.id, g.name]));
@@ -55,10 +55,10 @@ export const mapGenresById = (rows: GenreLookupRow[]): Map<number, string> => {
 
 export const computeTopGenres = (
   watchedRows: LibraryRow[],
-  titleGenres: TitleGenreRow[],
+  mediaItems: MediaItemGenreRow[],
   genresById: Map<number, string>,
 ): GenreStat[] => {
-  if (!watchedRows.length || !titleGenres.length || genresById.size === 0) {
+  if (!watchedRows.length || !mediaItems.length || genresById.size === 0) {
     return [];
   }
 
@@ -70,12 +70,14 @@ export const computeTopGenres = (
   );
 
   const genreCountMap = new Map<string, number>();
+  const watchedMedia = mediaItems.filter((row) => watchedIds.has(row.id) && Array.isArray(row.tmdb_genre_ids));
 
-  titleGenres.forEach((row) => {
-    if (!watchedIds.has(row.title_id)) return;
-    const name = genresById.get(row.genre_id);
-    if (!name) return;
-    genreCountMap.set(name, (genreCountMap.get(name) ?? 0) + 1);
+  watchedMedia.forEach((row) => {
+    (row.tmdb_genre_ids ?? []).forEach((genreId) => {
+      const name = genresById.get(genreId);
+      if (!name) return;
+      genreCountMap.set(name, (genreCountMap.get(name) ?? 0) + 1);
+    });
   });
 
   return Array.from(genreCountMap.entries())
@@ -136,4 +138,4 @@ export const reduceDiaryStats = (
   };
 };
 
-export type { LibraryRow, RatingsRow, GenreLookupRow, TitleGenreRow };
+export type { LibraryRow, RatingsRow, GenreLookupRow, MediaItemGenreRow };
