@@ -18,6 +18,7 @@ import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { tmdbImageUrl } from "@/lib/tmdb";
 import { TitleType } from "@/types/supabase-helpers";
 import type { SwipeCardData } from "../swipe/useSwipeDeck";
+import { fetchMediaSwipeDeck, getOrCreateMediaSwipeSessionId } from "../swipe/mediaSwipeApi";
 
 interface TitleRow {
   title_id: string;
@@ -76,6 +77,7 @@ const TitleDetailPage: React.FC = () => {
   const { titleId } = useParams<{ titleId: string }>();
   const navigate = useNavigate();
   const [startingConversationFor, setStartingConversationFor] = React.useState<string | null>(null);
+  const swipeSessionId = React.useMemo(() => getOrCreateMediaSwipeSessionId(), []);
 
   const handleStartConversation = async (targetUserId: string) => {
     if (!user?.id) {
@@ -294,14 +296,31 @@ const TitleDetailPage: React.FC = () => {
     gcTime: 1000 * 60 * 60,
     queryFn: async () => {
       if (!titleId) return [];
-      const payload = await callSupabaseFunction<{ cards?: SwipeCardData[] }>(
-        "swipe-more-like-this",
-        { titleId },
-        { timeoutMs: 25000 },
-      );
+      try {
+        const { cards } = await fetchMediaSwipeDeck(
+          {
+            sessionId: swipeSessionId,
+            mode: "combined",
+            limit: 18,
+            seed: titleId,
+          },
+          { timeoutMs: 20000 },
+        );
 
-      const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-      return cards.filter((card) => Boolean(card?.id && card?.title));
+        return (cards ?? [])
+          .map((card) => ({
+            id: String(card.mediaItemId),
+            title: (card.title ?? "Untitled").trim() || "Untitled",
+            year: card.releaseYear ?? null,
+            tmdbPosterPath: card.tmdbPosterPath ?? null,
+            posterUrl: card.posterUrl ?? null,
+            source: null,
+          }))
+          .filter((card) => Boolean(card.id && card.title));
+      } catch (err) {
+        console.warn("[TitleDetailPage] more-like-this failed", err);
+        return [];
+      }
     },
   });
 

@@ -9,7 +9,10 @@ export type MediaSwipeEventType =
   | "dislike"
   | "skip"
   | "watchlist"
-  | "rating";
+  | "rating"
+  | "open"
+  | "seen"
+  | "share";
 
 export type MediaSwipeCard = {
   mediaItemId: string;
@@ -57,20 +60,7 @@ export type SendMediaSwipeEventInput = {
   payload?: Record<string, unknown> | null;
 };
 
-function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("Request timed out")), ms);
-    p.then((v) => {
-      clearTimeout(t);
-      resolve(v);
-    }).catch((e) => {
-      clearTimeout(t);
-      reject(e);
-    });
-  });
-}
-
-function uuidv4Fallback(): string {
+export function uuidv4Fallback(): string {
   // RFC4122-ish UUID v4 (good enough as a client session id)
   // eslint-disable-next-line no-bitwise
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -95,6 +85,25 @@ export function getOrCreateMediaSwipeSessionId(): string {
   return id;
 }
 
+function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("Request timed out")), ms);
+    p.then((v) => {
+      clearTimeout(t);
+      resolve(v);
+    }).catch((e) => {
+      clearTimeout(t);
+      reject(e);
+    });
+  });
+}
+
+function ensureClientEventId(value: string | null | undefined): string {
+  if (value && typeof value === "string") return value;
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return uuidv4Fallback();
+}
+
 export async function fetchMediaSwipeDeck(
   input: FetchMediaSwipeDeckInput,
   opts?: { timeoutMs?: number },
@@ -115,7 +124,12 @@ export async function sendMediaSwipeEvent(
   input: SendMediaSwipeEventInput,
   opts?: { timeoutMs?: number },
 ): Promise<{ ok: true } | { ok: false; message?: string }> {
-  const run = supabase.functions.invoke("media-swipe-event", { body: input });
+  const payload = {
+    ...input,
+    clientEventId: ensureClientEventId(input.clientEventId),
+  };
+
+  const run = supabase.functions.invoke("media-swipe-event", { body: payload });
 
   const res = await timeout(run, opts?.timeoutMs ?? 20000);
   if (res.error) throw res.error;
