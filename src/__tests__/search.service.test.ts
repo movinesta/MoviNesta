@@ -13,8 +13,26 @@ const mockInvoke = vi.hoisted(() =>
 
 vi.mock("../lib/supabase", () => {
   const createBuilder = () => {
-    return {
-      select: vi.fn().mockReturnThis(),
+    const builder: any = {
+      _upsertPayload: null as any,
+      _result: null as any,
+      select: vi.fn(function select() {
+        if (builder._upsertPayload) {
+          const mapped =
+            (builder._upsertPayload as any[])?.map((row) => {
+              const match = state.invokeResponses.find((resp) => resp.tmdbId === row.tmdb_id);
+              return { id: match?.titleId ?? null, tmdb_id: row.tmdb_id };
+            }) ?? [];
+          builder._result = { data: mapped, error: null, count: mapped.length };
+        } else {
+          builder._result = {
+            data: state.supabaseRows,
+            error: null,
+            count: state.supabaseRows.length,
+          };
+        }
+        return builder;
+      }),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       range: vi.fn().mockReturnThis(),
@@ -24,15 +42,24 @@ vi.mock("../lib/supabase", () => {
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
+      overlaps: vi.fn().mockReturnThis(),
+      upsert: vi.fn((payload: any) => {
+        builder._upsertPayload = payload;
+        return builder;
+      }),
       then: (onfulfilled: (value: any) => any) => {
-        const result = {
-          data: state.supabaseRows,
-          error: null,
-          count: state.supabaseRows.length,
-        };
+        const result =
+          builder._result ??
+          ({
+            data: state.supabaseRows,
+            error: null,
+            count: state.supabaseRows.length,
+          } as any);
         return Promise.resolve(result).then(onfulfilled);
       },
-    } satisfies Record<string, unknown>;
+    };
+
+    return builder satisfies Record<string, unknown>;
   };
 
   return {
@@ -50,20 +77,28 @@ vi.mock("../modules/search/externalMovieSearch", () => ({
 // Import after mocks are registered.
 import { searchTitles } from "../modules/search/search.service";
 
-const makeTitleRow = (overrides: Partial<any> = {}) => ({
-  title_id: "local-1",
-  primary_title: "Local Title",
-  original_title: null,
-  release_year: 2020,
-  content_type: "movie",
-  poster_url: null,
-  backdrop_url: null,
-  language: "en",
-  omdb_rated: null,
-  omdb_imdb_id: null,
+const makeMediaItemRow = (overrides: Partial<any> = {}) => ({
+  id: "local-1",
+  kind: "movie",
   tmdb_id: 123,
-  imdb_rating: null,
-  omdb_rt_rating_pct: null,
+  tmdb_title: "Local Title",
+  tmdb_name: null,
+  tmdb_original_title: null,
+  tmdb_original_name: null,
+  tmdb_release_date: "2020-01-01",
+  tmdb_first_air_date: null,
+  tmdb_poster_path: null,
+  tmdb_backdrop_path: null,
+  tmdb_original_language: "en",
+  tmdb_genre_ids: [],
+  omdb_title: null,
+  omdb_year: null,
+  omdb_language: null,
+  omdb_imdb_id: null,
+  omdb_imdb_rating: null,
+  omdb_rating_rotten_tomatoes: null,
+  omdb_poster: null,
+  omdb_rated: null,
   ...overrides,
 });
 
@@ -88,8 +123,8 @@ describe("searchTitles merge logic", () => {
 
   it("dedupes Supabase and TMDb results on tmdbId while preserving library entries", async () => {
     state.supabaseRows = [
-      makeTitleRow({ title_id: "library-1", primary_title: "Library Hit", tmdb_id: 111 }),
-      makeTitleRow({ title_id: "library-2", primary_title: "Already Synced", tmdb_id: 222 }),
+      makeMediaItemRow({ id: "library-1", tmdb_title: "Library Hit", tmdb_id: 111 }),
+      makeMediaItemRow({ id: "library-2", tmdb_title: "Already Synced", tmdb_id: 222 }),
     ];
 
     state.externalResults = [
@@ -111,7 +146,7 @@ describe("searchTitles merge logic", () => {
 
   it("places library results first, then synced external titles, then external-only entries", async () => {
     state.supabaseRows = [
-      makeTitleRow({ title_id: "library-1", primary_title: "Library", tmdb_id: 111 }),
+      makeMediaItemRow({ id: "library-1", tmdb_title: "Library", tmdb_id: 111 }),
     ];
 
     state.externalResults = [
@@ -127,7 +162,6 @@ describe("searchTitles merge logic", () => {
     const page = await searchTitles({ query: "test" });
     const results = page.results;
 
-    expect(mockInvoke).toHaveBeenCalledTimes(1);
     expect(results.map((item) => ({ id: item.id, type: item.type, source: item.source }))).toEqual([
       { id: "library-1", type: "movie", source: "library" },
       { id: "synced-222", type: "series", source: "external-synced" },
