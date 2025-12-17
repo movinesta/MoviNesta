@@ -1,29 +1,15 @@
 /**
- * media-swipe-event (v2, smart)
+ * media-swipe-event (v3, hybrid smart)
  *
- * Inserts a single event into public.media_events.
- * A DB trigger updates/maintains public.media_feedback (compact memory) automatically.
+ * Goals:
+ * - Keep media_events useful but not huge:
+ *   - impression: at most 1 per day per user+item (DB unique index)
+ *   - dwell: bucket + at most 1 per day per bucket per user+item (DB unique index)
+ * - Keep media_feedback compact and up-to-date (handled by DB trigger you already installed)
+ * - Support idempotency for all events via clientEventId
  *
- * Idempotency:
- * - If client_event_id is provided, we UPSERT on (user_id, client_event_id) and ignore duplicates.
- *
- * Server-side bucketing:
- * - dwell is ignored if dwell_ms < DWELL_MIN_MS.
- *
- * Expected JSON body:
- * {
- *   sessionId: string (uuid),
- *   deckId?: string (uuid),
- *   position?: number,
- *   mediaItemId: string (uuid),
- *   eventType: "impression" | "like" | "dislike" | "skip" | "dwell" | ...,
- *   source?: string,
- *   dwellMs?: number,
- *   rating0_10?: number,
- *   inWatchlist?: boolean,
- *   clientEventId?: string (uuid),
- *   payload?: object
- * }
+ * This function inserts/upserts a single event into public.media_events.
+ * Rollups and feedback are maintained inside Postgres via triggers.
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -43,13 +29,29 @@ function json(status: number, body: unknown) {
   });
 }
 
+function utcDay(): string {
+  // YYYY-MM-DD
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function bucketDwell(ms: number): number {
+  // Buckets: 2s, 5s, 12s, 20s (cap)
+  if (ms < 3000) return 2000;
+  if (ms < 8000) return 5000;
+  if (ms < 20000) return 12000;
+  return 20000;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return json(200, { ok: true });
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-
     const authHeader = req.headers.get("Authorization") ?? "";
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -70,14 +72,18 @@ serve(async (req) => {
       return json(400, { ok: false, code: "MISSING_FIELDS" });
     }
 
-    const dwellMs = typeof body.dwellMs === "number" ? Math.round(body.dwellMs) : null;
+    const day = utcDay();
 
-    if (eventType === "dwell" && dwellMs !== null && dwellMs < DWELL_MIN_MS) {
-      // ignore low-information dwells
-      return json(200, { ok: true, ignored: true });
+    let dwellMs: number | null =
+      typeof body.dwellMs === "number" && Number.isFinite(body.dwellMs) ? Math.round(body.dwellMs) : null;
+
+    // Bucket + threshold dwell (server-side)
+    if (eventType === "dwell" && dwellMs !== null) {
+      if (dwellMs < DWELL_MIN_MS) return json(200, { ok: true, ignored: true });
+      dwellMs = bucketDwell(dwellMs);
     }
 
-    const insertRow = {
+    const insertRow: Record<string, unknown> = {
       user_id: auth.user.id,
       session_id: sessionId,
       deck_id: body.deckId ?? null,
@@ -90,9 +96,10 @@ serve(async (req) => {
       in_watchlist: typeof body.inWatchlist === "boolean" ? body.inWatchlist : null,
       client_event_id: body.clientEventId ?? null,
       payload: body.payload ?? null,
+      event_day: day,
     };
 
-    // If client_event_id is present, upsert with ignore duplicates
+    // 1) Idempotent path: client_event_id
     if (insertRow.client_event_id) {
       const { error } = await supabase
         .from("media_events")
@@ -101,11 +108,36 @@ serve(async (req) => {
           ignoreDuplicates: true,
         });
 
-      if (error) return json(500, { ok: false, code: "INSERT_FAILED", message: error.message });
+      if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
       return json(200, { ok: true });
     }
 
-    // Otherwise plain insert (legacy clients)
+    // 2) High-volume telemetry: use dedupe indexes
+    if (eventType === "impression") {
+      const { error } = await supabase
+        .from("media_events")
+        .upsert(insertRow, {
+          onConflict: "user_id,media_item_id,event_day,event_type",
+          ignoreDuplicates: true,
+        });
+
+      if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
+      return json(200, { ok: true });
+    }
+
+    if (eventType === "dwell") {
+      const { error } = await supabase
+        .from("media_events")
+        .upsert(insertRow, {
+          onConflict: "user_id,media_item_id,event_day,event_type,dwell_ms",
+          ignoreDuplicates: true,
+        });
+
+      if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
+      return json(200, { ok: true });
+    }
+
+    // 3) Explicit events: plain insert
     const { error } = await supabase.from("media_events").insert(insertRow);
     if (error) return json(500, { ok: false, code: "INSERT_FAILED", message: error.message });
 
