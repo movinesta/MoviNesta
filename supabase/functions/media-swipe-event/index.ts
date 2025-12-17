@@ -1,15 +1,16 @@
 /**
  * media-swipe-event (v3, hybrid smart)
  *
- * Goals:
- * - Keep media_events useful but not huge:
- *   - impression: at most 1 per day per user+item (DB unique index)
- *   - dwell: bucket + at most 1 per day per bucket per user+item (DB unique index)
- * - Keep media_feedback compact and up-to-date (handled by DB trigger you already installed)
- * - Support idempotency for all events via clientEventId
+ * Writes to public.media_events. Postgres triggers maintain:
+ * - media_feedback (brain memory)
+ * - media_item_daily rollups (trending/analytics)
  *
- * This function inserts/upserts a single event into public.media_events.
- * Rollups and feedback are maintained inside Postgres via triggers.
+ * Dedup strategy:
+ * - impression: 1/day/user/item (upsert)
+ * - dwell: bucketed + 1/day/user/item/bucket (upsert)
+ *
+ * Idempotency:
+ * - clientEventId (uuid) if provided (recommended)
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -30,7 +31,6 @@ function json(status: number, body: unknown) {
 }
 
 function utcDay(): string {
-  // YYYY-MM-DD
   const d = new Date();
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -39,7 +39,6 @@ function utcDay(): string {
 }
 
 function bucketDwell(ms: number): number {
-  // Buckets: 2s, 5s, 12s, 20s (cap)
   if (ms < 3000) return 2000;
   if (ms < 8000) return 5000;
   if (ms < 20000) return 12000;
@@ -77,7 +76,6 @@ serve(async (req) => {
     let dwellMs: number | null =
       typeof body.dwellMs === "number" && Number.isFinite(body.dwellMs) ? Math.round(body.dwellMs) : null;
 
-    // Bucket + threshold dwell (server-side)
     if (eventType === "dwell" && dwellMs !== null) {
       if (dwellMs < DWELL_MIN_MS) return json(200, { ok: true, ignored: true });
       dwellMs = bucketDwell(dwellMs);
@@ -99,27 +97,21 @@ serve(async (req) => {
       event_day: day,
     };
 
-    // 1) Idempotent path: client_event_id
+    // client idempotency
     if (insertRow.client_event_id) {
       const { error } = await supabase
         .from("media_events")
-        .upsert(insertRow, {
-          onConflict: "user_id,client_event_id",
-          ignoreDuplicates: true,
-        });
+        .upsert(insertRow, { onConflict: "user_id,client_event_id", ignoreDuplicates: true });
 
       if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
       return json(200, { ok: true });
     }
 
-    // 2) High-volume telemetry: use dedupe indexes
+    // dedup high-volume telemetry
     if (eventType === "impression") {
       const { error } = await supabase
         .from("media_events")
-        .upsert(insertRow, {
-          onConflict: "user_id,media_item_id,event_day,event_type",
-          ignoreDuplicates: true,
-        });
+        .upsert(insertRow, { onConflict: "user_id,media_item_id,event_day,event_type", ignoreDuplicates: true });
 
       if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
       return json(200, { ok: true });
@@ -137,7 +129,7 @@ serve(async (req) => {
       return json(200, { ok: true });
     }
 
-    // 3) Explicit events: plain insert
+    // explicit events
     const { error } = await supabase.from("media_events").insert(insertRow);
     if (error) return json(500, { ok: false, code: "INSERT_FAILED", message: error.message });
 
