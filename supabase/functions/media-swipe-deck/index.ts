@@ -1,26 +1,11 @@
 /**
- * media-swipe-deck (contract v1) — FIXED
+ * media-swipe-deck (contract v1) — runtime column fix
  *
- * Fixes runtime error:
- *   "supabase.rpc(...).single(...).catch is not a function"
+ * Fixes:
+ * - "column media_items.tmdb_runtime does not exist"
  *
- * Notes:
- * - We DO NOT call pg_catalog functions via rpc.
- * - Trending mode uses public.media_trending_scores if available; otherwise falls back to tmdb_popularity.
- *
- * Response contract (must stay stable):
- * {
- *   deckId: uuid/string,
- *   cards: Array<{
- *     mediaItemId: uuid,
- *     title, overview, kind,
- *     releaseDate, releaseYear, runtimeMinutes,
- *     posterUrl, tmdbPosterPath, tmdbBackdropPath,
- *     tmdbVoteAverage, tmdbVoteCount, tmdbPopularity,
- *     completeness,
- *     source
- *   }>
- * }
+ * Your schema does NOT have tmdb_runtime as a dedicated column.
+ * We derive runtimeMinutes from omdb_runtime ("122 min") when present.
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -44,9 +29,6 @@ function randomUuid(): string {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
 }
 
-type Mode = "for_you" | "friends" | "trending" | "combined";
-type Kind = "movie" | "series" | "anime";
-
 function pickTitle(mi: any): string | null {
   return (mi.tmdb_title ?? mi.tmdb_name ?? mi.omdb_title ?? null) as string | null;
 }
@@ -57,6 +39,15 @@ function pickOverview(mi: any): string | null {
 
 function pickRelease(mi: any): string | null {
   return (mi.tmdb_release_date ?? mi.tmdb_first_air_date ?? null) as string | null;
+}
+
+function parseOmdbRuntimeMinutes(omdbRuntime: unknown): number | null {
+  if (typeof omdbRuntime !== "string") return null;
+  // examples: "122 min", "N/A"
+  const m = omdbRuntime.match(/(\d+)\s*min/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
 }
 
 serve(async (req) => {
@@ -77,9 +68,9 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     if (!body) return json(400, { ok: false, code: "BAD_JSON" });
 
-    const mode = (body.mode ?? "for_you") as Mode;
+    const mode = String(body.mode ?? "for_you");
     const limit = Math.min(Math.max(Number(body.limit ?? 60) || 60, 1), 120);
-    const kindFilter = (body.kindFilter ?? null) as Kind | null;
+    const kindFilter = body.kindFilter ? String(body.kindFilter) : null;
 
     const deckId = randomUuid();
 
@@ -92,7 +83,6 @@ serve(async (req) => {
       "tmdb_overview",
       "tmdb_release_date",
       "tmdb_first_air_date",
-      "tmdb_runtime",
       "tmdb_poster_path",
       "tmdb_backdrop_path",
       "tmdb_vote_average",
@@ -100,9 +90,9 @@ serve(async (req) => {
       "tmdb_popularity",
       "omdb_title",
       "omdb_plot",
+      "omdb_runtime",
     ].join(",");
 
-    // Helper: fallback query from media_items
     const fetchFallback = async () => {
       let q = supabase
         .from("media_items")
@@ -122,15 +112,14 @@ serve(async (req) => {
     let items: any[] = [];
 
     if (mode === "trending") {
-      // Try trending scores table; if it doesn't exist, fall back.
+      // Try trending scores table; if missing, fallback.
       try {
-        let tq = supabase
+        const { data: top, error: terr } = await supabase
           .from("media_trending_scores")
           .select("media_item_id, score")
           .order("score", { ascending: false })
           .limit(limit * 3);
 
-        const { data: top, error: terr } = await tq;
         if (terr) throw terr;
 
         const ids = (top ?? []).map((r: any) => r.media_item_id).filter(Boolean);
@@ -150,7 +139,6 @@ serve(async (req) => {
           const byId = new Map<string, any>();
           for (const mi of got ?? []) byId.set(mi.id, mi);
 
-          // Preserve trending order
           items = ids.map((id: string) => byId.get(id)).filter(Boolean).slice(0, limit);
         } else {
           items = await fetchFallback();
@@ -159,30 +147,34 @@ serve(async (req) => {
         items = await fetchFallback();
       }
     } else {
-      // for_you / friends / combined: baseline fallback until your "brain" replaces this query
       items = await fetchFallback();
     }
 
     const cards = (items ?? []).map((mi: any) => {
       const releaseDate = pickRelease(mi);
       const releaseYear = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
-      const runtimeMinutes = mi.tmdb_runtime != null ? Number(mi.tmdb_runtime) : null;
+
+      const runtimeMinutes = parseOmdbRuntimeMinutes(mi.omdb_runtime);
 
       return {
         mediaItemId: mi.id,
         title: pickTitle(mi),
         overview: pickOverview(mi),
-        kind: (mi.kind ?? "unknown") as any,
+        kind: mi.kind ?? "unknown",
         releaseDate,
         releaseYear,
         runtimeMinutes,
+
         posterUrl: null,
         tmdbPosterPath: mi.tmdb_poster_path ?? null,
         tmdbBackdropPath: mi.tmdb_backdrop_path ?? null,
+
         tmdbVoteAverage: mi.tmdb_vote_average != null ? Number(mi.tmdb_vote_average) : null,
         tmdbVoteCount: mi.tmdb_vote_count != null ? Number(mi.tmdb_vote_count) : null,
         tmdbPopularity: mi.tmdb_popularity != null ? Number(mi.tmdb_popularity) : null,
+
         completeness: mi.completeness != null ? Number(mi.completeness) : null,
+
         source: mode,
       };
     });
