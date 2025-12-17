@@ -1,17 +1,19 @@
 /**
- * media-embed-backfill — Remove 'doc' column writes v1
+ * media-embed-backfill — Auto Pagination via DB state (no afterId required)
  *
- * Fixes error:
- *   Could not find the 'doc' column of 'media_embeddings' in the schema cache
+ * Your logs show repeated calls with afterId:null, which re-scan the same first page forever.
+ * This version stores a cursor in public.media_job_state(job_name='media-embed-backfill') and uses it automatically.
  *
- * Your media_embeddings table does NOT have a 'doc' column, but the backfill
- * was trying to upsert it. This patch removes that field from inserts/upserts.
+ * Behavior:
+ * - effectiveAfterId = body.afterId ?? (body.useSavedCursor !== false ? db cursor : null)
+ * - after each run (even if 0 embedded), cursor is updated to next_after_id
+ * - when next_after_id is null, cursor is set to null (job finished)
  *
- * Keeps:
- * - no filtering (scan all media_items)
- * - pagination via afterId
- * - retries + embedding dimension check
- * - error logging via MEDIA_EMBED_BACKFILL_ERROR
+ * Inputs:
+ * { batchSize?: number, afterId?: string, reembed?: boolean, kind?: string, useSavedCursor?: boolean }
+ *
+ * Outputs:
+ * { ok, scanned, embedded, skipped_existing, next_after_id, used_after_id, cursor_saved }
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -27,9 +29,7 @@ type EmbeddingResp = {
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(n, b));
 
 function respond(status: number, body: any) {
-  if (status >= 400) {
-    console.error("MEDIA_EMBED_BACKFILL_ERROR", JSON.stringify(body));
-  }
+  if (status >= 400) console.error("MEDIA_EMBED_BACKFILL_ERROR", JSON.stringify(body));
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
@@ -59,6 +59,36 @@ async function callJina(docs: string[]): Promise<number[][]> {
   throw lastErr ?? new Error("Unknown Jina error");
 }
 
+async function getSavedCursor(supabase: any): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("media_job_state")
+    .select("cursor")
+    .eq("job_name", "media-embed-backfill")
+    .maybeSingle();
+
+  if (error) {
+    // If table doesn't exist yet, behave like "no cursor".
+    console.warn("MEDIA_EMBED_BACKFILL_WARN saved cursor read failed:", error.message);
+    return null;
+  }
+  return data?.cursor ? String(data.cursor) : null;
+}
+
+async function saveCursor(supabase: any, cursor: string | null): Promise<boolean> {
+  const { error } = await supabase
+    .from("media_job_state")
+    .upsert(
+      { job_name: "media-embed-backfill", cursor, updated_at: new Date().toISOString() },
+      { onConflict: "job_name" },
+    );
+
+  if (error) {
+    console.warn("MEDIA_EMBED_BACKFILL_WARN cursor save failed:", error.message);
+    return false;
+  }
+  return true;
+}
+
 serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -66,12 +96,19 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = await req.json().catch(() => ({}));
-    const batchSize = clamp(Number(body.batchSize ?? 30), 1, 120);
-    const afterId = typeof body.afterId === "string" ? body.afterId : null;
+    const batchSize = clamp(Number(body.batchSize ?? 32), 1, 120);
+    const explicitAfterId = typeof body.afterId === "string" ? body.afterId : null;
+    const useSavedCursor = body.useSavedCursor === false ? false : true;
     const reembed = Boolean(body.reembed ?? false);
     const kindFilter = typeof body.kind === "string" ? body.kind : null;
 
-    console.log("MEDIA_EMBED_BACKFILL_START", JSON.stringify({ batchSize, afterId, reembed, kindFilter }));
+    const savedCursor = useSavedCursor && !explicitAfterId ? await getSavedCursor(supabase) : null;
+    const usedAfterId = explicitAfterId ?? savedCursor;
+
+    console.log(
+      "MEDIA_EMBED_BACKFILL_START",
+      JSON.stringify({ batchSize, afterId: usedAfterId, reembed, kindFilter, useSavedCursor }),
+    );
 
     let q = supabase
       .from("media_items")
@@ -99,13 +136,23 @@ serve(async (req) => {
       .order("id", { ascending: true })
       .limit(batchSize);
 
-    if (afterId) q = q.gt("id", afterId);
+    if (usedAfterId) q = q.gt("id", usedAfterId);
     if (kindFilter) q = q.eq("kind", kindFilter);
 
     const { data: items, error: itemsErr } = await q;
     if (itemsErr) return respond(500, { ok: false, code: "FETCH_FAILED", message: itemsErr.message });
+
     if (!items?.length) {
-      return respond(200, { ok: true, scanned: 0, embedded: 0, skipped_existing: 0, next_after_id: null });
+      const cursorSaved = useSavedCursor ? await saveCursor(supabase, null) : false;
+      return respond(200, {
+        ok: true,
+        scanned: 0,
+        embedded: 0,
+        skipped_existing: 0,
+        next_after_id: null,
+        used_after_id: usedAfterId,
+        cursor_saved: cursorSaved,
+      });
     }
 
     let todo = items as any[];
@@ -127,6 +174,9 @@ serve(async (req) => {
 
     const nextAfterId = items.length === batchSize ? String(items[items.length - 1].id) : null;
 
+    // Save cursor even if we didn't embed anything (prevents infinite "skip existing first page" loops)
+    const cursorSaved = useSavedCursor ? await saveCursor(supabase, nextAfterId) : false;
+
     if (!todo.length) {
       console.log("MEDIA_EMBED_BACKFILL_SKIP_ALL_EXISTING", JSON.stringify({ scanned: items.length, nextAfterId }));
       return respond(200, {
@@ -135,6 +185,8 @@ serve(async (req) => {
         embedded: 0,
         skipped_existing: skippedExisting,
         next_after_id: nextAfterId,
+        used_after_id: usedAfterId,
+        cursor_saved: cursorSaved,
         reembed,
       });
     }
@@ -153,6 +205,8 @@ serve(async (req) => {
         url: JINA_EMBEDDINGS_URL,
         batchSize: docs.length,
         next_after_id: nextAfterId,
+        used_after_id: usedAfterId,
+        cursor_saved: cursorSaved,
       });
     }
 
@@ -163,6 +217,8 @@ serve(async (req) => {
         message: `got ${vecs.length} embeddings for ${todo.length} docs`,
         model: JINA_MODEL,
         next_after_id: nextAfterId,
+        used_after_id: usedAfterId,
+        cursor_saved: cursorSaved,
       });
     }
 
@@ -175,10 +231,11 @@ serve(async (req) => {
         message: `embedding dim mismatch at index ${badDim}: got ${vecs[badDim]?.length}, expected ${expectedDim}`,
         model: JINA_MODEL,
         next_after_id: nextAfterId,
+        used_after_id: usedAfterId,
+        cursor_saved: cursorSaved,
       });
     }
 
-    // IMPORTANT: no 'doc' column in media_embeddings — do NOT send it.
     const rows = todo.map((mi, i) => ({
       media_item_id: mi.id,
       embedding: vecs[i],
@@ -197,6 +254,8 @@ serve(async (req) => {
         code: "UPSERT_FAILED",
         message: upErr.message,
         next_after_id: nextAfterId,
+        used_after_id: usedAfterId,
+        cursor_saved: cursorSaved,
       });
     }
 
@@ -208,6 +267,8 @@ serve(async (req) => {
       embedded: rows.length,
       skipped_existing: skippedExisting,
       next_after_id: nextAfterId,
+      used_after_id: usedAfterId,
+      cursor_saved: cursorSaved,
       reembed,
     });
   } catch (err) {
