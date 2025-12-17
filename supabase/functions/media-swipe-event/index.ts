@@ -45,6 +45,31 @@ function bucketDwell(ms: number): number {
   return 20000;
 }
 
+const ALLOWED_EVENT_TYPES = new Set([
+  "impression",
+  "dwell",
+  "like",
+  "dislike",
+  "skip",
+  "watchlist",
+  "rating",
+]);
+
+function normalizeEventType(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const raw = input.trim().toLowerCase();
+  if (!raw) return null;
+
+  // Support a few common synonyms / legacy names
+  const mapped =
+    raw === "swipe_right" ? "like"
+    : raw === "swipe_left" ? "dislike"
+    : raw === "pass" ? "skip"
+    : raw;
+
+  return ALLOWED_EVENT_TYPES.has(mapped) ? mapped : null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return json(200, { ok: true });
 
@@ -65,12 +90,20 @@ serve(async (req) => {
 
     const sessionId = body.sessionId as string | undefined;
     const mediaItemId = body.mediaItemId as string | undefined;
-    const eventType = body.eventType as string | undefined;
+    const eventType = normalizeEventType(body.eventType);
 
-    if (!sessionId || !mediaItemId || !eventType) {
+    if (!sessionId || !mediaItemId) {
       return json(400, { ok: false, code: "MISSING_FIELDS" });
     }
 
+    if (!eventType) {
+      return json(400, {
+        ok: false,
+        code: "INVALID_EVENT_TYPE",
+        message: `Unsupported eventType: ${String(body.eventType ?? "")} `,
+        allowed: Array.from(ALLOWED_EVENT_TYPES),
+      });
+    }
     const day = utcDay();
 
     let dwellMs: number | null =
@@ -90,8 +123,8 @@ serve(async (req) => {
       event_type: eventType,
       source: body.source ?? null,
       dwell_ms: dwellMs,
-      rating_0_10: typeof body.rating0_10 === "number" ? body.rating0_10 : null,
-      in_watchlist: typeof body.inWatchlist === "boolean" ? body.inWatchlist : null,
+      rating_0_10: eventType === "rating" && typeof body.rating0_10 === "number" ? body.rating0_10 : null,
+      in_watchlist: eventType === "watchlist" && typeof body.inWatchlist === "boolean" ? body.inWatchlist : null,
       client_event_id: body.clientEventId ?? null,
       payload: body.payload ?? null,
       event_day: day,

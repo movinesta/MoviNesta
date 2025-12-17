@@ -299,15 +299,11 @@ const SwipePage: React.FC = () => {
     }) => {
       if (!user?.id || !activeCardRaw) return;
 
-      const eventType =
-        vars.status === WATCHED_STATUS ? ("like" as const) : ("dwell" as const);
-
-      const event: any = {
+      const base: any = {
         sessionId,
         deckId: activeCardRaw.deckId ?? null,
         position: activeCardRaw.position ?? null,
         mediaItemId: activeCardRaw.id,
-        eventType,
         source: activeCardRaw.source ?? null,
         payload: {
           ui: "SwipePage",
@@ -315,19 +311,37 @@ const SwipePage: React.FC = () => {
         },
       };
 
-      if (eventType === "dwell") {
-        event.dwellMs = 0;
-      }
+      const events: any[] = [];
 
-      if (vars.ratingStars !== undefined) {
-        event.rating0_10 = starsToRating0_10(vars.ratingStars);
-      }
-
+      // Status updates
       if (vars.status !== undefined) {
-        event.inWatchlist = vars.status === WATCHLIST_STATUS;
+        if (vars.status === WATCHED_STATUS) {
+          events.push({ ...base, eventType: "like" as const });
+        } else {
+          // watchlist toggle (want_to_watch or clearing it)
+          events.push({
+            ...base,
+            eventType: "watchlist" as const,
+            inWatchlist: vars.status === WATCHLIST_STATUS,
+          });
+        }
       }
 
-      await sendMediaSwipeEvent(event);
+      // Rating updates (explicit event type)
+      if (vars.ratingStars !== undefined) {
+        events.push({
+          ...base,
+          eventType: "rating" as const,
+          rating0_10: starsToRating0_10(vars.ratingStars),
+        });
+      }
+
+      if (!events.length) return;
+
+      // Send sequentially (keeps behavior predictable; avoids partial state updates)
+      for (const e of events) {
+        await sendMediaSwipeEvent(e);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: feedbackQueryKey });
@@ -901,8 +915,6 @@ const SwipePage: React.FC = () => {
     swipe({
       card: activeCardRaw,
       direction,
-      rating0_10: starsToRating0_10(currentUserRating),
-      inWatchlist: diaryEntry.status === WATCHLIST_STATUS,
     });
 
     setDragIntent(null);
