@@ -1,22 +1,34 @@
 /**
- * media-swipe-event (v3, hybrid smart)
+ * media-swipe-event (v4, dedupe-key + full event type support)
  *
- * Writes to public.media_events. Postgres triggers maintain:
- * - media_feedback (brain memory)
- * - media_item_daily rollups (trending/analytics)
+ * Fixes duplicate-key errors by using a single dedupe key:
+ * - DB has UNIQUE (user_id, dedupe_key)
+ * - We UPSERT on (user_id, dedupe_key) with ignoreDuplicates=true
  *
- * Dedup strategy:
- * - impression: 1/day/user/item (upsert)
- * - dwell: bucketed + 1/day/user/item/bucket (upsert)
+ * Supported eventType:
+ * - impression, dwell, like, dislike, skip, watchlist, rating
  *
- * Idempotency:
- * - clientEventId (uuid) if provided (recommended)
+ * Rules:
+ * - watchlist requires inWatchlist boolean
+ * - rating requires rating0_10 number (0..10)
+ * - dwell is bucketed; < 1200ms ignored
+ * - event_day is always set (UTC date)
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const DWELL_MIN_MS = 1200;
+
+const ALLOWED = new Set([
+  "impression",
+  "dwell",
+  "like",
+  "dislike",
+  "skip",
+  "watchlist",
+  "rating",
+]);
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -45,29 +57,10 @@ function bucketDwell(ms: number): number {
   return 20000;
 }
 
-const ALLOWED_EVENT_TYPES = new Set([
-  "impression",
-  "dwell",
-  "like",
-  "dislike",
-  "skip",
-  "watchlist",
-  "rating",
-]);
-
-function normalizeEventType(input: unknown): string | null {
-  if (typeof input !== "string") return null;
-  const raw = input.trim().toLowerCase();
-  if (!raw) return null;
-
-  // Support a few common synonyms / legacy names
-  const mapped =
-    raw === "swipe_right" ? "like"
-    : raw === "swipe_left" ? "dislike"
-    : raw === "pass" ? "skip"
-    : raw;
-
-  return ALLOWED_EVENT_TYPES.has(mapped) ? mapped : null;
+function normalizeEventType(et: unknown): string | null {
+  if (typeof et !== "string") return null;
+  const v = et.trim().toLowerCase();
+  return ALLOWED.has(v) ? v : null;
 }
 
 serve(async (req) => {
@@ -92,26 +85,57 @@ serve(async (req) => {
     const mediaItemId = body.mediaItemId as string | undefined;
     const eventType = normalizeEventType(body.eventType);
 
-    if (!sessionId || !mediaItemId) {
-      return json(400, { ok: false, code: "MISSING_FIELDS" });
+    if (!sessionId || !mediaItemId || !eventType) {
+      return json(400, { ok: false, code: "MISSING_FIELDS_OR_INVALID_TYPE" });
     }
 
-    if (!eventType) {
-      return json(400, {
-        ok: false,
-        code: "INVALID_EVENT_TYPE",
-        message: `Unsupported eventType: ${String(body.eventType ?? "")} `,
-        allowed: Array.from(ALLOWED_EVENT_TYPES),
-      });
-    }
     const day = utcDay();
 
+    // Optional client idempotency
+    const clientEventId = typeof body.clientEventId === "string" && body.clientEventId ? body.clientEventId : null;
+
+    // Derived fields only for matching event types
+    const inWatchlist =
+      eventType === "watchlist" && typeof body.inWatchlist === "boolean" ? body.inWatchlist : null;
+
+    const rating0_10 =
+      eventType === "rating" && typeof body.rating0_10 === "number" && Number.isFinite(body.rating0_10)
+        ? body.rating0_10
+        : null;
+
+    if (eventType === "watchlist" && inWatchlist === null) {
+      return json(400, { ok: false, code: "WATCHLIST_REQUIRES_VALUE" });
+    }
+    if (eventType === "rating" && rating0_10 === null) {
+      return json(400, { ok: false, code: "RATING_REQUIRES_VALUE" });
+    }
+
     let dwellMs: number | null =
-      typeof body.dwellMs === "number" && Number.isFinite(body.dwellMs) ? Math.round(body.dwellMs) : null;
+      eventType === "dwell" && typeof body.dwellMs === "number" && Number.isFinite(body.dwellMs)
+        ? Math.round(body.dwellMs)
+        : null;
 
     if (eventType === "dwell" && dwellMs !== null) {
       if (dwellMs < DWELL_MIN_MS) return json(200, { ok: true, ignored: true });
       dwellMs = bucketDwell(dwellMs);
+    }
+
+    // Compute dedupe_key
+    let dedupeKey = "";
+    if (clientEventId) {
+      dedupeKey = `client:${clientEventId}`;
+    } else if (eventType === "impression") {
+      dedupeKey = `imp:${day}:${mediaItemId}`;
+    } else if (eventType === "dwell") {
+      const b = dwellMs ?? 0;
+      dedupeKey = `dwell:${day}:${mediaItemId}:${b}`;
+    } else if (eventType === "watchlist") {
+      dedupeKey = `wl:${day}:${mediaItemId}:${inWatchlist ? 1 : 0}`;
+    } else if (eventType === "rating") {
+      dedupeKey = `rate:${day}:${mediaItemId}:${String(rating0_10)}`;
+    } else {
+      // like/dislike/skip
+      dedupeKey = `act:${day}:${mediaItemId}:${eventType}`;
     }
 
     const insertRow: Record<string, unknown> = {
@@ -123,48 +147,19 @@ serve(async (req) => {
       event_type: eventType,
       source: body.source ?? null,
       dwell_ms: dwellMs,
-      rating_0_10: eventType === "rating" && typeof body.rating0_10 === "number" ? body.rating0_10 : null,
-      in_watchlist: eventType === "watchlist" && typeof body.inWatchlist === "boolean" ? body.inWatchlist : null,
-      client_event_id: body.clientEventId ?? null,
+      rating_0_10: rating0_10,
+      in_watchlist: inWatchlist,
+      client_event_id: clientEventId,
       payload: body.payload ?? null,
       event_day: day,
+      dedupe_key: dedupeKey,
     };
 
-    // client idempotency
-    if (insertRow.client_event_id) {
-      const { error } = await supabase
-        .from("media_events")
-        .upsert(insertRow, { onConflict: "user_id,client_event_id", ignoreDuplicates: true });
+    const { error } = await supabase
+      .from("media_events")
+      .upsert(insertRow, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true });
 
-      if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
-      return json(200, { ok: true });
-    }
-
-    // dedup high-volume telemetry
-    if (eventType === "impression") {
-      const { error } = await supabase
-        .from("media_events")
-        .upsert(insertRow, { onConflict: "user_id,media_item_id,event_day,event_type", ignoreDuplicates: true });
-
-      if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
-      return json(200, { ok: true });
-    }
-
-    if (eventType === "dwell") {
-      const { error } = await supabase
-        .from("media_events")
-        .upsert(insertRow, {
-          onConflict: "user_id,media_item_id,event_day,event_type,dwell_ms",
-          ignoreDuplicates: true,
-        });
-
-      if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
-      return json(200, { ok: true });
-    }
-
-    // explicit events
-    const { error } = await supabase.from("media_events").insert(insertRow);
-    if (error) return json(500, { ok: false, code: "INSERT_FAILED", message: error.message });
+    if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
 
     return json(200, { ok: true });
   } catch (err) {
