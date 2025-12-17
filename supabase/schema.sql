@@ -248,6 +248,21 @@ CREATE TABLE public.media_items (
   filled_count integer,
   missing_count integer,
   completeness numeric,
+  omdb_ratings jsonb DEFAULT (omdb_raw -> 'Ratings'::text),
+  tmdb_budget bigint DEFAULT (NULLIF(((tmdb_raw -> 'details'::text) ->> 'budget'::text), ''::text))::bigint,
+  tmdb_revenue bigint DEFAULT (NULLIF(((tmdb_raw -> 'details'::text) ->> 'revenue'::text), ''::text))::bigint,
+  tmdb_runtime integer DEFAULT (NULLIF(((tmdb_raw -> 'details'::text) ->> 'runtime'::text), ''::text))::integer,
+  tmdb_tagline text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'tagline'::text),
+  tmdb_homepage text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'homepage'::text),
+  tmdb_imdb_id text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'imdb_id'::text),
+  tmdb_genres jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'genres'::text),
+  tmdb_spoken_languages jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'spoken_languages'::text),
+  tmdb_production_companies jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'production_companies'::text),
+  tmdb_production_countries jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'production_countries'::text),
+  tmdb_belongs_to_collection jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'belongs_to_collection'::text),
+  tmdb_source text DEFAULT (tmdb_raw ->> 'source'::text),
+  tmdb_release_status text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'status'::text),
+  tmdb_origin_country_raw jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'origin_country'::text),
   CONSTRAINT media_items_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.media_job_state (
