@@ -10,17 +10,6 @@ CREATE TABLE public.activity_events (
   CONSTRAINT activity_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT activity_events_related_user_id_fkey FOREIGN KEY (related_user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.anime (
-  title_id uuid NOT NULL,
-  season_count integer,
-  episode_count integer,
-  studio text,
-  source text,
-  demographic text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT anime_pkey PRIMARY KEY (title_id)
-);
 CREATE TABLE public.blocked_users (
   blocker_id uuid NOT NULL,
   blocked_id uuid NOT NULL,
@@ -69,30 +58,6 @@ CREATE TABLE public.conversations (
   direct_participant_ids ARRAY UNIQUE,
   CONSTRAINT conversations_pkey PRIMARY KEY (id),
   CONSTRAINT conversations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.episode_progress (
-  user_id uuid NOT NULL,
-  episode_id uuid NOT NULL,
-  status USER-DEFINED NOT NULL DEFAULT 'watched'::episode_status,
-  watched_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT episode_progress_pkey PRIMARY KEY (user_id, episode_id),
-  CONSTRAINT episode_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT episode_progress_episode_id_fkey FOREIGN KEY (episode_id) REFERENCES public.episodes(id)
-);
-CREATE TABLE public.episodes (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title_id uuid NOT NULL,
-  season_id uuid,
-  episode_number integer NOT NULL,
-  name text,
-  overview text,
-  air_date date,
-  runtime_minutes integer,
-  still_url text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT episodes_pkey PRIMARY KEY (id),
-  CONSTRAINT episodes_season_id_fkey FOREIGN KEY (season_id) REFERENCES public.seasons(id)
 );
 CREATE TABLE public.follows (
   follower_id uuid NOT NULL,
@@ -360,17 +325,6 @@ CREATE TABLE public.messages (
   CONSTRAINT messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.conversations(id),
   CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.movies (
-  title_id uuid NOT NULL,
-  box_office numeric,
-  budget numeric,
-  dvd_release date,
-  blu_ray_release date,
-  streaming_release date,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT movies_pkey PRIMARY KEY (title_id)
-);
 CREATE TABLE public.notification_preferences (
   user_id uuid NOT NULL,
   email_activity boolean NOT NULL DEFAULT true,
@@ -467,54 +421,6 @@ CREATE TABLE public.reviews (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT reviews_pkey PRIMARY KEY (id),
   CONSTRAINT reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.seasons (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title_id uuid NOT NULL,
-  season_number integer NOT NULL,
-  name text,
-  overview text,
-  air_date date,
-  poster_url text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT seasons_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.series (
-  title_id uuid NOT NULL,
-  total_seasons integer,
-  total_episodes integer,
-  in_production boolean,
-  first_air_date date,
-  last_air_date date,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT series_pkey PRIMARY KEY (title_id)
-);
-CREATE TABLE public.title_credits (
-  id bigint NOT NULL DEFAULT nextval('title_credits_id_seq'::regclass),
-  title_id uuid NOT NULL,
-  person_id bigint NOT NULL,
-  job text,
-  character text,
-  order integer,
-  CONSTRAINT title_credits_pkey PRIMARY KEY (id),
-  CONSTRAINT title_credits_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.people(id)
-);
-CREATE TABLE public.title_genres (
-  title_id uuid NOT NULL,
-  genre_id bigint NOT NULL,
-  CONSTRAINT title_genres_pkey PRIMARY KEY (title_id, genre_id),
-  CONSTRAINT title_genres_genre_id_fkey FOREIGN KEY (genre_id) REFERENCES public.genres(id)
-);
-CREATE TABLE public.title_stats (
-  title_id uuid NOT NULL,
-  avg_rating numeric,
-  ratings_count integer,
-  reviews_count integer,
-  watch_count integer,
-  last_updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT title_stats_pkey PRIMARY KEY (title_id)
 );
 CREATE TABLE public.tmdb_cache (
   kind USER-DEFINED NOT NULL,
