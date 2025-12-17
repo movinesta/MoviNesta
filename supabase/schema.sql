@@ -1,8 +1,21 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TYPE public.content_type AS ENUM ('movie', 'series', 'anime');
+CREATE TYPE public.library_status AS ENUM ('want_to_watch', 'watching', 'watched', 'dropped');
+CREATE TYPE public.media_kind AS ENUM ('movie', 'series', 'anime', 'other', 'unknown');
+CREATE TYPE public.media_event_type AS ENUM ('impression', 'dwell', 'like', 'dislike', 'skip', 'watchlist', 'rating', 'open', 'seen', 'share');
+CREATE TYPE public.participant_role AS ENUM ('member', 'admin', 'owner');
+CREATE TYPE public.privacy_level AS ENUM ('public', 'followers_only', 'private');
+CREATE TYPE public.report_status AS ENUM ('open', 'in_review', 'resolved', 'dismissed');
+
+CREATE SEQUENCE public.genres_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+CREATE SEQUENCE public.people_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+
 CREATE TABLE public.activity_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   user_id uuid NOT NULL,
-  event_type USER-DEFINED NOT NULL,
+  event_type text NOT NULL,
   title_id text,
   related_user_id uuid,
   payload jsonb,
@@ -42,7 +55,7 @@ CREATE TABLE public.comments (
 CREATE TABLE public.conversation_participants (
   conversation_id uuid NOT NULL,
   user_id uuid NOT NULL,
-  role USER-DEFINED NOT NULL DEFAULT 'member'::participant_role,
+  role participant_role NOT NULL DEFAULT 'member'::participant_role,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT conversation_participants_pkey PRIMARY KEY (conversation_id, user_id),
   CONSTRAINT conversation_participants_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.conversations(id),
@@ -55,7 +68,7 @@ CREATE TABLE public.conversations (
   title text,
   created_by uuid,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  direct_participant_ids ARRAY UNIQUE,
+  direct_participant_ids uuid[] UNIQUE,
   CONSTRAINT conversations_pkey PRIMARY KEY (id),
   CONSTRAINT conversations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
@@ -77,8 +90,8 @@ CREATE TABLE public.library_entries (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
-  status USER-DEFINED NOT NULL DEFAULT 'want_to_watch'::library_status,
+  content_type content_type NOT NULL,
+  status library_status NOT NULL DEFAULT 'want_to_watch'::library_status,
   notes text,
   started_at timestamp with time zone,
   completed_at timestamp with time zone,
@@ -91,7 +104,7 @@ CREATE TABLE public.list_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   list_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
+  content_type content_type NOT NULL,
   position integer NOT NULL DEFAULT 0,
   note text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -112,7 +125,7 @@ CREATE TABLE public.lists (
 );
 CREATE TABLE public.media_embeddings (
   media_item_id uuid NOT NULL,
-  embedding USER-DEFINED NOT NULL,
+  embedding double precision[] NOT NULL,
   model text NOT NULL DEFAULT 'jina-embeddings-v3'::text,
   task text NOT NULL DEFAULT 'retrieval.passage'::text,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -126,7 +139,7 @@ CREATE TABLE public.media_events (
   deck_id uuid,
   position integer,
   media_item_id uuid NOT NULL,
-  event_type USER-DEFINED NOT NULL,
+  event_type media_event_type NOT NULL,
   source text,
   dwell_ms integer,
   payload jsonb,
@@ -134,7 +147,7 @@ CREATE TABLE public.media_events (
   client_event_id uuid,
   rating_0_10 numeric,
   in_watchlist boolean,
-  event_day date NOT NULL DEFAULT ((now() AT TIME ZONE 'utc'::text))::date,
+  event_day date NOT NULL DEFAULT CURRENT_DATE,
   dedupe_key text,
   CONSTRAINT media_events_pkey PRIMARY KEY (id),
   CONSTRAINT media_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
@@ -143,7 +156,7 @@ CREATE TABLE public.media_events (
 CREATE TABLE public.media_feedback (
   user_id uuid NOT NULL,
   media_item_id uuid NOT NULL,
-  last_action USER-DEFINED,
+  last_action media_event_type,
   last_action_at timestamp with time zone NOT NULL DEFAULT now(),
   rating_0_10 numeric,
   in_watchlist boolean,
@@ -189,7 +202,7 @@ CREATE TABLE public.media_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  kind USER-DEFINED NOT NULL DEFAULT 'other'::media_kind,
+  kind media_kind NOT NULL DEFAULT 'other'::media_kind,
   omdb_raw jsonb,
   tmdb_raw jsonb,
   omdb_title text,
@@ -209,7 +222,7 @@ CREATE TABLE public.media_items (
   omdb_metascore text,
   omdb_imdb_rating numeric,
   omdb_imdb_votes text,
-  omdb_imdb_id text CHECK (omdb_imdb_id IS NULL OR omdb_imdb_id <> ''::text),
+  omdb_imdb_id text,
   omdb_type text,
   omdb_dvd text,
   omdb_box_office text,
@@ -220,10 +233,10 @@ CREATE TABLE public.media_items (
   omdb_rating_internet_movie_database text,
   omdb_rating_rotten_tomatoes text,
   omdb_rating_metacritic text,
-  tmdb_id bigint CHECK (tmdb_id IS NULL OR tmdb_id > 0),
+  tmdb_id bigint,
   tmdb_adult boolean,
   tmdb_backdrop_path text,
-  tmdb_genre_ids ARRAY,
+  tmdb_genre_ids integer[] DEFAULT '{}'::integer[],
   tmdb_original_language text,
   tmdb_original_title text,
   tmdb_overview text,
@@ -238,7 +251,7 @@ CREATE TABLE public.media_items (
   tmdb_original_name text,
   tmdb_first_air_date date,
   tmdb_media_type text,
-  tmdb_origin_country ARRAY,
+  tmdb_origin_country text[] DEFAULT '{}'::text[],
   tmdb_fetched_at timestamp with time zone,
   tmdb_status text,
   tmdb_error text,
@@ -248,21 +261,21 @@ CREATE TABLE public.media_items (
   filled_count integer,
   missing_count integer,
   completeness numeric,
-  omdb_ratings jsonb DEFAULT (omdb_raw -> 'Ratings'::text),
-  tmdb_budget bigint DEFAULT (NULLIF(((tmdb_raw -> 'details'::text) ->> 'budget'::text), ''::text))::bigint,
-  tmdb_revenue bigint DEFAULT (NULLIF(((tmdb_raw -> 'details'::text) ->> 'revenue'::text), ''::text))::bigint,
-  tmdb_runtime integer DEFAULT (NULLIF(((tmdb_raw -> 'details'::text) ->> 'runtime'::text), ''::text))::integer,
-  tmdb_tagline text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'tagline'::text),
-  tmdb_homepage text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'homepage'::text),
-  tmdb_imdb_id text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'imdb_id'::text),
-  tmdb_genres jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'genres'::text),
-  tmdb_spoken_languages jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'spoken_languages'::text),
-  tmdb_production_companies jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'production_companies'::text),
-  tmdb_production_countries jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'production_countries'::text),
-  tmdb_belongs_to_collection jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'belongs_to_collection'::text),
-  tmdb_source text DEFAULT (tmdb_raw ->> 'source'::text),
-  tmdb_release_status text DEFAULT ((tmdb_raw -> 'details'::text) ->> 'status'::text),
-  tmdb_origin_country_raw jsonb DEFAULT ((tmdb_raw -> 'details'::text) -> 'origin_country'::text),
+  omdb_ratings jsonb,
+  tmdb_budget bigint,
+  tmdb_revenue bigint,
+  tmdb_runtime integer,
+  tmdb_tagline text,
+  tmdb_homepage text,
+  tmdb_imdb_id text,
+  tmdb_genres jsonb,
+  tmdb_spoken_languages jsonb,
+  tmdb_production_companies jsonb,
+  tmdb_production_countries jsonb,
+  tmdb_belongs_to_collection jsonb,
+  tmdb_source text,
+  tmdb_release_status text,
+  tmdb_origin_country_raw jsonb,
   CONSTRAINT media_items_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.media_job_state (
@@ -274,7 +287,7 @@ CREATE TABLE public.media_job_state (
 CREATE TABLE public.media_session_vectors (
   user_id uuid NOT NULL,
   session_id uuid NOT NULL,
-  taste USER-DEFINED,
+  taste double precision[],
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT media_session_vectors_pkey PRIMARY KEY (user_id, session_id),
   CONSTRAINT media_session_vectors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
@@ -288,7 +301,7 @@ CREATE TABLE public.media_trending_scores (
 );
 CREATE TABLE public.media_user_vectors (
   user_id uuid NOT NULL,
-  taste USER-DEFINED,
+  taste double precision[],
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT media_user_vectors_pkey PRIMARY KEY (user_id),
   CONSTRAINT media_user_vectors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
@@ -361,8 +374,8 @@ CREATE TABLE public.notifications (
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.omdb_cache (
-  kind USER-DEFINED,
-  imdb_id text NOT NULL CHECK (imdb_id ~ '^tt[0-9]{7,8}$'::text),
+  kind media_kind,
+  imdb_id text NOT NULL,
   fetched_at timestamp with time zone NOT NULL DEFAULT now(),
   raw jsonb NOT NULL,
   CONSTRAINT omdb_cache_pkey PRIMARY KEY (imdb_id)
@@ -390,8 +403,8 @@ CREATE TABLE public.ratings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
-  rating numeric NOT NULL CHECK (rating >= 0::numeric AND rating <= 10::numeric AND (rating * 2::numeric % 1::numeric) = 0::numeric),
+  content_type content_type NOT NULL,
+  rating numeric NOT NULL,
   comment text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -404,7 +417,7 @@ CREATE TABLE public.reports (
   target_type text NOT NULL,
   target_id text NOT NULL,
   reason text,
-  status USER-DEFINED NOT NULL DEFAULT 'open'::report_status,
+  status report_status NOT NULL DEFAULT 'open'::report_status,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   resolved_at timestamp with time zone,
   resolved_by uuid,
@@ -427,8 +440,8 @@ CREATE TABLE public.reviews (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title_id uuid NOT NULL,
-  content_type USER-DEFINED NOT NULL,
-  rating numeric CHECK (rating >= 0::numeric AND rating <= 10::numeric AND (rating * 2::numeric % 1::numeric) = 0::numeric),
+  content_type content_type NOT NULL,
+  rating numeric,
   headline text,
   body text,
   spoiler boolean DEFAULT false,
@@ -438,8 +451,8 @@ CREATE TABLE public.reviews (
   CONSTRAINT reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.tmdb_cache (
-  kind USER-DEFINED NOT NULL,
-  tmdb_id bigint NOT NULL CHECK (tmdb_id > 0),
+  kind media_kind NOT NULL,
+  tmdb_id bigint NOT NULL,
   fetched_at timestamp with time zone NOT NULL DEFAULT now(),
   raw jsonb NOT NULL,
   CONSTRAINT tmdb_cache_pkey PRIMARY KEY (kind, tmdb_id)
@@ -448,9 +461,9 @@ CREATE TABLE public.user_settings (
   user_id uuid NOT NULL,
   email_notifications boolean NOT NULL DEFAULT true,
   push_notifications boolean NOT NULL DEFAULT true,
-  privacy_profile USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
-  privacy_activity USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
-  privacy_lists USER-DEFINED NOT NULL DEFAULT 'public'::privacy_level,
+  privacy_profile privacy_level NOT NULL DEFAULT 'public'::privacy_level,
+  privacy_activity privacy_level NOT NULL DEFAULT 'public'::privacy_level,
+  privacy_lists privacy_level NOT NULL DEFAULT 'public'::privacy_level,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT user_settings_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
@@ -497,3 +510,6 @@ CREATE TABLE public.user_title_tags (
   CONSTRAINT user_title_tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT user_title_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.user_tags(id)
 );
+
+ALTER SEQUENCE public.genres_id_seq OWNED BY public.genres.id;
+ALTER SEQUENCE public.people_id_seq OWNED BY public.people.id;

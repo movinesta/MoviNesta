@@ -9,27 +9,27 @@ export interface Database {
           created_at: string;
           user_id: string;
           event_type: string;
-          title_id: string | null;
-          related_user_id: string | null;
-          payload: Json | null;
+          title_id: string;
+          related_user_id: string;
+          payload: Json;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
+          id: string;
+          created_at: string;
           user_id: string;
           event_type: string;
-          title_id?: string | null;
-          related_user_id?: string | null;
-          payload?: Json | null;
+          title_id: string;
+          related_user_id: string;
+          payload: Json;
         };
         Update: {
           id?: string;
           created_at?: string;
           user_id?: string;
           event_type?: string;
-          title_id?: string | null;
-          related_user_id?: string | null;
-          payload?: Json | null;
+          title_id?: string;
+          related_user_id?: string;
+          payload?: Json;
         };
         Relationships: [
           {
@@ -43,7 +43,7 @@ export interface Database {
             columns: ["related_user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       blocked_users: {
@@ -55,7 +55,7 @@ export interface Database {
         Insert: {
           blocker_id: string;
           blocked_id: string;
-          created_at?: string;
+          created_at: string;
         };
         Update: {
           blocker_id?: string;
@@ -74,7 +74,7 @@ export interface Database {
             columns: ["blocked_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       comment_likes: {
@@ -86,7 +86,7 @@ export interface Database {
         Insert: {
           comment_id: string;
           user_id: string;
-          created_at?: string;
+          created_at: string;
         };
         Update: {
           comment_id?: string;
@@ -105,33 +105,33 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       comments: {
         Row: {
           id: string;
           user_id: string;
-          review_id: string | null;
-          parent_comment_id: string | null;
+          review_id: string;
+          parent_comment_id: string;
           body: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
-          review_id?: string | null;
-          parent_comment_id?: string | null;
+          review_id: string;
+          parent_comment_id: string;
           body: string;
-          created_at?: string;
-          updated_at?: string;
+          created_at: string;
+          updated_at: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          review_id?: string | null;
-          parent_comment_id?: string | null;
+          review_id?: string;
+          parent_comment_id?: string;
           body?: string;
           created_at?: string;
           updated_at?: string;
@@ -154,7 +154,7 @@ export interface Database {
             columns: ["parent_comment_id"];
             referencedRelation: "comments";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       conversation_participants: {
@@ -167,8 +167,8 @@ export interface Database {
         Insert: {
           conversation_id: string;
           user_id: string;
-          role?: Database["public"]["Enums"]["participant_role"];
-          created_at?: string;
+          role: Database["public"]["Enums"]["participant_role"];
+          created_at: string;
         };
         Update: {
           conversation_id?: string;
@@ -188,7 +188,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       conversations: {
@@ -196,28 +196,28 @@ export interface Database {
           id: string;
           created_at: string;
           is_group: boolean;
-          title: string | null;
-          created_by: string | null;
+          title: string;
+          created_by: string;
           updated_at: string;
-          direct_participant_ids: string[] | null;
+          direct_participant_ids: unknown;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
-          is_group?: boolean;
-          title?: string | null;
-          created_by?: string | null;
-          updated_at?: string;
-          direct_participant_ids?: string[] | null;
+          id: string;
+          created_at: string;
+          is_group: boolean;
+          title: string;
+          created_by: string;
+          updated_at: string;
+          direct_participant_ids: unknown;
         };
         Update: {
           id?: string;
           created_at?: string;
           is_group?: boolean;
-          title?: string | null;
-          created_by?: string | null;
+          title?: string;
+          created_by?: string;
           updated_at?: string;
-          direct_participant_ids?: string[] | null;
+          direct_participant_ids?: unknown;
         };
         Relationships: [
           {
@@ -225,7 +225,7 @@ export interface Database {
             columns: ["created_by"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       follows: {
@@ -237,7 +237,7 @@ export interface Database {
         Insert: {
           follower_id: string;
           followed_id: string;
-          created_at?: string;
+          created_at: string;
         };
         Update: {
           follower_id?: string;
@@ -256,26 +256,27 @@ export interface Database {
             columns: ["followed_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       genres: {
         Row: {
-          id: number;
+          id: unknown;
           name: string;
           slug: string;
         };
         Insert: {
-          id?: number;
+          id: unknown;
           name: string;
           slug: string;
         };
         Update: {
-          id?: number;
+          id?: unknown;
           name?: string;
           slug?: string;
         };
-        Relationships: [];
+        Relationships: [
+        ];
       };
       library_entries: {
         Row: {
@@ -284,23 +285,23 @@ export interface Database {
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
           status: Database["public"]["Enums"]["library_status"];
-          notes: string | null;
-          started_at: string | null;
-          completed_at: string | null;
+          notes: string;
+          started_at: string;
+          completed_at: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          status?: Database["public"]["Enums"]["library_status"];
-          notes?: string | null;
-          started_at?: string | null;
-          completed_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          status: Database["public"]["Enums"]["library_status"];
+          notes: string;
+          started_at: string;
+          completed_at: string;
+          created_at: string;
+          updated_at: string;
         };
         Update: {
           id?: string;
@@ -308,9 +309,9 @@ export interface Database {
           title_id?: string;
           content_type?: Database["public"]["Enums"]["content_type"];
           status?: Database["public"]["Enums"]["library_status"];
-          notes?: string | null;
-          started_at?: string | null;
-          completed_at?: string | null;
+          notes?: string;
+          started_at?: string;
+          completed_at?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -320,7 +321,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       list_items: {
@@ -329,28 +330,28 @@ export interface Database {
           list_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          position: number;
-          note: string | null;
+          position: unknown;
+          note: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           list_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          position?: number;
-          note?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          position: unknown;
+          note: string;
+          created_at: string;
+          updated_at: string;
         };
         Update: {
           id?: string;
           list_id?: string;
           title_id?: string;
           content_type?: Database["public"]["Enums"]["content_type"];
-          position?: number;
-          note?: string | null;
+          position?: unknown;
+          note?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -360,7 +361,7 @@ export interface Database {
             columns: ["list_id"];
             referencedRelation: "lists";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       lists: {
@@ -368,25 +369,25 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
-          description: string | null;
+          description: string;
           is_public: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
           name: string;
-          description?: string | null;
-          is_public?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          description: string;
+          is_public: boolean;
+          created_at: string;
+          updated_at: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           name?: string;
-          description?: string | null;
+          description?: string;
           is_public?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -397,7 +398,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       media_embeddings: {
@@ -411,9 +412,9 @@ export interface Database {
         Insert: {
           media_item_id: string;
           embedding: unknown;
-          model?: string;
-          task?: string;
-          updated_at?: string;
+          model: string;
+          task: string;
+          updated_at: string;
         };
         Update: {
           media_item_id?: string;
@@ -428,7 +429,7 @@ export interface Database {
             columns: ["media_item_id"];
             referencedRelation: "media_items";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       media_events: {
@@ -436,185 +437,185 @@ export interface Database {
           id: string;
           user_id: string;
           session_id: string;
-          deck_id: string | null;
-          position: number | null;
+          deck_id: string;
+          position: unknown;
           media_item_id: string;
           event_type: Database["public"]["Enums"]["media_event_type"];
-          source: string | null;
-          dwell_ms: number | null;
-          payload: Json | null;
+          source: string;
+          dwell_ms: unknown;
+          payload: Json;
           created_at: string;
-          client_event_id: string | null;
-          rating_0_10: number | null;
-          in_watchlist: boolean | null;
+          client_event_id: string;
+          rating_0_10: unknown;
+          in_watchlist: boolean;
           event_day: string;
-          dedupe_key: string | null;
+          dedupe_key: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
           session_id: string;
-          deck_id?: string | null;
-          position?: number | null;
+          deck_id: string;
+          position: unknown;
           media_item_id: string;
           event_type: Database["public"]["Enums"]["media_event_type"];
-          source?: string | null;
-          dwell_ms?: number | null;
-          payload?: Json | null;
-          created_at?: string;
-          client_event_id?: string | null;
-          rating_0_10?: number | null;
-          in_watchlist?: boolean | null;
-          event_day?: string;
-          dedupe_key?: string | null;
+          source: string;
+          dwell_ms: unknown;
+          payload: Json;
+          created_at: string;
+          client_event_id: string;
+          rating_0_10: unknown;
+          in_watchlist: boolean;
+          event_day: string;
+          dedupe_key: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           session_id?: string;
-          deck_id?: string | null;
-          position?: number | null;
+          deck_id?: string;
+          position?: unknown;
           media_item_id?: string;
           event_type?: Database["public"]["Enums"]["media_event_type"];
-          source?: string | null;
-          dwell_ms?: number | null;
-          payload?: Json | null;
+          source?: string;
+          dwell_ms?: unknown;
+          payload?: Json;
           created_at?: string;
-          client_event_id?: string | null;
-          rating_0_10?: number | null;
-          in_watchlist?: boolean | null;
+          client_event_id?: string;
+          rating_0_10?: unknown;
+          in_watchlist?: boolean;
           event_day?: string;
-          dedupe_key?: string | null;
+          dedupe_key?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "media_events_media_item_id_fkey";
-            columns: ["media_item_id"];
-            referencedRelation: "media_items";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "media_events_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "media_events_media_item_id_fkey";
+            columns: ["media_item_id"];
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          }
         ];
       };
       media_feedback: {
         Row: {
           user_id: string;
           media_item_id: string;
-          last_action: string | null;
+          last_action: Database["public"]["Enums"]["media_event_type"];
           last_action_at: string;
-          rating_0_10: number | null;
-          in_watchlist: boolean | null;
-          last_dwell_ms: number | null;
+          rating_0_10: unknown;
+          in_watchlist: boolean;
+          last_dwell_ms: unknown;
           updated_at: string;
-          last_impression_at: string | null;
-          impressions_7d: number;
-          seen_count_total: number;
-          last_dwell_at: string | null;
-          dwell_ms_ema: number;
-          positive_ema: number;
-          negative_ema: number;
-          last_why: string | null;
-          last_rank_score: number | null;
+          last_impression_at: string;
+          impressions_7d: unknown;
+          seen_count_total: unknown;
+          last_dwell_at: string;
+          dwell_ms_ema: unknown;
+          positive_ema: unknown;
+          negative_ema: unknown;
+          last_why: string;
+          last_rank_score: unknown;
         };
         Insert: {
           user_id: string;
           media_item_id: string;
-          last_action?: string | null;
-          last_action_at?: string;
-          rating_0_10?: number | null;
-          in_watchlist?: boolean | null;
-          last_dwell_ms?: number | null;
-          updated_at?: string;
-          last_impression_at?: string | null;
-          impressions_7d?: number;
-          seen_count_total?: number;
-          last_dwell_at?: string | null;
-          dwell_ms_ema?: number;
-          positive_ema?: number;
-          negative_ema?: number;
-          last_why?: string | null;
-          last_rank_score?: number | null;
+          last_action: Database["public"]["Enums"]["media_event_type"];
+          last_action_at: string;
+          rating_0_10: unknown;
+          in_watchlist: boolean;
+          last_dwell_ms: unknown;
+          updated_at: string;
+          last_impression_at: string;
+          impressions_7d: unknown;
+          seen_count_total: unknown;
+          last_dwell_at: string;
+          dwell_ms_ema: unknown;
+          positive_ema: unknown;
+          negative_ema: unknown;
+          last_why: string;
+          last_rank_score: unknown;
         };
         Update: {
           user_id?: string;
           media_item_id?: string;
-          last_action?: string | null;
+          last_action?: Database["public"]["Enums"]["media_event_type"];
           last_action_at?: string;
-          rating_0_10?: number | null;
-          in_watchlist?: boolean | null;
-          last_dwell_ms?: number | null;
+          rating_0_10?: unknown;
+          in_watchlist?: boolean;
+          last_dwell_ms?: unknown;
           updated_at?: string;
-          last_impression_at?: string | null;
-          impressions_7d?: number;
-          seen_count_total?: number;
-          last_dwell_at?: string | null;
-          dwell_ms_ema?: number;
-          positive_ema?: number;
-          negative_ema?: number;
-          last_why?: string | null;
-          last_rank_score?: number | null;
+          last_impression_at?: string;
+          impressions_7d?: unknown;
+          seen_count_total?: unknown;
+          last_dwell_at?: string;
+          dwell_ms_ema?: unknown;
+          positive_ema?: unknown;
+          negative_ema?: unknown;
+          last_why?: string;
+          last_rank_score?: unknown;
         };
         Relationships: [
-          {
-            foreignKeyName: "media_feedback_media_item_id_fkey";
-            columns: ["media_item_id"];
-            referencedRelation: "media_items";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "media_feedback_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "media_feedback_media_item_id_fkey";
+            columns: ["media_item_id"];
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          }
         ];
       };
       media_item_daily: {
         Row: {
           day: string;
           media_item_id: string;
-          impressions: number;
-          dwell_events: number;
-          dwell_ms_sum: number;
-          likes: number;
-          dislikes: number;
-          skips: number;
-          watchlist_events: number;
-          rating_events: number;
-          unique_users: number;
+          impressions: unknown;
+          dwell_events: unknown;
+          dwell_ms_sum: unknown;
+          likes: unknown;
+          dislikes: unknown;
+          skips: unknown;
+          watchlist_events: unknown;
+          rating_events: unknown;
+          unique_users: unknown;
           updated_at: string;
         };
         Insert: {
           day: string;
           media_item_id: string;
-          impressions?: number;
-          dwell_events?: number;
-          dwell_ms_sum?: number;
-          likes?: number;
-          dislikes?: number;
-          skips?: number;
-          watchlist_events?: number;
-          rating_events?: number;
-          unique_users?: number;
-          updated_at?: string;
+          impressions: unknown;
+          dwell_events: unknown;
+          dwell_ms_sum: unknown;
+          likes: unknown;
+          dislikes: unknown;
+          skips: unknown;
+          watchlist_events: unknown;
+          rating_events: unknown;
+          unique_users: unknown;
+          updated_at: string;
         };
         Update: {
           day?: string;
           media_item_id?: string;
-          impressions?: number;
-          dwell_events?: number;
-          dwell_ms_sum?: number;
-          likes?: number;
-          dislikes?: number;
-          skips?: number;
-          watchlist_events?: number;
-          rating_events?: number;
-          unique_users?: number;
+          impressions?: unknown;
+          dwell_events?: unknown;
+          dwell_ms_sum?: unknown;
+          likes?: unknown;
+          dislikes?: unknown;
+          skips?: unknown;
+          watchlist_events?: unknown;
+          rating_events?: unknown;
+          unique_users?: unknown;
           updated_at?: string;
         };
         Relationships: [
@@ -623,7 +624,7 @@ export interface Database {
             columns: ["media_item_id"];
             referencedRelation: "media_items";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       media_item_daily_users: {
@@ -648,7 +649,7 @@ export interface Database {
             columns: ["media_item_id"];
             referencedRelation: "media_items";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       media_items: {
@@ -657,257 +658,259 @@ export interface Database {
           created_at: string;
           updated_at: string;
           kind: Database["public"]["Enums"]["media_kind"];
-          omdb_raw: Json | null;
-          tmdb_raw: Json | null;
-          omdb_title: string | null;
-          omdb_year: string | null;
-          omdb_rated: string | null;
-          omdb_released: string | null;
-          omdb_runtime: string | null;
-          omdb_genre: string | null;
-          omdb_director: string | null;
-          omdb_writer: string | null;
-          omdb_actors: string | null;
-          omdb_plot: string | null;
-          omdb_language: string | null;
-          omdb_country: string | null;
-          omdb_awards: string | null;
-          omdb_poster: string | null;
-          omdb_metascore: string | null;
-          omdb_imdb_rating: number | null;
-          omdb_imdb_votes: string | null;
-          omdb_imdb_id: string | null;
-          omdb_type: string | null;
-          omdb_dvd: string | null;
-          omdb_box_office: string | null;
-          omdb_production: string | null;
-          omdb_website: string | null;
-          omdb_total_seasons: number | null;
-          omdb_response: boolean | null;
-          omdb_rating_internet_movie_database: string | null;
-          omdb_rating_rotten_tomatoes: string | null;
-          omdb_rating_metacritic: string | null;
-          tmdb_id: number | null;
-          tmdb_adult: boolean | null;
-          tmdb_backdrop_path: string | null;
-          tmdb_genre_ids: number[] | null;
-          tmdb_original_language: string | null;
-          tmdb_original_title: string | null;
-          tmdb_overview: string | null;
-          tmdb_popularity: number | null;
-          tmdb_poster_path: string | null;
-          tmdb_release_date: string | null;
-          tmdb_title: string | null;
-          tmdb_video: boolean | null;
-          tmdb_vote_average: number | null;
-          tmdb_vote_count: number | null;
-          tmdb_name: string | null;
-          tmdb_original_name: string | null;
-          tmdb_first_air_date: string | null;
-          tmdb_media_type: string | null;
-          tmdb_origin_country: string[] | null;
-          tmdb_fetched_at: string | null;
-          tmdb_status: string | null;
-          tmdb_error: string | null;
-          omdb_fetched_at: string | null;
-          omdb_status: string | null;
-          omdb_error: string | null;
-          filled_count: number | null;
-          missing_count: number | null;
-          completeness: number | null;
-          omdb_ratings: Json | null;
-          tmdb_budget: number | null;
-          tmdb_revenue: number | null;
-          tmdb_runtime: number | null;
-          tmdb_tagline: string | null;
-          tmdb_homepage: string | null;
-          tmdb_imdb_id: string | null;
-          tmdb_genres: Json | null;
-          tmdb_spoken_languages: Json | null;
-          tmdb_production_companies: Json | null;
-          tmdb_production_countries: Json | null;
-          tmdb_belongs_to_collection: Json | null;
-          tmdb_source: string | null;
-          tmdb_release_status: string | null;
-          tmdb_origin_country_raw: Json | null;
+          omdb_raw: Json;
+          tmdb_raw: Json;
+          omdb_title: string;
+          omdb_year: string;
+          omdb_rated: string;
+          omdb_released: string;
+          omdb_runtime: string;
+          omdb_genre: string;
+          omdb_director: string;
+          omdb_writer: string;
+          omdb_actors: string;
+          omdb_plot: string;
+          omdb_language: string;
+          omdb_country: string;
+          omdb_awards: string;
+          omdb_poster: string;
+          omdb_metascore: string;
+          omdb_imdb_rating: unknown;
+          omdb_imdb_votes: string;
+          omdb_imdb_id: string;
+          omdb_type: string;
+          omdb_dvd: string;
+          omdb_box_office: string;
+          omdb_production: string;
+          omdb_website: string;
+          omdb_total_seasons: unknown;
+          omdb_response: boolean;
+          omdb_rating_internet_movie_database: string;
+          omdb_rating_rotten_tomatoes: string;
+          omdb_rating_metacritic: string;
+          tmdb_id: unknown;
+          tmdb_adult: boolean;
+          tmdb_backdrop_path: string;
+          tmdb_genre_ids: unknown;
+          tmdb_original_language: string;
+          tmdb_original_title: string;
+          tmdb_overview: string;
+          tmdb_popularity: unknown;
+          tmdb_poster_path: string;
+          tmdb_release_date: string;
+          tmdb_title: string;
+          tmdb_video: boolean;
+          tmdb_vote_average: unknown;
+          tmdb_vote_count: unknown;
+          tmdb_name: string;
+          tmdb_original_name: string;
+          tmdb_first_air_date: string;
+          tmdb_media_type: string;
+          tmdb_origin_country: unknown;
+          tmdb_fetched_at: string;
+          tmdb_status: string;
+          tmdb_error: string;
+          omdb_fetched_at: string;
+          omdb_status: string;
+          omdb_error: string;
+          filled_count: unknown;
+          missing_count: unknown;
+          completeness: unknown;
+          omdb_ratings: Json;
+          tmdb_budget: unknown;
+          tmdb_revenue: unknown;
+          tmdb_runtime: unknown;
+          tmdb_tagline: string;
+          tmdb_homepage: string;
+          tmdb_imdb_id: string;
+          tmdb_genres: Json;
+          tmdb_spoken_languages: Json;
+          tmdb_production_companies: Json;
+          tmdb_production_countries: Json;
+          tmdb_belongs_to_collection: Json;
+          tmdb_source: string;
+          tmdb_release_status: string;
+          tmdb_origin_country_raw: Json;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
-          updated_at?: string;
-          kind?: Database["public"]["Enums"]["media_kind"];
-          omdb_raw?: Json | null;
-          tmdb_raw?: Json | null;
-          omdb_title?: string | null;
-          omdb_year?: string | null;
-          omdb_rated?: string | null;
-          omdb_released?: string | null;
-          omdb_runtime?: string | null;
-          omdb_genre?: string | null;
-          omdb_director?: string | null;
-          omdb_writer?: string | null;
-          omdb_actors?: string | null;
-          omdb_plot?: string | null;
-          omdb_language?: string | null;
-          omdb_country?: string | null;
-          omdb_awards?: string | null;
-          omdb_poster?: string | null;
-          omdb_metascore?: string | null;
-          omdb_imdb_rating?: number | null;
-          omdb_imdb_votes?: string | null;
-          omdb_imdb_id?: string | null;
-          omdb_type?: string | null;
-          omdb_dvd?: string | null;
-          omdb_box_office?: string | null;
-          omdb_production?: string | null;
-          omdb_website?: string | null;
-          omdb_total_seasons?: number | null;
-          omdb_response?: boolean | null;
-          omdb_rating_internet_movie_database?: string | null;
-          omdb_rating_rotten_tomatoes?: string | null;
-          omdb_rating_metacritic?: string | null;
-          tmdb_id?: number | null;
-          tmdb_adult?: boolean | null;
-          tmdb_backdrop_path?: string | null;
-          tmdb_genre_ids?: number[] | null;
-          tmdb_original_language?: string | null;
-          tmdb_original_title?: string | null;
-          tmdb_overview?: string | null;
-          tmdb_popularity?: number | null;
-          tmdb_poster_path?: string | null;
-          tmdb_release_date?: string | null;
-          tmdb_title?: string | null;
-          tmdb_video?: boolean | null;
-          tmdb_vote_average?: number | null;
-          tmdb_vote_count?: number | null;
-          tmdb_name?: string | null;
-          tmdb_original_name?: string | null;
-          tmdb_first_air_date?: string | null;
-          tmdb_media_type?: string | null;
-          tmdb_origin_country?: string[] | null;
-          tmdb_fetched_at?: string | null;
-          tmdb_status?: string | null;
-          tmdb_error?: string | null;
-          omdb_fetched_at?: string | null;
-          omdb_status?: string | null;
-          omdb_error?: string | null;
-          filled_count?: number | null;
-          missing_count?: number | null;
-          completeness?: number | null;
-          omdb_ratings?: Json | null;
-          tmdb_budget?: number | null;
-          tmdb_revenue?: number | null;
-          tmdb_runtime?: number | null;
-          tmdb_tagline?: string | null;
-          tmdb_homepage?: string | null;
-          tmdb_imdb_id?: string | null;
-          tmdb_genres?: Json | null;
-          tmdb_spoken_languages?: Json | null;
-          tmdb_production_companies?: Json | null;
-          tmdb_production_countries?: Json | null;
-          tmdb_belongs_to_collection?: Json | null;
-          tmdb_source?: string | null;
-          tmdb_release_status?: string | null;
-          tmdb_origin_country_raw?: Json | null;
+          id: string;
+          created_at: string;
+          updated_at: string;
+          kind: Database["public"]["Enums"]["media_kind"];
+          omdb_raw: Json;
+          tmdb_raw: Json;
+          omdb_title: string;
+          omdb_year: string;
+          omdb_rated: string;
+          omdb_released: string;
+          omdb_runtime: string;
+          omdb_genre: string;
+          omdb_director: string;
+          omdb_writer: string;
+          omdb_actors: string;
+          omdb_plot: string;
+          omdb_language: string;
+          omdb_country: string;
+          omdb_awards: string;
+          omdb_poster: string;
+          omdb_metascore: string;
+          omdb_imdb_rating: unknown;
+          omdb_imdb_votes: string;
+          omdb_imdb_id: string;
+          omdb_type: string;
+          omdb_dvd: string;
+          omdb_box_office: string;
+          omdb_production: string;
+          omdb_website: string;
+          omdb_total_seasons: unknown;
+          omdb_response: boolean;
+          omdb_rating_internet_movie_database: string;
+          omdb_rating_rotten_tomatoes: string;
+          omdb_rating_metacritic: string;
+          tmdb_id: unknown;
+          tmdb_adult: boolean;
+          tmdb_backdrop_path: string;
+          tmdb_genre_ids: unknown;
+          tmdb_original_language: string;
+          tmdb_original_title: string;
+          tmdb_overview: string;
+          tmdb_popularity: unknown;
+          tmdb_poster_path: string;
+          tmdb_release_date: string;
+          tmdb_title: string;
+          tmdb_video: boolean;
+          tmdb_vote_average: unknown;
+          tmdb_vote_count: unknown;
+          tmdb_name: string;
+          tmdb_original_name: string;
+          tmdb_first_air_date: string;
+          tmdb_media_type: string;
+          tmdb_origin_country: unknown;
+          tmdb_fetched_at: string;
+          tmdb_status: string;
+          tmdb_error: string;
+          omdb_fetched_at: string;
+          omdb_status: string;
+          omdb_error: string;
+          filled_count: unknown;
+          missing_count: unknown;
+          completeness: unknown;
+          omdb_ratings: Json;
+          tmdb_budget: unknown;
+          tmdb_revenue: unknown;
+          tmdb_runtime: unknown;
+          tmdb_tagline: string;
+          tmdb_homepage: string;
+          tmdb_imdb_id: string;
+          tmdb_genres: Json;
+          tmdb_spoken_languages: Json;
+          tmdb_production_companies: Json;
+          tmdb_production_countries: Json;
+          tmdb_belongs_to_collection: Json;
+          tmdb_source: string;
+          tmdb_release_status: string;
+          tmdb_origin_country_raw: Json;
         };
         Update: {
           id?: string;
           created_at?: string;
           updated_at?: string;
           kind?: Database["public"]["Enums"]["media_kind"];
-          omdb_raw?: Json | null;
-          tmdb_raw?: Json | null;
-          omdb_title?: string | null;
-          omdb_year?: string | null;
-          omdb_rated?: string | null;
-          omdb_released?: string | null;
-          omdb_runtime?: string | null;
-          omdb_genre?: string | null;
-          omdb_director?: string | null;
-          omdb_writer?: string | null;
-          omdb_actors?: string | null;
-          omdb_plot?: string | null;
-          omdb_language?: string | null;
-          omdb_country?: string | null;
-          omdb_awards?: string | null;
-          omdb_poster?: string | null;
-          omdb_metascore?: string | null;
-          omdb_imdb_rating?: number | null;
-          omdb_imdb_votes?: string | null;
-          omdb_imdb_id?: string | null;
-          omdb_type?: string | null;
-          omdb_dvd?: string | null;
-          omdb_box_office?: string | null;
-          omdb_production?: string | null;
-          omdb_website?: string | null;
-          omdb_total_seasons?: number | null;
-          omdb_response?: boolean | null;
-          omdb_rating_internet_movie_database?: string | null;
-          omdb_rating_rotten_tomatoes?: string | null;
-          omdb_rating_metacritic?: string | null;
-          tmdb_id?: number | null;
-          tmdb_adult?: boolean | null;
-          tmdb_backdrop_path?: string | null;
-          tmdb_genre_ids?: number[] | null;
-          tmdb_original_language?: string | null;
-          tmdb_original_title?: string | null;
-          tmdb_overview?: string | null;
-          tmdb_popularity?: number | null;
-          tmdb_poster_path?: string | null;
-          tmdb_release_date?: string | null;
-          tmdb_title?: string | null;
-          tmdb_video?: boolean | null;
-          tmdb_vote_average?: number | null;
-          tmdb_vote_count?: number | null;
-          tmdb_name?: string | null;
-          tmdb_original_name?: string | null;
-          tmdb_first_air_date?: string | null;
-          tmdb_media_type?: string | null;
-          tmdb_origin_country?: string[] | null;
-          tmdb_fetched_at?: string | null;
-          tmdb_status?: string | null;
-          tmdb_error?: string | null;
-          omdb_fetched_at?: string | null;
-          omdb_status?: string | null;
-          omdb_error?: string | null;
-          filled_count?: number | null;
-          missing_count?: number | null;
-          completeness?: number | null;
-          omdb_ratings?: Json | null;
-          tmdb_budget?: number | null;
-          tmdb_revenue?: number | null;
-          tmdb_runtime?: number | null;
-          tmdb_tagline?: string | null;
-          tmdb_homepage?: string | null;
-          tmdb_imdb_id?: string | null;
-          tmdb_genres?: Json | null;
-          tmdb_spoken_languages?: Json | null;
-          tmdb_production_companies?: Json | null;
-          tmdb_production_countries?: Json | null;
-          tmdb_belongs_to_collection?: Json | null;
-          tmdb_source?: string | null;
-          tmdb_release_status?: string | null;
-          tmdb_origin_country_raw?: Json | null;
+          omdb_raw?: Json;
+          tmdb_raw?: Json;
+          omdb_title?: string;
+          omdb_year?: string;
+          omdb_rated?: string;
+          omdb_released?: string;
+          omdb_runtime?: string;
+          omdb_genre?: string;
+          omdb_director?: string;
+          omdb_writer?: string;
+          omdb_actors?: string;
+          omdb_plot?: string;
+          omdb_language?: string;
+          omdb_country?: string;
+          omdb_awards?: string;
+          omdb_poster?: string;
+          omdb_metascore?: string;
+          omdb_imdb_rating?: unknown;
+          omdb_imdb_votes?: string;
+          omdb_imdb_id?: string;
+          omdb_type?: string;
+          omdb_dvd?: string;
+          omdb_box_office?: string;
+          omdb_production?: string;
+          omdb_website?: string;
+          omdb_total_seasons?: unknown;
+          omdb_response?: boolean;
+          omdb_rating_internet_movie_database?: string;
+          omdb_rating_rotten_tomatoes?: string;
+          omdb_rating_metacritic?: string;
+          tmdb_id?: unknown;
+          tmdb_adult?: boolean;
+          tmdb_backdrop_path?: string;
+          tmdb_genre_ids?: unknown;
+          tmdb_original_language?: string;
+          tmdb_original_title?: string;
+          tmdb_overview?: string;
+          tmdb_popularity?: unknown;
+          tmdb_poster_path?: string;
+          tmdb_release_date?: string;
+          tmdb_title?: string;
+          tmdb_video?: boolean;
+          tmdb_vote_average?: unknown;
+          tmdb_vote_count?: unknown;
+          tmdb_name?: string;
+          tmdb_original_name?: string;
+          tmdb_first_air_date?: string;
+          tmdb_media_type?: string;
+          tmdb_origin_country?: unknown;
+          tmdb_fetched_at?: string;
+          tmdb_status?: string;
+          tmdb_error?: string;
+          omdb_fetched_at?: string;
+          omdb_status?: string;
+          omdb_error?: string;
+          filled_count?: unknown;
+          missing_count?: unknown;
+          completeness?: unknown;
+          omdb_ratings?: Json;
+          tmdb_budget?: unknown;
+          tmdb_revenue?: unknown;
+          tmdb_runtime?: unknown;
+          tmdb_tagline?: string;
+          tmdb_homepage?: string;
+          tmdb_imdb_id?: string;
+          tmdb_genres?: Json;
+          tmdb_spoken_languages?: Json;
+          tmdb_production_companies?: Json;
+          tmdb_production_countries?: Json;
+          tmdb_belongs_to_collection?: Json;
+          tmdb_source?: string;
+          tmdb_release_status?: string;
+          tmdb_origin_country_raw?: Json;
         };
-        Relationships: [];
+        Relationships: [
+        ];
       };
       media_job_state: {
         Row: {
           job_name: string;
-          cursor: string | null;
+          cursor: string;
           updated_at: string;
         };
         Insert: {
           job_name: string;
-          cursor?: string | null;
-          updated_at?: string;
+          cursor: string;
+          updated_at: string;
         };
         Update: {
           job_name?: string;
-          cursor?: string | null;
+          cursor?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+        ];
       };
       media_session_vectors: {
         Row: {
@@ -919,8 +922,8 @@ export interface Database {
         Insert: {
           user_id: string;
           session_id: string;
-          taste?: unknown;
-          updated_at?: string;
+          taste: unknown;
+          updated_at: string;
         };
         Update: {
           user_id?: string;
@@ -934,23 +937,23 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       media_trending_scores: {
         Row: {
           media_item_id: string;
-          score_72h: number;
+          score_72h: unknown;
           computed_at: string;
         };
         Insert: {
           media_item_id: string;
-          score_72h: number;
-          computed_at?: string;
+          score_72h: unknown;
+          computed_at: string;
         };
         Update: {
           media_item_id?: string;
-          score_72h?: number;
+          score_72h?: unknown;
           computed_at?: string;
         };
         Relationships: [
@@ -959,7 +962,7 @@ export interface Database {
             columns: ["media_item_id"];
             referencedRelation: "media_items";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       media_user_vectors: {
@@ -970,8 +973,8 @@ export interface Database {
         };
         Insert: {
           user_id: string;
-          taste?: unknown;
-          updated_at?: string;
+          taste: unknown;
+          updated_at: string;
         };
         Update: {
           user_id?: string;
@@ -984,7 +987,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       message_delivery_receipts: {
@@ -997,12 +1000,12 @@ export interface Database {
           delivered_at: string;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
+          id: string;
+          created_at: string;
           conversation_id: string;
           message_id: string;
           user_id: string;
-          delivered_at?: string;
+          delivered_at: string;
         };
         Update: {
           id?: string;
@@ -1030,7 +1033,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       message_reactions: {
@@ -1043,8 +1046,8 @@ export interface Database {
           emoji: string;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
+          id: string;
+          created_at: string;
           conversation_id: string;
           message_id: string;
           user_id: string;
@@ -1076,26 +1079,26 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       message_read_receipts: {
         Row: {
           conversation_id: string;
           user_id: string;
-          last_read_message_id: string | null;
+          last_read_message_id: string;
           last_read_at: string;
         };
         Insert: {
           conversation_id: string;
           user_id: string;
-          last_read_message_id?: string | null;
-          last_read_at?: string;
+          last_read_message_id: string;
+          last_read_at: string;
         };
         Update: {
           conversation_id?: string;
           user_id?: string;
-          last_read_message_id?: string | null;
+          last_read_message_id?: string;
           last_read_at?: string;
         };
         Relationships: [
@@ -1116,7 +1119,7 @@ export interface Database {
             columns: ["last_read_message_id"];
             referencedRelation: "messages";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       messages: {
@@ -1126,17 +1129,17 @@ export interface Database {
           conversation_id: string;
           user_id: string;
           body: string;
-          attachment_url: string | null;
-          sender_id: string | null;
+          attachment_url: string;
+          sender_id: string;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
+          id: string;
+          created_at: string;
           conversation_id: string;
           user_id: string;
           body: string;
-          attachment_url?: string | null;
-          sender_id?: string | null;
+          attachment_url: string;
+          sender_id: string;
         };
         Update: {
           id?: string;
@@ -1144,10 +1147,16 @@ export interface Database {
           conversation_id?: string;
           user_id?: string;
           body?: string;
-          attachment_url?: string | null;
-          sender_id?: string | null;
+          attachment_url?: string;
+          sender_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "messages_sender_id_fkey";
+            columns: ["sender_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "messages_conversation_id_fkey";
             columns: ["conversation_id"];
@@ -1159,13 +1168,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey";
-            columns: ["sender_id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
+          }
         ];
       };
       notification_preferences: {
@@ -1179,11 +1182,11 @@ export interface Database {
         };
         Insert: {
           user_id: string;
-          email_activity?: boolean;
-          email_recommendations?: boolean;
-          in_app_social?: boolean;
-          in_app_system?: boolean;
-          updated_at?: string;
+          email_activity: boolean;
+          email_recommendations: boolean;
+          in_app_social: boolean;
+          in_app_system: boolean;
+          updated_at: string;
         };
         Update: {
           user_id?: string;
@@ -1199,7 +1202,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       notifications: {
@@ -1208,23 +1211,23 @@ export interface Database {
           created_at: string;
           user_id: string;
           type: string;
-          data: Json | null;
+          data: Json;
           is_read: boolean;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
+          id: string;
+          created_at: string;
           user_id: string;
           type: string;
-          data?: Json | null;
-          is_read?: boolean;
+          data: Json;
+          is_read: boolean;
         };
         Update: {
           id?: string;
           created_at?: string;
           user_id?: string;
           type?: string;
-          data?: Json | null;
+          data?: Json;
           is_read?: boolean;
         };
         Relationships: [
@@ -1233,81 +1236,83 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       omdb_cache: {
         Row: {
-          kind: string | null;
+          kind: Database["public"]["Enums"]["media_kind"];
           imdb_id: string;
           fetched_at: string;
           raw: Json;
         };
         Insert: {
-          kind?: string | null;
+          kind: Database["public"]["Enums"]["media_kind"];
           imdb_id: string;
-          fetched_at?: string;
+          fetched_at: string;
           raw: Json;
         };
         Update: {
-          kind?: string | null;
+          kind?: Database["public"]["Enums"]["media_kind"];
           imdb_id?: string;
           fetched_at?: string;
           raw?: Json;
         };
-        Relationships: [];
+        Relationships: [
+        ];
       };
       people: {
         Row: {
-          id: number;
+          id: unknown;
           name: string;
-          tmdb_id: number | null;
-          imdb_id: string | null;
+          tmdb_id: unknown;
+          imdb_id: string;
         };
         Insert: {
-          id?: number;
+          id: unknown;
           name: string;
-          tmdb_id?: number | null;
-          imdb_id?: string | null;
+          tmdb_id: unknown;
+          imdb_id: string;
         };
         Update: {
-          id?: number;
+          id?: unknown;
           name?: string;
-          tmdb_id?: number | null;
-          imdb_id?: string | null;
+          tmdb_id?: unknown;
+          imdb_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+        ];
       };
       profiles: {
         Row: {
           id: string;
           created_at: string;
           updated_at: string;
-          username: string | null;
-          display_name: string | null;
-          email: string | null;
-          avatar_url: string | null;
-          bio: string | null;
+          username: string;
+          display_name: string;
+          email: string;
+          avatar_url: string;
+          bio: string;
         };
         Insert: {
           id: string;
-          created_at?: string;
-          updated_at?: string;
-          username?: string | null;
-          display_name?: string | null;
-          email?: string | null;
-          avatar_url?: string | null;
-          bio?: string | null;
+          created_at: string;
+          updated_at: string;
+          username: string;
+          display_name: string;
+          email: string;
+          avatar_url: string;
+          bio: string;
         };
         Update: {
           id?: string;
           created_at?: string;
           updated_at?: string;
-          username?: string | null;
-          display_name?: string | null;
-          email?: string | null;
-          avatar_url?: string | null;
-          bio?: string | null;
+          username?: string;
+          display_name?: string;
+          email?: string;
+          avatar_url?: string;
+          bio?: string;
         };
         Relationships: [
           {
@@ -1315,7 +1320,7 @@ export interface Database {
             columns: ["id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       ratings: {
@@ -1324,28 +1329,28 @@ export interface Database {
           user_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          rating: number;
-          comment: string | null;
+          rating: unknown;
+          comment: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          rating: number;
-          comment?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          rating: unknown;
+          comment: string;
+          created_at: string;
+          updated_at: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           title_id?: string;
           content_type?: Database["public"]["Enums"]["content_type"];
-          rating?: number;
-          comment?: string | null;
+          rating?: unknown;
+          comment?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -1355,7 +1360,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       reports: {
@@ -1364,36 +1369,36 @@ export interface Database {
           reporter_id: string;
           target_type: string;
           target_id: string;
-          reason: string | null;
+          reason: string;
           status: Database["public"]["Enums"]["report_status"];
           created_at: string;
-          resolved_at: string | null;
-          resolved_by: string | null;
-          notes: string | null;
+          resolved_at: string;
+          resolved_by: string;
+          notes: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           reporter_id: string;
           target_type: string;
           target_id: string;
-          reason?: string | null;
-          status?: Database["public"]["Enums"]["report_status"];
-          created_at?: string;
-          resolved_at?: string | null;
-          resolved_by?: string | null;
-          notes?: string | null;
+          reason: string;
+          status: Database["public"]["Enums"]["report_status"];
+          created_at: string;
+          resolved_at: string;
+          resolved_by: string;
+          notes: string;
         };
         Update: {
           id?: string;
           reporter_id?: string;
           target_type?: string;
           target_id?: string;
-          reason?: string | null;
+          reason?: string;
           status?: Database["public"]["Enums"]["report_status"];
           created_at?: string;
-          resolved_at?: string | null;
-          resolved_by?: string | null;
-          notes?: string | null;
+          resolved_at?: string;
+          resolved_by?: string;
+          notes?: string;
         };
         Relationships: [
           {
@@ -1407,7 +1412,7 @@ export interface Database {
             columns: ["resolved_by"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       review_reactions: {
@@ -1419,8 +1424,8 @@ export interface Database {
           emoji: string;
         };
         Insert: {
-          id?: string;
-          created_at?: string;
+          id: string;
+          created_at: string;
           review_id: string;
           user_id: string;
           emoji: string;
@@ -1444,7 +1449,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       reviews: {
@@ -1453,34 +1458,34 @@ export interface Database {
           user_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          rating: number | null;
-          headline: string | null;
-          body: string | null;
-          spoiler: boolean | null;
+          rating: unknown;
+          headline: string;
+          body: string;
+          spoiler: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
           title_id: string;
           content_type: Database["public"]["Enums"]["content_type"];
-          rating?: number | null;
-          headline?: string | null;
-          body?: string | null;
-          spoiler?: boolean | null;
-          created_at?: string;
-          updated_at?: string;
+          rating: unknown;
+          headline: string;
+          body: string;
+          spoiler: boolean;
+          created_at: string;
+          updated_at: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           title_id?: string;
           content_type?: Database["public"]["Enums"]["content_type"];
-          rating?: number | null;
-          headline?: string | null;
-          body?: string | null;
-          spoiler?: boolean | null;
+          rating?: unknown;
+          headline?: string;
+          body?: string;
+          spoiler?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1490,29 +1495,30 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       tmdb_cache: {
         Row: {
-          kind: string;
-          tmdb_id: number;
+          kind: Database["public"]["Enums"]["media_kind"];
+          tmdb_id: unknown;
           fetched_at: string;
           raw: Json;
         };
         Insert: {
-          kind: string;
-          tmdb_id: number;
-          fetched_at?: string;
+          kind: Database["public"]["Enums"]["media_kind"];
+          tmdb_id: unknown;
+          fetched_at: string;
           raw: Json;
         };
         Update: {
-          kind?: string;
-          tmdb_id?: number;
+          kind?: Database["public"]["Enums"]["media_kind"];
+          tmdb_id?: unknown;
           fetched_at?: string;
           raw?: Json;
         };
-        Relationships: [];
+        Relationships: [
+        ];
       };
       user_settings: {
         Row: {
@@ -1526,12 +1532,12 @@ export interface Database {
         };
         Insert: {
           user_id: string;
-          email_notifications?: boolean;
-          push_notifications?: boolean;
-          privacy_profile?: Database["public"]["Enums"]["privacy_level"];
-          privacy_activity?: Database["public"]["Enums"]["privacy_level"];
-          privacy_lists?: Database["public"]["Enums"]["privacy_level"];
-          updated_at?: string;
+          email_notifications: boolean;
+          push_notifications: boolean;
+          privacy_profile: Database["public"]["Enums"]["privacy_level"];
+          privacy_activity: Database["public"]["Enums"]["privacy_level"];
+          privacy_lists: Database["public"]["Enums"]["privacy_level"];
+          updated_at: string;
         };
         Update: {
           user_id?: string;
@@ -1548,45 +1554,45 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       user_stats: {
         Row: {
           user_id: string;
-          followers_count: number | null;
-          following_count: number | null;
-          ratings_count: number | null;
-          reviews_count: number | null;
-          watchlist_count: number | null;
-          comments_count: number | null;
-          lists_count: number | null;
-          messages_sent_count: number | null;
-          last_active_at: string | null;
+          followers_count: unknown;
+          following_count: unknown;
+          ratings_count: unknown;
+          reviews_count: unknown;
+          watchlist_count: unknown;
+          comments_count: unknown;
+          lists_count: unknown;
+          messages_sent_count: unknown;
+          last_active_at: string;
         };
         Insert: {
           user_id: string;
-          followers_count?: number | null;
-          following_count?: number | null;
-          ratings_count?: number | null;
-          reviews_count?: number | null;
-          watchlist_count?: number | null;
-          comments_count?: number | null;
-          lists_count?: number | null;
-          messages_sent_count?: number | null;
-          last_active_at?: string | null;
+          followers_count: unknown;
+          following_count: unknown;
+          ratings_count: unknown;
+          reviews_count: unknown;
+          watchlist_count: unknown;
+          comments_count: unknown;
+          lists_count: unknown;
+          messages_sent_count: unknown;
+          last_active_at: string;
         };
         Update: {
           user_id?: string;
-          followers_count?: number | null;
-          following_count?: number | null;
-          ratings_count?: number | null;
-          reviews_count?: number | null;
-          watchlist_count?: number | null;
-          comments_count?: number | null;
-          lists_count?: number | null;
-          messages_sent_count?: number | null;
-          last_active_at?: string | null;
+          followers_count?: unknown;
+          following_count?: unknown;
+          ratings_count?: unknown;
+          reviews_count?: unknown;
+          watchlist_count?: unknown;
+          comments_count?: unknown;
+          lists_count?: unknown;
+          messages_sent_count?: unknown;
+          last_active_at?: string;
         };
         Relationships: [
           {
@@ -1594,33 +1600,33 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       user_swipe_prefs: {
         Row: {
           user_id: string;
-          year_min: number | null;
-          year_max: number | null;
-          runtime_min: number | null;
-          runtime_max: number | null;
-          completeness_min: number | null;
+          year_min: unknown;
+          year_max: unknown;
+          runtime_min: unknown;
+          runtime_max: unknown;
+          completeness_min: unknown;
         };
         Insert: {
           user_id: string;
-          year_min?: number | null;
-          year_max?: number | null;
-          runtime_min?: number | null;
-          runtime_max?: number | null;
-          completeness_min?: number | null;
+          year_min: unknown;
+          year_max: unknown;
+          runtime_min: unknown;
+          runtime_max: unknown;
+          completeness_min: unknown;
         };
         Update: {
           user_id?: string;
-          year_min?: number | null;
-          year_max?: number | null;
-          runtime_min?: number | null;
-          runtime_max?: number | null;
-          completeness_min?: number | null;
+          year_min?: unknown;
+          year_max?: unknown;
+          runtime_min?: unknown;
+          runtime_max?: unknown;
+          completeness_min?: unknown;
         };
         Relationships: [
           {
@@ -1628,7 +1634,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       user_tags: {
@@ -1636,21 +1642,21 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
-          color: string | null;
+          color: string;
           created_at: string;
         };
         Insert: {
-          id?: string;
+          id: string;
           user_id: string;
           name: string;
-          color?: string | null;
-          created_at?: string;
+          color: string;
+          created_at: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           name?: string;
-          color?: string | null;
+          color?: string;
           created_at?: string;
         };
         Relationships: [
@@ -1659,7 +1665,7 @@ export interface Database {
             columns: ["user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
       user_title_tags: {
@@ -1673,7 +1679,7 @@ export interface Database {
           user_id: string;
           title_id: string;
           tag_id: string;
-          created_at?: string;
+          created_at: string;
         };
         Update: {
           user_id?: string;
@@ -1693,7 +1699,7 @@ export interface Database {
             columns: ["tag_id"];
             referencedRelation: "user_tags";
             referencedColumns: ["id"];
-          },
+          }
         ];
       };
     };
@@ -1701,76 +1707,16 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      get_conversation_summaries: {
-        Args: {
-          p_user_id: string;
-        };
-        Returns: {
-          conversation_id: string;
-          is_group: boolean;
-          title: string | null;
-          created_at: string;
-          updated_at: string;
-          last_message_id: string | null;
-          last_message_body: string | null;
-          last_message_created_at: string | null;
-          last_message_user_id: string | null;
-          last_message_display_name: string | null;
-          last_message_username: string | null;
-          participants: Json;
-          self_last_read_message_id: string | null;
-          self_last_read_at: string | null;
-          participant_receipts: Json;
-        }[];
-      };
-      get_diary_stats: {
-        Args: {
-          p_user_id: string;
-        };
-        Returns: {
-          total_rated: number;
-          total_watched: number;
-          average_rating: number;
-          rating_distribution: Json;
-          top_genres: Json;
-          watch_count_by_month: Json;
-        }[];
-      };
-      get_home_feed: {
-        Args: {
-          p_user_id: string;
-          p_limit?: number;
-          p_cursor?: string | null;
-        };
-        Returns: {
-          id: string;
-          created_at: string;
-          user_id: string;
-          event_type: string;
-          title_id: string | null;
-          related_user_id: string | null;
-          payload: Json | null;
-        }[];
-      };
+      [_ in never]: never;
     };
     Enums: {
-      content_type: "movie" | "series" | "anime";
-      library_status: "want_to_watch" | "watching" | "watched" | "dropped";
-      media_kind: "movie" | "series" | "anime" | "other" | "unknown";
-      media_event_type:
-        | "impression"
-        | "dwell"
-        | "like"
-        | "dislike"
-        | "skip"
-        | "watchlist"
-        | "rating"
-        | "open"
-        | "seen"
-        | "share";
-      participant_role: "member" | "admin" | "owner";
-      privacy_level: "public" | "followers_only" | "private";
-      report_status: "open" | "in_review" | "resolved" | "dismissed";
+      content_type: 'movie' | 'series' | 'anime';
+      library_status: 'want_to_watch' | 'watching' | 'watched' | 'dropped';
+      media_kind: 'movie' | 'series' | 'anime' | 'other' | 'unknown';
+      media_event_type: 'impression' | 'dwell' | 'like' | 'dislike' | 'skip' | 'watchlist' | 'rating' | 'open' | 'seen' | 'share';
+      participant_role: 'member' | 'admin' | 'owner';
+      privacy_level: 'public' | 'followers_only' | 'private';
+      report_status: 'open' | 'in_review' | 'resolved' | 'dismissed';
     };
     CompositeTypes: {
       [_ in never]: never;
