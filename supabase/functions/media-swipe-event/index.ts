@@ -1,18 +1,16 @@
 /**
- * media-swipe-event (v4, dedupe-key + full event type support)
+ * media-swipe-event — patch: update taste vectors (best-effort)
  *
- * Fixes duplicate-key errors by using a single dedupe key:
- * - DB has UNIQUE (user_id, dedupe_key)
- * - We UPSERT on (user_id, dedupe_key) with ignoreDuplicates=true
+ * After writing the event, call:
+ *   public.media_update_taste_vectors_v1(session_id, media_item_id, event_type, dwell_ms, rating_0_10, in_watchlist)
  *
- * Supported eventType:
- * - impression, dwell, like, dislike, skip, watchlist, rating
+ * This will update:
+ * - media_session_vectors
+ * - media_user_vectors
  *
- * Rules:
- * - watchlist requires inWatchlist boolean
- * - rating requires rating0_10 number (0..10)
- * - dwell is bucketed; < 1200ms ignored
- * - event_day is always set (UTC date)
+ * NOTE:
+ * - RPC runs with user JWT (authenticated) via SECURITY DEFINER.
+ * - If it fails, we DO NOT fail the request (analytics still works).
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -91,10 +89,8 @@ serve(async (req) => {
 
     const day = utcDay();
 
-    // Optional client idempotency
     const clientEventId = typeof body.clientEventId === "string" && body.clientEventId ? body.clientEventId : null;
 
-    // Derived fields only for matching event types
     const inWatchlist =
       eventType === "watchlist" && typeof body.inWatchlist === "boolean" ? body.inWatchlist : null;
 
@@ -134,7 +130,6 @@ serve(async (req) => {
     } else if (eventType === "rating") {
       dedupeKey = `rate:${day}:${mediaItemId}:${String(rating0_10)}`;
     } else {
-      // like/dislike/skip
       dedupeKey = `act:${day}:${mediaItemId}:${eventType}`;
     }
 
@@ -160,6 +155,17 @@ serve(async (req) => {
       .upsert(insertRow, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true });
 
     if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
+
+    // Best-effort: update taste vectors (ignore failures)
+    // If sessionId isn't a UUID, RPC will fail; frontend patch ensures UUID.
+    await supabase.rpc("media_update_taste_vectors_v1", {
+      p_session_id: sessionId,
+      p_media_item_id: mediaItemId,
+      p_event_type: eventType,
+      p_dwell_ms: dwellMs,
+      p_rating_0_10: rating0_10,
+      p_in_watchlist: inWatchlist,
+    }).catch(() => null);
 
     return json(200, { ok: true });
   } catch (err) {

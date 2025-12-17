@@ -13,28 +13,20 @@ export type MediaSwipeEventType =
 
 export type MediaSwipeCard = {
   mediaItemId: string;
-
-  // minimal UI fields
   title: string | null;
   overview: string | null;
   kind: "movie" | "series" | "anime" | "unknown";
-
   releaseDate: string | null;
   releaseYear: number | null;
   runtimeMinutes: number | null;
-
   posterUrl: string | null;
   tmdbPosterPath: string | null;
   tmdbBackdropPath: string | null;
-
   tmdbVoteAverage: number | null;
   tmdbVoteCount: number | null;
   tmdbPopularity: number | null;
-
   completeness: number | null;
-
-  // optional
-  source?: string | null; // "for_you" | "friends" | "trending" | "explore" | "combined"
+  source?: string | null;
   why?: string | null;
 };
 
@@ -56,16 +48,12 @@ export type SendMediaSwipeEventInput = {
   deckId?: string | null;
   position?: number | null;
   mediaItemId: string;
-
   eventType: MediaSwipeEventType;
   source?: string | null;
-
   dwellMs?: number | null;
   rating0_10?: number | null;
   inWatchlist?: boolean | null;
-
   clientEventId?: string | null;
-
   payload?: Record<string, unknown> | null;
 };
 
@@ -82,15 +70,27 @@ function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+function uuidv4Fallback(): string {
+  // RFC4122-ish UUID v4 (good enough as a client session id)
+  // eslint-disable-next-line no-bitwise
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function getOrCreateMediaSwipeSessionId(): string {
   if (typeof window === "undefined") return "00000000-0000-0000-0000-000000000000";
   const key = "mediaSwipeSessionId";
   const existing = window.localStorage.getItem(key);
   if (existing) return existing;
+
   const id =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      : uuidv4Fallback();
+
   window.localStorage.setItem(key, id);
   return id;
 }
