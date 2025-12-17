@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS public.media_items (
   tmdb_source text,
   tmdb_release_status text,
   tmdb_origin_country_raw jsonb,
+  CONSTRAINT media_items_tmdb_id_key UNIQUE (tmdb_id),
   CONSTRAINT media_items_pkey PRIMARY KEY (id)
 );
 

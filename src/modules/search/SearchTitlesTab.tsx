@@ -132,25 +132,35 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       })
       .slice(0, 3);
 
-    toSync.forEach((item) => {
-      already.add(item.id);
+    const syncBatch = async () => {
+      for (const item of toSync) {
+        already.add(item.id);
 
-      supabase
-        .from("media_items")
-        .upsert(
-          {
-            tmdb_id: item.tmdbId ?? null,
-            omdb_imdb_id: item.imdbId ?? null,
-            kind: item.type === "series" ? "series" : item.type ?? "movie",
-            tmdb_title: item.title,
-            tmdb_release_date: item.year ? `${item.year}-01-01` : null,
-          },
-          { onConflict: "tmdb_id" },
-        )
-        .catch((err) => {
-          console.warn("[SearchTitlesTab] media_items upsert failed for", item.id, err);
-        });
-    });
+        try {
+          const { error } = await supabase
+            .from("media_items")
+            .upsert(
+              {
+                tmdb_id: item.tmdbId ?? null,
+                omdb_imdb_id: item.imdbId ?? null,
+                kind: item.type === "series" ? "series" : item.type ?? "movie",
+                tmdb_title: item.title,
+                tmdb_release_date: item.year ? `${item.year}-01-01` : null,
+              },
+              { onConflict: "tmdb_id" },
+            )
+            .select("id");
+
+          if (error) {
+            console.warn("[SearchTitlesTab] media_items upsert failed for", item.id, error.message);
+          }
+        } catch (err) {
+          console.warn("[SearchTitlesTab] media_items upsert threw for", item.id, err);
+        }
+      }
+    };
+
+    void syncBatch();
   }, [results]);
 
   if (!trimmedQuery) {
