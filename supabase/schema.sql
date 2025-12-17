@@ -1,6 +1,3 @@
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
-
 CREATE TABLE public.activity_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -169,6 +166,11 @@ CREATE TABLE public.media_events (
   dwell_ms integer,
   payload jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  client_event_id uuid,
+  rating_0_10 numeric,
+  in_watchlist boolean,
+  event_day date NOT NULL DEFAULT ((now() AT TIME ZONE 'utc'::text))::date,
+  dedupe_key text,
   CONSTRAINT media_events_pkey PRIMARY KEY (id),
   CONSTRAINT media_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT media_events_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
@@ -181,9 +183,42 @@ CREATE TABLE public.media_feedback (
   rating_0_10 numeric,
   in_watchlist boolean,
   last_dwell_ms integer,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_impression_at timestamp with time zone,
+  impressions_7d integer NOT NULL DEFAULT 0,
+  seen_count_total integer NOT NULL DEFAULT 0,
+  last_dwell_at timestamp with time zone,
+  dwell_ms_ema double precision NOT NULL DEFAULT 0,
+  positive_ema double precision NOT NULL DEFAULT 0,
+  negative_ema double precision NOT NULL DEFAULT 0,
+  last_why text,
+  last_rank_score double precision,
   CONSTRAINT media_feedback_pkey PRIMARY KEY (user_id, media_item_id),
   CONSTRAINT media_feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT media_feedback_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
+CREATE TABLE public.media_item_daily (
+  day date NOT NULL,
+  media_item_id uuid NOT NULL,
+  impressions integer NOT NULL DEFAULT 0,
+  dwell_events integer NOT NULL DEFAULT 0,
+  dwell_ms_sum bigint NOT NULL DEFAULT 0,
+  likes integer NOT NULL DEFAULT 0,
+  dislikes integer NOT NULL DEFAULT 0,
+  skips integer NOT NULL DEFAULT 0,
+  watchlist_events integer NOT NULL DEFAULT 0,
+  rating_events integer NOT NULL DEFAULT 0,
+  unique_users integer NOT NULL DEFAULT 0,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_item_daily_pkey PRIMARY KEY (day, media_item_id),
+  CONSTRAINT media_item_daily_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
+CREATE TABLE public.media_item_daily_users (
+  day date NOT NULL,
+  media_item_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  CONSTRAINT media_item_daily_users_pkey PRIMARY KEY (day, media_item_id, user_id),
+  CONSTRAINT media_item_daily_users_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
 );
 CREATE TABLE public.media_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -249,6 +284,12 @@ CREATE TABLE public.media_items (
   missing_count integer,
   completeness numeric,
   CONSTRAINT media_items_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.media_job_state (
+  job_name text NOT NULL,
+  cursor uuid,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_job_state_pkey PRIMARY KEY (job_name)
 );
 CREATE TABLE public.media_session_vectors (
   user_id uuid NOT NULL,
