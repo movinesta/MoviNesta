@@ -1,21 +1,22 @@
-\
 /**
- * Jina Similarity Upgrade — SwipeDoc TSV v3
+ * Jina Similarity Upgrade — SwipeDoc TSV v3 (PARSE FIX)
  *
- * Implements improvements 1..6:
+ * Fixes deployment error:
+ * - Previous patch accidentally wrote a leading "\" character at byte 0, causing:
+ *   "Expected unicode escape ... at ...:1:1"
+ *
+ * This file starts correctly with "/*".
+ *
+ * Improvements included (1..6):
  * 1) Genre normalization + macro tags
- * 2) People as first-class with top-billed ordering (a1/a2/a3)
- * 3) Keyword compression (kw=) extracted from overview/plot
- * 4) Shorter overview (o<=650 chars) + kw to reduce noise
+ * 2) People as first-class signal with top-billed ordering (a1/a2/a3)
+ * 3) Keyword compression (kw) extracted from overview/plot
+ * 4) Overview noise reduction: o capped to 650 chars; kw carries the signal
  * 5) Add rated + era tokens
- * 6) Canonical language format (ISO-ish)
+ * 6) Canonical language format (ISO-ish) + canonical country codes
  *
  * TSV Columns:
  *   k  era  g  macro  lg  ct  p  rated  kw  o
- *
- * Notes:
- * - Keeps token budget low by capping list sizes and overview length.
- * - Still uses ONLY media_items fields.
  */
 
 export type MediaItemRow = Record<string, any>;
@@ -100,10 +101,8 @@ function macroTags(genres: string[], overview: string): string[] {
   const o = lowerClean(overview);
 
   const tags: string[] = [];
-
   const has = (needle: string) => o.includes(needle);
 
-  // very small curated mapping (token-cheap but helpful)
   if (g.has("horror") || has("haunted") || has("demon") || has("killer")) tags.push("dark");
   if (g.has("thriller") || g.has("crime") || has("murder") || has("detective")) tags.push("tense");
   if (g.has("family") || g.has("animation")) tags.push("family");
@@ -113,7 +112,6 @@ function macroTags(genres: string[], overview: string): string[] {
   if (g.has("drama")) tags.push("drama");
   if (g.has("science fiction") || g.has("fantasy")) tags.push("speculative");
 
-  // tone hints
   if (has("coming-of-age") || has("teen")) tags.push("youth");
   if (has("war") || g.has("war")) tags.push("war");
   if (has("based on true")) tags.push("true-story");
@@ -126,7 +124,6 @@ function languagesISO(mi: MediaItemRow): string[] {
   const out: string[] = [];
   if (mi.tmdb_original_language) out.push(String(mi.tmdb_original_language));
 
-  // omdb_language contains names; map a few common ones cheaply, otherwise drop.
   const omdb = splitCsv(mi.omdb_language);
   for (const lang of omdb) {
     const v = lowerClean(lang);
@@ -137,7 +134,6 @@ function languagesISO(mi: MediaItemRow): string[] {
     else if (v === "japanese") out.push("ja");
     else if (v === "korean") out.push("ko");
     else if (v === "arabic") out.push("ar");
-    // else ignore to keep it canonical + cheap
   }
   return out;
 }
@@ -152,8 +148,7 @@ function countries(mi: MediaItemRow): string[] {
   } catch {
     // ignore
   }
-  // OMDB uses full names; keep only 2-letter-ish tokens if present, else take first word initials is noisy -> skip
-  // So we keep just the tmdb country codes plus a few hard-mapped countries.
+
   const omdb = splitCsv(mi.omdb_country);
   for (const c of omdb) {
     const v = lowerClean(c);
@@ -205,7 +200,6 @@ function keywordExtract(text: string, max: number): string[] {
   const freq = new Map<string, number>();
   for (const w of words) freq.set(w, (freq.get(w) ?? 0) + 1);
 
-  // favor multiword-ish tokens (hyphenated) slightly
   const scored = Array.from(freq.entries()).map(([w, c]) => ({
     w,
     s: c + (w.includes("-") ? 0.5 : 0),
@@ -229,21 +223,15 @@ export function buildSwipeDocTSV(mi: MediaItemRow): string {
   const o = rawOverview.slice(0, 650);
 
   const g = uniqLimit(genresFrom(mi).map(normGenre), 6).join("|");
-
   const macro = macroTags(genresFrom(mi), rawOverview).join("|");
-
   const lg = uniqLimit(languagesISO(mi), 4).join("|");
-
   const ct = uniqLimit(countries(mi), 4).join("|");
-
   const p = peopleTokens(mi).join(";");
-
   const rated = mi.omdb_rated ? lowerClean(mi.omdb_rated) : "";
-
   const kw = uniqLimit(keywordExtract(rawOverview, 12), 12).join("|");
 
   return [
-    "k\tera\tg\tmacro\tlg\tct\tp\trated\tkw\to",
-    `${k}\t${era}\t${g}\t${macro}\t${lg}\t${ct}\t${p}\t${rated}\t${kw}\t${clean(o)}`,
+    "k	era	g	macro	lg	ct	p	rated	kw	o",
+    `${k}	${era}	${g}	${macro}	${lg}	${ct}	${p}	${rated}	${kw}	${clean(o)}`,
   ].join("\n");
 }
