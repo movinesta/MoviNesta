@@ -16,55 +16,58 @@ import TopBar from "../../components/shared/TopBar";
 import { supabase } from "../../lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { tmdbImageUrl } from "@/lib/tmdb";
-import { TitleType } from "@/types/supabase-helpers";
 import type { SwipeCardData } from "../swipe/useSwipeDeck";
 import { fetchMediaSwipeDeck, getOrCreateMediaSwipeSessionId } from "../swipe/mediaSwipeApi";
+import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
 
-interface TitleRow {
-  title_id: string;
+type TitleRow = MediaItemRow;
 
-  // Core identity
-  content_type: string | null;
-  primary_title: string | null;
-  original_title: string | null;
-  sort_title: string | null;
+const MEDIA_ITEM_DETAIL_COLUMNS = `
+  id,
+  kind,
+  tmdb_title,
+  tmdb_name,
+  tmdb_original_title,
+  tmdb_original_name,
+  tmdb_release_date,
+  tmdb_first_air_date,
+  tmdb_runtime,
+  tmdb_overview,
+  tmdb_tagline,
+  tmdb_backdrop_path,
+  tmdb_poster_path,
+  tmdb_original_language,
+  tmdb_origin_country,
+  tmdb_genres,
+  omdb_title,
+  omdb_plot,
+  omdb_director,
+  omdb_actors,
+  omdb_language,
+  omdb_country,
+  omdb_imdb_rating,
+  omdb_imdb_votes,
+  omdb_metascore,
+  omdb_rating_rotten_tomatoes,
+  omdb_year,
+  omdb_poster,
+  omdb_rated,
+  omdb_genre
+`;
 
-  // Dates & runtime
-  release_year: number | null;
-  release_date: string | null;
-  runtime_minutes: number | null;
-  tmdb_runtime: number | null;
-  tmdb_episode_run_time: number[] | null;
+const parseRottenTomatoes = (value?: string | null): number | null => {
+  if (!value) return null;
+  const match = String(value).match(/(\d{1,3})/);
+  if (!match) return null;
+  const num = Number(match[1]);
+  return Number.isFinite(num) ? num : null;
+};
 
-  // Story / description
-  plot: string | null;
-  tmdb_overview: string | null;
-  tagline: string | null;
-
-  // People
-  omdb_director: string | null;
-  omdb_actors: string | null;
-
-  // Genres & locale
-  genres: string[] | null;
-  tmdb_genre_names: string[] | null;
-  language: string | null;
-  omdb_language: string | null;
-  tmdb_original_language: string | null;
-  country: string | null;
-  omdb_country: string | null;
-
-  // Ratings
-  imdb_rating: number | null;
-  imdb_votes: number | null;
-  metascore: number | null;
-  rt_tomato_pct: number | null;
-
-  // Artwork
-  poster_url: string | null;
-  tmdb_poster_path: string | null;
-  backdrop_url: string | null;
-}
+const parseOptionalNumber = (value?: string | number | null): number | null => {
+  if (value == null) return null;
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : null;
+};
 
 interface CreateDirectConversationResponse {
   ok: boolean;
@@ -139,41 +142,9 @@ const TitleDetailPage: React.FC = () => {
       if (!titleId) return null;
 
       const { data, error } = await supabase
-        .from("titles")
-        .select(
-          `
-          title_id,
-          content_type,
-          primary_title,
-          original_title,
-          sort_title,
-          release_year,
-          release_date,
-          runtime_minutes,
-          tmdb_runtime,
-          tmdb_episode_run_time,
-          plot,
-          tmdb_overview,
-          tagline,
-          omdb_director,
-          omdb_actors,
-          genres,
-          tmdb_genre_names,
-          language,
-          omdb_language,
-          tmdb_original_language,
-          country,
-          omdb_country,
-          imdb_rating,
-          imdb_votes,
-          metascore,
-          rt_tomato_pct,
-          poster_url,
-          tmdb_poster_path,
-          backdrop_url
-        `,
-        )
-        .eq("title_id", titleId)
+        .from("media_items")
+        .select(MEDIA_ITEM_DETAIL_COLUMNS)
+        .eq("id", titleId)
         .maybeSingle();
 
       if (error) {
@@ -324,11 +295,42 @@ const TitleDetailPage: React.FC = () => {
     },
   });
 
-  const posterImage = data
-    ? (data.poster_url ?? tmdbImageUrl(data.tmdb_poster_path, "w500"))
-    : null;
+  const summary = data ? mapMediaItemToSummary(data) : null;
+  const displayTitle = summary?.title ?? "Untitled";
+  const derivedYear = summary?.year ?? null;
+  const normalizedContentType = summary?.type ?? null;
 
-  const backdropImage = data ? data.backdrop_url : null;
+  const posterImage = summary?.posterUrl ?? null;
+  const backdropImage = summary?.backdropUrl ?? null;
+  const runtimeMinutes = parseOptionalNumber(data?.tmdb_runtime);
+
+  const tmdbGenresRaw = data?.tmdb_genres;
+  const genres: string[] = Array.isArray(tmdbGenresRaw)
+    ? tmdbGenresRaw
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const name = (item as Record<string, unknown>).name;
+          return typeof name === "string" && name.trim() ? name.trim() : null;
+        })
+        .filter((value): value is string => Boolean(value))
+    : typeof data?.omdb_genre === "string"
+      ? data.omdb_genre
+          .split(",")
+          .map((g) => g.trim())
+          .filter(Boolean)
+      : [];
+
+  const primaryLanguage = summary?.originalLanguage ?? null;
+  const primaryCountry =
+    Array.isArray(data?.tmdb_origin_country) && data.tmdb_origin_country.length
+      ? data.tmdb_origin_country[0]
+      : (data?.omdb_country ?? null);
+
+  const overview = data?.omdb_plot ?? data?.tmdb_overview ?? null;
+  const tagline = data?.tmdb_tagline ?? null;
+  const externalImdbRating = parseOptionalNumber(data?.omdb_imdb_rating);
+  const externalMetascore = parseOptionalNumber(data?.omdb_metascore);
+  const externalTomato = parseRottenTomatoes(data?.omdb_rating_rotten_tomatoes);
 
   React.useEffect(() => {
     const urls = [posterImage, backdropImage].filter((url): url is string => Boolean(url));
@@ -399,42 +401,19 @@ const TitleDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  const displayTitle = data.primary_title ?? data.original_title ?? "Untitled";
-
-  const derivedYear =
-    data.release_year ?? (data.release_date ? new Date(data.release_date).getFullYear() : null);
-
-  const runtimeMinutes =
-    data.runtime_minutes ??
-    data.tmdb_runtime ??
-    (Array.isArray(data.tmdb_episode_run_time) && data.tmdb_episode_run_time.length > 0
-      ? data.tmdb_episode_run_time[0]
-      : null);
-
   const runtimeLabel =
     typeof runtimeMinutes === "number" && runtimeMinutes > 0
       ? `${Math.floor(runtimeMinutes / 60)}h ${runtimeMinutes % 60 ? `${runtimeMinutes % 60}m` : ""}`.trim()
       : null;
 
   const displayContentType =
-    data.content_type === "movie"
+    normalizedContentType === "movie"
       ? "Movie"
-      : data.content_type === "series"
+      : normalizedContentType === "series"
         ? "TV Series"
-        : (data.content_type ?? null);
-
-  const primaryLanguage =
-    data.language ?? data.omdb_language ?? data.tmdb_original_language ?? null;
-
-  const primaryCountry = data.country ?? data.omdb_country ?? null;
-
-  const genres =
-    (data.genres && data.genres.length > 0 && data.genres) ||
-    (data.tmdb_genre_names && data.tmdb_genre_names.length > 0 && data.tmdb_genre_names) ||
-    [];
-
-  const overview = data.plot ?? data.tmdb_overview ?? null;
+        : normalizedContentType === "anime"
+          ? "Anime"
+          : (data?.kind ?? null);
 
   const moreLikeCards = moreLikeThisCards ?? [];
 
@@ -444,13 +423,6 @@ const TitleDetailPage: React.FC = () => {
   if (runtimeLabel) metaPieces.push(runtimeLabel);
   if (primaryCountry) metaPieces.push(primaryCountry);
   if (primaryLanguage) metaPieces.push(primaryLanguage);
-
-  const externalImdbRating = data.imdb_rating;
-  const externalMetascore = data.metascore;
-  const externalTomato = data.rt_tomato_pct;
-
-  const normalizedContentType: TitleType | null =
-    data.content_type === "movie" || data.content_type === "series" ? data.content_type : null;
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -462,15 +434,23 @@ const TitleDetailPage: React.FC = () => {
 
   const setDiaryStatus = (status: DiaryStatus) => {
     if (!ensureSignedIn() || updateStatus.isPending) return;
+    if (!normalizedContentType) {
+      alert("We couldn't determine the content type for this title yet.");
+      return;
+    }
 
-    updateStatus.mutate({ titleId: data.title_id, status, type: normalizedContentType });
+    updateStatus.mutate({ titleId: data.id, status, type: normalizedContentType });
   };
 
   const setDiaryRating = (nextRating: number | null) => {
     if (!ensureSignedIn() || updateRating.isPending) return;
+    if (!normalizedContentType) {
+      alert("We couldn't determine the content type for this title yet.");
+      return;
+    }
 
     updateRating.mutate({
-      titleId: data.title_id,
+      titleId: data.id,
       rating: nextRating,
       type: normalizedContentType,
     });
@@ -655,15 +635,15 @@ const TitleDetailPage: React.FC = () => {
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="flex flex-1 flex-col gap-3">
             <div className="rounded-2xl border border-border bg-background/80 px-3 py-3 text-[12px] text-muted-foreground">
-              {data.tagline && (
-                <p className="text-sm font-medium text-foreground">{data.tagline}</p>
+              {tagline && (
+                <p className="text-sm font-medium text-foreground">{tagline}</p>
               )}
               {overview && (
                 <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
                   {overview}
                 </p>
               )}
-              {!data.tagline && !overview && (
+              {!tagline && !overview && (
                 <p className="text-[12px] text-muted-foreground">
                   We don&apos;t have a plot summary for this title yet.
                 </p>
