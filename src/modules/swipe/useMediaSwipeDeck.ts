@@ -12,6 +12,7 @@ import {
   type MediaSwipeCard,
   type MediaSwipeDeckMode,
   type MediaSwipeEventType,
+  uuidv4Fallback,
 } from "./mediaSwipeApi";
 
 /**
@@ -95,6 +96,11 @@ function mapDirectionToEventType(direction: SwipeDirection): MediaSwipeEventType
   if (direction === "like") return "like";
   if (direction === "dislike") return "dislike";
   return "skip";
+}
+
+function nextClientEventId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return uuidv4Fallback();
 }
 
 function normalizeCard(card: MediaSwipeCardUI, tmdbPosterSize: UseMediaSwipeDeckOptions["tmdbPosterSize"]): MediaSwipeCardUI {
@@ -280,6 +286,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       mediaItemId: card.id,
       eventType: "impression" satisfies MediaSwipeEventType,
       source: card.source ?? null,
+      clientEventId: nextClientEventId(),
     });
   }, [eventMutation, sessionId]);
 
@@ -301,6 +308,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       eventType: "dwell" satisfies MediaSwipeEventType,
       dwellMs: Math.round(dwellMs),
       source: card.source ?? null,
+      clientEventId: nextClientEventId(),
     });
   }, [dwellDebounceMs, dwellThresholdMs, eventMutation, sessionId]);
 
@@ -313,6 +321,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       mediaItemId: card.id,
       eventType: mapDirectionToEventType(payload.direction),
       source: card.source ?? null,
+      clientEventId: nextClientEventId(),
       });
   }, [eventMutation, sessionId]);
 
@@ -325,6 +334,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
       mediaItemId: card.id,
       eventType: mapDirectionToEventType(payload.direction),
       source: card.source ?? null,
+      clientEventId: nextClientEventId(),
       });
   }, [eventMutation, sessionId]);
 

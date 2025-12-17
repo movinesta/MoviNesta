@@ -22,6 +22,9 @@ const ALLOWED = new Set([
   "skip",
   "watchlist",
   "rating",
+  "open",
+  "seen",
+  "share",
 ]);
 
 function json(status: number, body: unknown) {

@@ -311,6 +311,76 @@ export interface Database {
           },
         ];
       };
+      media_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_id: string;
+          deck_id: string | null;
+          position: number | null;
+          media_item_id: string;
+          event_type: Database["public"]["Enums"]["media_event_type"];
+          source: string | null;
+          dwell_ms: number | null;
+          payload: Json | null;
+          created_at: string;
+          client_event_id: string | null;
+          rating_0_10: number | null;
+          in_watchlist: boolean | null;
+          event_day: string;
+          dedupe_key: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_id: string;
+          deck_id?: string | null;
+          position?: number | null;
+          media_item_id: string;
+          event_type: Database["public"]["Enums"]["media_event_type"];
+          source?: string | null;
+          dwell_ms?: number | null;
+          payload?: Json | null;
+          created_at?: string;
+          client_event_id?: string | null;
+          rating_0_10?: number | null;
+          in_watchlist?: boolean | null;
+          event_day?: string;
+          dedupe_key?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_id?: string;
+          deck_id?: string | null;
+          position?: number | null;
+          media_item_id?: string;
+          event_type?: Database["public"]["Enums"]["media_event_type"];
+          source?: string | null;
+          dwell_ms?: number | null;
+          payload?: Json | null;
+          created_at?: string;
+          client_event_id?: string | null;
+          rating_0_10?: number | null;
+          in_watchlist?: boolean | null;
+          event_day?: string;
+          dedupe_key?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "media_events_media_item_id_fkey";
+            columns: ["media_item_id"];
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "media_events_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       titles: {
         Row: {
           title_id: string;
@@ -1862,6 +1932,17 @@ export interface Database {
       episode_status: "watched" | "skipped";
       library_status: "want_to_watch" | "watching" | "watched" | "dropped";
       media_kind: "movie" | "series" | "anime" | "other" | "unknown";
+      media_event_type:
+        | "impression"
+        | "dwell"
+        | "like"
+        | "dislike"
+        | "skip"
+        | "watchlist"
+        | "rating"
+        | "open"
+        | "seen"
+        | "share";
       participant_role: "member" | "admin" | "owner";
       privacy_level: "public" | "followers_only" | "private";
       report_status: "open" | "in_review" | "resolved" | "dismissed";

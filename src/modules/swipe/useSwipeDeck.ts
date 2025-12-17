@@ -9,15 +9,23 @@
 import { QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { tmdbImageUrl } from "@/lib/tmdb";
 import { TitleType } from "@/types/supabase-helpers";
+import {
+  fetchMediaSwipeDeck,
+  getOrCreateMediaSwipeSessionId,
+  sendMediaSwipeEvent,
+  uuidv4Fallback,
+  type MediaSwipeDeckMode,
+} from "./mediaSwipeApi";
 
 export type SwipeDirection = "like" | "dislike" | "skip";
 
 export type SwipeCardData = {
   id: string;
   title: string;
+  deckId?: string | null;
+  position?: number | null;
 
   // Core identity
   year?: number | null;
@@ -49,7 +57,7 @@ export type SwipeCardData = {
   rtTomatoMeter?: number | null;
 
   // Source of this card (for-you, from-friends, trending)
-  source?: SwipeDeckKind;
+  source?: SwipeDeckKind | "combined" | "explore" | null;
 
   // Optional explanation label (e.g., "More like Inception")
   why?: string | null;
@@ -63,6 +71,7 @@ export type SwipeCardData = {
 
 export type SwipeDeckKind = "for-you" | "from-friends" | "trending";
 export type SwipeDeckKindOrCombined = SwipeDeckKind | "combined";
+type SwipeBackendSource = "for_you" | "friends" | "trending" | "explore" | "combined";
 
 type SwipeDeckStatus = "idle" | "loading" | "ready" | "exhausted" | "error";
 
@@ -143,34 +152,79 @@ interface SwipeEventPayload {
   sourceOverride?: SwipeDeckKind;
 }
 
+function mapKindToMode(kind: SwipeDeckKindOrCombined): MediaSwipeDeckMode {
+  if (kind === "trending") return "trending";
+  if (kind === "from-friends") return "friends";
+  if (kind === "combined") return "combined";
+  return "for_you";
+}
+
+function mapBackendSource(src: string | null | undefined): SwipeCardData["source"] {
+  if (!src) return null;
+  const normalized = src.replace("-", "_") as SwipeBackendSource;
+  if (normalized === "for_you") return "for-you";
+  if (normalized === "friends") return "from-friends";
+  if (normalized === "trending") return "trending";
+  if (normalized === "combined") return "combined";
+  if (normalized === "explore") return "explore";
+  return null;
+}
+
+function nextClientEventId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return uuidv4Fallback();
+}
+
 export async function fetchSwipeCardsFromSource(
-  source: SwipeDeckKind,
+  source: SwipeDeckKindOrCombined,
   count: number,
+  sessionId: string,
 ): Promise<SwipeCardData[]> {
-  const fnName =
-    source === "for-you"
-      ? "swipe-for-you"
-      : source === "from-friends"
-        ? "swipe-from-friends"
-        : "swipe-trending";
+  const mode = mapKindToMode(source);
 
   try {
-    const response = await callSupabaseFunction<SwipeDeckResponse>(
-      fnName,
-      { limit: count },
+    const response = await fetchMediaSwipeDeck(
+      { sessionId, mode, limit: Math.max(count, 12) },
       { timeoutMs: 25000 },
     );
 
-    const cards = extractSwipeCards(response).map((card) => ({ ...card, source }));
+    const cards = (response?.cards ?? []).map((card, idx) => {
+      const posterUrl = card.posterUrl ?? tmdbImageUrl(card.tmdbPosterPath ?? card.tmdbBackdropPath, "w780");
+      const title = (card.title ?? "").trim() || "Untitled";
+      const type: TitleType | null =
+        card.kind === "series" ? "series" : card.kind === "anime" ? "anime" : "movie";
+
+      return {
+        id: card.mediaItemId,
+        deckId: response.deckId ?? null,
+        position: idx,
+        title,
+        year: card.releaseYear ?? null,
+        type,
+        runtimeMinutes: card.runtimeMinutes ?? null,
+        posterUrl: posterUrl ?? null,
+        tmdbPosterPath: card.tmdbPosterPath ?? null,
+        tmdbBackdropPath: card.tmdbBackdropPath ?? null,
+        imdbRating: card.tmdbVoteAverage ?? null,
+        rtTomatoMeter: null,
+        source: mapBackendSource((card as any).source ?? mode),
+        why: card.why ?? null,
+        overview: card.overview ?? null,
+        genres: null,
+        language: null,
+        country: null,
+      } satisfies SwipeCardData;
+    });
+
     if (cards.length) {
-      console.debug("[useSwipeDeck]", fnName, "returned", cards.length, "cards");
+      console.debug("[useSwipeDeck]", mode, "returned", cards.length, "cards");
       return cards;
     }
   } catch (err) {
     if ((err as Error)?.name === "AbortError") {
-      console.warn("[useSwipeDeck]", fnName, "timed out");
+      console.warn("[useSwipeDeck]", mode, "timed out");
     } else {
-      console.warn("[useSwipeDeck] invoke error from", fnName, err);
+      console.warn("[useSwipeDeck] invoke error from", mode, err);
     }
   }
 
@@ -182,42 +236,14 @@ export async function fetchSwipeBatch(
   batchSize: number,
   weights?: Record<SwipeDeckKind, number>,
 ): Promise<SwipeCardData[]> {
+  const sessionId = getOrCreateMediaSwipeSessionId();
+
   if (kind === "combined") {
-    const appliedWeights = weights ?? loadInitialSourceWeights();
-    const weightTotal = Object.values(appliedWeights).reduce((acc, weight) => acc + weight, 0) || 1;
-    const plannedTotal = Math.max(batchSize, 18);
-
-    const plannedCounts: Record<SwipeDeckKind, number> = {
-      "for-you": Math.max(6, Math.round((appliedWeights["for-you"] / weightTotal) * plannedTotal)),
-      "from-friends": Math.max(
-        4,
-        Math.round((appliedWeights["from-friends"] / weightTotal) * plannedTotal),
-      ),
-      trending: Math.max(4, Math.round((appliedWeights.trending / weightTotal) * plannedTotal)),
-    };
-
-    const [forYou, friends, trending] = await Promise.all([
-      fetchSwipeCardsFromSource("for-you", plannedCounts["for-you"]),
-      fetchSwipeCardsFromSource("from-friends", plannedCounts["from-friends"]),
-      fetchSwipeCardsFromSource("trending", plannedCounts.trending),
-    ]);
-
-    let collected: SwipeCardData[][] = [forYou, friends, trending];
-
-    const collectedFlat = collected.flat();
-    if (collectedFlat.length < plannedTotal) {
-      const deficit = plannedTotal - collectedFlat.length;
-      const prioritizedSource = Object.entries(appliedWeights).sort(
-        (a, b) => b[1] - a[1],
-      )[0]?.[0] as SwipeDeckKind | undefined;
-      const fallback = await fetchSwipeCardsFromSource(prioritizedSource ?? "for-you", deficit + 6);
-      collected = [...collected, fallback];
-    }
-
-    return buildInterleavedDeck(collected, plannedTotal);
+    const plannedTotal = Math.max(batchSize, 24);
+    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId);
   }
 
-  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12));
+  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId);
 }
 
 export async function prefillSwipeDeckCache(
@@ -271,6 +297,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const limit = options?.limit ?? 40;
   const queryClient = useQueryClient();
   const deckCacheKey = useMemo(() => swipeDeckQueryKey(kind), [kind]);
+  const sessionId = useMemo(() => getOrCreateMediaSwipeSessionId(), []);
 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const cardsRef = useRef<SwipeCardData[]>([]);
@@ -500,16 +527,19 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     mutationFn: async ({
       cardId,
       direction,
-      rating,
-      inWatchlist,
       sourceOverride,
     }: SwipeEventPayload) => {
-      await callSupabaseFunction("swipe-event", {
-        titleId: cardId,
-        direction,
-        source: sourceOverride ?? (kind === "combined" ? undefined : kind),
-        rating,
-        inWatchlist,
+      const card = cardsRef.current.find((c) => c.id === cardId);
+      const pos = typeof card?.position === "number" && card.position >= 0 ? card.position : null;
+
+      await sendMediaSwipeEvent({
+        sessionId,
+        deckId: card?.deckId ?? null,
+        position: pos,
+        mediaItemId: cardId,
+        eventType: direction === "like" ? "like" : direction === "dislike" ? "dislike" : "skip",
+        source: sourceOverride ?? (kind === "combined" ? "combined" : kind),
+        clientEventId: nextClientEventId(),
       });
     },
     onError: (error, variables) => {
