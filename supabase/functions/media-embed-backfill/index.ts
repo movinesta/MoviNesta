@@ -1,23 +1,29 @@
 /**
- * media-embed-backfill — Coverage v1
+ * media-embed-backfill — No-Filter + Pagination v1
  *
- * Fix: some media_items never get embedded because we previously required tmdb_poster_path IS NOT NULL.
+ * Goal: embed ALL rows in media_items (no "poster_path" / completeness gating),
+ * while staying reliable (small batches) and debuggable.
  *
- * New selection:
- * - completeness >= minCompleteness (default 0.60)
- * - kind optional filter
- * - no poster requirement
+ * Default behavior:
+ * - embeds ONLY missing items (media_embeddings row absent)
+ * - scans ALL media_items (no completeness filter)
+ * - batchSize defaults to 60 docs per call to avoid timeouts / payload limits
  *
- * New behavior:
- * - By default, skips items that already have an embedding (same as before)
- * - If reembed=true, it will overwrite existing embeddings (UPSERT all selected rows)
- *
- * Request body (JSON):
+ * Options:
  * {
- *   "limit": 200,
- *   "kind": "movie" | "tv" | ... (optional),
- *   "minCompleteness": 0.6 (optional),
- *   "reembed": false (optional)
+ *   "batchSize": 60,          // 1..120
+ *   "afterId": "uuid",        // resume cursor (exclusive)
+ *   "reembed": false,         // if true, overwrite existing embeddings
+ *   "kind": "movie"           // optional filter if you ever want it
+ * }
+ *
+ * Response:
+ * {
+ *   ok: true,
+ *   scanned: number,
+ *   embedded: number,
+ *   skipped_existing: number,
+ *   next_after_id: string | null
  * }
  */
 
@@ -38,6 +44,8 @@ type EmbeddingResp = {
   data?: Array<{ embedding: number[] }>;
 };
 
+const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(n, b));
+
 serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -45,11 +53,12 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(Number(body.limit ?? 200), 500));
-    const kindFilter = typeof body.kind === "string" ? body.kind : null;
-    const minCompleteness = Math.max(0, Math.min(Number(body.minCompleteness ?? 0.60), 1));
+    const batchSize = clamp(Number(body.batchSize ?? 60), 1, 120);
+    const afterId = typeof body.afterId === "string" ? body.afterId : null;
     const reembed = Boolean(body.reembed ?? false);
+    const kindFilter = typeof body.kind === "string" ? body.kind : null;
 
+    // Scan by id for stable pagination.
     let q = supabase
       .from("media_items")
       .select(
@@ -73,21 +82,21 @@ serve(async (req) => {
           "completeness",
         ].join(","),
       )
-      .gte("completeness", minCompleteness)
-      .order("completeness", { ascending: false })
-      .limit(limit);
+      .order("id", { ascending: true })
+      .limit(batchSize);
 
+    if (afterId) q = q.gt("id", afterId);
     if (kindFilter) q = q.eq("kind", kindFilter);
 
     const { data: items, error: itemsErr } = await q;
     if (itemsErr) return json(500, { ok: false, code: "FETCH_FAILED", message: itemsErr.message });
-    if (!items?.length) return json(200, { ok: true, embedded: 0, skipped_existing: 0 });
+    if (!items?.length) return json(200, { ok: true, scanned: 0, embedded: 0, skipped_existing: 0, next_after_id: null });
 
-    let todo = items;
-
+    let todo = items as any[];
     let skippedExisting = 0;
+
     if (!reembed) {
-      const ids = items.map((x: any) => x.id);
+      const ids = todo.map((x) => x.id);
       const { data: existing, error: exErr } = await supabase
         .from("media_embeddings")
         .select("media_item_id")
@@ -96,13 +105,25 @@ serve(async (req) => {
       if (exErr) return json(500, { ok: false, code: "EXISTING_CHECK_FAILED", message: exErr.message });
 
       const have = new Set((existing ?? []).map((r: any) => r.media_item_id));
-      todo = items.filter((x: any) => !have.has(x.id));
-      skippedExisting = items.length - todo.length;
+      todo = todo.filter((x) => !have.has(x.id));
+      skippedExisting = (items.length - todo.length);
     }
 
-    if (!todo.length) return json(200, { ok: true, embedded: 0, skipped_existing: skippedExisting });
+    // next cursor based on scan, not on embedded subset
+    const nextAfterId = (items.length === batchSize) ? String(items[items.length - 1].id) : null;
 
-    const docs = todo.map((mi: any) => buildSwipeDocTSV(mi));
+    if (!todo.length) {
+      return json(200, {
+        ok: true,
+        scanned: items.length,
+        embedded: 0,
+        skipped_existing: skippedExisting,
+        next_after_id: nextAfterId,
+        reembed,
+      });
+    }
+
+    const docs = todo.map((mi) => buildSwipeDocTSV(mi));
 
     const resp = (await postJson(
       JINA_EMBEDDINGS_URL,
@@ -119,7 +140,7 @@ serve(async (req) => {
       });
     }
 
-    const rows = todo.map((mi: any, i: number) => ({
+    const rows = todo.map((mi, i) => ({
       media_item_id: mi.id,
       embedding: vecs[i],
       model: JINA_MODEL,
@@ -136,9 +157,10 @@ serve(async (req) => {
 
     return json(200, {
       ok: true,
+      scanned: items.length,
       embedded: rows.length,
       skipped_existing: skippedExisting,
-      minCompleteness,
+      next_after_id: nextAfterId,
       reembed,
     });
   } catch (err) {
