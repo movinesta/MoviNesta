@@ -1,4 +1,3 @@
-\
 /**
  * media-swipe-event (v2, smart)
  *
@@ -112,6 +111,6 @@ serve(async (req) => {
 
     return json(200, { ok: true });
   } catch (err) {
-    return json(500, { ok: false, code: "INTERNAL_ERROR", message: String(err?.message ?? err) });
+    return json(500, { ok: false, code: "INTERNAL_ERROR", message: String((err as any)?.message ?? err) });
   }
 });
