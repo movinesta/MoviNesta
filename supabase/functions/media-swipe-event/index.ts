@@ -1,16 +1,12 @@
 /**
- * media-swipe-event — patch: update taste vectors (best-effort)
+ * media-swipe-event — FIX: supabase.rpc(...).catch is not a function
  *
- * After writing the event, call:
- *   public.media_update_taste_vectors_v1(session_id, media_item_id, event_type, dwell_ms, rating_0_10, in_watchlist)
+ * supabase.rpc() returns a PostgREST builder (not a Promise), so `.catch()` is invalid.
+ * Correct pattern:
+ *   const { error } = await supabase.rpc(...);
+ *   // ignore error (best-effort)
  *
- * This will update:
- * - media_session_vectors
- * - media_user_vectors
- *
- * NOTE:
- * - RPC runs with user JWT (authenticated) via SECURITY DEFINER.
- * - If it fails, we DO NOT fail the request (analytics still works).
+ * This file assumes you're already using the dedupe_key version for events.
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -156,16 +152,21 @@ serve(async (req) => {
 
     if (error) return json(500, { ok: false, code: "UPSERT_FAILED", message: error.message });
 
-    // Best-effort: update taste vectors (ignore failures)
-    // If sessionId isn't a UUID, RPC will fail; frontend patch ensures UUID.
-    await supabase.rpc("media_update_taste_vectors_v1", {
-      p_session_id: sessionId,
-      p_media_item_id: mediaItemId,
-      p_event_type: eventType,
-      p_dwell_ms: dwellMs,
-      p_rating_0_10: rating0_10,
-      p_in_watchlist: inWatchlist,
-    }).catch(() => null);
+    // Best-effort: update taste vectors. Ignore errors, but DO NOT use `.catch()`.
+    try {
+      const { error: tasteErr } = await supabase.rpc("media_update_taste_vectors_v1", {
+        p_session_id: sessionId,
+        p_media_item_id: mediaItemId,
+        p_event_type: eventType,
+        p_dwell_ms: dwellMs,
+        p_rating_0_10: rating0_10,
+        p_in_watchlist: inWatchlist,
+      });
+      // Ignore tasteErr; swipe events must never fail because taste update failed.
+      void tasteErr;
+    } catch (_e) {
+      // ignore
+    }
 
     return json(200, { ok: true });
   } catch (err) {
