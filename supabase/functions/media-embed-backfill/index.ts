@@ -1,18 +1,17 @@
 /**
- * media-embed-backfill — Log Error Body v1
+ * media-embed-backfill — Remove 'doc' column writes v1
  *
- * Problem:
- * - pg_net / cron logs only show "POST | 500" and not the response JSON body.
+ * Fixes error:
+ *   Could not find the 'doc' column of 'media_embeddings' in the schema cache
  *
- * Fix:
- * - Every non-2xx response body is ALSO printed to function logs as:
- *     MEDIA_EMBED_BACKFILL_ERROR {json...}
- * - This makes the real cause visible in Supabase Function Logs.
+ * Your media_embeddings table does NOT have a 'doc' column, but the backfill
+ * was trying to upsert it. This patch removes that field from inserts/upserts.
  *
  * Keeps:
- * - pagination (afterId)
- * - batchSize (default 30)
- * - retries + dim check
+ * - no filtering (scan all media_items)
+ * - pagination via afterId
+ * - retries + embedding dimension check
+ * - error logging via MEDIA_EMBED_BACKFILL_ERROR
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -29,7 +28,6 @@ const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(n, b));
 
 function respond(status: number, body: any) {
   if (status >= 400) {
-    // Make sure errors are visible even when caller doesn't capture response body (pg_net).
     console.error("MEDIA_EMBED_BACKFILL_ERROR", JSON.stringify(body));
   }
   return new Response(JSON.stringify(body), {
@@ -180,13 +178,13 @@ serve(async (req) => {
       });
     }
 
+    // IMPORTANT: no 'doc' column in media_embeddings — do NOT send it.
     const rows = todo.map((mi, i) => ({
       media_item_id: mi.id,
       embedding: vecs[i],
       model: JINA_MODEL,
       task: "swipe",
       updated_at: new Date().toISOString(),
-      doc: docs[i],
     }));
 
     const { error: upErr } = await supabase
@@ -198,7 +196,6 @@ serve(async (req) => {
         ok: false,
         code: "UPSERT_FAILED",
         message: upErr.message,
-        hint: "Check that media_embeddings has UNIQUE(media_item_id).",
         next_after_id: nextAfterId,
       });
     }
