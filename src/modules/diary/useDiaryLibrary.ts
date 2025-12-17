@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 import { TitleType } from "@/types/supabase-helpers";
+import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
 
 export type DiaryStatus = "want_to_watch" | "watching" | "watched" | "dropped";
 
@@ -25,10 +26,7 @@ export interface DiaryLibraryEntry {
 }
 
 type LibraryRow = Database["public"]["Tables"]["library_entries"]["Row"];
-type TitleRow = Pick<
-  Database["public"]["Tables"]["titles"]["Row"],
-  "title_id" | "primary_title" | "release_year" | "content_type" | "poster_url" | "backdrop_url"
->;
+type TitleRow = ReturnType<typeof mapMediaItemToSummary>;
 type LibraryRowWithTitle = LibraryRow & { titles: TitleRow | null };
 type RatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "title_id" | "rating">;
 type TitleDiaryRow = Pick<Database["public"]["Tables"]["library_entries"]["Row"], "status">;
@@ -66,16 +64,39 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
       let titlesById = new Map<string, TitleRow>();
       if (titleIds.length) {
         const { data: titles, error: titlesError } = await supabase
-          .from("titles")
-          .select("title_id, primary_title, release_year, content_type, poster_url, backdrop_url")
-          .in("title_id", titleIds);
+          .from("media_items")
+          .select(
+            `id,
+             kind,
+             tmdb_title,
+             tmdb_name,
+             tmdb_original_title,
+             tmdb_original_name,
+             tmdb_release_date,
+             tmdb_first_air_date,
+             tmdb_poster_path,
+             tmdb_backdrop_path,
+             tmdb_original_language,
+             omdb_title,
+             omdb_year,
+             omdb_language,
+             omdb_imdb_id,
+             omdb_imdb_rating,
+             omdb_rating_rotten_tomatoes,
+             omdb_poster,
+             omdb_rated,
+             tmdb_id`
+          )
+          .in("id", titleIds);
         if (titlesError) {
           console.warn(
             "[useDiaryLibrary] Failed to load titles for library entries",
             titlesError.message,
           );
         } else {
-          titlesById = new Map(titles.map((row) => [row.title_id, row]));
+          titlesById = new Map(
+            (titles as MediaItemRow[]).map((row) => [row.id, mapMediaItemToSummary(row)]),
+          );
         }
       }
 
@@ -109,10 +130,10 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
           titleId: row.title_id,
           status: row.status,
           updatedAt: row.updated_at,
-          title: title?.primary_title ?? "Untitled",
-          year: title?.release_year ?? null,
-          type: title?.content_type ?? null,
-          posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
+          title: title?.title ?? "Untitled",
+          year: title?.year ?? null,
+          type: title?.type ?? null,
+          posterUrl: title?.posterUrl ?? title?.backdropUrl ?? null,
           rating,
         };
       });

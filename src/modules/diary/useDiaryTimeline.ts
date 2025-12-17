@@ -2,12 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
 
 type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
-type TitleRow = Pick<
-  Database["public"]["Tables"]["titles"]["Row"],
-  "title_id" | "primary_title" | "release_year" | "poster_url" | "backdrop_url"
->;
+type TitleRow = ReturnType<typeof mapMediaItemToSummary>;
 
 type RatingCreatedPayload = {
   event_type: "rating_created";
@@ -195,12 +193,35 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
 
       if (titleIds.length) {
         const { data: titles, error: titlesError } = await supabase
-          .from("titles")
-          .select("title_id, primary_title, release_year, poster_url, backdrop_url")
-          .in("title_id", titleIds);
+          .from("media_items")
+          .select(
+            `id,
+             kind,
+             tmdb_title,
+             tmdb_name,
+             tmdb_original_title,
+             tmdb_original_name,
+             tmdb_release_date,
+             tmdb_first_air_date,
+             tmdb_poster_path,
+             tmdb_backdrop_path,
+             tmdb_original_language,
+             omdb_title,
+             omdb_year,
+             omdb_language,
+             omdb_imdb_id,
+             omdb_imdb_rating,
+             omdb_rating_rotten_tomatoes,
+             omdb_poster,
+             omdb_rated,
+             tmdb_id`
+          )
+          .in("id", titleIds);
 
         if (!titlesError && titles) {
-          titlesById = new Map(titles.map((title) => [title.title_id, title]));
+          titlesById = new Map(
+            (titles as MediaItemRow[]).map((title) => [title.id, mapMediaItemToSummary(title)]),
+          );
         } else if (titlesError) {
           console.warn("[useDiaryTimeline] Failed to load titles", titlesError.message);
         }
@@ -216,9 +237,9 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
           createdAt: row.created_at,
           kind,
           titleId: row.title_id,
-          title: title?.primary_title ?? null,
-          year: title?.release_year ?? null,
-          posterUrl: title?.poster_url ?? title?.backdrop_url ?? null,
+          title: title?.title ?? null,
+          year: title?.year ?? null,
+          posterUrl: title?.posterUrl ?? title?.backdropUrl ?? null,
           rating:
             payload?.event_type === "rating_created"
               ? payload.rating
