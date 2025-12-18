@@ -1,0 +1,60 @@
+import React, { useState } from "react";
+
+interface PasswordFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
+  id: string;
+  label: string;
+  containerClassName?: string;
+  labelClassName?: string;
+  toggleButtonClassName?: string;
+  ariaLabelBase?: string;
+}
+
+const PasswordField: React.FC<PasswordFieldProps> = ({
+  id,
+  label,
+  containerClassName = "space-y-1",
+  labelClassName = "text-xs font-medium text-muted-foreground",
+  className = "w-full rounded-lg border border-border bg-card/90 px-3 py-2 pr-10 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40",
+  toggleButtonClassName = "absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-muted-foreground hover:text-muted-foreground",
+  ariaLabelBase,
+  value,
+  ...inputProps
+}) => {
+  const [visible, setVisible] = useState(false);
+
+  const base = (ariaLabelBase || label || "password").toLowerCase();
+  const ariaLabel = visible ? `Hide ${base}` : `Show ${base}`;
+
+  const handleToggle = () => {
+    setVisible((prev) => !prev);
+  };
+
+  return (
+    <div className={containerClassName}>
+      <label htmlFor={id} className={labelClassName}>
+        {label}
+      </label>
+
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          className={className}
+          value={value}
+          {...inputProps}
+        />
+
+        <button
+          type="button"
+          onClick={handleToggle}
+          className={toggleButtonClassName}
+          aria-label={ariaLabel}
+        >
+          <span className="select-none">{visible ? "🙈" : "👁"}</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default PasswordField;
