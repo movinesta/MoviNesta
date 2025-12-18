@@ -3,7 +3,6 @@ name: Deploy to GitHub Pages and Supabase
 on:
   push:
     branches: ["main"]
-  # Allows manual execution
   workflow_dispatch:
 
 permissions:
@@ -34,14 +33,24 @@ jobs:
           npm config set fetch-retry-maxtimeout 60000
           npm ci --legacy-peer-deps
 
-      # Create a .env file with secrets
-      - name: Create .env file
+      # Create .env files for BOTH Vite projects (root + admin-dashboard)
+      - name: Create .env files
         run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
-          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
-          echo "VITE_TMDB_API_READ_ACCESS_TOKEN=${{ secrets.VITE_TMDB_API_READ_ACCESS_TOKEN }}" >> .env
+          # Root app env
+          cat > .env <<EOF
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_TMDB_API_READ_ACCESS_TOKEN=${{ secrets.VITE_TMDB_API_READ_ACCESS_TOKEN }}
+          EOF
 
-      # Build Vite project
+          # Admin dashboard env (this is required for /admin)
+          cat > admin-dashboard/.env <<EOF
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_NAME=MoviNesta Admin
+          EOF
+
+      # Build Vite project (your build script copies admin-dashboard/dist into docs/admin)
       - name: Build project
         run: npm run build
 
