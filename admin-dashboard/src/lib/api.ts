@@ -104,3 +104,9 @@ export type CostsResp = { ok: true; daily: Array<{ day: string; provider: string
 export async function getCosts(payload?: { days?: number }): Promise<CostsResp> {
   return invoke<CostsResp>("admin-costs", { body: { action: "get", ...payload } });
 }
+
+export type AuditResp = { ok: true; rows: any[]; next_cursor?: string | null };
+
+export async function getAudit(payload?: { limit?: number; cursor?: string | null }): Promise<AuditResp> {
+  return invoke<AuditResp>("admin-audit", { body: { action: "get", ...payload } });
+}
