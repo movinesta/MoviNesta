@@ -53,6 +53,7 @@ export type JobsResp = {
   ok: true;
   job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
   cron_jobs: Array<{ jobid: number | null; jobname: string; schedule: string; active: boolean }>;
+  cron_error?: string | null;
 };
 
 export async function getJobs(): Promise<JobsResp> {

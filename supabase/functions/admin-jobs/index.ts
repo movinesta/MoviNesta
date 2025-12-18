@@ -15,8 +15,14 @@ serve(async (req) => {
 
       const { data: cron_jobs, error: cronErr } = await svc.rpc("admin_list_cron_jobs", {});
       if (cronErr) {
-        // pg_cron might not be installed; return empty but don't fail the whole dashboard
-        return json(req, 200, { ok: true, job_state: job_state ?? [], cron_jobs: [] });
+        // Don't fail the whole dashboard, but do surface the reason so the UI can explain.
+        // Common causes: RPC not deployed, missing grants, or pg_cron/cron schema differences.
+        return json(req, 200, {
+          ok: true,
+          job_state: job_state ?? [],
+          cron_jobs: [],
+          cron_error: cronErr.message,
+        });
       }
 
       return json(req, 200, { ok: true, job_state: job_state ?? [], cron_jobs: cron_jobs ?? [] });

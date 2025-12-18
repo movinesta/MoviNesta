@@ -91,6 +91,12 @@ export default function Jobs() {
           You can also edit the schedule (cron expression) and run a job immediately.
         </div>
 
+        {d.cron_error ? (
+          <div className="mt-2 text-xs text-red-400">
+            Could not load cron jobs: <span className="font-mono">{d.cron_error}</span>
+          </div>
+        ) : null}
+
         <div className="mt-3">
           <Table>
             <thead>
