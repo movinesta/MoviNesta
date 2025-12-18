@@ -22,7 +22,8 @@ export default function Overview() {
     ? `${d.active_profile.provider} / ${d.active_profile.model} (${d.active_profile.dimensions})`
     : "—";
 
-  const covChart = d.coverage.map((r) => ({ name: `${r.provider}`, count: r.count }));
+  // Coverage rows are distinct provider/model pairs; include the model in the chart label to avoid collisions.
+  const covChart = d.coverage.map((r) => ({ name: `${r.provider} / ${r.model}`, count: r.count }));
 
   return (
     <div className="space-y-6">
@@ -39,7 +40,14 @@ export default function Overview() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={covChart}>
-                <XAxis dataKey="name" />
+                <XAxis
+                  dataKey="name"
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={60}
+                  tickFormatter={(v) => (typeof v === "string" && v.length > 22 ? `${v.slice(0, 22)}…` : v)}
+                />
                 <YAxis />
                 <Tooltip />
                 <Bar dataKey="count" />
@@ -80,7 +88,7 @@ export default function Overview() {
             </thead>
             <tbody>
               {d.recent_errors.length ? (
-                d.recent_errors.map((r: any) => (
+                d.recent_errors.map((r) => (
                   <tr key={r.id}>
                     <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.created_at)}</Td>
                     <Td className="font-mono text-xs">{r.error_code ?? "—"}</Td>
@@ -132,7 +140,7 @@ export default function Overview() {
             </thead>
             <tbody>
               {d.last_job_runs.length ? (
-                d.last_job_runs.map((r: any) => (
+                d.last_job_runs.map((r) => (
                   <tr key={r.id}>
                     <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.started_at)}</Td>
                     <Td className="font-mono text-xs">{r.job_name}</Td>

@@ -21,6 +21,7 @@ import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { log } from "../_shared/logger.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
+import { safeInsertJobRunLog } from "../_shared/joblog.ts";
 
 const FN_NAME = "media-trending-refresh";
 
@@ -43,6 +44,31 @@ export async function handler(req: Request): Promise<Response> {
     return jsonError("Unauthorized", 401, "UNAUTHORIZED");
   }
 
+  const startedAt = new Date().toISOString();
+
+  const respondWithLog = async (admin: any, payload: any, status: number) => {
+    try {
+      await safeInsertJobRunLog(admin, {
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        job_name: FN_NAME,
+        provider: null,
+        model: null,
+        ok: Boolean(payload?.ok),
+        scanned: null,
+        embedded: null,
+        skipped_existing: null,
+        total_tokens: null,
+        error_code: payload?.code ?? null,
+        error_message: payload?.error ?? payload?.message ?? null,
+        meta: { request: payload?.request ?? null },
+      });
+    } catch {
+      // best-effort
+    }
+    return status >= 400 ? jsonError(payload?.error ?? payload?.message ?? "Error", status, payload?.code) : jsonResponse(payload, status);
+  };
+
   try {
     const { data: payload, errorResponse } = await validateRequest<ReqPayload>(
       req,
@@ -61,13 +87,14 @@ export async function handler(req: Request): Promise<Response> {
 
     if (error) {
       log({ fn: FN_NAME }, "RPC refresh_media_trending_scores failed", { error: error.message });
-      return jsonError("Trending refresh failed", 500, "TRENDING_REFRESH_FAILED");
+      return await respondWithLog(admin, { ok: false, code: "TRENDING_REFRESH_FAILED", error: "Trending refresh failed", request: payload }, 500);
     }
 
-    return jsonResponse({ ok: true });
+    return await respondWithLog(admin, { ok: true, request: payload }, 200);
   } catch (err) {
     log({ fn: FN_NAME }, "Unhandled error", { error: String(err?.message ?? err), stack: err?.stack });
-    return jsonError("Internal error", 500, "INTERNAL_ERROR");
+    const admin = getAdminClient();
+    return await respondWithLog(admin, { ok: false, code: "INTERNAL_ERROR", error: "Internal error" }, 500);
   }
 }
 

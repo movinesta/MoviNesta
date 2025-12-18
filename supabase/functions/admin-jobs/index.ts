@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, jsonError, handleCors, HttpError } from "../_shared/admin.ts";
 
 serve(async (req) => {
   const cors = handleCors(req);
@@ -16,21 +16,21 @@ serve(async (req) => {
       const { data: cron_jobs, error: cronErr } = await svc.rpc("admin_list_cron_jobs", {});
       if (cronErr) {
         // pg_cron might not be installed; return empty but don't fail the whole dashboard
-        return json(200, { ok: true, job_state: job_state ?? [], cron_jobs: [] });
+        return json(req, 200, { ok: true, job_state: job_state ?? [], cron_jobs: [] });
       }
 
-      return json(200, { ok: true, job_state: job_state ?? [], cron_jobs: cron_jobs ?? [] });
+      return json(req, 200, { ok: true, job_state: job_state ?? [], cron_jobs: cron_jobs ?? [] });
     }
 
     if (action === "reset_cursor") {
       const job_name = String(body.job_name ?? "");
-      if (!job_name) return json(400, { ok: false, message: "job_name required" });
+      if (!job_name) return json(req, 400, { ok: false, message: "job_name required" });
 
       const { error } = await svc
         .from("media_job_state")
         .upsert({ job_name, cursor: null, updated_at: new Date().toISOString() }, { onConflict: "job_name" });
 
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) throw new HttpError(500, error.message, "supabase_error");
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -39,16 +39,16 @@ serve(async (req) => {
         details: { job_name },
       });
 
-      return json(200, { ok: true });
+      return json(req, 200, { ok: true });
     }
 
     if (action === "set_cron_active") {
       const jobname = String(body.jobname ?? "");
       const active = Boolean(body.active);
-      if (!jobname) return json(400, { ok: false, message: "jobname required" });
+      if (!jobname) return json(req, 400, { ok: false, message: "jobname required" });
 
       const { error } = await svc.rpc("admin_set_cron_active", { p_jobname: jobname, p_active: active });
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) throw new HttpError(500, error.message, "supabase_error");
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -57,11 +57,11 @@ serve(async (req) => {
         details: { jobname },
       });
 
-      return json(200, { ok: true });
+      return json(req, 200, { ok: true });
     }
 
-    return json(400, { ok: false, message: `Unknown action: ${action}` });
+    return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    return json(400, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });

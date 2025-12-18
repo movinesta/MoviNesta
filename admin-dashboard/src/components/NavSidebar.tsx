@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { cn } from "../lib/ui";
-import { LayoutDashboard, Cpu, CalendarClock, Users, ScrollText, DollarSign, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, CalendarClock, Users, ScrollText, DollarSign, ShieldCheck, LogOut } from "lucide-react";
 
 const items = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
@@ -9,6 +9,7 @@ const items = [
   { to: "/jobs", label: "Jobs", icon: CalendarClock },
   { to: "/users", label: "Users", icon: Users },
   { to: "/logs", label: "Logs", icon: ScrollText },
+  { to: "/audit", label: "Audit", icon: ShieldCheck },
   { to: "/costs", label: "Costs", icon: DollarSign },
 ];
 

@@ -1,98 +1,95 @@
 import { supabase } from "./supabaseClient";
+import type {
+  AuditResponse,
+  CostsResponse,
+  EmbeddingsResponse,
+  JobsResponse,
+  LogsResponse,
+  OverviewResponse,
+  UsersResponse,
+  WhoAmIResponse,
+} from "./types";
 
-type InvokeOpts = { body?: any; method?: "POST" | "GET" };
+type InvokeOpts<B = unknown> = { body?: B; method?: "POST" | "GET" };
 
-async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<T> {
-  const method = opts?.method ?? (opts?.body ? "POST" : "POST");
+async function invoke<T, B = unknown>(fn: string, opts?: InvokeOpts<B>): Promise<T> {
+  const method = opts?.method ?? "POST";
   const { data, error } = await supabase.functions.invoke(fn, {
     method,
-    body: opts?.body,
+    body: (opts?.body ?? {}) as any,
   });
   if (error) throw new Error(error.message);
   return data as T;
 }
 
-export type WhoAmI = { ok: true; is_admin: boolean; user: { id: string; email?: string | null } | null };
+export type WhoAmI = WhoAmIResponse;
 
-export async function whoami(): Promise<WhoAmI> {
-  return invoke<WhoAmI>("admin-whoami", { body: {} });
+export async function whoami(): Promise<WhoAmIResponse> {
+  return invoke<WhoAmIResponse>("admin-whoami", { body: {} });
 }
 
-export type OverviewResp = {
-  ok: true;
-  active_profile: { provider: string; model: string; dimensions: number; task: string } | null;
-  coverage: Array<{ provider: string; model: string; count: number }>;
-  last_job_runs: Array<any>;
-  recent_errors: Array<any>;
-  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
-};
+export type OverviewResp = OverviewResponse;
 
-export async function getOverview(): Promise<OverviewResp> {
-  return invoke<OverviewResp>("admin-overview", { body: {} });
+export async function getOverview(): Promise<OverviewResponse> {
+  return invoke<OverviewResponse>("admin-overview", { body: {} });
 }
 
-export type EmbeddingsResp = {
-  ok: true;
-  embedding_settings: any;
-  coverage: Array<{ provider: string; model: string; count: number }>;
-};
+export type EmbeddingsResp = EmbeddingsResponse;
 
-export async function getEmbeddings(): Promise<EmbeddingsResp> {
-  return invoke<EmbeddingsResp>("admin-embeddings", { body: { action: "get" } });
+export async function getEmbeddings(): Promise<EmbeddingsResponse> {
+  return invoke<EmbeddingsResponse>("admin-embeddings", { body: { action: "get" } });
 }
 
-export async function setActiveProfile(payload: { provider: string; model: string; dimensions: number; task: string }) {
+export async function setActiveProfile(payload: { provider: string; model: string; dimensions: number; task: string }): Promise<{ ok: true }> {
   return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_active_profile", ...payload } });
 }
 
-export async function setRerank(payload: { swipe_enabled: boolean; search_enabled: boolean; top_k: number }) {
+export async function setRerank(payload: { swipe_enabled: boolean; search_enabled: boolean; top_k: number }): Promise<{ ok: true }> {
   return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_rerank", ...payload } });
 }
 
-export type JobsResp = {
-  ok: true;
-  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
-  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string; active: boolean }>;
-};
+export type JobsResp = JobsResponse;
 
-export async function getJobs(): Promise<JobsResp> {
-  return invoke<JobsResp>("admin-jobs", { body: { action: "get" } });
+export async function getJobs(): Promise<JobsResponse> {
+  return invoke<JobsResponse>("admin-jobs", { body: { action: "get" } });
 }
 
-export async function resetCursor(job_name: string) {
+export async function resetCursor(job_name: string): Promise<{ ok: true }> {
   return invoke<{ ok: true }>("admin-jobs", { body: { action: "reset_cursor", job_name } });
 }
 
-export async function setCronActive(jobname: string, active: boolean) {
+export async function setCronActive(jobname: string, active: boolean): Promise<{ ok: true }> {
   return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname, active } });
 }
 
-export type UsersResp = {
-  ok: true;
-  users: Array<{ id: string; email?: string | null; created_at?: string; banned_until?: string | null }>;
-  next_page?: string | null;
-};
+export type UsersResp = UsersResponse;
 
-export async function listUsers(payload?: { page?: string | null; search?: string | null }): Promise<UsersResp> {
-  return invoke<UsersResp>("admin-users", { body: { action: "list", ...payload } });
+export async function listUsers(payload?: { page?: string | null; search?: string | null }): Promise<UsersResponse> {
+  return invoke<UsersResponse>("admin-users", { body: { action: "list", ...payload } });
 }
 
-export async function banUser(user_id: string, banned: boolean) {
+export async function banUser(user_id: string, banned: boolean): Promise<{ ok: true }> {
   return invoke<{ ok: true }>("admin-users", { body: { action: banned ? "ban" : "unban", user_id } });
 }
 
-export async function resetUserVectors(user_id: string) {
+export async function resetUserVectors(user_id: string): Promise<{ ok: true }> {
   return invoke<{ ok: true }>("admin-users", { body: { action: "reset_vectors", user_id } });
 }
 
-export type LogsResp = { ok: true; rows: any[] };
+export type LogsResp = LogsResponse;
 
-export async function getLogs(payload?: { limit?: number }): Promise<LogsResp> {
-  return invoke<LogsResp>("admin-logs", { body: { action: "get", ...payload } });
+export async function getLogs(payload?: { limit?: number; before?: string | null }): Promise<LogsResponse> {
+  return invoke<LogsResponse>("admin-logs", { body: { action: "get", ...payload } });
 }
 
-export type CostsResp = { ok: true; daily: Array<{ day: string; provider: string; tokens: number }> };
+export type CostsResp = CostsResponse;
 
-export async function getCosts(payload?: { days?: number }): Promise<CostsResp> {
-  return invoke<CostsResp>("admin-costs", { body: { action: "get", ...payload } });
+export async function getCosts(payload?: { days?: number }): Promise<CostsResponse> {
+  return invoke<CostsResponse>("admin-costs", { body: { action: "get", ...payload } });
+}
+
+export type AuditResp = AuditResponse;
+
+export async function getAudit(payload?: { limit?: number; search?: string | null; before?: string | null }): Promise<AuditResponse> {
+  return invoke<AuditResponse>("admin-audit", { body: { action: "get", ...payload } });
 }

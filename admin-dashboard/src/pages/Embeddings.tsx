@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getEmbeddings, setActiveProfile, setRerank } from "../lib/api";
 import { Card } from "../components/Card";
@@ -22,14 +22,32 @@ export default function Embeddings() {
   const activeDim = settings?.active_dimensions ?? 1024;
   const activeTask = settings?.active_task ?? "swipe";
 
-  const [provider, setProvider] = useState<string>(activeProvider);
-  const [model, setModel] = useState<string>(activeModel);
-  const [dimensions, setDimensions] = useState<number>(Number(activeDim ?? 1024));
-  const [task, setTask] = useState<string>(String(activeTask ?? "swipe"));
+  // Form state: initialize *once* after settings are loaded.
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [provider, setProvider] = useState<string>("");
+  const [model, setModel] = useState<string>("");
+  const [dimensions, setDimensions] = useState<number>(1024);
+  const [task, setTask] = useState<string>("swipe");
 
-  const [rerankSwipe, setRerankSwipe] = useState<boolean>(Boolean(settings?.rerank_swipe_enabled ?? false));
-  const [rerankSearch, setRerankSearch] = useState<boolean>(Boolean(settings?.rerank_search_enabled ?? false));
-  const [topK, setTopK] = useState<number>(Number(settings?.rerank_top_k ?? 50));
+  const [rerankSwipe, setRerankSwipe] = useState<boolean>(false);
+  const [rerankSearch, setRerankSearch] = useState<boolean>(false);
+  const [topK, setTopK] = useState<number>(50);
+
+  useEffect(() => {
+    if (!settings) return;
+    if (isInitialized) return;
+
+    setProvider(settings.active_provider ?? "");
+    setModel(settings.active_model ?? "");
+    setDimensions(Number(settings.active_dimensions ?? 1024));
+    setTask(String(settings.active_task ?? "swipe"));
+
+    setRerankSwipe(Boolean(settings.rerank_swipe_enabled ?? false));
+    setRerankSearch(Boolean(settings.rerank_search_enabled ?? false));
+    setTopK(Number(settings.rerank_top_k ?? 50));
+
+    setIsInitialized(true);
+  }, [settings, isInitialized]);
 
   const providerPresets = useMemo(
     () => [
@@ -58,6 +76,9 @@ export default function Embeddings() {
 
   if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
   if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+
+  // Avoid a controlled-input flash while we sync state from the loaded settings.
+  if (settings && !isInitialized) return <div className="text-sm text-zinc-400">Loading…</div>;
 
   return (
     <div className="space-y-6">

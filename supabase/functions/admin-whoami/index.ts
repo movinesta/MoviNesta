@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { handleCors, json, getUserIdFromRequest, getSupabaseServiceClient } from "../_shared/admin.ts";
+import { handleCors, json, jsonError, HttpError, getUserIdFromRequest, getSupabaseServiceClient } from "../_shared/admin.ts";
 
 serve(async (req) => {
   const cors = handleCors(req);
@@ -15,21 +15,17 @@ serve(async (req) => {
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) throw new HttpError(500, error.message, "supabase_error");
 
     const is_admin = Boolean(data?.user_id);
 
-    return json(200, {
+    return json(req, 200, {
       ok: true,
       is_admin,
       user: { id: userId, email },
       role: data?.role ?? null,
     });
   } catch (err) {
-    const msg = String((err as any)?.message ?? err);
-    if (msg.includes("Missing Authorization") || msg.includes("Invalid session")) {
-      return json(401, { ok: false, code: "UNAUTHORIZED" });
-    }
-    return json(500, { ok: false, code: "INTERNAL_ERROR", message: msg });
+    return jsonError(req, err);
   }
 });

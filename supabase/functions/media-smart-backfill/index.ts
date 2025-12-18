@@ -8,6 +8,7 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeInsertJobRunLog } from "../_shared/joblog.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1172,6 +1173,30 @@ async function processRow(
 
 serve(async (req) => {
   const counters = makeCounters();
+  const startedAt = nowIso();
+
+  const respondWithLog = async (payload: any, status = 200) => {
+    try {
+      await safeInsertJobRunLog(db, {
+        started_at: startedAt,
+        finished_at: nowIso(),
+        job_name: "media-smart-backfill",
+        provider: null,
+        model: null,
+        ok: Boolean(payload?.ok),
+        scanned: typeof payload?.scanned === "number" ? payload.scanned : counters.rows_scanned,
+        embedded: counters.rows_updated,
+        skipped_existing: null,
+        total_tokens: null,
+        error_code: payload?.code ?? null,
+        error_message: payload?.error ?? payload?.message ?? null,
+        meta: { mode: payload?.mode ?? null, counters },
+      });
+    } catch {
+      // best-effort
+    }
+    return json(payload, status);
+  };
 
   try {
     const body = await readJsonBody(req);
@@ -1211,7 +1236,7 @@ serve(async (req) => {
     }
 
     if (!no_api && include_omdb && !OMDB_API_KEY) {
-      return json({ error: "include_omdb=true but OMDB_API_KEY secret is missing" }, 400);
+      return await respondWithLog({ ok: false, code: "MISSING_OMDB_KEY", error: "include_omdb=true but OMDB_API_KEY secret is missing" }, 400);
     }
 
     let q = db.from("media_items").select("*");
@@ -1263,8 +1288,7 @@ serve(async (req) => {
 
     await Promise.all(workers);
 
-    return json({
-      ok: true,
+    const payload = {
       scanned: counters.rows_scanned,
       processed: counters.rows_processed,
       success: results.filter((r) => r?.ok).length,
@@ -1288,10 +1312,12 @@ serve(async (req) => {
       },
       counters,
       results,
-    });
+    };
+
+    return await respondWithLog(payload, 200);
   } catch (e: any) {
     console.error("media-smart-backfill error:", e);
     console.error("stack:", e?.stack);
-    return json({ ok: false, error: String(e?.message ?? e), counters }, 500);
+    return await respondWithLog({ ok: false, error: String(e?.message ?? e), counters }, 500);
   }
 });

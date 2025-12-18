@@ -8,6 +8,7 @@ import Jobs from "./pages/Jobs";
 import Users from "./pages/Users";
 import Logs from "./pages/Logs";
 import Costs from "./pages/Costs";
+import Audit from "./pages/Audit";
 import { NavSidebar } from "./components/NavSidebar";
 import { whoami } from "./lib/api";
 
@@ -113,6 +114,7 @@ export default function App() {
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/users" element={<Users />} />
             <Route path="/logs" element={<Logs />} />
+            <Route path="/audit" element={<Audit />} />
             <Route path="/costs" element={<Costs />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

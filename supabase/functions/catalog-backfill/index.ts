@@ -17,6 +17,8 @@ import {
 } from "../_shared/tmdb.ts";
 import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { log } from "../_shared/logger.ts";
+import { getAdminClient } from "../_shared/supabase.ts";
+import { safeInsertJobRunLog } from "../_shared/joblog.ts";
 
 const FN_NAME = "catalog-backfill";
 
@@ -75,6 +77,9 @@ export async function handler(req: Request) {
   if (req.method !== "POST") {
     return jsonError("Method not allowed", 405);
   }
+
+  const startedAt = new Date().toISOString();
+  const admin = getAdminClient();
 
   const { data, errorResponse } = await validateRequest<BackfillRequestBody>(
     req,
@@ -161,15 +166,49 @@ export async function handler(req: Request) {
       log(logCtx, "Backfill pass complete", results[mt]);
     }
 
-    return jsonResponse({
+    const payload = {
       ok: true,
       reason,
       results,
+    };
+
+    await safeInsertJobRunLog(admin, {
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      job_name: FN_NAME,
+      provider: null,
+      model: null,
+      ok: true,
+      scanned: Object.values(results).reduce((a: number, r: any) => a + (r?.discovered ?? 0), 0),
+      embedded: Object.values(results).reduce((a: number, r: any) => a + (r?.enqueued ?? 0), 0),
+      skipped_existing: null,
+      total_tokens: null,
+      error_code: null,
+      error_message: null,
+      meta: { reason, mediaTypes, pagesPerType, maxPerType, results },
     });
+
+    return jsonResponse(payload);
   } catch (err: any) {
     log({ fn: FN_NAME }, "Unexpected error during backfill", {
       error: err.message,
       stack: err.stack,
+    });
+
+    await safeInsertJobRunLog(admin, {
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      job_name: FN_NAME,
+      provider: null,
+      model: null,
+      ok: false,
+      scanned: null,
+      embedded: null,
+      skipped_existing: null,
+      total_tokens: null,
+      error_code: "CATALOG_BACKFILL_ERROR",
+      error_message: err?.message ?? String(err),
+      meta: { reason, mediaTypes, pagesPerType, maxPerType },
     });
 
     return jsonError(

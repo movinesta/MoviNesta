@@ -17,12 +17,13 @@ export default function Costs() {
   const chartData = useMemo(() => {
     if (!q.data?.daily) return [];
     // pivot by day/provider for recharts
-    const byDay: Record<string, any> = {};
+    type ChartRow = { day: string } & Record<string, number | string>;
+    const byDay: Record<string, ChartRow> = {};
     for (const r of q.data.daily) {
       byDay[r.day] = byDay[r.day] ?? { day: r.day };
       byDay[r.day][r.provider] = r.tokens;
     }
-    return Object.values(byDay).sort((a: any, b: any) => String(a.day).localeCompare(String(b.day)));
+    return Object.values(byDay).sort((a, b) => String(a.day).localeCompare(String(b.day)));
   }, [q.data]);
 
   const providers = useMemo(() => {

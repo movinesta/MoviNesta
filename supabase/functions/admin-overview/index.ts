@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, jsonError, handleCors } from "../_shared/admin.ts";
 
 function since24hIso() {
   const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -42,7 +42,7 @@ serve(async (req) => {
         }
       : null;
 
-    return json(200, {
+    return json(req, 200, {
       ok: true,
       active_profile,
       coverage: (coverage ?? []).map((r: any) => ({ provider: r.provider, model: r.model, count: Number(r.count) })),
@@ -51,6 +51,6 @@ serve(async (req) => {
       last_job_runs: lastRuns ?? [],
     });
   } catch (e) {
-    return json(400, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });

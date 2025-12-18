@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, jsonError, handleCors, HttpError } from "../_shared/admin.ts";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(n, b));
@@ -30,7 +30,7 @@ serve(async (req) => {
       .gte("started_at", since)
       .order("started_at", { ascending: true });
 
-    if (error) return json(500, { ok: false, message: error.message });
+    if (error) throw new HttpError(500, error.message, "supabase_error");
 
     const agg = new Map<string, number>();
     for (const r of data ?? []) {
@@ -47,8 +47,8 @@ serve(async (req) => {
       return { day, provider, tokens };
     });
 
-    return json(200, { ok: true, daily });
+    return json(req, 200, { ok: true, daily });
   } catch (e) {
-    return json(400, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });

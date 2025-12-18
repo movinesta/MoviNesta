@@ -1,17 +1,31 @@
-import React from "react";
+import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getJobs, resetCursor, setCronActive } from "../lib/api";
 import { Card } from "../components/Card";
 import { Table, Th, Td } from "../components/Table";
 import { Button } from "../components/Button";
 import { fmtDateTime } from "../lib/ui";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useToast } from "../components/ToastProvider";
 
 function Title(props: { children: React.ReactNode }) {
   return <div className="mb-4 text-xl font-semibold tracking-tight">{props.children}</div>;
 }
 
+type ConfirmState = {
+  title: string;
+  message: string;
+  confirmText?: string;
+  danger?: boolean;
+  disabled?: boolean;
+  onConfirm: () => void;
+} | null;
+
 export default function Jobs() {
   const qc = useQueryClient();
+  const toast = useToast();
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
+
   const q = useQuery({ queryKey: ["jobs"], queryFn: getJobs });
 
   const mutReset = useMutation({
@@ -19,13 +33,19 @@ export default function Jobs() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["jobs"] });
       await qc.invalidateQueries({ queryKey: ["overview"] });
+      toast.push({ title: "Cursor reset", message: "Job cursor was cleared.", variant: "success" });
     },
   });
 
   const mutCron = useMutation({
     mutationFn: ({ jobname, active }: { jobname: string; active: boolean }) => setCronActive(jobname, active),
-    onSuccess: async () => {
+    onSuccess: async (_data, vars) => {
       await qc.invalidateQueries({ queryKey: ["jobs"] });
+      toast.push({
+        title: vars.active ? "Cron enabled" : "Cron disabled",
+        message: vars.active ? "The job has been scheduled." : "The job has been removed from cron.",
+        variant: "success",
+      });
     },
   });
 
@@ -37,6 +57,21 @@ export default function Jobs() {
   return (
     <div className="space-y-6">
       <Title>Jobs</Title>
+
+      <ConfirmDialog
+        open={Boolean(confirm)}
+        title={confirm?.title ?? ""}
+        message={confirm?.message ?? ""}
+        confirmText={confirm?.confirmText}
+        danger={confirm?.danger}
+        confirmDisabled={confirm?.disabled}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const action = confirm?.onConfirm;
+          setConfirm(null);
+          action?.();
+        }}
+      />
 
       <Card title="Saved job cursors (media_job_state)">
         <Table>
@@ -55,7 +90,20 @@ export default function Jobs() {
                 <Td className="font-mono text-xs">{r.cursor ?? "—"}</Td>
                 <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.updated_at)}</Td>
                 <Td className="text-right">
-                  <Button variant="ghost" onClick={() => mutReset.mutate(r.job_name)} disabled={mutReset.isPending}>
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      setConfirm({
+                        title: "Reset cursor",
+                        message: `Reset cursor for ${r.job_name}? Next run will start from the beginning of pagination.`,
+                        confirmText: "Reset",
+                        danger: true,
+                        disabled: mutReset.isPending,
+                        onConfirm: () => mutReset.mutate(r.job_name),
+                      })
+                    }
+                    disabled={mutReset.isPending}
+                  >
                     Reset cursor
                   </Button>
                 </Td>
@@ -94,7 +142,16 @@ export default function Jobs() {
                       {r.active ? (
                         <Button
                           variant="danger"
-                          onClick={() => mutCron.mutate({ jobname: r.jobname, active: false })}
+                          onClick={() =>
+                            setConfirm({
+                              title: "Disable cron job",
+                              message: `Disable ${r.jobname}? This removes it from cron until re-enabled.`,
+                              confirmText: "Disable",
+                              danger: true,
+                              disabled: mutCron.isPending,
+                              onConfirm: () => mutCron.mutate({ jobname: r.jobname, active: false }),
+                            })
+                          }
                           disabled={mutCron.isPending}
                         >
                           Disable

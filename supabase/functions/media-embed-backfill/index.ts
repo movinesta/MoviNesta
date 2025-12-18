@@ -47,6 +47,7 @@ import {
 import { postJson } from "../_shared/http.ts";
 import { buildSwipeDocTSV } from "../_shared/jina_tsv_doc.ts";
 import { voyageEmbed } from "../_shared/voyage.ts";
+import { safeInsertJobRunLog } from "../_shared/joblog.ts";
 
 type Provider = "jina" | "openai" | "voyage";
 
@@ -218,6 +219,51 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    const startedAt = new Date().toISOString();
+    let jobNameForLog = 'media-embed-backfill';
+    let providerForLog: string | null = null;
+    let modelForLog: string | null = null;
+
+    const respondWithLog = async (status: number, body: any) => {
+      try {
+        const finishedAt = new Date().toISOString();
+        const ok = Boolean(body?.ok);
+        const scanned = typeof body?.scanned === 'number' ? body.scanned : null;
+        const embedded = typeof body?.embedded === 'number' ? body.embedded : null;
+        const skipped_existing = typeof body?.skipped_existing === 'number' ? body.skipped_existing : null;
+        const error_code = body?.code ?? body?.error_code ?? null;
+        const error_message = body?.message ?? body?.error_message ?? null;
+        await safeInsertJobRunLog(supabase, {
+          started_at: startedAt,
+          finished_at: finishedAt,
+          job_name: jobNameForLog,
+          provider: body?.provider ?? providerForLog,
+          model: body?.model ?? modelForLog,
+          ok,
+          scanned,
+          embedded,
+          skipped_existing,
+          total_tokens: null,
+          error_code,
+          error_message,
+          meta: {
+            batchSize: body?.batchSize ?? undefined,
+            dimensions: body?.dimensions ?? undefined,
+            task: body?.task ?? undefined,
+            reembed: body?.reembed ?? undefined,
+            kind: body?.kindFilter ?? body?.kind ?? undefined,
+            used_after_id: body?.used_after_id ?? undefined,
+            next_after_id: body?.next_after_id ?? undefined,
+            cursor_saved: body?.cursor_saved ?? undefined,
+            url: body?.url ?? undefined,
+          },
+        });
+      } catch {
+        // best-effort
+      }
+      return respond(status, body);
+    };
+
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const batchSize = clamp(Number(body.batchSize ?? 32), 1, 256);
 
@@ -234,6 +280,10 @@ serve(async (req) => {
 
     const derivedJobName = makeJobName({ provider, model, dimensions, task, kind: kindFilter });
     const jobName = typeof body.jobName === "string" && body.jobName.trim() ? body.jobName.trim() : derivedJobName;
+
+    jobNameForLog = jobName;
+    providerForLog = provider;
+    modelForLog = model;
 
     const savedCursor = useSavedCursor && !explicitAfterId ? await getSavedCursor(supabase, jobName) : null;
     const usedAfterId = explicitAfterId ?? savedCursor;
@@ -284,11 +334,11 @@ serve(async (req) => {
     if (kindFilter) q = q.eq("kind", kindFilter);
 
     const { data: items, error: itemsErr } = await q;
-    if (itemsErr) return respond(500, { ok: false, code: "FETCH_FAILED", message: itemsErr.message });
+    if (itemsErr) return await respondWithLog(500, { ok: false, code: "FETCH_FAILED", message: itemsErr.message });
 
     if (!items?.length) {
       const cursorSaved = useSavedCursor ? await saveCursor(supabase, jobName, null) : false;
-      return respond(200, {
+      return await respondWithLog(200, {
         ok: true,
         scanned: 0,
         embedded: 0,
@@ -323,7 +373,7 @@ serve(async (req) => {
         .eq("task", task)
         .in("media_item_id", ids);
 
-      if (exErr) return respond(500, { ok: false, code: "EXISTING_CHECK_FAILED", message: exErr.message });
+      if (exErr) return await respondWithLog(500, { ok: false, code: "EXISTING_CHECK_FAILED", message: exErr.message });
 
       const have = new Set((existing ?? []).map((r: any) => r.media_item_id));
       todo = todo.filter((x: any) => !have.has(x.id));
@@ -334,7 +384,7 @@ serve(async (req) => {
     if (!todo.length) {
       const cursorSaved = useSavedCursor ? await saveCursor(supabase, jobName, nextAfterId) : false;
       console.log("MEDIA_EMBED_BACKFILL_SKIP_ALL_EXISTING", JSON.stringify({ scanned: items.length, nextAfterId, jobName }));
-      return respond(200, {
+      return await respondWithLog(200, {
         ok: true,
         scanned: items.length,
         embedded: 0,
@@ -370,7 +420,7 @@ serve(async (req) => {
           ? (Deno.env.get("VOYAGE_EMBEDDINGS_URL") ?? "https://api.voyageai.com/v1/embeddings")
           : JINA_EMBEDDINGS_URL;
 
-      return respond(500, {
+      return await respondWithLog(500, {
         ok: false,
         code: "EMBEDDINGS_CALL_FAILED",
         message: String((err as any)?.message ?? err),
@@ -385,7 +435,7 @@ serve(async (req) => {
     }
 
     if (vecs.length !== todo.length) {
-      return respond(500, {
+      return await respondWithLog(500, {
         ok: false,
         code: "EMBEDDINGS_COUNT_MISMATCH",
         message: `got ${vecs.length} embeddings for ${todo.length} docs`,
@@ -400,7 +450,7 @@ serve(async (req) => {
     const expectedDim = dimensions;
     const badDim = vecs.findIndex((v) => (Array.isArray(v) ? v.length : 0) !== expectedDim);
     if (badDim !== -1) {
-      return respond(500, {
+      return await respondWithLog(500, {
         ok: false,
         code: "EMBEDDING_DIM_MISMATCH",
         message: `embedding dim mismatch at index ${badDim}: got ${vecs[badDim]?.length}, expected ${expectedDim}`,
@@ -430,7 +480,7 @@ serve(async (req) => {
       .upsert(rows, { onConflict: "media_item_id,provider,model,dimensions,task" });
 
     if (upErr) {
-      return respond(500, {
+      return await respondWithLog(500, {
         ok: false,
         code: "UPSERT_FAILED",
         message: upErr.message,
@@ -451,7 +501,7 @@ serve(async (req) => {
       JSON.stringify({ scanned: items.length, embedded: rows.length, skippedExisting, nextAfterId, jobName, provider, model, dimensions: expectedDim, task }),
     );
 
-    return respond(200, {
+    return await respondWithLog(200, {
       ok: true,
       scanned: items.length,
       embedded: rows.length,
@@ -466,6 +516,6 @@ serve(async (req) => {
       reembed,
     });
   } catch (err) {
-    return respond(500, { ok: false, code: "INTERNAL_ERROR", message: String((err as any)?.message ?? err) });
+    return await respondWithLog(500, { ok: false, code: "INTERNAL_ERROR", message: String((err as any)?.message ?? err) });
   }
 });
