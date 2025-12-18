@@ -27,6 +27,12 @@ import { buildRerankDocument, buildTasteQuery, summarizeTasteFromItems } from ".
 // Edge functions are stateless across deployments, but this helps within a warm worker.
 let VOYAGE_RERANK_COOLDOWN_UNTIL = 0;
 
+// Optional persistent caching/throttling (recommended). These are best-effort and
+// silently fall back to base order if service-role access is not available.
+const RERANK_CACHE_TTL_SECONDS = Number(Deno.env.get("RERANK_CACHE_TTL_SECONDS") ?? "600"); // 10m
+const RERANK_FRESH_WINDOW_SECONDS = Number(Deno.env.get("RERANK_FRESH_WINDOW_SECONDS") ?? "21600"); // 6h
+const RERANK_429_COOLDOWN_SECONDS = Number(Deno.env.get("RERANK_429_COOLDOWN_SECONDS") ?? "300"); // 5m
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -138,6 +144,12 @@ type TasteEventRow = {
   in_watchlist: boolean | null;
 };
 
+type TasteQueryResult = {
+  query: string;
+  strongPosCount: number;
+  lastStrongAt: string | null;
+};
+
 function pickTasteIds(events: TasteEventRow[], opts?: { likedMax?: number; dislikedMax?: number }): { liked: string[]; disliked: string[] } {
   const likedMax = clamp(Number(opts?.likedMax ?? 6), 1, 12);
   const dislikedMax = clamp(Number(opts?.dislikedMax ?? 4), 0, 10);
@@ -178,7 +190,18 @@ function pickTasteIds(events: TasteEventRow[], opts?: { likedMax?: number; disli
   return { liked, disliked };
 }
 
-async function buildTasteQueryForUser(client: any, userId: string): Promise<string> {
+function isStrongPositiveEvent(e: TasteEventRow): boolean {
+  const et = String(e.event_type ?? "").toLowerCase();
+  const rating = typeof e.rating_0_10 === "number" ? e.rating_0_10 : null;
+  const dwell = typeof e.dwell_ms === "number" ? e.dwell_ms : null;
+  if (et === "like") return true;
+  if (et === "watchlist" && e.in_watchlist === true) return true;
+  if (et === "rating" && rating != null && rating >= 7) return true;
+  if (et === "dwell" && dwell != null && dwell >= 12000) return true;
+  return false;
+}
+
+async function buildTasteQueryForUser(client: any, userId: string): Promise<TasteQueryResult> {
   // Pull recent events. This is intentionally bounded to keep it cheap.
   const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString();
   const { data, error } = await client
@@ -189,12 +212,21 @@ async function buildTasteQueryForUser(client: any, userId: string): Promise<stri
     .order("created_at", { ascending: false })
     .limit(250);
 
-  if (error) return "";
+  if (error) return { query: "", strongPosCount: 0, lastStrongAt: null };
   const events = (data ?? []) as TasteEventRow[];
-  if (!events.length) return "";
+  if (!events.length) return { query: "", strongPosCount: 0, lastStrongAt: null };
+
+  let strongPosCount = 0;
+  let lastStrongAt: string | null = null;
+  for (const e of events) {
+    if (isStrongPositiveEvent(e)) {
+      strongPosCount++;
+      if (!lastStrongAt) lastStrongAt = e.created_at ?? null;
+    }
+  }
 
   const ids = pickTasteIds(events);
-  if (ids.liked.length < 3) return "";
+  if (ids.liked.length < 3) return { query: "", strongPosCount, lastStrongAt };
 
   const items = await fetchMediaItemsByIds(client, [...ids.liked, ...ids.disliked]);
   const byId = new Map(items.map((x: any) => [String(x.id), x]));
@@ -203,101 +235,187 @@ async function buildTasteQueryForUser(client: any, userId: string): Promise<stri
   const dislikedItems = ids.disliked.map((id) => byId.get(id)).filter(Boolean) as any[];
 
   const profile = summarizeTasteFromItems({ liked: likedItems, disliked: dislikedItems });
-  return buildTasteQuery(profile);
+
+  return {
+    query: buildTasteQuery(profile),
+    strongPosCount,
+    lastStrongAt,
+  };
 }
 
-function rerankRowsIfRequested(
+async function sha256Hex(input: string): Promise<string> {
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest("SHA-256", enc.encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function epochMinute(tsIso: string | null): number {
+  if (!tsIso) return 0;
+  const t = Date.parse(tsIso);
+  if (!Number.isFinite(t)) return 0;
+  return Math.floor(t / 60000);
+}
+
+function makeRerankCacheKey(args: {
+  userId: string;
+  mode: Mode;
+  seed: string;
+  profileVersionMinute: number;
+  candidateHash: string;
+  kindFilter: Kind | null;
+}): string {
+  return [
+    "rerank",
+    "voyage",
+    args.userId,
+    args.mode,
+    args.kindFilter ?? "*",
+    args.seed,
+    String(args.profileVersionMinute),
+    args.candidateHash,
+  ].join(":");
+}
+
+async function getCachedRerankOrder(
+  svc: any | null,
+  key: string,
+): Promise<string[] | null> {
+  if (!svc) return null;
+  try {
+    const { data, error } = await svc
+      .from("media_rerank_cache")
+      .select("order_ids, expires_at")
+      .eq("key", key)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (error || !data) return null;
+    const ids = (data as any).order_ids;
+    if (Array.isArray(ids)) return ids.map((x) => String(x)).filter(Boolean);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function putCachedRerankOrder(
+  svc: any | null,
+  args: { key: string; userId: string; orderIds: string[]; meta?: Record<string, unknown> },
+): Promise<void> {
+  if (!svc) return;
+  try {
+    const ttl = clamp(Number(RERANK_CACHE_TTL_SECONDS) || 600, 60, 3600);
+    const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+    await svc
+      .from("media_rerank_cache")
+      .upsert({
+        key: args.key,
+        user_id: args.userId,
+        order_ids: args.orderIds,
+        meta: args.meta ?? {},
+        expires_at: expiresAt,
+      }, { onConflict: "key" });
+  } catch {
+    // ignore
+  }
+}
+
+function cooldownKey(userId: string): string {
+  return `cooldown:voyage_rerank:${userId}`;
+}
+
+async function getCooldownUntil(svc: any | null, userId: string): Promise<number> {
+  if (!svc) return 0;
+  try {
+    const { data, error } = await svc
+      .from("media_rerank_cache")
+      .select("expires_at")
+      .eq("key", cooldownKey(userId))
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (error || !data) return 0;
+    const t = Date.parse((data as any).expires_at);
+    return Number.isFinite(t) ? t : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function setCooldown(svc: any | null, userId: string, seconds: number, reason: string): Promise<void> {
+  if (!svc) return;
+  try {
+    const ttl = clamp(Number(seconds) || 300, 30, 3600);
+    const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+    await svc
+      .from("media_rerank_cache")
+      .upsert({
+        key: cooldownKey(userId),
+        user_id: userId,
+        order_ids: [],
+        meta: { reason },
+        expires_at: expiresAt,
+      }, { onConflict: "key" });
+  } catch {
+    // ignore
+  }
+}
+
+async function rerankRowsWithVoyage(
   rows: any[],
-  rr: RerankRequest,
+  args: { rerankQuery: string; rerankTopK: number },
   makeDoc: (row: any) => string = makeRerankDoc,
-): Promise<any[]> | any[] {
-  const rerank = Boolean(rr?.rerank);
-  const rerankQuery = typeof rr?.rerankQuery === "string" ? rr.rerankQuery.trim() : "";
-  const candidateK = rr?.rerankTopK != null ? Math.max(1, Math.min(Number(rr.rerankTopK), 200)) : null;
+): Promise<{ outRows: any[]; orderIds: string[]; scored: number; rerankCandidates: number }> {
+  const rerankQuery = typeof args?.rerankQuery === "string" ? args.rerankQuery.trim() : "";
+  const candidateK = Math.max(1, Math.min(Number(args?.rerankTopK ?? 50), 200));
 
-  if (!rerank || !rerankQuery) return rows;
+  if (!rerankQuery) {
+    return { outRows: rows, orderIds: [], scored: 0, rerankCandidates: 0 };
+  }
 
-  // If Voyage key is not set, do not fail the deck; just skip rerank.
   if (!VOYAGE_API_KEY) {
-    console.warn("MEDIA_SWIPE_DECK_WARN rerank requested but VOYAGE_API_KEY is missing");
-    return rows;
+    throw new Error("Missing VOYAGE_API_KEY");
   }
-
-  const now = Date.now();
-  if (now < VOYAGE_RERANK_COOLDOWN_UNTIL) {
-    console.log("MEDIA_SWIPE_DECK_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: VOYAGE_RERANK_COOLDOWN_UNTIL }));
-    return rows;
-  }
-
-
-
-
-
-
-
 
   // Cost/latency win: only send the first K candidates to the reranker.
-  // (Voyage rerank cost grows with number of documents sent.)
-  const subset = candidateK ? rows.slice(0, Math.min(candidateK, rows.length)) : rows;
+  const subset = rows.slice(0, Math.min(candidateK, rows.length));
   const rest = subset.length < rows.length ? rows.slice(subset.length) : [];
 
   const documents = subset.map(makeDoc);
+  const { results } = await voyageRerank(rerankQuery, documents, {
+    model: VOYAGE_RERANK_MODEL || "rerank-2.5",
+    topK: documents.length,
+    truncation: true,
+  });
 
-  return (async () => {
-    try {
-      const { results } = await voyageRerank(rerankQuery, documents, {
-        model: VOYAGE_RERANK_MODEL || "rerank-2.5",
-        // Ask for scores/ranking for the whole subset.
-        topK: documents.length,
-        truncation: true,
-      });
+  if (!results?.length) {
+    return { outRows: rows, orderIds: [], scored: 0, rerankCandidates: subset.length };
+  }
 
-      if (!results?.length) return rows;
+  const scoreByIdx = new Map<number, number>();
+  for (const r of results) {
+    if (Number.isFinite(r.index)) scoreByIdx.set(Number(r.index), Number(r.relevance_score));
+  }
 
-      // Build score map by original index
-      const scoreByIdx = new Map<number, number>();
-      for (const r of results) {
-        if (Number.isFinite(r.index)) scoreByIdx.set(Number(r.index), Number(r.relevance_score));
-      }
+  const scored: Array<{ i: number; s: number }> = [];
+  const unscored: number[] = [];
 
-      // Stable sort:
-      // - scored rows first by descending score
-      // - then unscored rows in original order
-      const scored: Array<{ i: number; s: number }> = [];
-      const unscored: number[] = [];
+  for (let i = 0; i < subset.length; i++) {
+    const s = scoreByIdx.get(i);
+    if (typeof s === "number" && Number.isFinite(s)) scored.push({ i, s });
+    else unscored.push(i);
+  }
 
-      for (let i = 0; i < subset.length; i++) {
-        const s = scoreByIdx.get(i);
-        if (typeof s === "number" && Number.isFinite(s)) scored.push({ i, s });
-        else unscored.push(i);
-      }
+  scored.sort((a, b) => b.s - a.s);
 
-      scored.sort((a, b) => b.s - a.s);
+  const outSubset: any[] = [];
+  for (const x of scored) outSubset.push(subset[x.i]);
+  for (const i of unscored) outSubset.push(subset[i]);
 
-      const out: any[] = [];
-      for (const x of scored) out.push(subset[x.i]);
-      for (const i of unscored) out.push(subset[i]);
-      for (const r of rest) out.push(r);
+  const outRows = [...outSubset, ...rest];
+  const orderIds = outSubset.map((r) => String(r.media_item_id ?? r.mediaItemId ?? "")).filter(Boolean);
 
-      console.log(
-        "MEDIA_SWIPE_DECK_RERANK_OK",
-        JSON.stringify({ rerankModel: VOYAGE_RERANK_MODEL || "rerank-2.5", queryLen: rerankQuery.length, in: rows.length, rerankCandidates: subset.length, scored: scored.length }),
-      );
-
-      return out;
-    } catch (err) {
-      const msg = String((err as any)?.message ?? err);
-      if (msg.includes("(429)")) {
-        // Cool down for 90s to avoid hammering the API when you are RPM-limited.
-        VOYAGE_RERANK_COOLDOWN_UNTIL = Date.now() + 90_000;
-        console.warn("MEDIA_SWIPE_DECK_WARN rerank 429; enabling cooldown", JSON.stringify({ cooldownMs: 90_000 }));
-      }
-
-      console.warn("MEDIA_SWIPE_DECK_WARN rerank failed, returning base order:", msg);
-      return rows;
-    }
-  })();
+  return { outRows, orderIds, scored: scored.length, rerankCandidates: subset.length };
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return json(200, { ok: true });
@@ -351,34 +469,120 @@ serve(async (req) => {
     const settings = await loadEmbeddingSettings(settingsClient);
     const skipRerank = Boolean((body as any)?.skipRerank);
     const rerankEnabled = Boolean(settings?.rerank_swipe_enabled) && !skipRerank;
-    const rerankTopK = clamp(Number(settings?.rerank_top_k ?? 50), 5, 200);
+    const rerankTopKMax = clamp(Number(settings?.rerank_top_k ?? 50), 5, 200);
 
     const explicitQuery = typeof body.rerankQuery === "string" ? body.rerankQuery.trim() : "";
     const canTasteRerank = mode === "for_you" || mode === "combined" || mode === "friends";
 
-    let rerankQuery = "";
-    if (rerankEnabled) {
-      rerankQuery = explicitQuery || (canTasteRerank ? await buildTasteQueryForUser(settingsClient, auth.user.id) : "");
+    let taste: TasteQueryResult = { query: "", strongPosCount: 0, lastStrongAt: null };
+    if (rerankEnabled && !explicitQuery && canTasteRerank) {
+      taste = await buildTasteQueryForUser(settingsClient, auth.user.id);
     }
 
-    if (rerankEnabled && rerankQuery) {
-      // Prebuild richer docs for the reranked block only.
-      const candidateIds = rows.slice(0, Math.min(rerankTopK, rows.length)).map((r) => String(r.media_item_id));
-      const items = await fetchMediaItemsByIds(settingsClient, candidateIds);
-      const byId = new Map(items.map((x: any) => [String(x.id), x]));
+    const rerankQuery = explicitQuery || taste.query;
 
-      rows = await rerankRowsIfRequested(
-        rows,
-        {
-          rerank: true,
-          rerankQuery,
-          rerankTopK,
-        },
-        (row) => {
-          const mi = byId.get(String(row.media_item_id));
-          return mi ? buildRerankDocument(mi, { titleFallback: row.title ?? undefined }) : makeRerankDoc(row);
-        },
-      );
+    // Freshness gating: if the user hasn't had a strong taste signal recently, avoid re-calling
+    // the reranker on every refresh. We'll still use cached reranks if present.
+    const nowMs = Date.now();
+    const lastStrongMs = taste.lastStrongAt ? Date.parse(taste.lastStrongAt) : 0;
+    const isFresh = Boolean(explicitQuery) || (Number.isFinite(lastStrongMs) && nowMs - lastStrongMs <= clamp(RERANK_FRESH_WINDOW_SECONDS, 0, 7 * 86400) * 1000);
+
+    // Adaptive K: new/low-signal users get a smaller rerank candidate set (cheaper + faster).
+    let rerankTopK = rerankTopKMax;
+    if (!explicitQuery) {
+      if (taste.strongPosCount < 5) rerankTopK = Math.min(rerankTopK, 15);
+      else if (taste.strongPosCount < 15) rerankTopK = Math.min(rerankTopK, 25);
+      else if (taste.strongPosCount < 40) rerankTopK = Math.min(rerankTopK, 40);
+      else rerankTopK = Math.min(rerankTopK, 60);
+    } else {
+      rerankTopK = Math.min(rerankTopK, 60);
+    }
+    rerankTopK = clamp(Math.min(rerankTopK, rows.length), 1, 200);
+
+    const canAttemptRerank = rerankEnabled && Boolean(rerankQuery) && rerankTopK >= 1;
+
+    if (canAttemptRerank) {
+      // Persistent + in-memory cooldown.
+      const cooldownUntil = Math.max(await getCooldownUntil(svc, auth.user.id), VOYAGE_RERANK_COOLDOWN_UNTIL);
+      const inCooldown = nowMs < cooldownUntil;
+
+      const candidateIdsForHash = rows.slice(0, Math.min(rerankTopK, rows.length)).map((r) => String(r.media_item_id));
+      const candidateHash = await sha256Hex(candidateIdsForHash.join("|"));
+      const profileVersionMinute = explicitQuery ? epochMinute(new Date().toISOString()) : epochMinute(taste.lastStrongAt);
+
+      const cacheKey = makeRerankCacheKey({
+        userId: auth.user.id,
+        mode,
+        seed,
+        profileVersionMinute,
+        candidateHash,
+        kindFilter,
+      });
+
+      // 1) Cache hit? Apply immediately; do not call Voyage.
+      const cached = await getCachedRerankOrder(svc, cacheKey);
+      if (cached?.length) {
+        const subset = rows.slice(0, Math.min(rerankTopK, rows.length));
+        const rest = subset.length < rows.length ? rows.slice(subset.length) : [];
+        const byId = new Map(subset.map((r) => [String(r.media_item_id), r]));
+        const used = new Set<string>();
+        const outSubset: any[] = [];
+        for (const id of cached) {
+          const rr = byId.get(String(id));
+          if (rr && !used.has(id)) {
+            used.add(id);
+            outSubset.push(rr);
+          }
+        }
+        for (const r of subset) {
+          const id = String(r.media_item_id);
+          if (!used.has(id)) outSubset.push(r);
+        }
+        rows = [...outSubset, ...rest];
+        console.log("MEDIA_SWIPE_DECK_RERANK_CACHE_HIT", JSON.stringify({ mode, rerankCandidates: subset.length, key: cacheKey.slice(0, 48) + "…" }));
+      } else if (inCooldown) {
+        console.log("MEDIA_SWIPE_DECK_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: cooldownUntil }));
+      } else if (!isFresh && !explicitQuery) {
+        console.log("MEDIA_SWIPE_DECK_RERANK_SKIPPED", JSON.stringify({ reason: "stale_profile", lastStrongAt: taste.lastStrongAt }));
+      } else {
+        // 2) Cache miss + eligible: call Voyage.
+        const items = await fetchMediaItemsByIds(settingsClient, candidateIdsForHash);
+        const miById = new Map(items.map((x: any) => [String(x.id), x]));
+
+        try {
+          const res = await rerankRowsWithVoyage(
+            rows,
+            { rerankQuery, rerankTopK },
+            (row) => {
+              const mi = miById.get(String(row.media_item_id));
+              return mi ? buildRerankDocument(mi, { titleFallback: row.title ?? undefined }) : makeRerankDoc(row);
+            },
+          );
+
+          rows = res.outRows;
+          console.log(
+            "MEDIA_SWIPE_DECK_RERANK_OK",
+            JSON.stringify({ rerankModel: VOYAGE_RERANK_MODEL || "rerank-2.5", queryLen: rerankQuery.length, in: rows.length, rerankCandidates: res.rerankCandidates, scored: res.scored, topK: rerankTopK }),
+          );
+
+          if (res.orderIds.length) {
+            await putCachedRerankOrder(svc, {
+              key: cacheKey,
+              userId: auth.user.id,
+              orderIds: res.orderIds,
+              meta: { mode, seed, kindFilter, profileVersionMinute, rerankTopK },
+            });
+          }
+        } catch (err) {
+          const msg = String((err as any)?.message ?? err);
+          if (msg.includes("(429)")) {
+            VOYAGE_RERANK_COOLDOWN_UNTIL = Date.now() + 90_000;
+            await setCooldown(svc, auth.user.id, RERANK_429_COOLDOWN_SECONDS, "voyage_429");
+            console.warn("MEDIA_SWIPE_DECK_WARN rerank 429; enabling cooldown", JSON.stringify({ cooldownSeconds: RERANK_429_COOLDOWN_SECONDS }));
+          }
+          console.warn("MEDIA_SWIPE_DECK_WARN rerank failed, returning base order:", msg);
+        }
+      }
     }
 
     const cards = rows.map((r) => {
