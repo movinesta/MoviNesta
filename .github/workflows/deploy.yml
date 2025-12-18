@@ -1,8 +1,11 @@
-name: Deploy to GitHub Pages and Supabase
+name: Deploy Admin Dashboard (GitHub Pages)
 
 on:
   push:
     branches: ["main"]
+    paths:
+      - "admin-dashboard/**"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,36 +31,40 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: |
-            package-lock.json
             admin-dashboard/package-lock.json
 
       - name: Debug npm environment
+        working-directory: admin-dashboard
         run: |
           node -v
           npm -v
           npm config get registry
           npm ping || true
 
-      - name: Install dependencies (admin-dashboard) - verbose
+      # NOTE:
+      # We intentionally use `npm install` (not `npm ci`) here because npm ci can appear "stuck"
+      # with no output on GitHub runners during tree reification. `npm install` is more chatty
+      # and still respects package-lock.json.
+      - name: Install dependencies (admin-dashboard) - reliable
         working-directory: admin-dashboard
-        timeout-minutes: 25
+        timeout-minutes: 30
         env:
-          npm_config_loglevel: verbose
-          npm_config_progress: "true"
-          npm_config_foreground_scripts: "true"
+          npm_config_registry: "https://registry.npmjs.org/"
+          npm_config_audit: "false"
+          npm_config_fund: "false"
           npm_config_fetch_retries: "5"
           npm_config_fetch_retry_mintimeout: "1000"
           npm_config_fetch_retry_maxtimeout: "60000"
-          npm_config_audit: "false"
-          npm_config_fund: "false"
-          npm_config_registry: "https://registry.npmjs.org/"
+          npm_config_progress: "true"
+          npm_config_loglevel: "info"
+          npm_config_foreground_scripts: "true"
         run: |
           set -euxo pipefail
 
-          (while true; do echo "[heartbeat] admin npm ci running at $(date -u)"; sleep 20; done) &
+          (while true; do echo "[heartbeat] admin npm install running at $(date -u)"; sleep 20; done) &
           HEARTBEAT_PID=$!
 
-          npm ci --legacy-peer-deps --no-audit --no-fund --timing
+          npm install --legacy-peer-deps --no-audit --no-fund
 
           kill $HEARTBEAT_PID || true
 
