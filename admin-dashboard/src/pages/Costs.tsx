@@ -101,7 +101,7 @@ export default function Costs() {
             <>
               To show remaining tokens, set <span className="font-mono">ADMIN_DAILY_TOKEN_BUDGET</span> (number) and/or{" "}
               <span className="font-mono">ADMIN_DAILY_TOKEN_BUDGET_BY_PROVIDER</span> (JSON map like{" "}
-              <span className="font-mono">{{"{\"openai\":1000000}"}}</span>) on your Supabase Edge Functions.
+              <span className="font-mono">{'{"openai":1000000}'}</span>) on your Supabase Edge Functions.
             </>
           )}
         </div>
