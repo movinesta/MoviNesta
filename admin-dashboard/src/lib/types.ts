@@ -121,6 +121,22 @@ export type LogsResponse = {
 export type CostsResponse = {
   ok: true;
   daily: Array<{ day: string; provider: string; tokens: number }>;
+  today: {
+    day: string;
+    used: number;
+    budget: number | null;
+    remaining: number | null;
+  };
+  today_by_provider: Array<{
+    provider: string;
+    used: number;
+    budget: number | null;
+    remaining: number | null;
+  }>;
+  budgets: {
+    total_daily: number | null;
+    by_provider_daily: Record<string, number>;
+  };
 };
 
 export type AuditResponse = {

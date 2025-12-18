@@ -13,6 +13,30 @@ function dayKey(iso: string): string {
   return `${y}-${m}-${da}`;
 }
 
+function readNumberEnv(name: string): number | null {
+  const raw = Deno.env.get(name);
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function readJsonBudgetEnv(name: string): Record<string, number> | null {
+  const raw = Deno.env.get(name);
+  if (!raw) return null;
+  try {
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return null;
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) out[String(k)] = n;
+    }
+    return Object.keys(out).length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -47,7 +71,50 @@ serve(async (req) => {
       return { day, provider, tokens };
     });
 
-    return json(req, 200, { ok: true, daily });
+    const today = dayKey(new Date().toISOString());
+    const usedByProvider = new Map<string, number>();
+    for (const [k, tokens] of agg.entries()) {
+      const [day, provider] = k.split("|");
+      if (day !== today) continue;
+      usedByProvider.set(provider, (usedByProvider.get(provider) ?? 0) + tokens);
+    }
+
+    const totalBudget = readNumberEnv("ADMIN_DAILY_TOKEN_BUDGET");
+    const budgetByProvider = readJsonBudgetEnv("ADMIN_DAILY_TOKEN_BUDGET_BY_PROVIDER");
+
+    // Union of providers seen today + providers that have a budget configured
+    const providerSet = new Set<string>();
+    for (const p of usedByProvider.keys()) providerSet.add(p);
+    for (const p of Object.keys(budgetByProvider ?? {})) providerSet.add(p);
+
+    const today_by_provider = Array.from(providerSet.values())
+      .sort()
+      .map((provider) => {
+        const used = usedByProvider.get(provider) ?? 0;
+        const budget = budgetByProvider?.[provider] ?? null;
+        const remaining = budget == null ? null : Math.max(0, budget - used);
+        return { provider, used, budget, remaining };
+      });
+
+    const today_used_total = Array.from(usedByProvider.values()).reduce((a, b) => a + b, 0);
+    const today_budget_total = totalBudget;
+    const today_remaining_total = totalBudget == null ? null : Math.max(0, totalBudget - today_used_total);
+
+    return json(req, 200, {
+      ok: true,
+      daily,
+      today: {
+        day: today,
+        used: today_used_total,
+        budget: today_budget_total,
+        remaining: today_remaining_total,
+      },
+      today_by_provider,
+      budgets: {
+        total_daily: totalBudget,
+        by_provider_daily: budgetByProvider ?? {},
+      },
+    });
   } catch (e) {
     return jsonError(req, e);
   }
