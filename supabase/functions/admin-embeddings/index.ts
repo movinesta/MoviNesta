@@ -16,7 +16,7 @@ serve(async (req) => {
 
     if (action === "get") {
       const { data: settings } = await svc.from("embedding_settings").select("*").eq("id", 1).maybeSingle();
-      const { data: coverage } = await svc.from("media_embeddings").select("provider, model, count:id").group("provider, model");
+      const { data: coverage } = await svc.from("media_embeddings").select("provider, model, count:id");
       return json(200, {
         ok: true,
         embedding_settings: settings ?? null,
