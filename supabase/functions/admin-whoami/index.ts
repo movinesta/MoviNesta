@@ -1,20 +1,34 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { handleCors, json, requireAdmin } from "../_shared/admin.ts";
+import { handleCors, json, getUserIdFromRequest, getSupabaseServiceClient } from "../_shared/admin.ts";
 
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
   try {
-    const { userId, email, role } = await requireAdmin(req);
-    return json(200, { ok: true, user: { id: userId, email }, admin: { role } });
+    const { userId, email } = await getUserIdFromRequest(req);
+    const svc = getSupabaseServiceClient();
+
+    const { data, error } = await svc
+      .from("app_admins")
+      .select("user_id, role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+
+    const is_admin = Boolean(data?.user_id);
+
+    return json(200, {
+      ok: true,
+      is_admin,
+      user: { id: userId, email },
+      role: data?.role ?? null,
+    });
   } catch (err) {
     const msg = String((err as any)?.message ?? err);
     if (msg.includes("Missing Authorization") || msg.includes("Invalid session")) {
       return json(401, { ok: false, code: "UNAUTHORIZED" });
-    }
-    if (msg.includes("Not authorized")) {
-      return json(403, { ok: false, code: "FORBIDDEN" });
     }
     return json(500, { ok: false, code: "INTERNAL_ERROR", message: msg });
   }
