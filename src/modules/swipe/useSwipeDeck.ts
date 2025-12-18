@@ -179,12 +179,13 @@ export async function fetchSwipeCardsFromSource(
   source: SwipeDeckKindOrCombined,
   count: number,
   sessionId: string,
+  opts?: { skipRerank?: boolean },
 ): Promise<SwipeCardData[]> {
   const mode = mapKindToMode(source);
 
   try {
     const response = await fetchMediaSwipeDeck(
-      { sessionId, mode, limit: Math.max(count, 12) },
+      { sessionId, mode, limit: Math.max(count, 12), skipRerank: opts?.skipRerank },
       { timeoutMs: 25000 },
     );
 
@@ -235,27 +236,28 @@ export async function fetchSwipeBatch(
   kind: SwipeDeckKindOrCombined,
   batchSize: number,
   weights?: Record<SwipeDeckKind, number>,
+  opts?: { skipRerank?: boolean },
 ): Promise<SwipeCardData[]> {
   const sessionId = getOrCreateMediaSwipeSessionId();
 
   if (kind === "combined") {
     const plannedTotal = Math.max(batchSize, 24);
-    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId);
+    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId, opts);
   }
 
-  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId);
+  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId, opts);
 }
 
 export async function prefillSwipeDeckCache(
   queryClient: QueryClient,
   kind: SwipeDeckKindOrCombined,
-  options?: { limit?: number; weights?: Record<SwipeDeckKind, number> },
+  options?: { limit?: number; weights?: Record<SwipeDeckKind, number>; skipRerank?: boolean },
 ): Promise<void> {
   const limit = options?.limit ?? 40;
   const existing = queryClient.getQueryData<SwipeDeckState>(swipeDeckQueryKey(kind));
   if (existing?.cards.length) return;
 
-  const cards = await fetchSwipeBatch(kind, limit, options?.weights);
+  const cards = await fetchSwipeBatch(kind, limit, options?.weights, { skipRerank: options?.skipRerank });
   queryClient.setQueryData(swipeDeckQueryKey(kind), {
     status: cards.length ? "ready" : "loading",
     cards,

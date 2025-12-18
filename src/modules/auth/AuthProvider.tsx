@@ -100,6 +100,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ...swipeVariants.map((variant) =>
           prefillSwipeDeckCache(queryClient, variant, {
             limit: variant === "combined" ? 36 : 18,
+            skipRerank: true,
           }),
         ),
       ]);

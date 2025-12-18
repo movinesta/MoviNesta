@@ -23,6 +23,10 @@ import { VOYAGE_API_KEY, VOYAGE_RERANK_MODEL } from "../_shared/config.ts";
 import { voyageRerank } from "../_shared/voyage.ts";
 import { buildRerankDocument, buildTasteQuery, summarizeTasteFromItems } from "../_shared/taste_match.ts";
 
+// Simple in-memory cooldown to avoid hammering Voyage when rate-limited (429).
+// Edge functions are stateless across deployments, but this helps within a warm worker.
+let VOYAGE_RERANK_COOLDOWN_UNTIL = 0;
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -219,6 +223,19 @@ function rerankRowsIfRequested(
     return rows;
   }
 
+  const now = Date.now();
+  if (now < VOYAGE_RERANK_COOLDOWN_UNTIL) {
+    console.log("MEDIA_SWIPE_DECK_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: VOYAGE_RERANK_COOLDOWN_UNTIL }));
+    return rows;
+  }
+
+
+
+
+
+
+
+
   // Cost/latency win: only send the first K candidates to the reranker.
   // (Voyage rerank cost grows with number of documents sent.)
   const subset = candidateK ? rows.slice(0, Math.min(candidateK, rows.length)) : rows;
@@ -269,7 +286,14 @@ function rerankRowsIfRequested(
 
       return out;
     } catch (err) {
-      console.warn("MEDIA_SWIPE_DECK_WARN rerank failed, returning base order:", String((err as any)?.message ?? err));
+      const msg = String((err as any)?.message ?? err);
+      if (msg.includes("(429)")) {
+        // Cool down for 90s to avoid hammering the API when you are RPM-limited.
+        VOYAGE_RERANK_COOLDOWN_UNTIL = Date.now() + 90_000;
+        console.warn("MEDIA_SWIPE_DECK_WARN rerank 429; enabling cooldown", JSON.stringify({ cooldownMs: 90_000 }));
+      }
+
+      console.warn("MEDIA_SWIPE_DECK_WARN rerank failed, returning base order:", msg);
       return rows;
     }
   })();
@@ -325,7 +349,8 @@ serve(async (req) => {
     // --- Taste-match rerank (server-driven via embedding_settings) ---
     const settingsClient = svc ?? supabase;
     const settings = await loadEmbeddingSettings(settingsClient);
-    const rerankEnabled = Boolean(settings?.rerank_swipe_enabled);
+    const skipRerank = Boolean((body as any)?.skipRerank);
+    const rerankEnabled = Boolean(settings?.rerank_swipe_enabled) && !skipRerank;
     const rerankTopK = clamp(Number(settings?.rerank_top_k ?? 50), 5, 200);
 
     const explicitQuery = typeof body.rerankQuery === "string" ? body.rerankQuery.trim() : "";

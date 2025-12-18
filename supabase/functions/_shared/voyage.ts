@@ -78,7 +78,6 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
 
       const msg = String((err as any)?.message ?? err);
       const retryable =
-        msg.includes("(429)") ||
         msg.includes("(500)") ||
         msg.includes("(502)") ||
         msg.includes("(503)") ||

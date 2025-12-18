@@ -39,6 +39,8 @@ export type FetchMediaSwipeDeckInput = {
   limit?: number;
   seed?: string | null;
   kindFilter?: "movie" | "series" | "anime" | null;
+  // If true, the Edge Function will skip rerank (useful for background prefetch).
+  skipRerank?: boolean;
 };
 
 export type FetchMediaSwipeDeckResponse = {
