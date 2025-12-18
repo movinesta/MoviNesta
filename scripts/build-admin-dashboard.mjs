@@ -15,11 +15,17 @@ const run = (command, cwd) => {
 };
 
 try {
-  // Ensure pnpm is available before proceeding.
+  // Ensure pnpm is available before proceeding, attempting to activate it via corepack if missing.
   run("pnpm --version", rootDir);
 } catch (error) {
-  console.error("pnpm is required to build the admin dashboard. Install it via `corepack enable pnpm`.", error);
-  process.exit(1);
+  console.warn("pnpm not found. Attempting to activate it via corepack...");
+  try {
+    run("corepack enable pnpm", rootDir);
+    run("pnpm --version", rootDir);
+  } catch (corepackError) {
+    console.error("pnpm is required to build the admin dashboard. Install it via `corepack enable pnpm`.", corepackError);
+    process.exit(1);
+  }
 }
 
 try {
