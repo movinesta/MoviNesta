@@ -10,6 +10,10 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,15 +32,25 @@ jobs:
             admin-dashboard/package-lock.json
 
       - name: Install dependencies (app)
+        timeout-minutes: 20
         run: |
+          set -euxo pipefail
+
+          # Heartbeat so Actions UI never looks "stuck"
+          (while true; do echo "[heartbeat] npm install running at $(date -u)"; sleep 20; done) &
+          HEARTBEAT_PID=$!
+
           npm config set fetch-retries 5
           npm config set fetch-retry-mintimeout 1000
           npm config set fetch-retry-maxtimeout 60000
           npm config set audit false
           npm config set fund false
-          npm ci --legacy-peer-deps --no-audit --no-fund --progress=false
 
-      - name: Create .env file
+          npm ci --legacy-peer-deps --no-audit --no-fund --progress=true --loglevel=info
+
+          kill $HEARTBEAT_PID || true
+
+      - name: Create .env file (app build only)
         run: |
           echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
           echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
@@ -45,18 +59,24 @@ jobs:
       - name: Build project (app)
         run: npm run build
 
-      # Admin dashboard install/build
       - name: Install dependencies (admin-dashboard)
         working-directory: admin-dashboard
         timeout-minutes: 20
         run: |
+          set -euxo pipefail
+
+          (while true; do echo "[heartbeat] admin npm install running at $(date -u)"; sleep 20; done) &
+          HEARTBEAT_PID=$!
+
           npm config set fetch-retries 5
           npm config set fetch-retry-mintimeout 1000
           npm config set fetch-retry-maxtimeout 60000
           npm config set audit false
           npm config set fund false
-          # Show progress so the job doesn't look "stuck"
+
           npm ci --legacy-peer-deps --no-audit --no-fund --progress=true --loglevel=info
+
+          kill $HEARTBEAT_PID || true
 
       - name: Build admin dashboard
         working-directory: admin-dashboard
