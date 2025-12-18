@@ -18,10 +18,9 @@ export default function Logs() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["logs", { limit, before }], queryFn: () => getLogs({ limit, before }) });
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
-
-  const rows = q.data!.rows;
+  // IMPORTANT: keep hooks unconditionally called across renders (avoids React error #310).
+  const rows = q.data?.rows ?? [];
+  const nextBefore = q.data?.next_before ?? null;
 
   const selected = useMemo(() => rows.find((r) => String(r.id) === String(selectedId)) ?? null, [rows, selectedId]);
 
@@ -37,6 +36,9 @@ export default function Logs() {
     setHistory([]);
     setSelectedId(null);
   }, [limit]);
+
+  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
 
   return (
     <div className="space-y-6">
@@ -123,13 +125,12 @@ export default function Logs() {
             <button
               className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
               onClick={() => {
-                const next = q.data?.next_before ?? null;
-                if (!next) return;
+                if (!nextBefore) return;
                 setHistory((h) => [...h, before]);
-                setBefore(next);
+                setBefore(nextBefore);
                 setSelectedId(null);
               }}
-              disabled={!q.data?.next_before}
+              disabled={!nextBefore}
             >
               Next
             </button>
