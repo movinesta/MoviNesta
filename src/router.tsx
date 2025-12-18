@@ -3,32 +3,33 @@ import { Routes, Route } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import RequireAuth from "./modules/auth/RequireAuth";
+import { lazyWithRetry } from "./lib/lazyWithRetry";
 
 // Auth
-const SignInPage = React.lazy(() => import("./modules/auth/SignInPage"));
-const SignUpPage = React.lazy(() => import("./modules/auth/SignUpPage"));
-const ForgotPasswordPage = React.lazy(() => import("./modules/auth/ForgotPasswordPage"));
-const ResetPasswordPage = React.lazy(() => import("./modules/auth/ResetPasswordPage"));
+const SignInPage = lazyWithRetry(() => import("./modules/auth/SignInPage"));
+const SignUpPage = lazyWithRetry(() => import("./modules/auth/SignUpPage"));
+const ForgotPasswordPage = lazyWithRetry(() => import("./modules/auth/ForgotPasswordPage"));
+const ResetPasswordPage = lazyWithRetry(() => import("./modules/auth/ResetPasswordPage"));
 
 // Shell routes (inside AppShell)
-const HomePage = React.lazy(() => import("./modules/home/HomePage"));
-const SwipePage = React.lazy(() => import("./modules/swipe/SwipePage"));
-const SearchPage = React.lazy(() => import("./modules/search/SearchPage"));
-const DiaryPage = React.lazy(() => import("./modules/diary/DiaryPage"));
-const ProfilePage = React.lazy(() => import("./modules/profile/ProfilePage"));
-const SettingsOverviewPage = React.lazy(() => import("./modules/settings/SettingsOverviewPage"));
-const SettingsProfilePage = React.lazy(() => import("./modules/settings/SettingsProfilePage"));
-const SettingsAccountPage = React.lazy(() => import("./modules/settings/SettingsAccountPage"));
-const SettingsNotificationsPage = React.lazy(
+const HomePage = lazyWithRetry(() => import("./modules/home/HomePage"));
+const SwipePage = lazyWithRetry(() => import("./modules/swipe/SwipePage"));
+const SearchPage = lazyWithRetry(() => import("./modules/search/SearchPage"));
+const DiaryPage = lazyWithRetry(() => import("./modules/diary/DiaryPage"));
+const ProfilePage = lazyWithRetry(() => import("./modules/profile/ProfilePage"));
+const SettingsOverviewPage = lazyWithRetry(() => import("./modules/settings/SettingsOverviewPage"));
+const SettingsProfilePage = lazyWithRetry(() => import("./modules/settings/SettingsProfilePage"));
+const SettingsAccountPage = lazyWithRetry(() => import("./modules/settings/SettingsAccountPage"));
+const SettingsNotificationsPage = lazyWithRetry(
   () => import("./modules/settings/SettingsNotificationsPage"),
 );
-const SettingsAppPage = React.lazy(() => import("./modules/settings/SettingsAppPage"));
-const NotFoundPage = React.lazy(() => import("./modules/misc/NotFoundPage"));
-const OnboardingPage = React.lazy(() => import("./modules/misc/OnboardingPage"));
+const SettingsAppPage = lazyWithRetry(() => import("./modules/settings/SettingsAppPage"));
+const NotFoundPage = lazyWithRetry(() => import("./modules/misc/NotFoundPage"));
+const OnboardingPage = lazyWithRetry(() => import("./modules/misc/OnboardingPage"));
 
-const MessagesPage = React.lazy(() => import("./modules/messages/MessagesPage"));
-const ConversationPage = React.lazy(() => import("./modules/messages/ConversationPage"));
-const TitleDetailPage = React.lazy(() => import("./modules/title/TitleDetailPage"));
+const MessagesPage = lazyWithRetry(() => import("./modules/messages/MessagesPage"));
+const ConversationPage = lazyWithRetry(() => import("./modules/messages/ConversationPage"));
+const TitleDetailPage = lazyWithRetry(() => import("./modules/title/TitleDetailPage"));
 
 const AppRoutes: React.FC = () => {
   return (
