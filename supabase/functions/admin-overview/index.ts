@@ -15,7 +15,7 @@ serve(async (req) => {
 
     const [{ data: settings }, { data: coverage }, { data: jobState }] = await Promise.all([
       svc.from("embedding_settings").select("*").eq("id", 1).maybeSingle(),
-      svc.from("media_embeddings").select("provider, model, count:id").group("provider, model"),
+      svc.from("media_embeddings").select("provider, model, count:id"),
       svc.from("media_job_state").select("job_name, cursor, updated_at").order("job_name"),
     ]);
 
