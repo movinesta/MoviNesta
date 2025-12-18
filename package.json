@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/copy404.mjs",
+    "build": "vite build && node scripts/copy404.mjs && node scripts/build-admin-dashboard.mjs",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "format": "prettier \"src/**/*.{ts,tsx,css,md}\" --write",
