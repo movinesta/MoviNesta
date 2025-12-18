@@ -1,0 +1,103 @@
+name: Deploy to GitHub Pages and Supabase
+
+on:
+  push:
+    branches: ["main"]
+  # Allows manual execution
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Node (LTS)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            admin-dashboard/package-lock.json
+
+      # Install dependencies (with some retry config for transient registry errors)
+      - name: Install dependencies
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 1000
+          npm config set fetch-retry-maxtimeout 60000
+          npm config set audit false
+          npm config set fund false
+          npm ci --legacy-peer-deps --no-audit --no-fund --progress=false
+
+      # Create a .env file with secrets
+      - name: Create .env file
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          echo "VITE_TMDB_API_READ_ACCESS_TOKEN=${{ secrets.VITE_TMDB_API_READ_ACCESS_TOKEN }}" >> .env
+
+      # Build Vite project
+      - name: Build project
+        run: npm run build
+
+
+      # Build Admin Dashboard (Vite) into docs/admin
+      - name: Install admin dashboard deps
+        run: npm ci --no-audit --no-fund --progress=false
+        working-directory: admin-dashboard
+
+      - name: Build admin dashboard
+        run: npm run build
+        working-directory: admin-dashboard
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+
+      # Upload the docs/ folder to GitHub Pages
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-supabase-functions:
+    runs-on: ubuntu-latest
+
+    # Make Supabase secrets available to all steps in this job
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy all Supabase Edge Functions
+        run: supabase functions deploy --project-ref "$PROJECT_ID" --use-api

@@ -1,0 +1,170 @@
+import React, { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getEmbeddings, setActiveProfile, setRerank } from "../lib/api";
+import { Card } from "../components/Card";
+import { Button } from "../components/Button";
+import { Input } from "../components/Input";
+import { Table, Th, Td } from "../components/Table";
+import { fmtInt } from "../lib/ui";
+
+function Title(props: { children: React.ReactNode }) {
+  return <div className="mb-4 text-xl font-semibold tracking-tight">{props.children}</div>;
+}
+
+export default function Embeddings() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["embeddings"], queryFn: getEmbeddings });
+
+  const settings = q.data?.embedding_settings ?? null;
+
+  const activeProvider = settings?.active_provider ?? "—";
+  const activeModel = settings?.active_model ?? "—";
+  const activeDim = settings?.active_dimensions ?? 1024;
+  const activeTask = settings?.active_task ?? "swipe";
+
+  const [provider, setProvider] = useState<string>(activeProvider);
+  const [model, setModel] = useState<string>(activeModel);
+  const [dimensions, setDimensions] = useState<number>(Number(activeDim ?? 1024));
+  const [task, setTask] = useState<string>(String(activeTask ?? "swipe"));
+
+  const [rerankSwipe, setRerankSwipe] = useState<boolean>(Boolean(settings?.rerank_swipe_enabled ?? false));
+  const [rerankSearch, setRerankSearch] = useState<boolean>(Boolean(settings?.rerank_search_enabled ?? false));
+  const [topK, setTopK] = useState<number>(Number(settings?.rerank_top_k ?? 50));
+
+  const providerPresets = useMemo(
+    () => [
+      { provider: "voyage", model: "voyage-3-large", dimensions: 1024, task: "swipe" },
+      { provider: "jina", model: "jina-embeddings-v3", dimensions: 1024, task: "swipe" },
+      { provider: "openai", model: "text-embedding-3-small", dimensions: 1536, task: "swipe" },
+    ],
+    [],
+  );
+
+  const mutProfile = useMutation({
+    mutationFn: () => setActiveProfile({ provider, model, dimensions, task }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["embeddings"] });
+      await qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+
+  const mutRerank = useMutation({
+    mutationFn: () => setRerank({ swipe_enabled: rerankSwipe, search_enabled: rerankSearch, top_k: topK }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["embeddings"] });
+      await qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+
+  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+
+  return (
+    <div className="space-y-6">
+      <Title>Embeddings</Title>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Active embedding profile">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <div className="mb-1 text-xs font-medium text-zinc-400">Provider</div>
+              <Input value={provider} onChange={(e) => setProvider(e.target.value)} placeholder="voyage / jina / openai" />
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium text-zinc-400">Model</div>
+              <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="voyage-3-large" />
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium text-zinc-400">Dimensions</div>
+              <Input
+                value={String(dimensions)}
+                onChange={(e) => setDimensions(Number(e.target.value))}
+                placeholder="1024"
+                type="number"
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium text-zinc-400">Task</div>
+              <Input value={task} onChange={(e) => setTask(e.target.value)} placeholder="swipe" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {providerPresets.map((p) => (
+              <button
+                key={`${p.provider}-${p.model}`}
+                className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70"
+                onClick={() => {
+                  setProvider(p.provider);
+                  setModel(p.model);
+                  setDimensions(p.dimensions);
+                  setTask(p.task);
+                }}
+              >
+                {p.provider}: {p.model}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4">
+            <Button onClick={() => mutProfile.mutate()} disabled={mutProfile.isPending}>
+              {mutProfile.isPending ? "Saving…" : "Set active profile"}
+            </Button>
+            {mutProfile.isError ? (
+              <div className="mt-2 text-sm text-red-400">{(mutProfile.error as any).message}</div>
+            ) : null}
+          </div>
+
+          <div className="mt-4 text-xs text-zinc-500">
+            Current: <span className="font-mono">{activeProvider}</span> / <span className="font-mono">{activeModel}</span> ({activeDim}) task={activeTask}
+          </div>
+        </Card>
+
+        <Card title="Rerank settings (Voyage rerank-2.5)">
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 text-sm text-zinc-200">
+              <input type="checkbox" checked={rerankSwipe} onChange={(e) => setRerankSwipe(e.target.checked)} />
+              Enable rerank for swipe deck
+            </label>
+            <label className="flex items-center gap-3 text-sm text-zinc-200">
+              <input type="checkbox" checked={rerankSearch} onChange={(e) => setRerankSearch(e.target.checked)} />
+              Enable rerank for search results
+            </label>
+            <div>
+              <div className="mb-1 text-xs font-medium text-zinc-400">Top K candidates to rerank</div>
+              <Input value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))} type="number" min={5} max={200} />
+            </div>
+
+            <Button onClick={() => mutRerank.mutate()} disabled={mutRerank.isPending}>
+              {mutRerank.isPending ? "Saving…" : "Save rerank settings"}
+            </Button>
+            {mutRerank.isError ? (
+              <div className="text-sm text-red-400">{(mutRerank.error as any).message}</div>
+            ) : null}
+          </div>
+        </Card>
+      </div>
+
+      <Card title="Stored embedding coverage">
+        <Table>
+          <thead>
+            <tr>
+              <Th>Provider</Th>
+              <Th>Model</Th>
+              <Th className="text-right">Count</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.data!.coverage.map((r, i) => (
+              <tr key={i}>
+                <Td>{r.provider}</Td>
+                <Td className="font-mono text-xs">{r.model}</Td>
+                <Td className="text-right">{fmtInt(r.count)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
