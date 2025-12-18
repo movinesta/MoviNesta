@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, jsonError, handleCors, HttpError } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(n, b));
@@ -11,30 +11,6 @@ function dayKey(iso: string): string {
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const da = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${da}`;
-}
-
-function readNumberEnv(name: string): number | null {
-  const raw = Deno.env.get(name);
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function readJsonBudgetEnv(name: string): Record<string, number> | null {
-  const raw = Deno.env.get(name);
-  if (!raw) return null;
-  try {
-    const obj = JSON.parse(raw);
-    if (!obj || typeof obj !== "object") return null;
-    const out: Record<string, number> = {};
-    for (const [k, v] of Object.entries(obj)) {
-      const n = Number(v);
-      if (Number.isFinite(n) && n > 0) out[String(k)] = n;
-    }
-    return Object.keys(out).length ? out : null;
-  } catch {
-    return null;
-  }
 }
 
 serve(async (req) => {
@@ -54,7 +30,7 @@ serve(async (req) => {
       .gte("started_at", since)
       .order("started_at", { ascending: true });
 
-    if (error) throw new HttpError(500, error.message, "supabase_error");
+    if (error) return json(req, 500, { ok: false, message: error.message });
 
     const agg = new Map<string, number>();
     for (const r of data ?? []) {
@@ -71,51 +47,8 @@ serve(async (req) => {
       return { day, provider, tokens };
     });
 
-    const today = dayKey(new Date().toISOString());
-    const usedByProvider = new Map<string, number>();
-    for (const [k, tokens] of agg.entries()) {
-      const [day, provider] = k.split("|");
-      if (day !== today) continue;
-      usedByProvider.set(provider, (usedByProvider.get(provider) ?? 0) + tokens);
-    }
-
-    const totalBudget = readNumberEnv("ADMIN_DAILY_TOKEN_BUDGET");
-    const budgetByProvider = readJsonBudgetEnv("ADMIN_DAILY_TOKEN_BUDGET_BY_PROVIDER");
-
-    // Union of providers seen today + providers that have a budget configured
-    const providerSet = new Set<string>();
-    for (const p of usedByProvider.keys()) providerSet.add(p);
-    for (const p of Object.keys(budgetByProvider ?? {})) providerSet.add(p);
-
-    const today_by_provider = Array.from(providerSet.values())
-      .sort()
-      .map((provider) => {
-        const used = usedByProvider.get(provider) ?? 0;
-        const budget = budgetByProvider?.[provider] ?? null;
-        const remaining = budget == null ? null : Math.max(0, budget - used);
-        return { provider, used, budget, remaining };
-      });
-
-    const today_used_total = Array.from(usedByProvider.values()).reduce((a, b) => a + b, 0);
-    const today_budget_total = totalBudget;
-    const today_remaining_total = totalBudget == null ? null : Math.max(0, totalBudget - today_used_total);
-
-    return json(req, 200, {
-      ok: true,
-      daily,
-      today: {
-        day: today,
-        used: today_used_total,
-        budget: today_budget_total,
-        remaining: today_remaining_total,
-      },
-      today_by_provider,
-      budgets: {
-        total_daily: totalBudget,
-        by_provider_daily: budgetByProvider ?? {},
-      },
-    });
+    return json(req, 200, { ok: true, daily });
   } catch (e) {
-    return jsonError(req, e);
+    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
   }
 });

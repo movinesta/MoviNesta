@@ -16,21 +16,21 @@ serve(async (req) => {
       const { data: cron_jobs, error: cronErr } = await svc.rpc("admin_list_cron_jobs", {});
       if (cronErr) {
         // pg_cron might not be installed; return empty but don't fail the whole dashboard
-        return json(200, { ok: true, job_state: job_state ?? [], cron_jobs: [] });
+        return json(req, 200, { ok: true, job_state: job_state ?? [], cron_jobs: [] });
       }
 
-      return json(200, { ok: true, job_state: job_state ?? [], cron_jobs: cron_jobs ?? [] });
+      return json(req, 200, { ok: true, job_state: job_state ?? [], cron_jobs: cron_jobs ?? [] });
     }
 
     if (action === "reset_cursor") {
       const job_name = String(body.job_name ?? "");
-      if (!job_name) return json(400, { ok: false, message: "job_name required" });
+      if (!job_name) return json(req, 400, { ok: false, message: "job_name required" });
 
       const { error } = await svc
         .from("media_job_state")
         .upsert({ job_name, cursor: null, updated_at: new Date().toISOString() }, { onConflict: "job_name" });
 
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -39,16 +39,16 @@ serve(async (req) => {
         details: { job_name },
       });
 
-      return json(200, { ok: true });
+      return json(req, 200, { ok: true });
     }
 
     if (action === "set_cron_active") {
       const jobname = String(body.jobname ?? "");
       const active = Boolean(body.active);
-      if (!jobname) return json(400, { ok: false, message: "jobname required" });
+      if (!jobname) return json(req, 400, { ok: false, message: "jobname required" });
 
       const { error } = await svc.rpc("admin_set_cron_active", { p_jobname: jobname, p_active: active });
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -57,17 +57,17 @@ serve(async (req) => {
         details: { jobname },
       });
 
-      return json(200, { ok: true });
+      return json(req, 200, { ok: true });
     }
 
     if (action === "set_cron_schedule") {
       const jobname = String(body.jobname ?? "");
       const schedule = String(body.schedule ?? "");
-      if (!jobname) return json(400, { ok: false, message: "jobname required" });
-      if (!schedule) return json(400, { ok: false, message: "schedule required" });
+      if (!jobname) return json(req, 400, { ok: false, message: "jobname required" });
+      if (!schedule) return json(req, 400, { ok: false, message: "schedule required" });
 
       const { error } = await svc.rpc("admin_set_cron_schedule", { p_jobname: jobname, p_schedule: schedule });
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -76,15 +76,15 @@ serve(async (req) => {
         details: { jobname, schedule },
       });
 
-      return json(200, { ok: true });
+      return json(req, 200, { ok: true });
     }
 
     if (action === "run_now") {
       const jobname = String(body.jobname ?? "");
-      if (!jobname) return json(400, { ok: false, message: "jobname required" });
+      if (!jobname) return json(req, 400, { ok: false, message: "jobname required" });
 
       const { error } = await svc.rpc("admin_run_cron_job", { p_jobname: jobname });
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -93,11 +93,13 @@ serve(async (req) => {
         details: { jobname },
       });
 
-      return json(200, { ok: true });
+      return json(req, 200, { ok: true });
     }
 
-    return json(400, { ok: false, message: `Unknown action: ${action}` });
+    return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    return json(400, { ok: false, message: (e as any)?.message ?? String(e) });
+    // Important: return 500 here so client-side dashboards can distinguish
+    // unexpected server failures from validation/auth errors.
+    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
   }
 });

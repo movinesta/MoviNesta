@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, jsonError, handleCors, HttpError } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(n, b));
@@ -43,7 +43,7 @@ serve(async (req) => {
         })
         .eq("id", 1);
 
-      if (error) throw new HttpError(500, error.message, "supabase_error");
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -70,7 +70,7 @@ serve(async (req) => {
         })
         .eq("id", 1);
 
-      if (error) throw new HttpError(500, error.message, "supabase_error");
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -84,6 +84,6 @@ serve(async (req) => {
 
     return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    return jsonError(req, e);
+    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
   }
 });

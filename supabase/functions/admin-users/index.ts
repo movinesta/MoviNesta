@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, jsonError, handleCors, HttpError } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
 
 const LIMIT = 50;
 
@@ -17,7 +17,7 @@ serve(async (req) => {
       const offset = body.page ? Math.max(0, Number(body.page)) : 0;
 
       const { data, error } = await svc.rpc("admin_search_users", { p_search: search, p_limit: LIMIT, p_offset: offset });
-      if (error) throw new HttpError(500, error.message, "supabase_error");
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       const users = (data ?? []).map((u: any) => ({
         id: u.id,
@@ -37,7 +37,7 @@ serve(async (req) => {
 
       const banned_until = action === "ban" ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 50).toISOString() : null;
       const { error } = await svc.auth.admin.updateUserById(target, { banned_until });
-      if (error) throw new HttpError(500, error.message, "supabase_error");
+      if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -53,10 +53,8 @@ serve(async (req) => {
       const target = String(body.user_id ?? "");
       if (!target) return json(req, 400, { ok: false, message: "user_id required" });
 
-      const { error: e1 } = await svc.from("media_user_vectors").delete().eq("user_id", target);
-      const { error: e2 } = await svc.from("media_session_vectors").delete().eq("user_id", target);
-      if (e1) throw new HttpError(500, e1.message, "supabase_error");
-      if (e2) throw new HttpError(500, e2.message, "supabase_error");
+      await svc.from("media_user_vectors").delete().eq("user_id", target);
+      await svc.from("media_session_vectors").delete().eq("user_id", target);
 
       await svc.from("admin_audit_log").insert({
         admin_user_id: userId,
@@ -70,6 +68,6 @@ serve(async (req) => {
 
     return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    return jsonError(req, e);
+    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
   }
 });

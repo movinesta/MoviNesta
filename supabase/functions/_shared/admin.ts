@@ -1,7 +1,7 @@
 // supabase/functions/_shared/admin.ts
 //
 // Shared helpers for Admin Edge Functions:
-// - CORS (browser-friendly, allowlist-based)
+// - CORS (browser-friendly)
 // - authenticated user extraction (from Authorization: Bearer <jwt>)
 // - admin gate (checks public.app_admins using service role)
 // - consistent JSON responses
@@ -13,30 +13,27 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getConfig } from "./config.ts";
 
-const BASE_CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-};
+// -----------------------------------------------------------------------------
+// CORS
+// -----------------------------------------------------------------------------
+//
+// Admin dashboard runs in the browser (localhost + GitHub Pages).
+// We therefore need OPTIONS preflight handling and to echo an allowed Origin.
+//
+// Configure allowed origins via the Edge Function secret:
+//   ADMIN_CORS_ORIGINS="https://movinesta.github.io,http://localhost:5173"
+//
+// If not configured, we default to common localhost dev origins + GitHub Pages.
 
-// Default allowlist: dev + GitHub Pages.
-// Override in production with ADMIN_CORS_ORIGINS (comma-separated exact origins or patterns using '*').
-// Examples:
-// - ADMIN_CORS_ORIGINS="https://yourname.github.io,http://localhost:5173"
-// - ADMIN_CORS_ORIGINS="https://yourname.github.io/*" (note: Origin never contains path; use exact origin)
-// - ADMIN_CORS_ORIGINS="*" (not recommended)
 const DEFAULT_ALLOWED_ORIGINS = [
+  "https://movinesta.github.io",
   "http://localhost:5173",
   "http://localhost:4173",
   "http://localhost:3000",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:4173",
-  "http://127.0.0.1:3000",
-  "https://*.github.io",
 ];
 
 function parseAllowedOrigins(): string[] {
-  const raw =
-    (Deno.env.get("ADMIN_CORS_ORIGINS") ?? Deno.env.get("CORS_ORIGINS") ?? "").trim();
+  const raw = (Deno.env.get("ADMIN_CORS_ORIGINS") ?? "").trim();
   if (!raw) return DEFAULT_ALLOWED_ORIGINS;
   return raw
     .split(",")
@@ -44,81 +41,24 @@ function parseAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
-function globToRegExp(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
-  return new RegExp(`^${escaped}$`);
-}
+export function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  const allowed = parseAllowedOrigins();
 
-function originAllowed(origin: string): boolean {
-  if (!origin) return true;
-  if (origin === "null") return false;
+  // If the project owner explicitly includes "*", allow any origin.
+  const allowOrigin = allowed.includes("*")
+    ? "*"
+    : (origin && allowed.includes(origin) ? origin : allowed[0]);
 
-  const patterns = parseAllowedOrigins();
-  if (patterns.includes("*")) return true;
-
-  for (const p of patterns) {
-    try {
-      if (p.includes("*")) {
-        if (globToRegExp(p).test(origin)) return true;
-      } else if (p === origin) {
-        return true;
-      }
-    } catch {
-      // ignore malformed patterns
-    }
-  }
-  return false;
-}
-
-function corsHeadersFor(req: Request): Record<string, string> {
-  const origin = req.headers.get("Origin") ?? req.headers.get("origin") ?? "";
-  // Non-browser clients typically send no Origin. Keep permissive for those.
-  if (!origin) {
-    return { "Access-Control-Allow-Origin": "*", ...BASE_CORS_HEADERS };
-  }
-  if (!originAllowed(origin)) {
-    // Caller should have rejected already, but keep a safe default.
-    return { "Access-Control-Allow-Origin": "null", ...BASE_CORS_HEADERS };
-  }
   return {
-    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Origin": allowOrigin,
     "Vary": "Origin",
-    ...BASE_CORS_HEADERS,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   };
 }
 
-/**
- * Lightweight HTTP error that preserves an intended status code.
- *
- * Edge functions often throw plain Errors; when we *want* to communicate a
- * specific HTTP status (e.g., 401/403), throw this instead.
- */
-export class HttpError extends Error {
-  status: number;
-  code?: string;
-  constructor(status: number, message: string, code?: string) {
-    super(message);
-    this.name = "HttpError";
-    this.status = status;
-    this.code = code;
-  }
-}
-
-/**
- * Handles CORS preflight and enforces an Origin allowlist.
- *
- * Call at the top of the request handler:
- *   const cors = handleCors(req); if (cors) return cors;
- */
 export function handleCors(req: Request): Response | null {
-  const origin = req.headers.get("Origin") ?? req.headers.get("origin") ?? "";
-  if (origin && !originAllowed(origin)) {
-    // Block cross-origin requests from unknown origins (defense in depth).
-    // Do NOT include CORS headers, so browsers fail closed.
-    const body = JSON.stringify({ ok: false, message: "CORS origin denied", code: "cors_denied" });
-    return new Response(body, { status: 403, headers: { "content-type": "application/json; charset=utf-8" } });
-  }
-
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: corsHeadersFor(req) });
   }
@@ -137,14 +77,6 @@ export function json(req: Request, status: number, body: unknown): Response {
     status,
     headers: { "content-type": "application/json; charset=utf-8", ...corsHeadersFor(req) },
   });
-}
-
-export function jsonError(req: Request, e: unknown): Response {
-  if (e instanceof HttpError) {
-    return json(req, e.status, { ok: false, message: e.message, code: e.code ?? null });
-  }
-  const msg = (e as any)?.message ?? String(e);
-  return json(req, 500, { ok: false, message: msg });
 }
 
 export function getSupabaseServiceClient() {
@@ -173,11 +105,11 @@ function getJwtFromRequest(req: Request): string {
 
 export async function getUserIdFromRequest(req: Request): Promise<{ userId: string; email: string | null; jwt: string }> {
   const jwt = getJwtFromRequest(req);
-  if (!jwt) throw new HttpError(401, "Missing Authorization bearer token", "missing_auth");
+  if (!jwt) throw new Error("Missing Authorization bearer token");
 
   const userClient = getSupabaseUserClient(jwt);
   const { data, error } = await userClient.auth.getUser();
-  if (error || !data?.user?.id) throw new HttpError(401, "Invalid session", "invalid_session");
+  if (error || !data?.user?.id) throw new Error("Invalid session");
   return { userId: data.user.id, email: data.user.email ?? null, jwt };
 }
 
@@ -191,8 +123,8 @@ export async function requireAdmin(req: Request): Promise<{ userId: string; emai
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error) throw new HttpError(500, error.message, "supabase_error");
-  if (!data?.user_id) throw new HttpError(403, "Not authorized", "not_admin");
+  if (error) throw new Error(error.message);
+  if (!data?.user_id) throw new Error("Not authorized");
 
   return { userId, email, role: data.role ?? "admin", svc };
 }
