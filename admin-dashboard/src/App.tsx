@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "./lib/supabaseClient";
 import SignIn from "./pages/SignIn";
@@ -11,6 +11,7 @@ import Costs from "./pages/Costs";
 import Audit from "./pages/Audit";
 import { NavSidebar } from "./components/NavSidebar";
 import { whoami } from "./lib/api";
+import { useToast } from "./components/ToastProvider";
 
 function FullscreenMsg(props: { title: string; body?: string; action?: React.ReactNode }) {
   return (
@@ -32,6 +33,10 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [admin, setAdmin] = useState<boolean | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [hasValidated, setHasValidated] = useState(false);
+  const [revalidating, setRevalidating] = useState(false);
+  const hasValidatedRef = useRef(false);
+  const toast = useToast();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -42,21 +47,42 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      setChecking(true);
+      const initial = !hasValidatedRef.current;
+      if (initial) {
+        setChecking(true);
+        setAdmin(null);
+      } else {
+        // Keep the UI stable during token refreshes / background revalidation.
+        setRevalidating(true);
+      }
       setErr(null);
-      setAdmin(null);
       try {
         if (!session) {
           setChecking(false);
+          setHasValidated(false);
+          hasValidatedRef.current = false;
+          setRevalidating(false);
           return;
         }
         const r = await whoami();
         if (cancelled) return;
         setAdmin(Boolean(r.is_admin));
+        setHasValidated(true);
+        hasValidatedRef.current = true;
       } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? String(e));
+        const msg = e?.message ?? String(e);
+        if (cancelled) return;
+
+        if (!hasValidatedRef.current) {
+          setErr(msg);
+        } else {
+          // Non-blocking error: keep last known admin status on screen.
+          toast.push({ variant: "error", title: "Admin check failed", message: msg, durationMs: 5000 });
+        }
       } finally {
-        if (!cancelled) setChecking(false);
+        if (cancelled) return;
+        setChecking(false);
+        setRevalidating(false);
       }
     }
     run();
@@ -67,11 +93,13 @@ export default function App() {
     await supabase.auth.signOut();
     setAdmin(null);
     setErr(null);
+    setHasValidated(false);
+    hasValidatedRef.current = false;
   }
 
   if (!session) return <SignIn />;
 
-  if (checking) {
+  if (checking && !hasValidated) {
     return <FullscreenMsg title="Checking permissions…" body="Verifying admin access." />;
   }
 
@@ -108,6 +136,12 @@ export default function App() {
       <NavSidebar appName={appName} onSignOut={signOut} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6">
+          {revalidating ? (
+            <div className="mb-3 flex items-center gap-2 text-xs text-zinc-400">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-500" />
+              <span>Revalidating admin access…</span>
+            </div>
+          ) : null}
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/embeddings" element={<Embeddings />} />
