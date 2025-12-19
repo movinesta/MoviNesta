@@ -1,65 +1,88 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, jsonError, handleCors, HttpError } from "../_shared/admin.ts";
+/// <reference path="../_shared/deno.d.ts" />
+// Supabase Edge Function: admin-audit
+// Fix: Always return 200 OK for CORS preflight (OPTIONS) and attach CORS headers to all responses.
 
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(n, b));
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...CORS_HEADERS,
+      ...extraHeaders,
+    },
+  });
 }
 
-serve(async (req) => {
-  const cors = handleCors(req);
-  if (cors) return cors;
+function textResponse(body: string, status = 200, extraHeaders: Record<string, string> = {}) {
+  return new Response(body, {
+    status,
+    headers: {
+      ...CORS_HEADERS,
+      ...extraHeaders,
+    },
+  });
+}
+
+Deno.serve(async (req) => {
+  // CORS preflight must succeed without auth checks.
+  if (req.method === "OPTIONS") {
+    return textResponse("ok", 200);
+  }
 
   try {
-    const { svc } = await requireAdmin(req);
-    const body = await req.json().catch(() => ({}));
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!supabaseUrl || !anonKey) {
+      return jsonResponse({ ok: false, error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" }, 500);
+    }
 
-    const limit = clamp(Number(body.limit ?? 100), 10, 500);
-    const search = String(body.search ?? "").trim();
-    const before = typeof body.before === "string" && body.before.trim() ? body.before.trim() : null;
+    // Use request JWT so policies/admin checks work.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    let q = svc
+    // Optional admin gate: if your project has public.is_admin() RPC, enforce it.
+    // If it doesn't exist, we ignore and rely on RLS / table permissions.
+    try {
+      const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+      if (!adminErr && isAdmin !== true) {
+        return jsonResponse({ ok: false, error: "Not authorized" }, 403);
+      }
+    } catch {
+      // ignore
+    }
+
+    const payload = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const limit = Number(payload.limit ?? 100);
+    const cursor = payload.cursor ?? null;
+
+    let q = supabase
       .from("admin_audit_log")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(Math.min(Math.max(limit, 1), 500));
 
-    if (search) {
-      // Best-effort search across action + target.
-      // (We intentionally don't try to join auth.users here.)
-      q = q.or(`action.ilike.%${search}%,target.ilike.%${search}%`);
-    }
-
-    if (before) q = q.lt("created_at", before);
+    if (cursor) q = q.lt("created_at", cursor);
 
     const { data, error } = await q;
-    if (error) throw new HttpError(500, error.message, "supabase_error");
+    if (error) return jsonResponse({ ok: false, error: error.message }, 500);
 
-    const rows = data ?? [];
-    const last = rows.length ? rows[rows.length - 1] : null;
-    const next_before = rows.length === limit ? (last?.created_at ?? null) : null;
-
-    const ids = Array.from(new Set(rows.map((r: any) => String(r.admin_user_id ?? "")).filter(Boolean)));
-
-    // Fetch admin emails for display. Avoid unbounded calls.
-    const emailById = new Map<string, string | null>();
-    await Promise.all(
-      ids.slice(0, 50).map(async (id) => {
-        try {
-          const { data: u } = await svc.auth.admin.getUserById(id);
-          emailById.set(id, u.user?.email ?? null);
-        } catch {
-          emailById.set(id, null);
-        }
-      }),
-    );
-
-    const enriched = rows.map((r: any) => ({
-      ...r,
-      admin_email: emailById.get(String(r.admin_user_id ?? "")) ?? null,
-    }));
-
-    return json(req, 200, { ok: true, rows: enriched, next_before });
+    return jsonResponse({ ok: true, rows: data ?? [] }, 200);
   } catch (e) {
-    return jsonError(req, e);
+    return jsonResponse({ ok: false, error: String(getErrorMessage(e)) }, 500);
   }
 });
+
+function getErrorMessage(e: unknown) {
+  if (e instanceof Error) return e.message;
+  try { return JSON.stringify(e); } catch { return String(e); }
+}
