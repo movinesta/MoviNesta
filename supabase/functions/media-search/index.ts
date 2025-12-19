@@ -92,40 +92,6 @@ type MediaItemRow = Database["public"]["Tables"]["media_items"]["Row"];
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
-const nowIso = () => new Date().toISOString();
-
-const envInt = (name: string, fallback: number) => {
-  const v = Deno.env.get(name);
-  if (!v) return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
-};
-
-const SEARCH_RERANK_CACHE_TTL_SECONDS = envInt("SEARCH_RERANK_CACHE_TTL_SECONDS", envInt("RERANK_CACHE_TTL_SECONDS", 600));
-const SEARCH_RERANK_429_COOLDOWN_SECONDS = envInt("SEARCH_RERANK_429_COOLDOWN_SECONDS", envInt("RERANK_429_COOLDOWN_SECONDS", 300));
-
-async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function stableStringify(obj: unknown): string {
-  if (obj === null || obj === undefined) return "null";
-  if (typeof obj !== "object") return JSON.stringify(obj);
-  if (Array.isArray(obj)) return `[${obj.map(stableStringify).join(",")}]`;
-  const rec = obj as Record<string, unknown>;
-  const keys = Object.keys(rec).sort();
-  const parts = keys.map((k) => `${JSON.stringify(k)}:${stableStringify(rec[k])}`);
-  return `{${parts.join(",")}}`;
-}
-
-function isRateLimitError(err: unknown): boolean {
-  const msg = String((err as any)?.message ?? err ?? "");
-  return msg.includes("(429)") || msg.includes(" 429") || msg.includes("rate limit") || msg.includes("Too Many");
-}
 
 function addSeconds(date: Date, seconds: number): Date {
   return new Date(date.getTime() + seconds * 1000);
