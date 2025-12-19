@@ -237,7 +237,16 @@ export async function fetchSwipeCardsFromSource(
 
   try {
     const response = await fetchMediaSwipeDeck(
-      { sessionId, mode, limit: Math.max(count, 12) },
+      {
+        sessionId,
+        mode,
+        limit: Math.max(count, 12),
+        // IMPORTANT: a stable seed is required for server-side rerank caching to hit.
+        // `seed` is passed in from the caller (derived from session + deck kind).
+        seed,
+        // Background prefetch should avoid calling the reranker.
+        skipRerank: opts?.skipRerank === true,
+      },
       { timeoutMs: 25000 },
     );
 

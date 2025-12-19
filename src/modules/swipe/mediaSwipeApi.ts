@@ -37,6 +37,8 @@ export type FetchMediaSwipeDeckInput = {
   sessionId: string;
   mode: MediaSwipeDeckMode;
   limit?: number;
+  // Stable seed is important for server-side caching. If null/undefined is sent,
+  // the server will treat it as "no seed" and generate a random one (causing cache misses).
   seed?: string | null;
   kindFilter?: "movie" | "series" | "anime" | null;
   // When true, the server will return the base deck order without calling the reranker (used for background prefetch).
@@ -87,6 +89,41 @@ export function getOrCreateMediaSwipeSessionId(): string {
   return id;
 }
 
+const SWIPE_DECK_SEED_STORAGE_KEY = "mn_swipe_deck_seed_v1";
+
+function deckSeedStorageKey(sessionId: string, mode: MediaSwipeDeckMode, kindFilter: string | null | undefined): string {
+  return `${SWIPE_DECK_SEED_STORAGE_KEY}:${sessionId}:${mode}:${kindFilter ?? "*"}`;
+}
+
+/**
+ * Ensures a stable (non-null) seed for swipe deck requests, so the Edge Function can cache rerank results.
+ * We store it in sessionStorage (falls back to localStorage) so it survives refetches but can still change between sessions.
+ */
+export function getOrCreateSwipeDeckSeedForMode(
+  sessionId: string,
+  mode: MediaSwipeDeckMode,
+  kindFilter: string | null | undefined,
+): string {
+  if (typeof window === "undefined") return uuidv4Fallback();
+  const key = deckSeedStorageKey(sessionId, mode, kindFilter);
+  const existing = window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
+  if (existing) return existing;
+
+  const seed =
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidv4Fallback();
+  try {
+    window.sessionStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+  try {
+    window.localStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+  return seed;
+}
+
 function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Request timed out")), ms);
@@ -110,7 +147,17 @@ export async function fetchMediaSwipeDeck(
   input: FetchMediaSwipeDeckInput,
   opts?: { timeoutMs?: number },
 ): Promise<FetchMediaSwipeDeckResponse> {
-  const run = supabase.functions.invoke("media-swipe-deck", { body: input });
+  // IMPORTANT: some callers historically passed `seed: null`. That forces the server to generate
+  // a new random seed on each request, which breaks rerank caching. Always ensure a stable seed.
+  const body: FetchMediaSwipeDeckInput = {
+    ...input,
+    seed:
+      input.seed && typeof input.seed === "string"
+        ? input.seed
+        : getOrCreateSwipeDeckSeedForMode(input.sessionId, input.mode, input.kindFilter),
+  };
+
+  const run = supabase.functions.invoke("media-swipe-deck", { body });
 
   const res = await timeout(run, opts?.timeoutMs ?? 25000);
   if (res.error) throw res.error;
