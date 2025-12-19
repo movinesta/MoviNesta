@@ -7,12 +7,17 @@
  *   // ignore error (best-effort)
  *
  * This file assumes you're already using the dedupe_key version for events.
+ *
+ * Wire-ins:
+ * - Best-effort centroid refresh for strong positive events.
+ * - Best-effort label updates for LTR feature logging rows (media_rank_feature_log).
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const DWELL_MIN_MS = 1200;
+const STRONG_POS_DWELL_MS = 12000;
 
 const ALLOWED = new Set([
   "impression",
@@ -60,6 +65,43 @@ function normalizeEventType(et: unknown): string | null {
   return ALLOWED.has(v) ? v : null;
 }
 
+function isStrongPositive(args: {
+  eventType: string;
+  dwellMs: number | null;
+  rating0_10: number | null;
+  inWatchlist: boolean | null;
+}): boolean {
+  const et = args.eventType;
+  if (et === "like") return true;
+  if (et === "watchlist" && args.inWatchlist === true) return true;
+  if (et === "rating" && typeof args.rating0_10 === "number" && args.rating0_10 >= 7) return true;
+  if (et === "dwell" && typeof args.dwellMs === "number" && args.dwellMs >= STRONG_POS_DWELL_MS) return true;
+  return false;
+}
+
+function makeLtrLabel(args: {
+  eventType: string;
+  dwellMs: number | null;
+  rating0_10: number | null;
+  inWatchlist: boolean | null;
+}): Record<string, unknown> {
+  const et = args.eventType;
+  const base: Record<string, unknown> = { event_type: et, ts: new Date().toISOString() };
+
+  if (et === "impression") return { ...base, impression: 1 };
+  if (et === "like") return { ...base, like: 1 };
+  if (et === "dislike") return { ...base, dislike: 1 };
+  if (et === "skip") return { ...base, skip: 1 };
+  if (et === "open") return { ...base, open: 1 };
+  if (et === "seen") return { ...base, seen: 1 };
+  if (et === "share") return { ...base, share: 1 };
+  if (et === "watchlist") return { ...base, in_watchlist: args.inWatchlist === true ? 1 : 0 };
+  if (et === "rating") return { ...base, rating_0_10: args.rating0_10 };
+  if (et === "dwell") return { ...base, dwell_ms: args.dwellMs };
+
+  return base;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return json(200, { ok: true });
 
@@ -71,6 +113,13 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
+
+    // Optional service-role client for server-side LTR logging updates.
+    // Always gate behavior on authenticated user above.
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const svc = SERVICE_KEY
+      ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+      : null;
 
     const { data: auth, error: authErr } = await supabase.auth.getUser();
     if (authErr || !auth?.user) return json(401, { ok: false, code: "UNAUTHORIZED" });
@@ -86,9 +135,12 @@ serve(async (req) => {
       return json(400, { ok: false, code: "MISSING_FIELDS_OR_INVALID_TYPE" });
     }
 
+    const deckId = typeof body.deckId === "string" && body.deckId ? body.deckId : null;
+
     const day = utcDay();
 
-    const clientEventId = typeof body.clientEventId === "string" && body.clientEventId ? body.clientEventId : null;
+    const clientEventId =
+      typeof body.clientEventId === "string" && body.clientEventId ? body.clientEventId : null;
 
     const inWatchlist =
       eventType === "watchlist" && typeof body.inWatchlist === "boolean" ? body.inWatchlist : null;
@@ -135,7 +187,7 @@ serve(async (req) => {
     const insertRow: Record<string, unknown> = {
       user_id: auth.user.id,
       session_id: sessionId,
-      deck_id: body.deckId ?? null,
+      deck_id: deckId,
       position: typeof body.position === "number" ? Math.round(body.position) : null,
       media_item_id: mediaItemId,
       event_type: eventType,
@@ -165,14 +217,57 @@ serve(async (req) => {
         p_rating_0_10: rating0_10,
         p_in_watchlist: inWatchlist,
       });
-      // Ignore tasteErr; swipe events must never fail because taste update failed.
       void tasteErr;
-    } catch (_e) {
+    } catch {
       // ignore
+    }
+
+    // Best-effort: update LTR label for the corresponding feature row (if present).
+    // Prefer service-role (bypasses RLS), but fall back to the user client if
+    // you have permissive update policies. Merge labels instead of overwriting
+    // so multiple events can accumulate.
+    if (deckId) {
+      const logClient = svc ?? supabase;
+      try {
+        const label = makeLtrLabel({ eventType, dwellMs, rating0_10, inWatchlist });
+
+        const { data: row } = await logClient
+          .from("media_rank_feature_log")
+          .select("id,label")
+          .eq("user_id", auth.user.id)
+          .eq("deck_id", deckId)
+          .eq("media_item_id", mediaItemId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (row?.id) {
+          const prev = (row as any).label && typeof (row as any).label === "object" ? (row as any).label : {};
+          const merged = { ...prev, ...label };
+          const { error: logErr } = await logClient.from("media_rank_feature_log").update({ label: merged }).eq("id", row.id);
+          void logErr;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // Best-effort: refresh centroids when we get a strong positive (helps cold-start / drift).
+    if (isStrongPositive({ eventType, dwellMs, rating0_10, inWatchlist })) {
+      try {
+        const { error: cErr } = await supabase.rpc("media_refresh_user_centroids_v1", {});
+        void cErr;
+      } catch {
+        // ignore
+      }
     }
 
     return json(200, { ok: true });
   } catch (err) {
-    return json(500, { ok: false, code: "INTERNAL_ERROR", message: String((err as any)?.message ?? err) });
+    return json(500, {
+      ok: false,
+      code: "INTERNAL_ERROR",
+      message: String((err as any)?.message ?? err),
+    });
   }
 });

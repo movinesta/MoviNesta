@@ -45,6 +45,14 @@ function json(status: number, body: unknown) {
   });
 }
 
+function utcDay(): string {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function randomUuid(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -81,6 +89,32 @@ function makeRerankDoc(r: any): string {
 
 function clamp(n: number, a: number, b: number): number {
   return Math.max(a, Math.min(n, b));
+}
+
+async function countStrongPosSignals(client: any, userId: string): Promise<number> {
+  // Cheap cold-start detector:
+  // - count strong positive signals in the last 30 days
+  // - short-circuit once we hit 3
+  const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString();
+  try {
+    const { data, error } = await client
+      .from("media_events")
+      .select("event_type, created_at, dwell_ms, rating_0_10, in_watchlist")
+      .eq("user_id", userId)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(120);
+    if (error) return 0;
+    const events = (data ?? []) as TasteEventRow[];
+    let n = 0;
+    for (const e of events) {
+      if (isStrongPositiveEvent(e)) n++;
+      if (n >= 3) return 3;
+    }
+    return n;
+  } catch {
+    return 0;
+  }
 }
 
 async function loadEmbeddingSettings(client: any): Promise<{ rerank_swipe_enabled: boolean; rerank_top_k: number } | null> {
@@ -442,7 +476,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     if (!body) return json(400, { ok: false, code: "BAD_JSON" });
 
-    const mode = (body.mode ?? "for_you") as Mode;
+    const requestedMode = (body.mode ?? "for_you") as Mode;
     const limit = Math.min(Math.max(Number(body.limit ?? 60) || 60, 1), 120);
     const kindFilter = (body.kindFilter ?? null) as Kind | null;
 
@@ -450,7 +484,22 @@ serve(async (req) => {
     if (!sessionId) return json(400, { ok: false, code: "MISSING_SESSION" });
 
     const deckId = randomUuid();
-    const seed = body.seed ? String(body.seed) : randomUuid();
+    const explicitSeed = typeof body.seed === "string" ? body.seed.trim() : "";
+
+    // Cold-start behavior (app-side): if the user has very few strong positives,
+    // "for_you" can feel empty/repetitive. We transparently switch to a mixed
+    // deck so the user sees quality content immediately.
+    let mode: Mode = requestedMode;
+    let seed = explicitSeed || randomUuid();
+    if (requestedMode === "for_you" && !Boolean((body as any)?.forceForYou)) {
+      const nStrong = await countStrongPosSignals(supabase, auth.user.id);
+      if (nStrong < 3) {
+        mode = "combined";
+        // If the client didn't provide a seed, make one stable per-day to reduce
+        // flicker for brand-new users.
+        if (!explicitSeed) seed = `cold:${sessionId}:${kindFilter ?? "all"}:${utcDay()}`;
+      }
+    }
 
     const { data, error } = await supabase.rpc("media_swipe_deck_v2", {
       p_session_id: sessionId,
@@ -612,6 +661,51 @@ serve(async (req) => {
         why: null,
       };
     });
+
+
+
+    // Best-effort: log ranking features for LTR training.
+    // Prefer service-role (bypasses RLS), but fall back to the user client
+    // if you have permissive insert policies.
+    // This should never block serving a deck.
+    {
+      const logClient = svc ?? supabase;
+      try {
+        const featureRows = cards.map((c, idx) => ({
+          user_id: auth.user.id,
+          session_id: sessionId,
+          deck_id: deckId,
+          position: idx,
+          mode,
+          kind_filter: kindFilter,
+          source: c.source ?? mode,
+          media_item_id: c.mediaItemId,
+          features: {
+            // deck context
+            seed,
+            rerank_enabled: rerankEnabled,
+            rerank_query_len: rerankQuery ? rerankQuery.length : 0,
+            rerank_top_k: rerankTopK,
+            // item signals (cheap + useful for baseline models)
+            kind: c.kind,
+            release_year: c.releaseYear,
+            runtime_minutes: c.runtimeMinutes,
+            tmdb_vote_average: c.tmdbVoteAverage,
+            tmdb_vote_count: c.tmdbVoteCount,
+            tmdb_popularity: c.tmdbPopularity,
+            completeness: c.completeness,
+          },
+          label: {},
+        }));
+
+        const { error: featErr } = await logClient
+          .from("media_rank_feature_log")
+          .insert(featureRows, { returning: "minimal" });
+        void featErr;
+      } catch {
+        // ignore
+      }
+    }
 
     return json(200, { deckId, cards });
   } catch (err) {
