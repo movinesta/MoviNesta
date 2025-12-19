@@ -110,6 +110,57 @@ export const swipeDeckQueryKey = (kind: SwipeDeckKindOrCombined) =>
 
 export const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
 
+const SWIPE_SEED_STORAGE_KEY = "mn_swipe_seed_v1";
+
+function swipeSeedStorageKey(sessionId: string, kind: SwipeDeckKindOrCombined): string {
+  return `${SWIPE_SEED_STORAGE_KEY}:${sessionId}:${kind}`;
+}
+
+export function getOrCreateSwipeDeckSeed(sessionId: string, kind: SwipeDeckKindOrCombined): string {
+  if (typeof window === "undefined") return uuidv4Fallback();
+  const key = swipeSeedStorageKey(sessionId, kind);
+  const existing = window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
+  if (existing) return existing;
+
+  const seed =
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidv4Fallback();
+
+  try {
+    window.sessionStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+  try {
+    window.localStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+
+  return seed;
+}
+
+export function rotateSwipeDeckSeed(sessionId: string, kind: SwipeDeckKindOrCombined): string {
+  if (typeof window === "undefined") return uuidv4Fallback();
+  const key = swipeSeedStorageKey(sessionId, kind);
+
+  const seed =
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidv4Fallback();
+
+  try {
+    window.sessionStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+  try {
+    window.localStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+
+  return seed;
+}
+
+
 export function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
   if (typeof window === "undefined") {
     return {
@@ -179,13 +230,14 @@ export async function fetchSwipeCardsFromSource(
   source: SwipeDeckKindOrCombined,
   count: number,
   sessionId: string,
+  seed: string,
   opts?: { skipRerank?: boolean },
 ): Promise<SwipeCardData[]> {
   const mode = mapKindToMode(source);
 
   try {
     const response = await fetchMediaSwipeDeck(
-      { sessionId, mode, limit: Math.max(count, 12), skipRerank: opts?.skipRerank },
+      { sessionId, mode, limit: Math.max(count, 12) },
       { timeoutMs: 25000 },
     );
 
@@ -239,25 +291,26 @@ export async function fetchSwipeBatch(
   opts?: { skipRerank?: boolean },
 ): Promise<SwipeCardData[]> {
   const sessionId = getOrCreateMediaSwipeSessionId();
+  const seed = getOrCreateSwipeDeckSeed(sessionId, kind);
 
   if (kind === "combined") {
     const plannedTotal = Math.max(batchSize, 24);
-    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId, opts);
+    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId, seed, opts);
   }
 
-  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId, opts);
+  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId, seed, opts);
 }
 
 export async function prefillSwipeDeckCache(
   queryClient: QueryClient,
   kind: SwipeDeckKindOrCombined,
-  options?: { limit?: number; weights?: Record<SwipeDeckKind, number>; skipRerank?: boolean },
+  options?: { limit?: number; weights?: Record<SwipeDeckKind, number> },
 ): Promise<void> {
   const limit = options?.limit ?? 40;
   const existing = queryClient.getQueryData<SwipeDeckState>(swipeDeckQueryKey(kind));
   if (existing?.cards.length) return;
 
-  const cards = await fetchSwipeBatch(kind, limit, options?.weights, { skipRerank: options?.skipRerank });
+  const cards = await fetchSwipeBatch(kind, limit, options?.weights, { skipRerank: true });
   queryClient.setQueryData(swipeDeckQueryKey(kind), {
     status: cards.length ? "ready" : "loading",
     cards,
@@ -411,7 +464,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
       }));
 
       try {
-        const raw = await fetchSwipeBatch(kind, batchSize, sourceWeightsRef.current);
+        const raw = await fetchSwipeBatch(kind, batchSize, sourceWeightsRef.current, { skipRerank: false });
 
         if (!raw.length) {
           // No new cards available right now – this is a valid state (end of deck),
@@ -477,7 +530,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
     if (!initialState.cards.length) {
       fetchBatch(limit);
     }
-  }, [deckCacheKey, fetchBatch, limit, queryClient, setDeckStateWithCache]);
+  }, [deckCacheKey, fetchBatch, kind, limit, queryClient, sessionId, setDeckStateWithCache]);
 
   const updateSourceWeights = useCallback(
     (source: SwipeDeckKind | undefined, direction: SwipeDirection) => {
@@ -517,13 +570,14 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   );
 
   const refreshDeck = useCallback(() => {
+    rotateSwipeDeckSeed(sessionId, kind);
     seenIdsRef.current = new Set();
     cardsRef.current = [];
     fetchingRef.current = false;
     queryClient.removeQueries({ queryKey: deckCacheKey });
     setDeckStateWithCache({ status: "loading", cards: [], index: null, errorMessage: null });
     fetchBatch(limit);
-  }, [deckCacheKey, fetchBatch, limit, queryClient, setDeckStateWithCache]);
+  }, [deckCacheKey, fetchBatch, kind, limit, queryClient, sessionId, setDeckStateWithCache]);
 
   const swipeMutation = useMutation({
     mutationFn: async ({

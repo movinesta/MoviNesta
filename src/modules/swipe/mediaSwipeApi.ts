@@ -39,7 +39,7 @@ export type FetchMediaSwipeDeckInput = {
   limit?: number;
   seed?: string | null;
   kindFilter?: "movie" | "series" | "anime" | null;
-  // If true, the Edge Function will skip rerank (useful for background prefetch).
+  // When true, the server will return the base deck order without calling the reranker (used for background prefetch).
   skipRerank?: boolean;
 };
 
