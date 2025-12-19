@@ -501,7 +501,7 @@ serve(async (req) => {
       }
     }
 
-    const { data, error } = await supabase.rpc("media_swipe_deck_v2", {
+    const { data, error } = await supabase.rpc("media_swipe_deck_v3", {
       p_session_id: sessionId,
       p_limit: limit,
       p_mode: mode,
@@ -511,7 +511,29 @@ serve(async (req) => {
 
     if (error) return json(500, { ok: false, code: "RPC_FAILED", message: error.message });
 
-    let rows = (data ?? []) as any[];
+        let rows = (data ?? []) as any[];
+
+    // If the deck returns fewer than requested (dedupe/filters), try one more time with a different seed suffix.
+    if (rows.length < limit) {
+      const seed2 = `${seed}:fill2`;
+      const { data: data2, error: error2 } = await supabase.rpc("media_swipe_deck_v3", {
+        p_session_id: sessionId,
+        p_limit: limit,
+        p_mode: mode,
+        p_kind_filter: kindFilter,
+        p_seed: seed2,
+      });
+      if (!error2 && Array.isArray(data2) && data2.length) {
+        const seen = new Set(rows.map((r) => String(r.media_item_id ?? "")));
+        for (const r of data2 as any[]) {
+          const id = String(r.media_item_id ?? "");
+          if (!id || seen.has(id)) continue;
+          rows.push(r);
+          seen.add(id);
+          if (rows.length >= limit) break;
+        }
+      }
+    }
 
     // --- Taste-match rerank (server-driven via embedding_settings) ---
     const settingsClient = svc ?? supabase;
@@ -658,10 +680,43 @@ serve(async (req) => {
         completeness: r.completeness != null ? Number(r.completeness) : null,
 
         source: r.source ?? mode,
-        why: null,
+        why: r.why ?? null,
+        friendIds: Array.isArray(r.friend_ids) ? r.friend_ids : (r.friend_ids ? [r.friend_ids] : []),
       };
     });
 
+
+
+
+    // Attach friend profile info (avatar stack) for Friends’ picks
+    // This keeps frontend simple and avoids N extra requests.
+    try {
+      const allFriendIds = new Set<string>();
+      for (const c of cards as any[]) {
+        if (c.source === "friends" && Array.isArray(c.friendIds)) {
+          for (const fid of c.friendIds) allFriendIds.add(String(fid));
+        }
+      }
+      const ids = Array.from(allFriendIds).filter(Boolean);
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, display_name, username, avatar_url")
+          .in("id", ids);
+
+        const map = new Map<string, any>();
+        for (const p of (profs ?? []) as any[]) map.set(String(p.id), p);
+
+        for (const c of cards as any[]) {
+          if (c.source !== "friends") continue;
+          c.friendProfiles = (c.friendIds ?? [])
+            .map((fid: any) => map.get(String(fid)))
+            .filter(Boolean);
+        }
+      }
+    } catch (_e) {
+      // ignore (never block deck serving)
+    }
 
 
     // Best-effort: log ranking features for LTR training.
@@ -686,6 +741,8 @@ serve(async (req) => {
             rerank_enabled: rerankEnabled,
             rerank_query_len: rerankQuery ? rerankQuery.length : 0,
             rerank_top_k: rerankTopK,
+            why_len: c.why ? String(c.why).length : 0,
+            friend_ids_count: Array.isArray((c as any).friendIds) ? (c as any).friendIds.length : 0,
             // item signals (cheap + useful for baseline models)
             kind: c.kind,
             release_year: c.releaseYear,
