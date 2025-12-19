@@ -13,6 +13,32 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getConfig } from "./config.ts";
 import { corsHeadersFor, handleCors as handleCorsBase } from "./cors.ts";
+function isRequest(v: any): v is Request {
+  return (
+    v &&
+    typeof v === "object" &&
+    typeof (v as any).method === "string" &&
+    (v as any).headers &&
+    typeof (v as any).headers.get === "function"
+  );
+}
+
+// Always return CORS headers even if we don't have a real Request (e.g. legacy json(status, body) calls)
+function safeCorsHeadersFor(req?: Request | null): HeadersInit {
+  try {
+    if (req) return corsHeadersFor(req);
+  } catch {
+    // ignore
+  }
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "access-control-max-age": "86400",
+  };
+}
+
+
 
 export class HttpError extends Error {
   status: number;
@@ -26,22 +52,37 @@ export function handleCors(req: Request): Response | null {
   return handleCorsBase(req);
 }
 
-export function json(req: Request, status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
-  if (status >= 400) {
-    try {
-      console.error("ADMIN_API_ERROR", JSON.stringify(body));
-    } catch {
-      console.error("ADMIN_API_ERROR", body);
-    }
+// Backward compatible:
+// - json(req, status, body, extraHeaders?)
+// - json(status, body, extraHeaders?)
+export function json(...args: any[]): Response {
+  let req: Request | null = null;
+  let status: number;
+  let body: unknown;
+  let extraHeaders: HeadersInit | undefined;
+
+  if (isRequest(args[0])) {
+    req = args[0] as Request;
+    status = Number(args[1]);
+    body = args[2];
+    extraHeaders = args[3] as HeadersInit | undefined;
+  } else {
+    status = Number(args[0]);
+    body = args[1];
+    extraHeaders = args[2] as HeadersInit | undefined;
   }
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      ...corsHeadersFor(req),
-      ...extraHeaders,
-    },
-  });
+
+  // Never allow an invalid status to crash the function (Deno throws on 0, NaN, etc.)
+  if (!Number.isFinite(status) || status < 200 || status > 599) status = 200;
+
+  const headers = new Headers(safeCorsHeadersFor(req));
+  headers.set("content-type", "application/json; charset=utf-8");
+  if (extraHeaders) {
+    const eh = new Headers(extraHeaders);
+    eh.forEach((v, k) => headers.set(k, v));
+  }
+
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 export function getSupabaseServiceClient() {
