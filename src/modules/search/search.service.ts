@@ -1,4 +1,5 @@
 import { supabase } from "../../lib/supabase";
+import { callSupabaseFunction } from "../../lib/callSupabaseFunction";
 import { searchExternalTitles } from "./externalMovieSearch";
 import { TitleType } from "@/types/supabase-helpers";
 import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
@@ -65,6 +66,35 @@ const searchSupabaseTitles = async (
   signal: AbortSignal | undefined,
 ): Promise<TitleSearchResultPage> => {
   throwIfAborted(signal);
+
+  // Prefer server-side search so we can optionally apply Voyage rerank-2.5.
+  // Falls back to direct table search if the Edge Function isn't deployed yet.
+  try {
+    const resp = await callSupabaseFunction<{
+      ok: boolean;
+      results: MediaItemRow[];
+      hasMore: boolean;
+    }>(
+      "media-search",
+      {
+        query: query.trim(),
+        page,
+        limit: PAGE_SIZE,
+        filters: filters ?? {},
+      },
+      { signal, timeoutMs: 20000 },
+    );
+
+    if (resp?.ok && Array.isArray(resp.results)) {
+      throwIfAborted(signal);
+      return {
+        results: (resp.results as MediaItemRow[]).map(mapMediaItemRowToResult),
+        hasMore: Boolean(resp.hasMore),
+      };
+    }
+  } catch (err) {
+    console.warn("[search.service] media-search Edge Function failed, falling back", err);
+  }
 
   const columns = `
     id,
