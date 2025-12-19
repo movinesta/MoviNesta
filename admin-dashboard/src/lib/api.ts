@@ -99,6 +99,18 @@ export async function getLogs(payload?: { limit?: number }): Promise<LogsResp> {
   return invoke<LogsResp>("admin-logs", { body: { action: "get", ...payload } });
 }
 
+export type AuditResp = { ok: true; rows: any[]; next_before?: string | null };
+
+export async function getAudit(payload?: { limit?: number; search?: string | null; before?: string | null }): Promise<AuditResp> {
+  // Server-side function currently supports limit + cursor (created_at). We still accept search for forward compatibility.
+  const body: any = {
+    limit: payload?.limit ?? 100,
+    cursor: payload?.before ?? null,
+  };
+  if (payload?.search) body.search = payload.search;
+  return invoke<AuditResp>("admin-audit", { body });
+}
+
 export type CostsDailyRow = {
   day: string;
   provider: string;
