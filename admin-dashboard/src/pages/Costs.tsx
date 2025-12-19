@@ -31,12 +31,12 @@ export default function Costs() {
   const [granularity, setGranularity] = useState<Granularity>("daily");
   const q = useQuery({ queryKey: ["costs", { days }], queryFn: () => getCosts({ days }) });
 
-  const hasBudget = Boolean(
-    q.data?.today?.budget != null ||
-      (q.data?.budgets?.by_provider_daily && Object.keys(q.data.budgets.by_provider_daily).length > 0)
-  );
+  // Be defensive: older deployments (or temporary errors) might not include `budgets`.
+  const budgets = q.data?.budgets ?? { total_daily: null as number | null, by_provider_daily: {} as Record<string, number> };
 
-  const hasTotalBudget = q.data?.budgets.total_daily != null;
+  const hasBudget = Boolean(q.data?.today?.budget != null || Object.keys(budgets.by_provider_daily ?? {}).length > 0);
+
+  const hasTotalBudget = budgets.total_daily != null;
 
   const dailyProviderChartData = useMemo(() => {
     if (!q.data?.daily) return [];
@@ -78,11 +78,11 @@ export default function Costs() {
     if (!q.data?.daily) return [];
     const byDay = new Map<string, number>();
     for (const r of q.data.daily) byDay.set(r.day, (byDay.get(r.day) ?? 0) + r.tokens);
-    const budget = q.data.budgets.total_daily;
+    const budget = budgets.total_daily;
     return Array.from(byDay.entries())
       .map(([day, used]) => ({ day, used, budget: budget ?? undefined }))
       .sort((a, b) => String(a.day).localeCompare(String(b.day)));
-  }, [q.data]);
+  }, [q.data, budgets.total_daily]);
 
   const weeklyTotalChartData = useMemo(() => {
     if (!q.data?.daily) return [];
@@ -91,12 +91,12 @@ export default function Costs() {
       const week = weekStartKeyFromDay(r.day);
       byWeek.set(week, (byWeek.get(week) ?? 0) + r.tokens);
     }
-    const budgetDaily = q.data.budgets.total_daily;
+    const budgetDaily = budgets.total_daily;
     const budgetWeekly = budgetDaily == null ? null : budgetDaily * 7;
     return Array.from(byWeek.entries())
       .map(([week, used]) => ({ week, used, budget: budgetWeekly ?? undefined }))
       .sort((a, b) => String(a.week).localeCompare(String(b.week)));
-  }, [q.data]);
+  }, [q.data, budgets.total_daily]);
 
   if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
   if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
