@@ -1,88 +1,75 @@
-/// <reference path="../_shared/deno.d.ts" />
-// Supabase Edge Function: admin-audit
-// Fix: Always return 200 OK for CORS preflight (OPTIONS) and attach CORS headers to all responses.
+// supabase/functions/admin-audit/index.ts
+//
+// Returns recent rows from public.admin_audit_log (admin-only).
+// Supports simple cursor-based pagination.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { handleCors, json, requireAdmin } from "../_shared/admin.ts";
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+type ReqBody = {
+  limit?: number;
+  before?: string | null; // ISO timestamp (created_at) cursor
+  search?: string | null;
 };
 
-function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      ...CORS_HEADERS,
-      ...extraHeaders,
-    },
-  });
-}
-
-function textResponse(body: string, status = 200, extraHeaders: Record<string, string> = {}) {
-  return new Response(body, {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      ...extraHeaders,
-    },
-  });
+function clampInt(n: unknown, def: number, min: number, max: number) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return def;
+  return Math.max(min, Math.min(max, Math.trunc(v)));
 }
 
 Deno.serve(async (req) => {
-  // CORS preflight must succeed without auth checks.
-  if (req.method === "OPTIONS") {
-    return textResponse("ok", 200);
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+
+  if (req.method !== "POST") return json(405, { ok: false, code: "METHOD_NOT_ALLOWED" });
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-    if (!supabaseUrl || !anonKey) {
-      return jsonResponse({ ok: false, error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" }, 500);
-    }
+    const { svc, userId } = await requireAdmin(req);
 
-    // Use request JWT so policies/admin checks work.
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const supabase = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Optional admin gate: if your project has public.is_admin() RPC, enforce it.
-    // If it doesn't exist, we ignore and rely on RLS / table permissions.
+    let body: ReqBody = {};
     try {
-      const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
-      if (!adminErr && isAdmin !== true) {
-        return jsonResponse({ ok: false, error: "Not authorized" }, 403);
-      }
+      body = (await req.json()) as ReqBody;
     } catch {
-      // ignore
+      body = {};
     }
 
-    const payload = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const limit = Number(payload.limit ?? 100);
-    const cursor = payload.cursor ?? null;
+    const limit = clampInt(body.limit, 100, 1, 200);
+    const before = typeof body.before === "string" && body.before.trim() ? body.before.trim() : null;
+    const search = typeof body.search === "string" && body.search.trim() ? body.search.trim() : null;
 
-    let q = supabase
+    let q = svc
       .from("admin_audit_log")
-      .select("*")
+      .select("id, created_at, actor_id, action, target, details")
       .order("created_at", { ascending: false })
-      .limit(Math.min(Math.max(limit, 1), 500));
+      .limit(limit);
 
-    if (cursor) q = q.lt("created_at", cursor);
+    if (before) q = q.lt("created_at", before);
+    if (search) {
+      // Basic OR search across a few useful columns.
+      const s = search.replace(/%/g, "\\%").replace(/_/g, "\\_");
+      q = q.or(`action.ilike.%${s}%,target.ilike.%${s}%,details::text.ilike.%${s}%`);
+    }
 
     const { data, error } = await q;
-    if (error) return jsonResponse({ ok: false, error: error.message }, 500);
+    if (error) throw new Error(error.message);
 
-    return jsonResponse({ ok: true, rows: data ?? [] }, 200);
+    const rows = (data ?? []).map((r) => ({
+      id: r.id,
+      created_at: r.created_at,
+      actor_id: r.actor_id,
+      action: r.action,
+      target: r.target,
+      details: r.details,
+    }));
+
+    const next_before = rows.length === limit ? rows[rows.length - 1]?.created_at ?? null : null;
+
+    return json(200, { ok: true, rows, next_before, meta: { requested_by: userId, limit } });
   } catch (e) {
-    return jsonResponse({ ok: false, error: String(getErrorMessage(e)) }, 500);
+    return json(200, {
+      ok: false,
+      code: "ADMIN_AUDIT_FAILED",
+      message: e instanceof Error ? e.message : String(e),
+    });
   }
 });
-
-function getErrorMessage(e: unknown) {
-  if (e instanceof Error) return e.message;
-  try { return JSON.stringify(e); } catch { return String(e); }
-}
