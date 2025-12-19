@@ -328,6 +328,16 @@ CREATE TABLE public.media_job_state (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT media_job_state_pkey PRIMARY KEY (job_name)
 );
+CREATE TABLE public.media_rerank_cache (
+  key text NOT NULL,
+  user_id uuid NOT NULL,
+  order_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  meta jsonb NOT NULL DEFAULT '{}'::jsonb,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_rerank_cache_pkey PRIMARY KEY (key)
+);
 CREATE TABLE public.media_session_vectors (
   user_id uuid NOT NULL,
   session_id uuid NOT NULL,
@@ -501,6 +511,14 @@ CREATE TABLE public.reviews (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT reviews_pkey PRIMARY KEY (id),
   CONSTRAINT reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.title_genres (
+  title_id uuid NOT NULL,
+  genre_id bigint NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT title_genres_pkey PRIMARY KEY (title_id, genre_id),
+  CONSTRAINT title_genres_title_id_fkey FOREIGN KEY (title_id) REFERENCES public.media_items(id),
+  CONSTRAINT title_genres_genre_id_fkey FOREIGN KEY (genre_id) REFERENCES public.genres(id)
 );
 CREATE TABLE public.tmdb_cache (
   kind USER-DEFINED NOT NULL,
