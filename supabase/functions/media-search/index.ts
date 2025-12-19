@@ -134,12 +134,22 @@ async function loadEmbeddingSettings(
       .eq("id", 1)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) {
+      console.warn(
+        "MEDIA_SEARCH_SETTINGS_READ_ERROR",
+        JSON.stringify({ message: error.message, code: (error as any).code ?? null }),
+      );
+      return null;
+    }
+    if (!data) {
+      console.warn("MEDIA_SEARCH_SETTINGS_MISSING", JSON.stringify({ id: 1 }));
+      return null;
+    }
 
-    return {
-      rerank_search_enabled: Boolean((data as any).rerank_search_enabled),
-      rerank_top_k: clamp(Number((data as any).rerank_top_k ?? 20), 5, 200),
-    };
+    const enabled = Boolean((data as any).rerank_search_enabled);
+    const topK = clamp(Number((data as any).rerank_top_k ?? 20), 5, 200);
+    console.log("MEDIA_SEARCH_SETTINGS", JSON.stringify({ enabled, topK }));
+    return { rerank_search_enabled: enabled, rerank_top_k: topK };
   } catch {
     return null;
   }
@@ -339,14 +349,19 @@ function applyOrderIds(subset: MediaItemRow[], orderIds: string[]): MediaItemRow
 }
 
 async function maybeRerank(
-  client: SupabaseClient<Database>,
+  userClient: SupabaseClient<Database>,
+  adminClient: SupabaseClient<Database>,
   query: string,
   rows: MediaItemRow[],
   opts: { skipRerank: boolean; page: number; limit: number; filters: TitleSearchFilters },
 ): Promise<{ rows: MediaItemRow[]; status: string }> {
-  const settings = await loadEmbeddingSettings(client);
-  if (!settings?.rerank_search_enabled || !query || rows.length < 2) {
-    return { rows, status: settings?.rerank_search_enabled ? "insufficient" : "disabled" };
+  const settings = await loadEmbeddingSettings(adminClient);
+  if (!settings) {
+    // We couldn't read settings (most commonly RLS / missing service role). Be explicit.
+    return { rows, status: "settings_unavailable" };
+  }
+  if (!settings.rerank_search_enabled || !query || rows.length < 2) {
+    return { rows, status: settings.rerank_search_enabled ? "insufficient" : "disabled" };
   }
 
   const k = Math.min(rows.length, clamp(settings.rerank_top_k, 5, 200));
@@ -355,7 +370,7 @@ async function maybeRerank(
 
   // Cache key uses user_id and the exact candidate set being reranked.
   // This prevents repeated provider calls on tab focus/refetch.
-  const userId = await getAuthedUserId(client);
+  const userId = await getAuthedUserId(userClient);
   const now = new Date();
   const cacheTtlSec = SEARCH_RERANK_CACHE_TTL_SECONDS;
 
@@ -369,7 +384,7 @@ async function maybeRerank(
     : null;
 
   if (cacheKey && userId) {
-    const cachedIds = await cacheGetOrderIds(client, cacheKey);
+    const cachedIds = await cacheGetOrderIds(adminClient, cacheKey);
     if (cachedIds?.length) {
       const rerankedSubset = applyOrderIds(subset, cachedIds);
       console.log(
@@ -389,7 +404,7 @@ async function maybeRerank(
   // Cooldown: after a 429, skip rerank for a short time to avoid hammering Voyage.
   if (userId) {
     const cdKey = `cooldown:voyage_search_rerank:${userId}`;
-    const untilMs = await cooldownUntilMs(client, cdKey);
+    const untilMs = await cooldownUntilMs(adminClient, cdKey);
     if (untilMs && untilMs > Date.now()) {
       console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: untilMs }));
       return { rows, status: "cooldown" };
@@ -431,7 +446,7 @@ async function maybeRerank(
     // Store cache (best-effort)
     if (cacheKey && userId) {
       const expires = addSeconds(now, cacheTtlSec).toISOString();
-      await cacheUpsert(client, {
+      await cacheUpsert(adminClient, {
         key: cacheKey,
         user_id: userId,
         order_ids: JSON.stringify(orderedIds),
@@ -462,7 +477,7 @@ async function maybeRerank(
     if (is429(err) && userId) {
       const cdKey = `cooldown:voyage_search_rerank:${userId}`;
       const until = addSeconds(new Date(), SEARCH_RERANK_429_COOLDOWN_SECONDS);
-      await cacheUpsert(client, {
+      await cacheUpsert(adminClient, {
         key: cdKey,
         user_id: userId,
         order_ids: "[]",
@@ -479,13 +494,14 @@ async function maybeRerank(
 }
 
 async function handleSearch(
-  client: SupabaseClient<Database>,
+  userClient: SupabaseClient<Database>,
+  adminClient: SupabaseClient<Database>,
   args: Required<SearchRequest>,
 ): Promise<Response> {
   const { query, page, limit, filters, skipRerank } = args;
   const offset = (page - 1) * limit;
 
-  let builder = client.from("media_items").select(COLUMNS, { count: "exact" });
+  let builder = userClient.from("media_items").select(COLUMNS, { count: "exact" });
   builder = builder.range(offset, offset + limit - 1);
 
   const ilike = `%${query}%`;
@@ -522,7 +538,7 @@ async function handleSearch(
   const totalCount = typeof count === "number" ? count : undefined;
   const hasMore = totalCount ? offset + rows.length < totalCount : rows.length === limit;
 
-  const { rows: rerankedRows, status: rerankStatus } = await maybeRerank(client, query, rows, {
+  const { rows: rerankedRows, status: rerankStatus } = await maybeRerank(userClient, adminClient, query, rows, {
     skipRerank,
     page,
     limit,
@@ -553,6 +569,7 @@ export async function handler(req: Request) {
   // embedding_settings (making rerank appear "disabled" even when it's enabled).
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (!supabaseUrl || !supabaseAnonKey) {
     return jsonResponse(
       { ok: false, error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY env vars" },
@@ -564,7 +581,7 @@ export async function handler(req: Request) {
   const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
   const apiKeyHeader = req.headers.get("apikey") ?? req.headers.get("x-api-key") ?? supabaseAnonKey;
 
-  const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  const userClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: {
         ...(authHeader ? { Authorization: authHeader } : {}),
@@ -573,6 +590,20 @@ export async function handler(req: Request) {
     },
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Settings + cache should be readable/writable even when end-user RLS is strict.
+  // Prefer service role if available; otherwise fall back to the authed user client.
+  const adminClient = supabaseServiceRoleKey
+    ? createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+        global: {
+          headers: {
+            apikey: supabaseServiceRoleKey,
+            // No Authorization header: service role bypasses RLS.
+          },
+        },
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : userClient;
   const args: Required<SearchRequest> = {
     query: data.query,
     page: data.page ?? 1,
@@ -587,7 +618,13 @@ export async function handler(req: Request) {
     JSON.stringify({ qLen: args.query.length, page: args.page, limit: args.limit, skipRerank: args.skipRerank }),
   );
 
-  return await handleSearch(client, args);
+  // Helpful debug marker so you can confirm whether service role is present.
+  console.log(
+    "MEDIA_SEARCH_SETTINGS_CLIENT",
+    JSON.stringify({ serviceRole: Boolean(supabaseServiceRoleKey), authHeader: Boolean(authHeader) }),
+  );
+
+  return await handleSearch(userClient, adminClient, args);
 }
 
 serve(handler);
