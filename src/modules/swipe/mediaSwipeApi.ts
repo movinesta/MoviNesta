@@ -225,3 +225,30 @@ export async function sendMediaSwipeEvent(
   if (data?.ok === true) return { ok: true };
   return { ok: false, message: data?.message };
 }
+export type SendOnboardingInitialLikesInput = {
+  sessionId: string;
+  mediaItemIds: string[];
+};
+
+/**
+ * Onboarding: send a small set of "initial likes" to bootstrap taste vectors.
+ * Backed by Edge Function: onboarding-initial-likes
+ */
+export async function sendOnboardingInitialLikes(
+  input: SendOnboardingInitialLikesInput,
+  opts?: { timeoutMs?: number },
+): Promise<{ ok: true } | { ok: false; message?: string }> {
+  const payload: SendOnboardingInitialLikesInput = {
+    sessionId: input.sessionId,
+    mediaItemIds: Array.isArray(input.mediaItemIds) ? input.mediaItemIds : [],
+  };
+
+  const run = supabase.functions.invoke("onboarding-initial-likes", { body: payload });
+
+  const res = await timeout(run, opts?.timeoutMs ?? 25000);
+  if (res.error) throw res.error;
+
+  const data = res.data as any;
+  if (data?.ok === true) return { ok: true };
+  return { ok: false, message: data?.message };
+}
