@@ -344,9 +344,11 @@ async function maybeRerank(
   query: string,
   rows: MediaItemRow[],
   opts: { skipRerank: boolean; page: number; limit: number; filters: TitleSearchFilters },
-): Promise<MediaItemRow[]> {
+): Promise<{ rows: MediaItemRow[]; status: string }> {
   const settings = await loadEmbeddingSettings(client);
-  if (!settings?.rerank_search_enabled || !query || rows.length < 2) return rows;
+  if (!settings?.rerank_search_enabled || !query || rows.length < 2) {
+    return { rows, status: settings?.rerank_search_enabled ? "insufficient" : "disabled" };
+  }
 
   const k = Math.min(rows.length, clamp(settings.rerank_top_k, 5, 200));
   const subset = rows.slice(0, k);
@@ -374,12 +376,15 @@ async function maybeRerank(
         "MEDIA_SEARCH_RERANK_CACHE_HIT",
         JSON.stringify({ in: rows.length, rerankCandidates: k, key: cacheKey.slice(0, 90) + "…" }),
       );
-      return [...rerankedSubset, ...rows.slice(k)];
+      return { rows: [...rerankedSubset, ...rows.slice(k)], status: "cache_hit" };
     }
   }
 
   // Background prefetch: never call provider, but allow cached order.
-  if (opts.skipRerank) return rows;
+  if (opts.skipRerank) {
+    console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "skipRerank" }));
+    return { rows, status: "skipRerank" };
+  }
 
   // Cooldown: after a 429, skip rerank for a short time to avoid hammering Voyage.
   if (userId) {
@@ -387,7 +392,7 @@ async function maybeRerank(
     const untilMs = await cooldownUntilMs(client, cdKey);
     if (untilMs && untilMs > Date.now()) {
       console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: untilMs }));
-      return rows;
+      return { rows, status: "cooldown" };
     }
   }
 
@@ -404,7 +409,7 @@ async function maybeRerank(
       .map((r) => r.index)
       .filter((i) => i >= 0 && i < subset.length);
 
-    if (!order.length) return rows;
+    if (!order.length) return { rows, status: "no_scores" };
 
     const orderedIds: string[] = [];
     const used = new Set<number>();
@@ -452,7 +457,7 @@ async function maybeRerank(
       JSON.stringify({ model: VOYAGE_RERANK_MODEL || "rerank-2.5", queryLen: query.length, in: rows.length, rerankCandidates: k, scored: order.length }),
     );
 
-    return reranked;
+    return { rows: reranked, status: "ok" };
   } catch (err) {
     if (is429(err) && userId) {
       const cdKey = `cooldown:voyage_search_rerank:${userId}`;
@@ -466,10 +471,10 @@ async function maybeRerank(
       });
       console.warn("MEDIA_SEARCH_WARN rerank rate-limited (429). Entering cooldown.");
       console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown_set", until: until.getTime() }));
-      return rows;
+      return { rows, status: "cooldown_set" };
     }
     console.warn("MEDIA_SEARCH_WARN rerank failed, returning base order:", String((err as any)?.message ?? err));
-    return rows;
+    return { rows, status: "error" };
   }
 }
 
@@ -517,14 +522,18 @@ async function handleSearch(
   const totalCount = typeof count === "number" ? count : undefined;
   const hasMore = totalCount ? offset + rows.length < totalCount : rows.length === limit;
 
-  const reranked = await maybeRerank(client, query, rows, {
+  const { rows: rerankedRows, status: rerankStatus } = await maybeRerank(client, query, rows, {
     skipRerank,
     page,
     limit,
     filters: filters ?? {},
   });
 
-  return jsonResponse({ ok: true, query, page, limit, hasMore, totalCount, results: reranked });
+  return jsonResponse(
+    { ok: true, query, page, limit, hasMore, totalCount, results: rerankedRows },
+    200,
+    { headers: { "x-movinesta-rerank": rerankStatus } },
+  );
 }
 
 export async function handler(req: Request) {
@@ -546,6 +555,12 @@ export async function handler(req: Request) {
     filters: data.filters ?? {},
     skipRerank: Boolean(data.skipRerank),
   };
+
+  // Always log an invocation marker (even if rerank is disabled) so it's easy to verify behavior in Supabase logs.
+  console.log(
+    "MEDIA_SEARCH_REQ",
+    JSON.stringify({ qLen: args.query.length, page: args.page, limit: args.limit, skipRerank: args.skipRerank }),
+  );
 
   return await handleSearch(client, args);
 }
