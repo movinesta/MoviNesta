@@ -91,6 +91,8 @@ CREATE TABLE public.embedding_settings (
   rerank_swipe_enabled boolean NOT NULL DEFAULT false,
   rerank_search_enabled boolean NOT NULL DEFAULT false,
   rerank_top_k integer NOT NULL DEFAULT 50,
+  admin_daily_token_budget bigint,
+  admin_daily_token_budget_by_provider jsonb NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT embedding_settings_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.follows (
