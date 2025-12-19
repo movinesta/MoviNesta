@@ -14,6 +14,8 @@ import { TitleType } from "@/types/supabase-helpers";
 import {
   fetchMediaSwipeDeck,
   getOrCreateMediaSwipeSessionId,
+  getOrCreateSwipeDeckSeedForMode,
+  rotateSwipeDeckSeedForMode,
   sendMediaSwipeEvent,
   uuidv4Fallback,
   type MediaSwipeDeckMode,
@@ -110,56 +112,6 @@ export const swipeDeckQueryKey = (kind: SwipeDeckKindOrCombined) =>
 
 export const SOURCE_WEIGHTS_STORAGE_KEY = "mn_swipe_source_weights_v1";
 
-const SWIPE_SEED_STORAGE_KEY = "mn_swipe_seed_v1";
-
-function swipeSeedStorageKey(sessionId: string, kind: SwipeDeckKindOrCombined): string {
-  return `${SWIPE_SEED_STORAGE_KEY}:${sessionId}:${kind}`;
-}
-
-export function getOrCreateSwipeDeckSeed(sessionId: string, kind: SwipeDeckKindOrCombined): string {
-  if (typeof window === "undefined") return uuidv4Fallback();
-  const key = swipeSeedStorageKey(sessionId, kind);
-  const existing = window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
-  if (existing) return existing;
-
-  const seed =
-    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidv4Fallback();
-
-  try {
-    window.sessionStorage.setItem(key, seed);
-  } catch {
-    // ignore
-  }
-  try {
-    window.localStorage.setItem(key, seed);
-  } catch {
-    // ignore
-  }
-
-  return seed;
-}
-
-export function rotateSwipeDeckSeed(sessionId: string, kind: SwipeDeckKindOrCombined): string {
-  if (typeof window === "undefined") return uuidv4Fallback();
-  const key = swipeSeedStorageKey(sessionId, kind);
-
-  const seed =
-    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidv4Fallback();
-
-  try {
-    window.sessionStorage.setItem(key, seed);
-  } catch {
-    // ignore
-  }
-  try {
-    window.localStorage.setItem(key, seed);
-  } catch {
-    // ignore
-  }
-
-  return seed;
-}
-
 
 export function loadInitialSourceWeights(): Record<SwipeDeckKind, number> {
   if (typeof window === "undefined") {
@@ -230,7 +182,6 @@ export async function fetchSwipeCardsFromSource(
   source: SwipeDeckKindOrCombined,
   count: number,
   sessionId: string,
-  seed: string,
   opts?: { skipRerank?: boolean },
 ): Promise<SwipeCardData[]> {
   const mode = mapKindToMode(source);
@@ -242,8 +193,8 @@ export async function fetchSwipeCardsFromSource(
         mode,
         limit: Math.max(count, 12),
         // IMPORTANT: a stable seed is required for server-side rerank caching to hit.
-        // `seed` is passed in from the caller (derived from session + deck kind).
-        seed,
+        // Use the shared seed store (same one used by useMediaSwipeDeck) so prefetch + main deck share keys.
+        seed: getOrCreateSwipeDeckSeedForMode(sessionId, mode, undefined),
         // Background prefetch should avoid calling the reranker.
         skipRerank: opts?.skipRerank === true,
       },
@@ -300,26 +251,25 @@ export async function fetchSwipeBatch(
   opts?: { skipRerank?: boolean },
 ): Promise<SwipeCardData[]> {
   const sessionId = getOrCreateMediaSwipeSessionId();
-  const seed = getOrCreateSwipeDeckSeed(sessionId, kind);
 
   if (kind === "combined") {
     const plannedTotal = Math.max(batchSize, 24);
-    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId, seed, opts);
+    return fetchSwipeCardsFromSource("combined", plannedTotal, sessionId, opts);
   }
 
-  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId, seed, opts);
+  return fetchSwipeCardsFromSource(kind as SwipeDeckKind, Math.max(batchSize, 12), sessionId, opts);
 }
 
 export async function prefillSwipeDeckCache(
   queryClient: QueryClient,
   kind: SwipeDeckKindOrCombined,
-  options?: { limit?: number; weights?: Record<SwipeDeckKind, number> },
+  options?: { limit?: number; weights?: Record<SwipeDeckKind, number>; skipRerank?: boolean },
 ): Promise<void> {
   const limit = options?.limit ?? 40;
   const existing = queryClient.getQueryData<SwipeDeckState>(swipeDeckQueryKey(kind));
   if (existing?.cards.length) return;
 
-  const cards = await fetchSwipeBatch(kind, limit, options?.weights, { skipRerank: true });
+  const cards = await fetchSwipeBatch(kind, limit, options?.weights, { skipRerank: options?.skipRerank ?? true });
   queryClient.setQueryData(swipeDeckQueryKey(kind), {
     status: cards.length ? "ready" : "loading",
     cards,
@@ -579,7 +529,7 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   );
 
   const refreshDeck = useCallback(() => {
-    rotateSwipeDeckSeed(sessionId, kind);
+    rotateSwipeDeckSeedForMode(sessionId, mapKindToMode(kind), undefined);
     seenIdsRef.current = new Set();
     cardsRef.current = [];
     fetchingRef.current = false;

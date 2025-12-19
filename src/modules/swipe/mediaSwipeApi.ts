@@ -124,6 +124,35 @@ export function getOrCreateSwipeDeckSeedForMode(
   return seed;
 }
 
+
+/**
+ * Rotates the stable seed for a given (sessionId, mode, kindFilter) so the next deck request
+ * generates a fresh candidate set. Useful for a user-initiated refresh.
+ */
+export function rotateSwipeDeckSeedForMode(
+  sessionId: string,
+  mode: MediaSwipeDeckMode,
+  kindFilter: string | null | undefined,
+): string {
+  if (typeof window === "undefined") return uuidv4Fallback();
+  const key = deckSeedStorageKey(sessionId, mode, kindFilter);
+  const seed =
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uuidv4Fallback();
+
+  try {
+    window.sessionStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+  try {
+    window.localStorage.setItem(key, seed);
+  } catch {
+    // ignore
+  }
+
+  return seed;
+}
+
 function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Request timed out")), ms);

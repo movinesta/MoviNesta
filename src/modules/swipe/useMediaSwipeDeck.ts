@@ -8,6 +8,7 @@ import type { SwipeDirection } from "./useSwipeDeck";
 import {
   fetchMediaSwipeDeck,
   getOrCreateMediaSwipeSessionId,
+  rotateSwipeDeckSeedForMode,
   sendMediaSwipeEvent,
   type MediaSwipeCard,
   type MediaSwipeDeckMode,
@@ -240,6 +241,11 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
   }, [fetchBatch, kind, limit, setStateSafe]);
 
   const refresh = useCallback(() => {
+    // If the caller did not force a specific seed, rotate the shared mode seed
+    // so a manual refresh produces a new deck (and still shares seed with prefetch).
+    if (options?.seed == null) {
+      rotateSwipeDeckSeedForMode(sessionId, mode, undefined);
+    }
     seenIdsRef.current = new Set();
     impressedRef.current = new Set();
     lastDwellSentAtRef.current = new Map();
@@ -247,7 +253,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
 
     setStateSafe({ status: "loading", cards: [], errorMessage: null });
     fetchBatch(limit);
-  }, [fetchBatch, limit, setStateSafe]);
+  }, [fetchBatch, limit, mode, options?.seed, sessionId, setStateSafe]);
 
   const trimConsumed = useCallback((count: number) => {
     if (count <= 0) return;
