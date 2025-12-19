@@ -1,18 +1,27 @@
-// supabase/functions/admin-whoami/index.ts
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { handleCors, json, requireAdmin, HttpError } from "../_shared/admin.ts";
 
-import { handleCors, json, requireAdmin } from "../_shared/admin.ts";
-
-Deno.serve(async (req) => {
-  const preflight = handleCors(req);
-  if (preflight) return preflight;
+// Simple identity endpoint for the admin dashboard.
+// Used to validate that the caller is authenticated + is an admin.
+//
+// 200: { ok: true, user_id, email, role }
+// 401/403: { ok: false, error }
+serve(async (req) => {
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
-    const { user } = await requireAdmin(req);
+    const { userId, email, role } = await requireAdmin(req);
 
-    const email = user.email ?? (user.user_metadata as any)?.email ?? null;
-    const isAdmin = Boolean((user.app_metadata as any)?.is_admin);
-    return json(200, { ok: true, user_id: user.id, email, is_admin: isAdmin });
-  } catch (err) {
-    return json(401, { ok: false, error: (err as Error)?.message ?? String(err) });
+    return json(req, 200, {
+      ok: true,
+      user_id: userId,
+      email: email ?? null,
+      role,
+    });
+  } catch (e) {
+    const status = e instanceof HttpError ? e.status : 500;
+    const message = e instanceof Error ? e.message : "Unknown error";
+    return json(req, status, { ok: false, error: message });
   }
 });

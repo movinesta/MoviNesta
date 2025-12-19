@@ -12,21 +12,21 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getConfig } from "./config.ts";
+import { corsHeadersFor, handleCors as handleCorsBase } from "./cors.ts";
 
-export const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-};
-
-export function handleCors(req: Request): Response | null {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
   }
-  return null;
 }
 
-export function json(status: number, body: unknown): Response {
+export function handleCors(req: Request): Response | null {
+  return handleCorsBase(req);
+}
+
+export function json(req: Request, status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
   if (status >= 400) {
     try {
       console.error("ADMIN_API_ERROR", JSON.stringify(body));
@@ -36,7 +36,11 @@ export function json(status: number, body: unknown): Response {
   }
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...corsHeadersFor(req),
+      ...extraHeaders,
+    },
   });
 }
 
@@ -66,11 +70,11 @@ function getJwtFromRequest(req: Request): string {
 
 export async function getUserIdFromRequest(req: Request): Promise<{ userId: string; email: string | null; jwt: string }> {
   const jwt = getJwtFromRequest(req);
-  if (!jwt) throw new Error("Missing Authorization bearer token");
+  if (!jwt) throw new HttpError(401, "Missing Authorization bearer token");
 
   const userClient = getSupabaseUserClient(jwt);
   const { data, error } = await userClient.auth.getUser();
-  if (error || !data?.user?.id) throw new Error("Invalid session");
+  if (error || !data?.user?.id) throw new HttpError(401, "Invalid session");
   return { userId: data.user.id, email: data.user.email ?? null, jwt };
 }
 
@@ -84,8 +88,8 @@ export async function requireAdmin(req: Request): Promise<{ userId: string; emai
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!data?.user_id) throw new Error("Not authorized");
+  if (error) throw new HttpError(500, error.message);
+  if (!data?.user_id) throw new HttpError(403, "Not authorized");
 
   return { userId, email, role: data.role ?? "admin", svc };
 }
