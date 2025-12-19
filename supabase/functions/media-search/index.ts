@@ -7,10 +7,9 @@
 // - Always falls back to base order if rerank is disabled or fails.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
-import { getUserClient } from "../_shared/supabase.ts";
 import { VOYAGE_RERANK_MODEL } from "../_shared/config.ts";
 import { voyageRerank } from "../_shared/voyage.ts";
 import type { Database } from "../../../src/types/supabase.ts";
@@ -364,8 +363,9 @@ async function maybeRerank(
   const fHash = await sha256Hex(stableStringify(opts.filters ?? {}));
   const candHash = await sha256Hex(subset.map((r) => String((r as any).id)).join(","));
 
+  // Prefix with `search:` so it's easy to inspect from SQL with `key like 'search:%'`.
   const cacheKey = userId
-    ? `search_rerank:voyage:${userId}:${qHash}:${opts.page}:${opts.limit}:${fHash}:${k}:${candHash}`
+    ? `search:voyage:${userId}:${qHash}:${opts.page}:${opts.limit}:${fHash}:${k}:${candHash}`
     : null;
 
   if (cacheKey && userId) {
@@ -547,7 +547,32 @@ export async function handler(req: Request) {
   });
   if (errorResponse) return errorResponse;
 
-  const client = getUserClient(req);
+  // IMPORTANT:
+  // Build a Supabase client that carries the end-user JWT from the request.
+  // If we don't forward Authorization, Supabase queries run as `anon` and RLS will hide
+  // embedding_settings (making rerank appear "disabled" even when it's enabled).
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return jsonResponse(
+      { ok: false, error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY env vars" },
+      500,
+      { headers: { "x-movinesta-rerank": "error" } },
+    );
+  }
+
+  const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
+  const apiKeyHeader = req.headers.get("apikey") ?? req.headers.get("x-api-key") ?? supabaseAnonKey;
+
+  const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        apikey: apiKeyHeader,
+      },
+    },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   const args: Required<SearchRequest> = {
     query: data.query,
     page: data.page ?? 1,
