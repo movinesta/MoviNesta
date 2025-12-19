@@ -59,6 +59,16 @@ function randomUuid(): string {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
 }
 
+function normalizeSeedForRpc(seed: string): string {
+  const s = (seed ?? "").toString().trim();
+  if (!s) return `s:${randomUuid()}`;
+  if (s.startsWith("cold:") || s.startsWith("s:")) return s;
+  // Prefix any UUID-looking seed to avoid Postgres function overload ambiguity
+  // between p_seed uuid vs text.
+  return `s:${s}`;
+}
+
+
 function parseOmdbRuntimeMinutes(omdbRuntime: unknown): number | null {
   if (typeof omdbRuntime !== "string") return null;
   const m = omdbRuntime.match(/(\d+)\s*min/i);
@@ -484,20 +494,22 @@ serve(async (req) => {
     if (!sessionId) return json(400, { ok: false, code: "MISSING_SESSION" });
 
     const deckId = randomUuid();
-    const explicitSeed = typeof body.seed === "string" ? body.seed.trim() : "";
+    const rawSeed = typeof body.seed === "string" ? body.seed.trim() : "";
+    const hasClientSeed = rawSeed.length > 0;
+    const explicitSeed = hasClientSeed ? normalizeSeedForRpc(rawSeed) : "";
 
     // Cold-start behavior (app-side): if the user has very few strong positives,
     // "for_you" can feel empty/repetitive. We transparently switch to a mixed
     // deck so the user sees quality content immediately.
     let mode: Mode = requestedMode;
-    let seed = explicitSeed || randomUuid();
+    let seed = explicitSeed || normalizeSeedForRpc(randomUuid());
     if (requestedMode === "for_you" && !Boolean((body as any)?.forceForYou)) {
       const nStrong = await countStrongPosSignals(supabase, auth.user.id);
       if (nStrong < 3) {
         mode = "combined";
         // If the client didn't provide a seed, make one stable per-day to reduce
         // flicker for brand-new users.
-        if (!explicitSeed) seed = `cold:${sessionId}:${kindFilter ?? "all"}:${utcDay()}`;
+        if (!hasClientSeed) seed = `cold:${sessionId}:${kindFilter ?? "all"}:${utcDay()}`;
       }
     }
 
