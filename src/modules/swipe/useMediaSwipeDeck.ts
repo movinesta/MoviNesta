@@ -8,6 +8,7 @@ import type { SwipeDirection } from "./useSwipeDeck";
 import {
   fetchMediaSwipeDeck,
   getOrCreateMediaSwipeSessionId,
+  getOrCreateSwipeDeckSeedForMode,
   rotateSwipeDeckSeedForMode,
   sendMediaSwipeEvent,
   type MediaSwipeCard,
@@ -28,7 +29,7 @@ import {
  * - Optional: disable heavy query invalidations (default OFF).
  */
 
-export type MediaSwipeDeckKind = "for-you" | "from-friends" | "trending";
+export type MediaSwipeDeckKind = "for-you" | "from-friends" | "trending" | "popular";
 export type MediaSwipeDeckKindOrCombined = MediaSwipeDeckKind | "combined";
 
 export type MediaSwipeCardUI = MediaSwipeCard & {
@@ -77,7 +78,7 @@ type UseMediaSwipeDeckOptions = {
 };
 
 function mapKindToMode(kind: MediaSwipeDeckKindOrCombined): MediaSwipeDeckMode {
-  if (kind === "trending") return "trending";
+  if (kind === "trending" || kind === "popular") return "trending";
   if (kind === "from-friends") return "friends";
   if (kind === "combined") return "combined";
   return "for_you";
@@ -88,6 +89,7 @@ function mapBackendSource(src: string | null | undefined): MediaSwipeCardUI["sou
   if (src === "for_you") return "for-you";
   if (src === "friends") return "from-friends";
   if (src === "trending") return "trending";
+  if (src === "popular") return "popular";
   if (src === "explore") return "explore";
   if (src === "combined") return "combined";
   return null;
@@ -151,6 +153,9 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const fetchingRef = useRef(false);
+  const pageRef = useRef(0);
+  const baseSeedRef = useRef<string | null>(null);
+
 
   // Avoid spamming impression/dwell
   const impressedRef = useRef<Set<string>>(new Set()); // key = `${deckId}:${mediaId}`
@@ -196,8 +201,17 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
     setStateSafe((prev) => ({ ...prev, status: prev.cards.length ? "ready" : "loading", errorMessage: null }));
 
     try {
+      // Use a stable base seed (sessionStorage) and add a page suffix so fetchMore doesn't repeat.
+      const baseSeed = options?.seed ?? getOrCreateSwipeDeckSeedForMode(sessionId, mode, undefined);
+      if (baseSeedRef.current !== baseSeed) {
+        baseSeedRef.current = baseSeed;
+        pageRef.current = 0;
+      }
+      const seedToUse = `${baseSeed}:${pageRef.current}`;
+      pageRef.current += 1;
+
       const resp = await fetchMediaSwipeDeck(
-        { sessionId, mode, limit: batchSize, seed: options?.seed ?? null, forceForYou: mode === "for_you" },
+        { sessionId, mode, limit: batchSize, seed: seedToUse },
         { timeoutMs: 25000 },
       );
 
@@ -246,6 +260,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
     if (options?.seed == null) {
       rotateSwipeDeckSeedForMode(sessionId, mode, undefined);
     }
+    pageRef.current = 0;
     seenIdsRef.current = new Set();
     impressedRef.current = new Set();
     lastDwellSentAtRef.current = new Map();

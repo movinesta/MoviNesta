@@ -49,6 +49,8 @@ export type SwipeCardData = {
   topFriendName?: string | null;
   topFriendInitials?: string | null;
   topFriendReviewSnippet?: string | null;
+  friendIds?: string[] | null;
+  friendProfiles?: FriendProfileLite[] | null;
 
   // User personalization (initial state)
   initialRating?: number | null;
@@ -71,9 +73,16 @@ export type SwipeCardData = {
   country?: string | null; // primary country
 };
 
-export type SwipeDeckKind = "for-you" | "from-friends" | "trending";
+export type SwipeDeckKind = "for-you" | "from-friends" | "trending" | "popular";
 export type SwipeDeckKindOrCombined = SwipeDeckKind | "combined";
-type SwipeBackendSource = "for_you" | "friends" | "trending" | "explore" | "combined";
+type SwipeBackendSource = "for_you" | "friends" | "trending" | "popular" | "explore" | "combined";
+
+export type FriendProfileLite = {
+  id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+};
 
 type SwipeDeckStatus = "idle" | "loading" | "ready" | "exhausted" | "error";
 
@@ -168,6 +177,7 @@ function mapBackendSource(src: string | null | undefined): SwipeCardData["source
   if (normalized === "for_you") return "for-you";
   if (normalized === "friends") return "from-friends";
   if (normalized === "trending") return "trending";
+  if (normalized === "popular") return "popular";
   if (normalized === "combined") return "combined";
   if (normalized === "explore") return "explore";
   return null;

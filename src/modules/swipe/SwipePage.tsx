@@ -36,6 +36,7 @@ import SwipeSyncBanner from "./SwipeSyncBanner";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { TitleType } from "@/types/supabase-helpers";
 import { CardMetadata, PosterFallback } from "./SwipeCardComponents";
+import FriendAvatarStack from "./FriendAvatarStack";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -76,12 +77,22 @@ const starsToRating0_10 = (stars: number | null): number | null => {
 };
 
 const adaptMediaSwipeCard = (card: any): SwipeCardData => {
-  const source =
-    card?.source === "for-you" || card?.source === "from-friends" || card?.source === "trending"
-      ? card.source
-      : undefined;
+      const source = (() => {
+    const raw = String(card?.source ?? "").trim();
+    if (!raw) return null;
 
-  const kind = card?.kind === "series" ? "series" : "movie";
+    const normalized = raw.replace("-", "_");
+
+    if (normalized === "for_you" || normalized === "for-you") return "for-you";
+    if (normalized === "friends" || normalized === "from_friends" || normalized === "from-friends") return "from-friends";
+    if (normalized === "trending") return "trending";
+    if (normalized === "popular") return "popular";
+    if (normalized === "combined") return "combined";
+    if (normalized === "explore") return "explore";
+    return null;
+  })();;
+
+    const kind = card?.kind === "series" ? "series" : card?.kind === "movie" ? "movie" : "movie";
 
   const releaseYear =
     typeof card?.releaseYear === "number"
@@ -108,6 +119,20 @@ const adaptMediaSwipeCard = (card: any): SwipeCardData => {
     tmdbBackdropPath: card?.tmdbBackdropPath ?? null,
     source,
     why: card?.why ?? null,
+    friendIds: Array.isArray(card?.friendIds) ? card.friendIds : null,
+    friendProfiles: Array.isArray(card?.friendProfiles) ? card.friendProfiles : null,
+    friendLikesCount:
+      typeof card?.friendLikesCount === "number"
+        ? card.friendLikesCount
+        : Array.isArray(card?.friendProfiles)
+          ? card.friendProfiles.length
+          : Array.isArray(card?.friendIds)
+            ? card.friendIds.length
+            : null,
+    topFriendName:
+      Array.isArray(card?.friendProfiles) && card.friendProfiles[0]
+        ? String(card.friendProfiles[0].display_name ?? card.friendProfiles[0].username ?? "")
+        : card?.topFriendName ?? null,
     overview: card?.overview ?? null,
   };
 };
@@ -755,7 +780,7 @@ const SwipePage: React.FC = () => {
   // fetch more when low
   useEffect(() => {
     const remaining = cards.length - currentIndex;
-    if (remaining < 3) fetchMore(Math.max(24, remaining + 12));
+    if (remaining < 12) fetchMore(Math.max(60, remaining + 24));
   }, [cards.length, currentIndex, fetchMore]);
 
   // trim consumed
@@ -1121,7 +1146,7 @@ const SwipePage: React.FC = () => {
     resetCardPosition();
   };
 
-  const overlaySourceLabel = getSourceLabel(activeCard?.source);
+  const overlaySourceLabel = activeCard?.why ?? getSourceLabel(activeCard?.source ?? undefined);
   const actionsDisabled = !activeCard || isLoading || isError;
 
   // keyboard
@@ -1494,8 +1519,20 @@ const SwipePage: React.FC = () => {
                       />
 
                       {/* friends info under swipe card */}
-                      <div className="mt-4 flex flex-wrap items-start gap-2 text-xs text-muted-foreground">
-                        {typeof activeCard.friendLikesCount === "number" &&
+                      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        {Array.isArray(activeCard.friendProfiles) && activeCard.friendProfiles.length > 0 && (
+                          <div className="inline-flex items-center gap-2">
+                            <FriendAvatarStack profiles={activeCard.friendProfiles} max={3} />
+                            <span className="text-xs text-muted-foreground">
+                              {activeCard.friendProfiles.length === 1
+                                ? `Picked by ${activeCard.friendProfiles[0].display_name ?? activeCard.friendProfiles[0].username ?? "a friend"}`
+                                : `Picked by ${activeCard.friendProfiles.length} friends`}
+                            </span>
+                          </div>
+                        )}
+
+                        {(!Array.isArray(activeCard.friendProfiles) || activeCard.friendProfiles.length === 0) &&
+                          typeof activeCard.friendLikesCount === "number" &&
                           activeCard.friendLikesCount > 0 && (
                             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                               <Flame className="h-4 w-4 text-primary/80" />
@@ -1509,7 +1546,7 @@ const SwipePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setShowFullFriendReview((v) => !v)}
-                            className="inline-flex flex-1 items-start gap-2 rounded-2xl bg-card/80 px-3 py-2 text-left text-foreground shadow-md hover:bg-card"
+                            className="inline-flex flex-1 items-start gap-2 rounded-xl border border-border/70 bg-card/80 px-3 py-2 text-left text-foreground shadow-md hover:bg-card"
                           >
                             <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
                             <div
