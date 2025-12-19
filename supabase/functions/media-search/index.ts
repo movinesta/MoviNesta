@@ -17,6 +17,57 @@ import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "media-search";
 
+// Cache + cooldown knobs (seconds)
+// - SEARCH_* env vars override shared defaults.
+const DEFAULT_CACHE_TTL_SECONDS = 10 * 60;
+const DEFAULT_429_COOLDOWN_SECONDS = 5 * 60;
+
+function envInt(name: string, fallback: number): number {
+  const raw = Deno.env.get(name);
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+const SEARCH_RERANK_CACHE_TTL_SECONDS = envInt(
+  "SEARCH_RERANK_CACHE_TTL_SECONDS",
+  envInt("RERANK_CACHE_TTL_SECONDS", DEFAULT_CACHE_TTL_SECONDS),
+);
+
+const SEARCH_RERANK_429_COOLDOWN_SECONDS = envInt(
+  "SEARCH_RERANK_429_COOLDOWN_SECONDS",
+  envInt("RERANK_429_COOLDOWN_SECONDS", DEFAULT_429_COOLDOWN_SECONDS),
+);
+
+function stableStringify(value: unknown): string {
+  const seen = new WeakSet<object>();
+  const helper = (v: any): any => {
+    if (v === null || v === undefined) return v;
+    if (typeof v !== "object") return v;
+    if (seen.has(v)) return "[Circular]";
+    seen.add(v);
+    if (Array.isArray(v)) return v.map(helper);
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(v).sort()) out[k] = helper(v[k]);
+    return out;
+  };
+  return JSON.stringify(helper(value));
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(digest);
+  let hex = "";
+  for (const b of bytes) hex += b.toString(16).padStart(2, "0");
+  return hex;
+}
+
+function is429(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? "");
+  return msg.includes("(429)") || msg.includes(" 429") || msg.includes("HTTP 429") || msg.includes("status 429");
+}
+
 type TitleType = "movie" | "series" | "anime";
 
 interface TitleSearchFilters {
@@ -38,7 +89,47 @@ interface SearchRequest {
 
 type MediaItemRow = Database["public"]["Tables"]["media_items"]["Row"];
 
+
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+const nowIso = () => new Date().toISOString();
+
+const envInt = (name: string, fallback: number) => {
+  const v = Deno.env.get(name);
+  if (!v) return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+};
+
+const SEARCH_RERANK_CACHE_TTL_SECONDS = envInt("SEARCH_RERANK_CACHE_TTL_SECONDS", envInt("RERANK_CACHE_TTL_SECONDS", 600));
+const SEARCH_RERANK_429_COOLDOWN_SECONDS = envInt("SEARCH_RERANK_429_COOLDOWN_SECONDS", envInt("RERANK_429_COOLDOWN_SECONDS", 300));
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function stableStringify(obj: unknown): string {
+  if (obj === null || obj === undefined) return "null";
+  if (typeof obj !== "object") return JSON.stringify(obj);
+  if (Array.isArray(obj)) return `[${obj.map(stableStringify).join(",")}]`;
+  const rec = obj as Record<string, unknown>;
+  const keys = Object.keys(rec).sort();
+  const parts = keys.map((k) => `${JSON.stringify(k)}:${stableStringify(rec[k])}`);
+  return `{${parts.join(",")}}`;
+}
+
+function isRateLimitError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? "");
+  return msg.includes("(429)") || msg.includes(" 429") || msg.includes("rate limit") || msg.includes("Too Many");
+}
+
+function addSeconds(date: Date, seconds: number): Date {
+  return new Date(date.getTime() + seconds * 1000);
+}
 
 const COLUMNS = [
   "id",
@@ -187,23 +278,152 @@ function makeRerankDoc(row: any): string {
   return lines.join("\n");
 }
 
+async function getAuthedUserId(client: SupabaseClient<Database>): Promise<string | null> {
+  try {
+    const { data, error } = await client.auth.getUser();
+    if (error) return null;
+    return data?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheGetOrderIds(
+  client: SupabaseClient<Database>,
+  key: string,
+): Promise<string[] | null> {
+  try {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await client
+      .from("media_rerank_cache")
+      .select("order_ids, expires_at")
+      .eq("key", key)
+      .gt("expires_at", nowIso)
+      .maybeSingle();
+    if (error || !data) return null;
+    const raw = (data as any).order_ids;
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.map(String) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheUpsert(
+  client: SupabaseClient<Database>,
+  row: { key: string; user_id: string; order_ids?: string; meta?: any; expires_at: string },
+): Promise<void> {
+  try {
+    await client
+      .from("media_rerank_cache")
+      .upsert(
+        {
+          key: row.key,
+          user_id: row.user_id,
+          order_ids: row.order_ids ?? "[]",
+          meta: row.meta ?? null,
+          expires_at: row.expires_at,
+          updated_at: new Date().toISOString(),
+        } as any,
+        { onConflict: "key" },
+      );
+  } catch {
+    // Best-effort cache. Ignore failures (e.g., table missing or RLS).
+  }
+}
+
+async function cooldownUntilMs(
+  client: SupabaseClient<Database>,
+  key: string,
+): Promise<number | null> {
+  try {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await client
+      .from("media_rerank_cache")
+      .select("expires_at")
+      .eq("key", key)
+      .gt("expires_at", nowIso)
+      .maybeSingle();
+    if (error || !data) return null;
+    const until = Date.parse(String((data as any).expires_at));
+    return Number.isFinite(until) ? until : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyOrderIds(subset: MediaItemRow[], orderIds: string[]): MediaItemRow[] {
+  const byId = new Map<string, MediaItemRow>();
+  for (const r of subset) byId.set(String((r as any).id), r);
+  const used = new Set<string>();
+  const out: MediaItemRow[] = [];
+  for (const id of orderIds) {
+    const row = byId.get(String(id));
+    if (!row) continue;
+    const sid = String((row as any).id);
+    if (used.has(sid)) continue;
+    used.add(sid);
+    out.push(row);
+  }
+  // Append any leftover rows from the subset to preserve completeness.
+  for (const r of subset) {
+    const sid = String((r as any).id);
+    if (!used.has(sid)) out.push(r);
+  }
+  return out;
+}
+
 async function maybeRerank(
   client: SupabaseClient<Database>,
   query: string,
   rows: MediaItemRow[],
-  opts: { skipRerank: boolean },
+  opts: { skipRerank: boolean; page: number; limit: number; filters: TitleSearchFilters },
 ): Promise<MediaItemRow[]> {
-  if (opts.skipRerank) return rows;
-
   const settings = await loadEmbeddingSettings(client);
-  if (!settings?.rerank_search_enabled) return rows;
+  if (!settings?.rerank_search_enabled || !query || rows.length < 2) return rows;
 
-  if (!query || rows.length < 2) return rows;
-
-  // Only rerank the first K items in the current page.
   const k = Math.min(rows.length, clamp(settings.rerank_top_k, 5, 200));
   const subset = rows.slice(0, k);
   const docs = subset.map(makeRerankDoc);
+
+  // Cache key uses user_id and the exact candidate set being reranked.
+  // This prevents repeated provider calls on tab focus/refetch.
+  const userId = await getAuthedUserId(client);
+  const now = new Date();
+  const cacheTtlSec = SEARCH_RERANK_CACHE_TTL_SECONDS;
+
+  const qHash = await sha256Hex(query.trim().toLowerCase());
+  const fHash = await sha256Hex(stableStringify(opts.filters ?? {}));
+  const candHash = await sha256Hex(subset.map((r) => String((r as any).id)).join(","));
+
+  const cacheKey = userId
+    ? `search_rerank:voyage:${userId}:${qHash}:${opts.page}:${opts.limit}:${fHash}:${k}:${candHash}`
+    : null;
+
+  if (cacheKey && userId) {
+    const cachedIds = await cacheGetOrderIds(client, cacheKey);
+    if (cachedIds?.length) {
+      const rerankedSubset = applyOrderIds(subset, cachedIds);
+      console.log(
+        "MEDIA_SEARCH_RERANK_CACHE_HIT",
+        JSON.stringify({ in: rows.length, rerankCandidates: k, key: cacheKey.slice(0, 90) + "…" }),
+      );
+      return [...rerankedSubset, ...rows.slice(k)];
+    }
+  }
+
+  // Background prefetch: never call provider, but allow cached order.
+  if (opts.skipRerank) return rows;
+
+  // Cooldown: after a 429, skip rerank for a short time to avoid hammering Voyage.
+  if (userId) {
+    const cdKey = `cooldown:voyage_search_rerank:${userId}`;
+    const untilMs = await cooldownUntilMs(client, cdKey);
+    if (untilMs && untilMs > Date.now()) {
+      console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: untilMs }));
+      return rows;
+    }
+  }
 
   try {
     const { results } = await voyageRerank(query, docs, {
@@ -220,18 +440,46 @@ async function maybeRerank(
 
     if (!order.length) return rows;
 
+    const orderedIds: string[] = [];
     const used = new Set<number>();
-    const reranked: MediaItemRow[] = [];
+    const rerankedSubset: MediaItemRow[] = [];
     for (const i of order) {
       if (used.has(i)) continue;
       used.add(i);
-      reranked.push(subset[i]);
+      rerankedSubset.push(subset[i]);
+      orderedIds.push(String((subset[i] as any).id));
     }
-    // Append any subset items that didn't get scored, then the rest of the page.
+    // Append any subset items that didn't get scored.
     for (let i = 0; i < subset.length; i++) {
-      if (!used.has(i)) reranked.push(subset[i]);
+      if (!used.has(i)) {
+        rerankedSubset.push(subset[i]);
+        orderedIds.push(String((subset[i] as any).id));
+      }
     }
-    reranked.push(...rows.slice(k));
+
+    // Store cache (best-effort)
+    if (cacheKey && userId) {
+      const expires = addSeconds(now, cacheTtlSec).toISOString();
+      await cacheUpsert(client, {
+        key: cacheKey,
+        user_id: userId,
+        order_ids: JSON.stringify(orderedIds),
+        meta: {
+          query,
+          page: opts.page,
+          limit: opts.limit,
+          filters: opts.filters ?? {},
+          rerankTopK: k,
+        },
+        expires_at: expires,
+      });
+      console.log(
+        "MEDIA_SEARCH_RERANK_CACHE_SET",
+        JSON.stringify({ in: rows.length, rerankCandidates: k, ttlSec: cacheTtlSec }),
+      );
+    }
+
+    const reranked = [...rerankedSubset, ...rows.slice(k)];
 
     console.log(
       "MEDIA_SEARCH_RERANK_OK",
@@ -240,6 +488,20 @@ async function maybeRerank(
 
     return reranked;
   } catch (err) {
+    if (is429(err) && userId) {
+      const cdKey = `cooldown:voyage_search_rerank:${userId}`;
+      const until = addSeconds(new Date(), SEARCH_RERANK_429_COOLDOWN_SECONDS);
+      await cacheUpsert(client, {
+        key: cdKey,
+        user_id: userId,
+        order_ids: "[]",
+        meta: { reason: "429" },
+        expires_at: until.toISOString(),
+      });
+      console.warn("MEDIA_SEARCH_WARN rerank rate-limited (429). Entering cooldown.");
+      console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown_set", until: until.getTime() }));
+      return rows;
+    }
     console.warn("MEDIA_SEARCH_WARN rerank failed, returning base order:", String((err as any)?.message ?? err));
     return rows;
   }
@@ -289,7 +551,12 @@ async function handleSearch(
   const totalCount = typeof count === "number" ? count : undefined;
   const hasMore = totalCount ? offset + rows.length < totalCount : rows.length === limit;
 
-  const reranked = await maybeRerank(client, query, rows, { skipRerank });
+  const reranked = await maybeRerank(client, query, rows, {
+    skipRerank,
+    page,
+    limit,
+    filters: filters ?? {},
+  });
 
   return jsonResponse({ ok: true, query, page, limit, hasMore, totalCount, results: reranked });
 }
