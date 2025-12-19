@@ -13,59 +13,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getConfig } from "./config.ts";
 
-// -----------------------------------------------------------------------------
-// CORS
-// -----------------------------------------------------------------------------
-//
-// Admin dashboard runs in the browser (localhost + GitHub Pages).
-// We therefore need OPTIONS preflight handling and to echo an allowed Origin.
-//
-// Configure allowed origins via the Edge Function secret:
-//   ADMIN_CORS_ORIGINS="https://movinesta.github.io,http://localhost:5173"
-//
-// If not configured, we default to common localhost dev origins + GitHub Pages.
-
-const DEFAULT_ALLOWED_ORIGINS = [
-  "https://movinesta.github.io",
-  "http://localhost:5173",
-  "http://localhost:4173",
-  "http://localhost:3000",
-];
-
-function parseAllowedOrigins(): string[] {
-  const raw = (Deno.env.get("ADMIN_CORS_ORIGINS") ?? "").trim();
-  if (!raw) return DEFAULT_ALLOWED_ORIGINS;
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-export function corsHeadersFor(req: Request): Record<string, string> {
-  const origin = req.headers.get("origin") ?? "";
-  const allowed = parseAllowedOrigins();
-
-  // If the project owner explicitly includes "*", allow any origin.
-  const allowOrigin = allowed.includes("*")
-    ? "*"
-    : (origin && allowed.includes(origin) ? origin : allowed[0]);
-
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Vary": "Origin",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  };
-}
+export const corsHeaders: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+};
 
 export function handleCors(req: Request): Response | null {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeadersFor(req) });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
   return null;
 }
 
-export function json(req: Request, status: number, body: unknown): Response {
+export function json(status: number, body: unknown): Response {
   if (status >= 400) {
     try {
       console.error("ADMIN_API_ERROR", JSON.stringify(body));
@@ -75,7 +36,7 @@ export function json(req: Request, status: number, body: unknown): Response {
   }
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...corsHeadersFor(req) },
+    headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders },
   });
 }
 
