@@ -26,6 +26,7 @@ const SettingsNotificationsPage = lazyWithRetry(
 const SettingsAppPage = lazyWithRetry(() => import("./modules/settings/SettingsAppPage"));
 const NotFoundPage = lazyWithRetry(() => import("./modules/misc/NotFoundPage"));
 const OnboardingPage = lazyWithRetry(() => import("./modules/misc/OnboardingPage"));
+const TasteOnboardingPage = lazyWithRetry(() => import("./modules/misc/TasteOnboardingPage"));
 
 const MessagesPage = lazyWithRetry(() => import("./modules/messages/MessagesPage"));
 const ConversationPage = lazyWithRetry(() => import("./modules/messages/ConversationPage"));
@@ -44,6 +45,7 @@ const AppRoutes: React.FC = () => {
 
         {/* Authenticated application shell */}
         <Route element={<RequireAuth />}>
+          <Route path="/onboarding" element={<TasteOnboardingPage />} />
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
             <Route path="/swipe" element={<SwipePage />} />

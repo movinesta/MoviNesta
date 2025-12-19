@@ -16,6 +16,12 @@ const RequireAuth: React.FC = () => {
     return <Navigate to="/auth/signin" replace state={{ from: location }} />;
   }
 
+  const onboarded = (user as any)?.user_metadata?.onboarded === true;
+  const isOnboardingRoute = location.pathname.startsWith("/onboarding");
+  if (!onboarded && !isOnboardingRoute) {
+    return <Navigate to="/onboarding" replace state={{ from: location }} />;
+  }
+
   return <Outlet />;
 };
 

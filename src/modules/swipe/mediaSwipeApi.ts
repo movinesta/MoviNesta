@@ -43,6 +43,9 @@ export type FetchMediaSwipeDeckInput = {
   kindFilter?: "movie" | "series" | "anime" | null;
   // When true, the server will return the base deck order without calling the reranker (used for background prefetch).
   skipRerank?: boolean;
+  // When true, the server should NOT apply cold-start auto-fallback from for_you -> combined.
+  // Usually set by the UI when the user explicitly selects the "For you" tab.
+  forceForYou?: boolean;
 };
 
 export type FetchMediaSwipeDeckResponse = {
@@ -210,6 +213,29 @@ export async function sendMediaSwipeEvent(
   const run = supabase.functions.invoke("media-swipe-event", { body: payload });
 
   const res = await timeout(run, opts?.timeoutMs ?? 20000);
+  if (res.error) throw res.error;
+
+  const data = res.data as any;
+  if (data?.ok === true) return { ok: true };
+  return { ok: false, message: data?.message };
+}
+
+export type SendOnboardingInitialLikesInput = {
+  sessionId: string;
+  mediaItemIds: string[];
+};
+
+export async function sendOnboardingInitialLikes(
+  input: SendOnboardingInitialLikesInput,
+  opts?: { timeoutMs?: number },
+): Promise<{ ok: true } | { ok: false; message?: string }> {
+  const payload: SendOnboardingInitialLikesInput = {
+    sessionId: input.sessionId,
+    mediaItemIds: Array.isArray(input.mediaItemIds) ? input.mediaItemIds.filter(Boolean) : [],
+  };
+
+  const run = supabase.functions.invoke("onboarding-initial-likes", { body: payload });
+  const res = await timeout(run, opts?.timeoutMs ?? 30000);
   if (res.error) throw res.error;
 
   const data = res.data as any;

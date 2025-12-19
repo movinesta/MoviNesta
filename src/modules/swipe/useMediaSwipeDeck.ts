@@ -197,7 +197,7 @@ export function useMediaSwipeDeck(kind: MediaSwipeDeckKindOrCombined, options?: 
 
     try {
       const resp = await fetchMediaSwipeDeck(
-        { sessionId, mode, limit: batchSize, seed: options?.seed ?? null },
+        { sessionId, mode, limit: batchSize, seed: options?.seed ?? null, forceForYou: mode === "for_you" },
         { timeoutMs: 25000 },
       );
 

@@ -100,7 +100,8 @@ const SignUpPage: React.FC = () => {
       }
 
       // Otherwise, user is already signed in
-      navigate(from, { replace: true });
+      // Route new accounts through a quick taste onboarding so "For you" works immediately.
+      navigate("/onboarding", { replace: true });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while creating your account.");
