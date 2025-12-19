@@ -52,8 +52,7 @@ export async function setRerank(payload: { swipe_enabled: boolean; search_enable
 export type JobsResp = {
   ok: true;
   job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
-  cron_jobs: Array<{ jobid: number | null; jobname: string; schedule: string; active: boolean }>;
-  cron_error?: string | null;
+  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string; active: boolean }>;
 };
 
 export async function getJobs(): Promise<JobsResp> {
@@ -66,14 +65,6 @@ export async function resetCursor(job_name: string) {
 
 export async function setCronActive(jobname: string, active: boolean) {
   return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname, active } });
-}
-
-export async function setCronSchedule(jobname: string, schedule: string) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_schedule", jobname, schedule } });
-}
-
-export async function runCronNow(jobname: string) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", jobname } });
 }
 
 export type UsersResp = {
@@ -100,14 +91,65 @@ export async function getLogs(payload?: { limit?: number }): Promise<LogsResp> {
   return invoke<LogsResp>("admin-logs", { body: { action: "get", ...payload } });
 }
 
-export type CostsResp = { ok: true; daily: Array<{ day: string; provider: string; tokens: number }> };
+export type CostsDailyRow = {
+  day: string;
+  provider: string;
+  tokens: number;
+  runs: number;
+  errors: number;
+};
+
+export type CostsDailyJobRow = {
+  day: string;
+  job_name: string;
+  provider: string;
+  tokens: number;
+  runs: number;
+  errors: number;
+};
+
+export type CostsJobSummaryRow = {
+  job_name: string;
+  provider: string | null;
+  tokens: number;
+  runs: number;
+  errors: number;
+  last_started_at: string | null;
+};
+
+export type CostsBudgets = {
+  total_daily: number | null;
+  by_provider: Record<string, number> | null;
+};
+
+export type CostsRemaining = {
+  total_daily_remaining: number | null;
+  provider_remaining: Record<string, number> | null;
+};
+
+export type CostsDataQuality = {
+  rows: number;
+  rows_with_tokens: number;
+  rows_missing_tokens: number;
+};
+
+export type CostsResp = {
+  ok: true;
+  days: number;
+  since: string;
+  today: { day: string; total_tokens: number; by_provider: Record<string, number> };
+  budgets: CostsBudgets;
+  remaining: CostsRemaining;
+  data_quality: CostsDataQuality;
+  daily: CostsDailyRow[];
+  daily_jobs: CostsDailyJobRow[];
+  jobs: CostsJobSummaryRow[];
+};
 
 export async function getCosts(payload?: { days?: number }): Promise<CostsResp> {
   return invoke<CostsResp>("admin-costs", { body: { action: "get", ...payload } });
 }
 
-export type AuditResp = { ok: true; rows: any[]; next_cursor?: string | null };
-
-export async function getAudit(payload?: { limit?: number; cursor?: string | null }): Promise<AuditResp> {
-  return invoke<AuditResp>("admin-audit", { body: { action: "get", ...payload } });
+export async function setCostsBudgets(payload: { total_daily: number | null; by_provider: Record<string, number> | null }): Promise<{ ok: true }> {
+  return invoke<{ ok: true }>("admin-costs", { body: { action: "set_budgets", ...payload } });
 }
