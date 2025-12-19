@@ -327,6 +327,30 @@ CREATE TABLE public.media_job_state (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT media_job_state_pkey PRIMARY KEY (job_name)
 );
+CREATE TABLE public.media_rank_feature_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  user_id uuid NOT NULL,
+  session_id uuid NOT NULL,
+  deck_id uuid,
+  media_item_id uuid NOT NULL,
+  position integer,
+  mode text,
+  kind_filter text,
+  source text,
+  features jsonb NOT NULL DEFAULT '{}'::jsonb,
+  label jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT media_rank_feature_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.media_rank_models (
+  model_name text NOT NULL,
+  version integer NOT NULL DEFAULT 1,
+  is_active boolean NOT NULL DEFAULT false,
+  weights jsonb NOT NULL DEFAULT '{}'::jsonb,
+  intercept double precision NOT NULL DEFAULT 0,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_rank_models_pkey PRIMARY KEY (model_name, version)
+);
 CREATE TABLE public.media_rerank_cache (
   key text NOT NULL,
   user_id uuid NOT NULL,
@@ -336,6 +360,12 @@ CREATE TABLE public.media_rerank_cache (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT media_rerank_cache_pkey PRIMARY KEY (key)
+);
+CREATE TABLE public.media_served (
+  user_id uuid NOT NULL,
+  media_item_id uuid NOT NULL,
+  served_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT media_served_pkey PRIMARY KEY (user_id, media_item_id)
 );
 CREATE TABLE public.media_session_vectors (
   user_id uuid NOT NULL,
@@ -355,6 +385,20 @@ CREATE TABLE public.media_trending_scores (
   computed_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT media_trending_scores_pkey PRIMARY KEY (media_item_id),
   CONSTRAINT media_trending_scores_media_item_id_fkey FOREIGN KEY (media_item_id) REFERENCES public.media_items(id)
+);
+CREATE TABLE public.media_user_centroids (
+  user_id uuid NOT NULL,
+  centroid smallint NOT NULL,
+  exemplar_media_item_id uuid NOT NULL,
+  taste USER-DEFINED,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  provider text NOT NULL DEFAULT 'jina'::text,
+  model text NOT NULL DEFAULT 'jina-embeddings-v3'::text,
+  dimensions integer NOT NULL DEFAULT 1024,
+  task text NOT NULL DEFAULT 'retrieval.passage'::text,
+  CONSTRAINT media_user_centroids_pkey PRIMARY KEY (user_id, centroid, provider, model, dimensions, task),
+  CONSTRAINT muc_user_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT muc_item_fkey FOREIGN KEY (exemplar_media_item_id) REFERENCES public.media_items(id)
 );
 CREATE TABLE public.media_user_vectors (
   user_id uuid NOT NULL,
