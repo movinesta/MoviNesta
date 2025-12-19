@@ -52,7 +52,7 @@ export async function setRerank(payload: { swipe_enabled: boolean; search_enable
 export type JobsResp = {
   ok: true;
   job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
-  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string; active: boolean }>;
+  cron_jobs: Array<{ jobid: number | null; jobname: string; schedule: string; active: boolean }>;
 };
 
 export async function getJobs(): Promise<JobsResp> {
@@ -65,6 +65,14 @@ export async function resetCursor(job_name: string) {
 
 export async function setCronActive(jobname: string, active: boolean) {
   return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname, active } });
+}
+
+export async function setCronSchedule(jobname: string, schedule: string) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_schedule", jobname, schedule } });
+}
+
+export async function runCronNow(jobname: string) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", jobname } });
 }
 
 export type UsersResp = {
