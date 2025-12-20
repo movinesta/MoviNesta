@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
 
+type CostsSettingsRow = {
+  id: number;
+  total_daily_budget: number | null;
+  by_provider_budget: Record<string, number> | null;
+  updated_at: string;
+};
+
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(n, b));
 }
@@ -19,6 +26,51 @@ function asNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeProvider(p: unknown): string {
+  const s = String(p ?? "unknown");
+  // Keep the dashboard stable even if old rows exist.
+  if (s === "voyage") return "voyage";
+  return "unknown";
+}
+
+function sanitizeBudgets(input: unknown): { total_daily_budget: number | null; by_provider_budget: Record<string, number> } {
+  const total = asNum((input as any)?.total_daily_budget);
+  const total_daily_budget = total === null ? null : Math.max(0, Math.floor(total));
+
+  const out: Record<string, number> = {};
+  const raw = (input as any)?.by_provider_budget;
+  if (raw && typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      const n = asNum(v);
+      if (n === null) continue;
+      out[String(k)] = Math.max(0, Math.floor(n));
+    }
+  }
+
+  return { total_daily_budget, by_provider_budget: out };
+}
+
+async function readSettings(svc: any): Promise<{ total_daily_budget: number | null; by_provider_budget: Record<string, number> }> {
+  // If the table doesn't exist yet, fall back to disabled budgets.
+  const { data, error } = await svc
+    .from("admin_costs_settings")
+    .select("id,total_daily_budget,by_provider_budget,updated_at")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    // PostgREST returns 42P01 when relation is missing.
+    return { total_daily_budget: null, by_provider_budget: {} };
+  }
+
+  const row = data as CostsSettingsRow | null;
+  const total = asNum(row?.total_daily_budget);
+  const by = (row?.by_provider_budget && typeof row.by_provider_budget === "object")
+    ? (row.by_provider_budget as Record<string, number>)
+    : {};
+  return { total_daily_budget: total === null ? null : Math.max(0, Math.floor(total)), by_provider_budget: by };
+}
+
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -26,7 +78,23 @@ serve(async (req) => {
   try {
     const { svc } = await requireAdmin(req);
     const body = await req.json().catch(() => ({}));
-    // Note: budgets/env-based limits intentionally removed. This endpoint only reports usage.
+    const action = String((body as any)?.action ?? "get");
+
+    // Budgets are stored in DB (public.admin_costs_settings). No ENV-based budgets.
+    if (action === "set_budgets") {
+      const next = sanitizeBudgets(body);
+      const { error } = await svc
+        .from("admin_costs_settings")
+        .upsert({
+          id: 1,
+          total_daily_budget: next.total_daily_budget,
+          by_provider_budget: next.by_provider_budget,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" });
+      if (error) return json(500, { ok: false, message: error.message });
+    }
+
+    const settings = await readSettings(svc);
 
     const days = clamp(Number(body.days ?? 14), 3, 60);
     const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -53,7 +121,7 @@ serve(async (req) => {
 
     for (const r of rows ?? []) {
       rowsTotal += 1;
-      const provider = String((r as any).provider ?? "unknown");
+      const provider = normalizeProvider((r as any).provider);
       const jobName = String((r as any).job_name ?? "unknown");
       const startedAt = String((r as any).started_at ?? "");
       const day = dayKey(startedAt);
@@ -109,11 +177,33 @@ serve(async (req) => {
       return { job_name, provider, tokens: v.tokens, runs: v.runs, errors: v.errors, last_started_at: v.last_started_at };
     }).sort((a, b) => b.tokens - a.tokens);
 
+    const totalBudget = settings.total_daily_budget;
+    const totalRemaining = totalBudget === null ? null : Math.max(0, Math.floor(totalBudget - todayTotal));
+
+    const budgetByProvider: Record<string, number | null> = {};
+    const remainingByProvider: Record<string, number | null> = {};
+    const providerKeys = new Set<string>([...Object.keys(todayByProvider), ...Object.keys(settings.by_provider_budget)]);
+    for (const p of providerKeys) {
+      const b = asNum(settings.by_provider_budget[p]);
+      budgetByProvider[p] = b === null ? null : Math.max(0, Math.floor(b));
+      const used = Number(todayByProvider[p] ?? 0);
+      remainingByProvider[p] = budgetByProvider[p] === null ? null : Math.max(0, Math.floor((budgetByProvider[p] as number) - used));
+    }
+
     return json(200, {
       ok: true,
       days,
       since: sinceIso,
-      today: { day: todayDay, total_tokens: todayTotal, by_provider: todayByProvider },
+      budgets: settings,
+      today: {
+        day: todayDay,
+        total_tokens: todayTotal,
+        by_provider: todayByProvider,
+        total_budget: totalBudget,
+        total_remaining: totalRemaining,
+        budget_by_provider: budgetByProvider,
+        remaining_by_provider: remainingByProvider,
+      },
       data_quality: { rows: rowsTotal, rows_with_tokens: rowsWithTokens, rows_missing_tokens: rowsMissingTokens },
       daily,
       daily_jobs,

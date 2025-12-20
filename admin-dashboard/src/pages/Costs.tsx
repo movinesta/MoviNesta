@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getCosts } from "../lib/api";
+import { getCosts, setCostsBudgets } from "../lib/api";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -43,9 +43,26 @@ export default function Costs() {
   const [tz, setTz] = useState<"utc" | "local">("utc");
   const [view, setView] = useState<"providers" | "jobs">("providers");
 
+  // Budgets are stored in DB (via admin-costs endpoint). No ENV-based budgets.
+  const [totalBudgetText, setTotalBudgetText] = useState<string>("");
+  const [byProviderJson, setByProviderJson] = useState<string>("{}");
+  const [budgetsDirty, setBudgetsDirty] = useState(false);
+  const [budgetsError, setBudgetsError] = useState<string | null>(null);
+  const [budgetsSaving, setBudgetsSaving] = useState(false);
+
   const q = useQuery({ queryKey: ["costs", { days }], queryFn: () => getCosts({ days }) });
 
   const resp = q.data;
+
+  useEffect(() => {
+    if (!resp) return;
+    if (budgetsDirty) return;
+    const b: any = (resp as any)?.budgets ?? {};
+    const total = b.total_daily_budget;
+    setTotalBudgetText(total == null ? "" : String(total));
+    const map = (b.by_provider_budget && typeof b.by_provider_budget === "object") ? b.by_provider_budget : {};
+    setByProviderJson(JSON.stringify(map, null, 2));
+  }, [resp, budgetsDirty]);
 
   const dailyRows = useMemo(() => {
     const raw: any = (resp as any)?.daily;
@@ -213,9 +230,25 @@ export default function Costs() {
       <Title>Costs</Title>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <StatCard title={`Total tokens (last ${days}d)`} value={fmtInt(totals.total)} subtitle={<span className="font-mono text-zinc-500">since: {resp?.since ?? "—"}</span>} />
-        <StatCard title={`Today (${formatDay(today.day, "utc")})`} value={fmtInt(today.totalTokens)} subtitle={<span className="text-zinc-500">Budgets disabled.</span>} />
-        <StatCard title="Data quality" value={fmtInt(dataQuality.rows)} subtitle={<span><span className="font-mono">{fmtInt(dataQuality.rowsMissingTokens)}</span> rows missing total_tokens</span>} />
+        <StatCard
+          title={`Total tokens (last ${days}d)`}
+          value={fmtInt(totals.total)}
+          subtitle={<span className="font-mono text-zinc-500">since: {resp?.since ?? "—"}</span>}
+        />
+        <StatCard
+          title={`Today (${formatDay(today.day, "utc")})`}
+          value={fmtInt(today.totalTokens)}
+          subtitle={
+            (resp as any)?.today?.total_budget == null
+              ? <span className="text-zinc-500">No daily budget set.</span>
+              : <span className="text-zinc-500">Remaining: <span className="font-mono">{fmtInt(Number((resp as any).today.total_remaining ?? 0))}</span></span>
+          }
+        />
+        <StatCard
+          title="Data quality"
+          value={fmtInt(dataQuality.rows)}
+          subtitle={<span><span className="font-mono">{fmtInt(dataQuality.rowsMissingTokens)}</span> rows missing total_tokens</span>}
+        />
       </div>
 
       {alerts.length ? (
@@ -291,27 +324,116 @@ export default function Costs() {
             <tr>
               <Th>Provider</Th>
               <Th className="text-right">Used</Th>
-              
+              <Th className="text-right">Budget</Th>
+              <Th className="text-right">Remaining</Th>
             </tr>
           </thead>
           <tbody>
             {providers.length ? (
               providers.map((p) => {
                 const used = Number(today.byProvider[p] ?? 0);
+                const budget = (resp as any)?.today?.budget_by_provider?.[p] as number | null | undefined;
+                const remaining = (resp as any)?.today?.remaining_by_provider?.[p] as number | null | undefined;
                 return (
                   <tr key={p}>
                     <Td className="font-mono">{p}</Td>
                     <Td className="text-right font-mono">{fmtInt(used)}</Td>
+                    <Td className="text-right font-mono">{budget == null ? "—" : fmtInt(Number(budget))}</Td>
+                    <Td className="text-right font-mono">{remaining == null ? "—" : fmtInt(Number(remaining))}</Td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <Td colSpan={2} className="text-zinc-500">No data.</Td>
+                <Td colSpan={4} className="text-zinc-500">No data.</Td>
               </tr>
             )}
           </tbody>
         </Table>
+      </Card>
+
+      <Card title="Budgets">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <div className="mb-1 text-xs text-zinc-500">Total daily token budget (optional)</div>
+            <Input
+              type="number"
+              value={totalBudgetText}
+              placeholder="0"
+              min={0}
+              onChange={(e) => {
+                setBudgetsError(null);
+                setBudgetsDirty(true);
+                setTotalBudgetText(e.target.value);
+              }}
+            />
+            <div className="mt-1 text-xs text-zinc-500">If set, the dashboard will show “remaining” for today.</div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-zinc-500">Daily budgets by provider (JSON map)</div>
+            <textarea
+              value={byProviderJson}
+              rows={6}
+              onChange={(e) => {
+                setBudgetsError(null);
+                setBudgetsDirty(true);
+                setByProviderJson(e.target.value);
+              }}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-700"
+              spellCheck={false}
+            />
+            <div className="mt-1 text-xs text-zinc-500">Keys must match <span className="font-mono">job_run_log.provider</span>.</div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            variant="primary"
+            disabled={budgetsSaving || !budgetsDirty}
+            onClick={async () => {
+              setBudgetsError(null);
+              setBudgetsSaving(true);
+              try {
+                const totalText = totalBudgetText.trim();
+                let total: number | null = null;
+                if (totalText !== "") {
+                  const n = Number(totalText);
+                  if (!Number.isFinite(n) || n < 0) throw new Error("Total daily budget must be a non-negative number");
+                  total = Math.floor(n);
+                }
+
+                let parsed: any = {};
+                try {
+                  parsed = JSON.parse(byProviderJson || "{}");
+                } catch {
+                  throw new Error("Provider budget JSON is invalid");
+                }
+                if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+                  throw new Error("Provider budget JSON must be an object map");
+                }
+
+                const out: Record<string, number> = {};
+                for (const [k, v] of Object.entries(parsed)) {
+                  const n = Number(v);
+                  if (!Number.isFinite(n) || n < 0) continue;
+                  out[String(k)] = Math.floor(n);
+                }
+
+                await setCostsBudgets({ total_daily_budget: total, by_provider_budget: out });
+                setBudgetsDirty(false);
+                await q.refetch();
+              } catch (e: any) {
+                setBudgetsError(e?.message ?? String(e));
+              } finally {
+                setBudgetsSaving(false);
+              }
+            }}
+          >
+            {budgetsSaving ? "Saving…" : "Save budgets"}
+          </Button>
+          <div className="text-xs text-zinc-500">Stored in DB (<span className="font-mono">admin_costs_settings</span>). No ENV vars.</div>
+          {budgetsError ? <div className="text-xs text-red-400">{budgetsError}</div> : null}
+        </div>
       </Card>
 
       <Card title="Daily breakdown">
