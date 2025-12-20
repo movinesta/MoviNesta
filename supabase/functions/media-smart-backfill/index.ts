@@ -271,6 +271,108 @@ const TMDB_TV_FIELDS = [
   "tmdb_media_type",
 ] as const;
 
+
+// -------------------- selection columns (CPU/memory optimization) --------------------
+// Edge runtime CPU is tight. Avoid SELECT * because it drags large jsonb fields (tmdb_raw/omdb_raw) and wastes CPU parsing.
+// We select only the columns we need for "fill-only-empty" logic + merge/scoring + status fields.
+// NOTE: we intentionally DO NOT select tmdb_raw / omdb_raw.
+
+const TMDB_FILLABLE_FIELDS = [
+  "tmdb_id",
+  "tmdb_adult",
+  "tmdb_backdrop_path",
+  "tmdb_genre_ids",
+  "tmdb_original_language",
+  "tmdb_original_title",
+  "tmdb_overview",
+  "tmdb_popularity",
+  "tmdb_poster_path",
+  "tmdb_release_date",
+  "tmdb_title",
+  "tmdb_video",
+  "tmdb_vote_average",
+  "tmdb_vote_count",
+  "tmdb_media_type",
+
+  "tmdb_name",
+  "tmdb_original_name",
+  "tmdb_first_air_date",
+  "tmdb_origin_country",
+
+  // formerly GENERATED (now filled by code)
+  "tmdb_source",
+  "tmdb_budget",
+  "tmdb_revenue",
+  "tmdb_runtime",
+  "tmdb_tagline",
+  "tmdb_homepage",
+  "tmdb_imdb_id",
+  "tmdb_genres",
+  "tmdb_spoken_languages",
+  "tmdb_production_companies",
+  "tmdb_production_countries",
+  "tmdb_belongs_to_collection",
+  "tmdb_release_status",
+  "tmdb_origin_country_raw",
+] as const;
+
+const OMDB_FILLABLE_FIELDS = [
+  // formerly GENERATED (now filled by code)
+  "omdb_ratings",
+
+  "omdb_title",
+  "omdb_year",
+  "omdb_rated",
+  "omdb_released",
+  "omdb_runtime",
+  "omdb_genre",
+  "omdb_director",
+  "omdb_writer",
+  "omdb_actors",
+  "omdb_plot",
+  "omdb_language",
+  "omdb_country",
+  "omdb_awards",
+  "omdb_poster",
+  "omdb_metascore",
+  "omdb_imdb_rating",
+  "omdb_imdb_votes",
+  "omdb_imdb_id",
+  "omdb_type",
+  "omdb_dvd",
+  "omdb_box_office",
+  "omdb_production",
+  "omdb_website",
+  "omdb_total_seasons",
+  "omdb_response",
+  "omdb_rating_internet_movie_database",
+  "omdb_rating_rotten_tomatoes",
+  "omdb_rating_metacritic",
+] as const;
+
+const SELECT_COLS = Array.from(new Set([
+  "id",
+  "kind",
+  "created_at",
+  "updated_at",
+
+  "tmdb_fetched_at",
+  "tmdb_status",
+  "tmdb_error",
+
+  "omdb_fetched_at",
+  "omdb_status",
+  "omdb_error",
+
+  // completeness metrics (optional columns)
+  "filled_count",
+  "missing_count",
+  "completeness",
+
+  ...TMDB_FILLABLE_FIELDS,
+  ...OMDB_FILLABLE_FIELDS,
+])).join(",");
+
 function computeCompleteness(row: any) {
   const fields: string[] = [];
   if (row.tmdb_id) fields.push(...(row.kind === "series" ? TMDB_TV_FIELDS : TMDB_MOVIE_FIELDS));
@@ -306,7 +408,7 @@ function needsTmdbContent(row: any): boolean {
   const missingCommon =
     isEmpty(row.tmdb_overview) || isEmpty(row.tmdb_poster_path) || isEmpty(row.tmdb_backdrop_path) ||
     isEmpty(row.tmdb_vote_average) || isEmpty(row.tmdb_vote_count) || isEmpty(row.tmdb_genre_ids) ||
-    isEmpty(row.tmdb_original_language) || isEmpty(row.tmdb_media_type) || isEmpty(row.tmdb_raw);
+    isEmpty(row.tmdb_original_language) || isEmpty(row.tmdb_media_type);
 
   if (row.kind === "movie") {
     return missingCommon || isEmpty(row.tmdb_title) || isEmpty(row.tmdb_original_title) || isEmpty(row.tmdb_release_date);
@@ -320,7 +422,6 @@ function needsTmdbContent(row: any): boolean {
 
 function needsOmdbContent(row: any): boolean {
   if (!row.omdb_imdb_id) return false;
-  if (isEmpty(row.omdb_raw)) return true;
   for (const f of OMDB_FIELDS) if (isEmpty(row[f])) return true;
   return false;
 }
@@ -1246,8 +1347,8 @@ serve(async (req) => {
   try {
     const body = await readJsonBody(req);
 
-    const limit = Math.max(1, Math.min(Number(body?.limit ?? 50), 2000));
-    const concurrency = Math.max(1, Math.min(Number(body?.concurrency ?? 4), 20));
+    const limit = Math.max(1, Math.min(Number(body?.limit ?? 10), 500));
+    const concurrency = Math.max(1, Math.min(Number(body?.concurrency ?? 2), 10));
 
     const include_omdb = Boolean(body?.include_omdb ?? false);
     const use_cache = Boolean(body?.use_cache ?? true);
@@ -1269,6 +1370,8 @@ serve(async (req) => {
     const only_needed = Boolean(body?.only_needed ?? true);
     const dedupe_scan = Boolean(body?.dedupe_scan ?? false);
 
+    const cooldown_minutes = Math.max(0, Math.min(Number(body?.cooldown_minutes ?? 2), 1440));
+
     const order_by = body?.order_by === "created_at" ? "created_at" : "updated_at";
     const order_dir = body?.order_dir === "desc" ? "desc" : "asc";
 
@@ -1284,13 +1387,18 @@ serve(async (req) => {
       return await respondWithLog({ ok: false, code: "MISSING_OMDB_KEY", error: "include_omdb=true but OMDB_API_KEY secret is missing" }, 400);
     }
 
-    let q = db.from("media_items").select("*");
+    let q = db.from("media_items").select(SELECT_COLS);
 
     if (force_cache_fill || !only_needed) {
       // "process anything with an id"
       q = q.or("tmdb_id.not.is.null,omdb_imdb_id.not.is.null");
     } else {
       q = q.or(onlyNeededFilter(include_omdb));
+    }
+
+    if (cooldown_minutes > 0) {
+      const cutoff = new Date(Date.now() - cooldown_minutes * 60_000).toISOString();
+      q = q.lt("updated_at", cutoff);
     }
 
     q = q.order(order_by, { ascending: order_dir === "asc" }).limit(limit);
@@ -1323,6 +1431,7 @@ serve(async (req) => {
             refresh_cache,
             refresh_if_older_than_days,
             dedupe_scan,
+        cooldown_minutes,
             counters,
           });
         } catch (e: any) {
@@ -1352,6 +1461,7 @@ serve(async (req) => {
         refresh_if_older_than_days,
         only_needed,
         dedupe_scan,
+        cooldown_minutes,
         order_by,
         order_dir,
       },
