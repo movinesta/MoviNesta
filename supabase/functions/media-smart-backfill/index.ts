@@ -457,6 +457,8 @@ function genresToIdsFromDetails(genres: any): number[] | null {
 function mapTmdbMovieDetailsToCols(details: any) {
   return {
     tmdb_raw: { source: "tmdb_details_movie", details },
+
+    // Core TMDb columns
     tmdb_id: details?.id ?? null,
     tmdb_adult: details?.adult ?? null,
     tmdb_backdrop_path: details?.backdrop_path ?? null,
@@ -472,12 +474,37 @@ function mapTmdbMovieDetailsToCols(details: any) {
     tmdb_vote_average: details?.vote_average != null ? Number(details.vote_average) : null,
     tmdb_vote_count: details?.vote_count != null ? Number(details.vote_count) : null,
     tmdb_media_type: "movie",
+
+    // Columns that used to be GENERATED from tmdb_raw (now filled by code)
+    tmdb_source: "tmdb_details_movie",
+    tmdb_budget: details?.budget != null ? Number(details.budget) : null,
+    tmdb_revenue: details?.revenue != null ? Number(details.revenue) : null,
+    tmdb_runtime: details?.runtime != null ? Number(details.runtime) : null,
+    tmdb_tagline: details?.tagline ?? null,
+    tmdb_homepage: details?.homepage ?? null,
+    tmdb_imdb_id: details?.imdb_id ?? null,
+    tmdb_genres: Array.isArray(details?.genres) ? details.genres : null,
+    tmdb_spoken_languages: Array.isArray(details?.spoken_languages) ? details.spoken_languages : null,
+    tmdb_production_companies: Array.isArray(details?.production_companies) ? details.production_companies : null,
+    tmdb_production_countries: Array.isArray(details?.production_countries) ? details.production_countries : null,
+    tmdb_belongs_to_collection: details?.belongs_to_collection ?? null,
+    tmdb_release_status: details?.status ?? null,
+    tmdb_origin_country_raw: Array.isArray(details?.origin_country) ? details.origin_country : null,
   };
 }
 
 function mapTmdbTvDetailsToCols(details: any) {
+  const runtime =
+    details?.runtime != null
+      ? Number(details.runtime)
+      : Array.isArray(details?.episode_run_time) && details.episode_run_time.length
+      ? Number(details.episode_run_time[0])
+      : null;
+
   return {
     tmdb_raw: { source: "tmdb_details_tv", details },
+
+    // Core TMDb columns
     tmdb_id: details?.id ?? null,
     tmdb_adult: details?.adult ?? null,
     tmdb_backdrop_path: details?.backdrop_path ?? null,
@@ -493,8 +520,25 @@ function mapTmdbTvDetailsToCols(details: any) {
     tmdb_original_name: details?.original_name ?? null,
     tmdb_first_air_date: details?.first_air_date ?? null,
     tmdb_origin_country: Array.isArray(details?.origin_country) ? details.origin_country : null,
+
+    // Columns that used to be GENERATED from tmdb_raw (now filled by code)
+    tmdb_source: "tmdb_details_tv",
+    tmdb_budget: details?.budget != null ? Number(details.budget) : null,
+    tmdb_revenue: details?.revenue != null ? Number(details.revenue) : null,
+    tmdb_runtime: runtime,
+    tmdb_tagline: details?.tagline ?? null,
+    tmdb_homepage: details?.homepage ?? null,
+    tmdb_imdb_id: details?.imdb_id ?? null,
+    tmdb_genres: Array.isArray(details?.genres) ? details.genres : null,
+    tmdb_spoken_languages: Array.isArray(details?.spoken_languages) ? details.spoken_languages : null,
+    tmdb_production_companies: Array.isArray(details?.production_companies) ? details.production_companies : null,
+    tmdb_production_countries: Array.isArray(details?.production_countries) ? details.production_countries : null,
+    tmdb_belongs_to_collection: details?.belongs_to_collection ?? null,
+    tmdb_release_status: details?.status ?? null,
+    tmdb_origin_country_raw: Array.isArray(details?.origin_country) ? details.origin_country : null,
   };
 }
+
 
 // -------------------- OMDb API --------------------
 
@@ -523,6 +567,7 @@ function mapOmdbToCols(omdb: any) {
 
   return {
     omdb_raw: omdb,
+    omdb_ratings: Array.isArray(omdb?.Ratings) ? omdb.Ratings : null,
     omdb_title: omdb?.Title ?? null,
     omdb_year: omdb?.Year ?? null,
     omdb_rated: omdb?.Rated ?? null,
