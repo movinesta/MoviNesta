@@ -137,16 +137,6 @@ export type CostsJobSummaryRow = {
   last_started_at: string | null;
 };
 
-export type CostsBudgets = {
-  total_daily: number | null;
-  by_provider: Record<string, number> | null;
-};
-
-export type CostsRemaining = {
-  total_daily_remaining: number | null;
-  provider_remaining: Record<string, number> | null;
-};
-
 export type CostsDataQuality = {
   rows: number;
   rows_with_tokens: number;
@@ -158,8 +148,6 @@ export type CostsResp = {
   days: number;
   since: string;
   today: { day: string; total_tokens: number; by_provider: Record<string, number> };
-  budgets: CostsBudgets;
-  remaining: CostsRemaining;
   data_quality: CostsDataQuality;
   daily: CostsDailyRow[];
   daily_jobs: CostsDailyJobRow[];
@@ -168,8 +156,4 @@ export type CostsResp = {
 
 export async function getCosts(payload?: { days?: number }): Promise<CostsResp> {
   return invoke<CostsResp>("admin-costs", { body: { action: "get", ...payload } });
-}
-
-export async function setCostsBudgets(payload: { total_daily: number | null; by_provider: Record<string, number> | null }): Promise<{ ok: true }> {
-  return invoke<{ ok: true }>("admin-costs", { body: { action: "set_budgets", ...payload } });
 }

@@ -19,17 +19,6 @@ function asNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function asRecordNum(v: unknown): Record<string, number> | null {
-  if (!v || typeof v !== "object") return null;
-  const obj: Record<string, number> = {};
-  for (const [k, raw] of Object.entries(v as any)) {
-    const n = asNum(raw);
-    if (n == null) continue;
-    obj[String(k)] = n;
-  }
-  return Object.keys(obj).length ? obj : {};
-}
-
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -37,26 +26,7 @@ serve(async (req) => {
   try {
     const { svc } = await requireAdmin(req);
     const body = await req.json().catch(() => ({}));
-    const action = String(body.action ?? "get");
-
-    if (action === "set_budgets") {
-      const totalDaily = asNum(body.total_daily);
-      const byProvider = asRecordNum(body.by_provider);
-
-      const { error } = await svc
-        .from("embedding_settings")
-        .upsert(
-          {
-            id: 1,
-            admin_daily_token_budget: totalDaily,
-            admin_daily_token_budget_by_provider: byProvider,
-          } as any,
-          { onConflict: "id" },
-        );
-
-      if (error) return json(500, { ok: false, message: error.message });
-      return json(200, { ok: true });
-    }
+    // Note: budgets/env-based limits intentionally removed. This endpoint only reports usage.
 
     const days = clamp(Number(body.days ?? 14), 3, 60);
     const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -139,32 +109,12 @@ serve(async (req) => {
       return { job_name, provider, tokens: v.tokens, runs: v.runs, errors: v.errors, last_started_at: v.last_started_at };
     }).sort((a, b) => b.tokens - a.tokens);
 
-    // Budgets (optional)
-    const { data: settings } = await svc
-      .from("embedding_settings")
-      .select("admin_daily_token_budget, admin_daily_token_budget_by_provider")
-      .eq("id", 1)
-      .maybeSingle();
-
-    const totalDailyBudget = asNum((settings as any)?.admin_daily_token_budget);
-    const byProviderBudget = asRecordNum((settings as any)?.admin_daily_token_budget_by_provider);
-
-    const providerRemaining: Record<string, number> = {};
-    if (byProviderBudget) {
-      for (const [p, bud] of Object.entries(byProviderBudget)) {
-        providerRemaining[p] = Math.max(0, bud - (todayByProvider[p] ?? 0));
-      }
-    }
-    const totalRemaining = totalDailyBudget == null ? null : Math.max(0, totalDailyBudget - todayTotal);
-
     return json(200, {
       ok: true,
       days,
       since: sinceIso,
       today: { day: todayDay, total_tokens: todayTotal, by_provider: todayByProvider },
-      budgets: { total_daily: totalDailyBudget, by_provider: byProviderBudget },
-      remaining: { total_remaining: totalRemaining, provider_remaining: Object.keys(providerRemaining).length ? providerRemaining : null },
-      data_quality: { rows_total: rowsTotal, rows_with_tokens: rowsWithTokens, rows_missing_tokens: rowsMissingTokens },
+      data_quality: { rows: rowsTotal, rows_with_tokens: rowsWithTokens, rows_missing_tokens: rowsMissingTokens },
       daily,
       daily_jobs,
       jobs,

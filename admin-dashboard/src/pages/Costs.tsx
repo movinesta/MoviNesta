@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getCosts, setCostsBudgets } from "../lib/api";
+import { getCosts } from "../lib/api";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -24,14 +24,6 @@ function formatDay(day: string, mode: "utc" | "local") {
   if (mode === "utc") return day;
   // render as local date (may differ by one day depending on TZ)
   return d.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
-}
-
-function safeJsonStringify(v: unknown) {
-  try {
-    return JSON.stringify(v, null, 0);
-  } catch {
-    return "{}";
-  }
 }
 
 function downloadText(filename: string, content: string, mime = "text/plain") {
@@ -103,18 +95,11 @@ export default function Costs() {
       .sort((a: any, b: any) => b.tokens - a.tokens);
   }, [resp]);
 
-  const budgetProviders = useMemo(() => {
-    const by = (resp as any)?.budgets?.by_provider;
-    if (!by || typeof by !== "object") return [];
-    return Object.keys(by);
-  }, [resp]);
-
   const providers = useMemo(() => {
     const s = new Set<string>();
     for (const r of dailyRows) s.add(r.provider);
-    for (const p of budgetProviders) s.add(p);
     return Array.from(s.values()).sort();
-  }, [dailyRows, budgetProviders]);
+  }, [dailyRows]);
 
   const dayList = useMemo(() => {
     const todayDay = (resp as any)?.today?.day as string | undefined;
@@ -185,20 +170,6 @@ export default function Costs() {
     return { day, totalTokens, byProvider };
   }, [resp]);
 
-  const budgets = useMemo(() => {
-    const b = (resp as any)?.budgets;
-    const totalDaily = Number.isFinite(Number(b?.total_daily)) ? Number(b.total_daily) : null;
-    const byProvider = b?.by_provider && typeof b.by_provider === "object" ? (b.by_provider as Record<string, number>) : null;
-    return { totalDaily, byProvider };
-  }, [resp]);
-
-  const remaining = useMemo(() => {
-    const r = (resp as any)?.remaining;
-    const total = Number.isFinite(Number(r?.total_daily_remaining)) ? Number(r.total_daily_remaining) : null;
-    const byProvider = r?.provider_remaining && typeof r.provider_remaining === "object" ? (r.provider_remaining as Record<string, number>) : null;
-    return { total, byProvider };
-  }, [resp]);
-
   const dataQuality = useMemo(() => {
     const d = (resp as any)?.data_quality;
     return {
@@ -213,58 +184,8 @@ export default function Costs() {
     if (dataQuality.rowsMissingTokens > 0) {
       out.push({ kind: "warn", msg: `There are ${fmtInt(dataQuality.rowsMissingTokens)} job_run_log rows missing total_tokens. Those rows won’t show up in charts.` });
     }
-    if (budgets.totalDaily != null && budgets.totalDaily > 0 && today.totalTokens > budgets.totalDaily) {
-      out.push({ kind: "warn", msg: `Today’s total tokens (${fmtInt(today.totalTokens)}) exceeded the daily budget (${fmtInt(budgets.totalDaily)}).` });
-    }
-    if (budgets.byProvider && remaining.byProvider) {
-      for (const p of Object.keys(budgets.byProvider)) {
-        const b = Number(budgets.byProvider[p] ?? 0);
-        if (!b) continue;
-        const used = Number(today.byProvider[p] ?? 0);
-        const pct = used / b;
-        if (pct >= 0.9) out.push({ kind: "warn", msg: `${p}: ${Math.round(pct * 100)}% of today’s budget used.` });
-      }
-    }
     return out;
-  }, [budgets, remaining, today, dataQuality]);
-
-  // Budgets editor (optional)
-  const [budgetTotalDraft, setBudgetTotalDraft] = useState<string>("");
-  const [budgetByProviderDraft, setBudgetByProviderDraft] = useState<string>("{}");
-  const [savingBudget, setSavingBudget] = useState(false);
-  const [saveBudgetMsg, setSaveBudgetMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!resp) return;
-    setBudgetTotalDraft(budgets.totalDaily == null ? "" : String(budgets.totalDaily));
-    setBudgetByProviderDraft(budgets.byProvider ? safeJsonStringify(budgets.byProvider) : "{}");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resp]);
-
-  const onSaveBudgets = async () => {
-    setSavingBudget(true);
-    setSaveBudgetMsg(null);
-    try {
-      const total = budgetTotalDraft.trim() === "" ? null : Number(budgetTotalDraft);
-      const by = budgetByProviderDraft.trim() === "" ? null : (JSON.parse(budgetByProviderDraft) as any);
-      const byProvider: Record<string, number> | null = by && typeof by === "object" ? by : null;
-      if (total != null && !Number.isFinite(total)) throw new Error("Total budget must be a number.");
-      if (byProvider) {
-        for (const [k, v] of Object.entries(byProvider)) {
-          const n = Number(v);
-          if (!Number.isFinite(n)) throw new Error(`Budget for ${k} must be a number.`);
-          byProvider[k] = n;
-        }
-      }
-      await setCostsBudgets({ total_daily: total, by_provider: byProvider });
-      setSaveBudgetMsg("Saved.");
-      await q.refetch();
-    } catch (e: any) {
-      setSaveBudgetMsg(e?.message ?? String(e));
-    } finally {
-      setSavingBudget(false);
-    }
-  };
+  }, [dataQuality]);
 
   const exportDailyCsv = () => {
     const header = ["day", "provider", "tokens", "runs", "errors"].join(",");
@@ -293,7 +214,7 @@ export default function Costs() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <StatCard title={`Total tokens (last ${days}d)`} value={fmtInt(totals.total)} subtitle={<span className="font-mono text-zinc-500">since: {resp?.since ?? "—"}</span>} />
-        <StatCard title={`Today (${formatDay(today.day, "utc")})`} value={fmtInt(today.totalTokens)} subtitle={remaining.total != null ? <span>Remaining (total): <span className="font-mono">{fmtInt(remaining.total)}</span></span> : <span className="text-zinc-500">No daily budget set.</span>} />
+        <StatCard title={`Today (${formatDay(today.day, "utc")})`} value={fmtInt(today.totalTokens)} subtitle={<span className="text-zinc-500">Budgets disabled.</span>} />
         <StatCard title="Data quality" value={fmtInt(dataQuality.rows)} subtitle={<span><span className="font-mono">{fmtInt(dataQuality.rowsMissingTokens)}</span> rows missing total_tokens</span>} />
       </div>
 
@@ -370,57 +291,27 @@ export default function Costs() {
             <tr>
               <Th>Provider</Th>
               <Th className="text-right">Used</Th>
-              <Th className="text-right">Budget</Th>
-              <Th className="text-right">Remaining</Th>
+              
             </tr>
           </thead>
           <tbody>
             {providers.length ? (
               providers.map((p) => {
                 const used = Number(today.byProvider[p] ?? 0);
-                const b = budgets.byProvider ? Number(budgets.byProvider[p] ?? 0) : 0;
-                const rem = remaining.byProvider ? remaining.byProvider[p] : null;
-                const pct = b > 0 ? used / b : null;
                 return (
                   <tr key={p}>
                     <Td className="font-mono">{p}</Td>
                     <Td className="text-right font-mono">{fmtInt(used)}</Td>
-                    <Td className="text-right font-mono">{b ? fmtInt(b) : "—"}</Td>
-                    <Td className={cn("text-right font-mono", pct != null && pct >= 0.9 ? "text-amber-300" : "")}>{rem == null ? "—" : fmtInt(rem)}</Td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <Td colSpan={4} className="text-zinc-500">No data.</Td>
+                <Td colSpan={2} className="text-zinc-500">No data.</Td>
               </tr>
             )}
           </tbody>
         </Table>
-      </Card>
-
-      <Card title="Budgets">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div>
-            <div className="mb-1 text-xs text-zinc-500">Total daily token budget (optional)</div>
-            <Input placeholder="e.g. 1500000" value={budgetTotalDraft} onChange={(e) => setBudgetTotalDraft(e.target.value)} />
-            <div className="mt-1 text-xs text-zinc-500">If set, the dashboard will show “remaining” for today.</div>
-          </div>
-          <div>
-            <div className="mb-1 text-xs text-zinc-500">Daily budgets by provider (JSON map)</div>
-            <Input
-              placeholder='{"voyage":300000}'
-              value={budgetByProviderDraft}
-              onChange={(e) => setBudgetByProviderDraft(e.target.value)}
-            />
-            <div className="mt-1 text-xs text-zinc-500">Keys must match <span className="font-mono">job_run_log.provider</span>.</div>
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center gap-3">
-          <Button onClick={onSaveBudgets} disabled={savingBudget}>{savingBudget ? "Saving…" : "Save budgets"}</Button>
-          {saveBudgetMsg ? <div className={cn("text-sm", saveBudgetMsg === "Saved." ? "text-emerald-300" : "text-red-300")}>{saveBudgetMsg}</div> : null}
-        </div>
       </Card>
 
       <Card title="Daily breakdown">
