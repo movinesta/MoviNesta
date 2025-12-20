@@ -1,4 +1,4 @@
-import { buildSwipeDocTSV, type MediaItemRow } from "./jina_tsv_doc.ts";
+import { buildSwipeDocTSV, type MediaItemRow } from "./media_doc_tsv.ts";
 
 export type SwipeDocFields = {
   kind: string;

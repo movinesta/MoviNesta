@@ -4,8 +4,7 @@
 //
 // IMPORTANT:
 // - Keep existing getConfig() API because many functions import it.
-// - Provider-specific keys (Jina/OpenAI/Voyage) are optional at import-time.
-//   Each provider validates its own key at call-time.
+// - This project standardizes on Voyage for embeddings + rerank.
 
 export interface AppConfig {
   supabaseUrl: string;
@@ -71,26 +70,6 @@ export const __setConfigForTesting = (config: AppConfig) => {
 };
 
 // -----------------------------------------------------------------------------
-// Jina (Embeddings)
-// -----------------------------------------------------------------------------
-export const JINA_EMBEDDINGS_URL =
-  Deno.env.get("JINA_EMBEDDINGS_URL") ?? "https://api.jina.ai/v1/embeddings";
-
-export const JINA_API_KEY = Deno.env.get("JINA_API_KEY") ?? "";
-export const JINA_MODEL = Deno.env.get("JINA_MODEL") ?? "jina-embeddings-v3";
-export const JINA_DIM = Number(Deno.env.get("JINA_DIM") ?? "1024");
-
-// -----------------------------------------------------------------------------
-// OpenAI (Embeddings)
-// -----------------------------------------------------------------------------
-export const OPENAI_EMBEDDINGS_URL =
-  Deno.env.get("OPENAI_EMBEDDINGS_URL") ?? "https://api.openai.com/v1/embeddings";
-
-export const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
-export const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "text-embedding-3-small";
-export const OPENAI_DIM = Number(Deno.env.get("OPENAI_DIM") ?? "1024");
-
-// -----------------------------------------------------------------------------
 // VoyageAI (Embeddings + Rerank)
 // -----------------------------------------------------------------------------
 export const VOYAGE_EMBEDDINGS_URL =
@@ -101,7 +80,8 @@ export const VOYAGE_RERANK_URL =
 
 export const VOYAGE_API_KEY = Deno.env.get("VOYAGE_API_KEY") ?? "";
 
-// Defaults you can override per-request in your Edge Functions.
-export const VOYAGE_EMBED_MODEL = Deno.env.get("VOYAGE_EMBED_MODEL") ?? "voyage-3-large";
-export const VOYAGE_RERANK_MODEL = Deno.env.get("VOYAGE_RERANK_MODEL") ?? "rerank-2.5";
-export const VOYAGE_DIM = Number(Deno.env.get("VOYAGE_DIM") ?? "1024");
+// Locked models (project standard): keep everything on Voyage.
+// NOTE: We intentionally do NOT allow switching providers or models.
+export const VOYAGE_EMBED_MODEL = "voyage-3-large";
+export const VOYAGE_RERANK_MODEL = "rerank-2.5";
+export const VOYAGE_DIM = 1024;

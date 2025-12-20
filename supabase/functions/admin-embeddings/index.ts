@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { VOYAGE_DIM, VOYAGE_EMBED_MODEL } from "../_shared/config.ts";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(n, b));
@@ -25,12 +26,12 @@ serve(async (req) => {
     }
 
     if (action === "set_active_profile") {
-      const provider = String(body.provider ?? "");
-      const model = String(body.model ?? "");
-      const dimensions = clamp(Number(body.dimensions ?? 1024), 8, 8192);
+      // Locked profile (Voyage-only). We keep the API endpoint for compatibility,
+      // but ignore any provider/model passed by the client.
+      const provider = "voyage";
+      const model = VOYAGE_EMBED_MODEL;
+      const dimensions = VOYAGE_DIM;
       const task = String(body.task ?? "swipe");
-
-      if (!provider || !model) return json(req, 400, { ok: false, message: "provider and model are required" });
 
       const { error } = await svc
         .from("embedding_settings")

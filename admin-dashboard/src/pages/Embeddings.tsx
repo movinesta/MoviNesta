@@ -24,8 +24,9 @@ export default function Embeddings() {
 
   // Form state: initialize *once* after settings are loaded.
   const [isInitialized, setIsInitialized] = useState(false);
-  const [provider, setProvider] = useState<string>("");
-  const [model, setModel] = useState<string>("");
+  // Locked profile (Voyage-only)
+  const [provider, setProvider] = useState<string>("voyage");
+  const [model, setModel] = useState<string>("voyage-3-large");
   const [dimensions, setDimensions] = useState<number>(1024);
   const [task, setTask] = useState<string>("swipe");
 
@@ -37,9 +38,10 @@ export default function Embeddings() {
     if (!settings) return;
     if (isInitialized) return;
 
-    setProvider(settings.active_provider ?? "");
-    setModel(settings.active_model ?? "");
-    setDimensions(Number(settings.active_dimensions ?? 1024));
+    // Force Voyage-only values in UI (server enforces too)
+    setProvider("voyage");
+    setModel("voyage-3-large");
+    setDimensions(1024);
     setTask(String(settings.active_task ?? "swipe"));
 
     setRerankSwipe(Boolean(settings.rerank_swipe_enabled ?? false));
@@ -49,14 +51,7 @@ export default function Embeddings() {
     setIsInitialized(true);
   }, [settings, isInitialized]);
 
-  const providerPresets = useMemo(
-    () => [
-      { provider: "voyage", model: "voyage-3-large", dimensions: 1024, task: "swipe" },
-      { provider: "jina", model: "jina-embeddings-v3", dimensions: 1024, task: "swipe" },
-      { provider: "openai", model: "text-embedding-3-small", dimensions: 1536, task: "swipe" },
-    ],
-    [],
-  );
+  const providerPresets = useMemo(() => [{ provider: "voyage", model: "voyage-3-large", dimensions: 1024, task: "swipe" }], []);
 
   const mutProfile = useMutation({
     mutationFn: () => setActiveProfile({ provider, model, dimensions, task }),
@@ -89,18 +84,17 @@ export default function Embeddings() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <div className="mb-1 text-xs font-medium text-zinc-400">Provider</div>
-              <Input value={provider} onChange={(e) => setProvider(e.target.value)} placeholder="voyage / jina / openai" />
+              <Input value={provider} disabled />
             </div>
             <div>
               <div className="mb-1 text-xs font-medium text-zinc-400">Model</div>
-              <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="voyage-3-large" />
+              <Input value={model} disabled />
             </div>
             <div>
               <div className="mb-1 text-xs font-medium text-zinc-400">Dimensions</div>
               <Input
                 value={String(dimensions)}
-                onChange={(e) => setDimensions(Number(e.target.value))}
-                placeholder="1024"
+                disabled
                 type="number"
               />
             </div>

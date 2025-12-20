@@ -1,24 +1,12 @@
 {
   "notes": [
-    "Use these as the request body in Supabase Dashboard Cron for the Edge Function: media-embed-backfill.",
-    "If you set EMBED_BACKFILL_JOB_TOKEN in Edge Function env, also set request header X-Job-Token to the same value.",
-    "Set useSavedCursor=true so each provider has its own pagination cursor (jobName is derived from provider/model/dim/task/kind)."
+    "Use this as the request body in Supabase Dashboard Cron for the Edge Function: media-embed-backfill.",
+    "This repo is locked to Voyage embeddings (provider=voyage, model=voyage-3-large, dimensions=1024).",
+    "Keep useSavedCursor=true so the function resumes from the last processed media_item_id." 
   ],
-  "jina_example": {
-    "provider": "jina",
-    "model": "jina-embeddings-v3",
-    "dimensions": 1024,
-    "task": "swipe",
+  "voyage_example": {
     "batchSize": 64,
-    "reembed": false,
-    "useSavedCursor": true
-  },
-  "openai_example": {
-    "provider": "openai",
-    "model": "text-embedding-3-small",
-    "dimensions": 1024,
     "task": "swipe",
-    "batchSize": 64,
     "reembed": false,
     "useSavedCursor": true
   }

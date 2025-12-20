@@ -409,7 +409,7 @@ export default function Costs() {
           <div>
             <div className="mb-1 text-xs text-zinc-500">Daily budgets by provider (JSON map)</div>
             <Input
-              placeholder='{"voyage":300000,"jina":200000}'
+              placeholder='{"voyage":300000}'
               value={budgetByProviderDraft}
               onChange={(e) => setBudgetByProviderDraft(e.target.value)}
             />
