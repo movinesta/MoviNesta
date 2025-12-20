@@ -233,7 +233,7 @@ serve(async (req) => {
         dimensions: DIMENSIONS,
         task,
         reembed,
-        total_tokens: null,
+        total_tokens: 0,
       });
     }
 
@@ -279,7 +279,7 @@ serve(async (req) => {
         dimensions: DIMENSIONS,
         task,
         reembed,
-        total_tokens: null,
+        total_tokens: 0,
       });
     }
 
