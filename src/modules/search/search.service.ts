@@ -244,7 +244,7 @@ export const searchTitles = async (params: {
             tmdb_title: item.title,
             tmdb_release_date: item.year ? `${item.year}-01-01` : null,
           })),
-          { onConflict: "tmdb_id" },
+          { onConflict: "kind,tmdb_id" },
         )
         .select("id, tmdb_id");
 

@@ -4,15 +4,17 @@ export type MediaSwipeDeckMode = "for_you" | "friends" | "trending" | "combined"
 
 export type MediaSwipeEventType =
   | "impression"
+  | "detail_open"
+  | "detail_close"
   | "dwell"
   | "like"
   | "dislike"
   | "skip"
   | "watchlist"
   | "rating"
-  | "open"
-  | "seen"
   | "share";
+
+type LegacyMediaSwipeEventType = "open" | "seen";
 
 export type FriendProfile = {
   id: string;
@@ -64,7 +66,7 @@ export type SendMediaSwipeEventInput = {
   deckId?: string | null;
   position?: number | null;
   mediaItemId: string;
-  eventType: MediaSwipeEventType;
+  eventType: MediaSwipeEventType | LegacyMediaSwipeEventType;
   source?: string | null;
   dwellMs?: number | null;
   rating0_10?: number | null;
@@ -211,8 +213,15 @@ export async function sendMediaSwipeEvent(
   input: SendMediaSwipeEventInput,
   opts?: { timeoutMs?: number },
 ): Promise<{ ok: true } | { ok: false; message?: string }> {
+  const eventType =
+    input.eventType === "open"
+      ? "detail_open"
+      : input.eventType === "seen"
+        ? "detail_close"
+        : input.eventType;
   const payload = {
     ...input,
+    eventType,
     clientEventId: ensureClientEventId(input.clientEventId),
   };
 

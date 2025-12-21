@@ -21,16 +21,21 @@ const STRONG_POS_DWELL_MS = 12000;
 
 const ALLOWED = new Set([
   "impression",
+  "detail_open",
+  "detail_close",
   "dwell",
   "like",
   "dislike",
   "skip",
   "watchlist",
   "rating",
-  "open",
-  "seen",
   "share",
 ]);
+
+const EVENT_ALIASES: Record<string, string> = {
+  open: "detail_open",
+  seen: "detail_close",
+};
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -62,7 +67,8 @@ function bucketDwell(ms: number): number {
 function normalizeEventType(et: unknown): string | null {
   if (typeof et !== "string") return null;
   const v = et.trim().toLowerCase();
-  return ALLOWED.has(v) ? v : null;
+  const mapped = EVENT_ALIASES[v] ?? v;
+  return ALLOWED.has(mapped) ? mapped : null;
 }
 
 function isStrongPositive(args: {
@@ -92,8 +98,8 @@ function makeLtrLabel(args: {
   if (et === "like") return { ...base, like: 1 };
   if (et === "dislike") return { ...base, dislike: 1 };
   if (et === "skip") return { ...base, skip: 1 };
-  if (et === "open") return { ...base, open: 1 };
-  if (et === "seen") return { ...base, seen: 1 };
+  if (et === "detail_open") return { ...base, open: 1 };
+  if (et === "detail_close") return { ...base, seen: 1 };
   if (et === "share") return { ...base, share: 1 };
   if (et === "watchlist") return { ...base, in_watchlist: args.inWatchlist === true ? 1 : 0 };
   if (et === "rating") return { ...base, rating_0_10: args.rating0_10 };

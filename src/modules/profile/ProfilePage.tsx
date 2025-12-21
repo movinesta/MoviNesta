@@ -18,7 +18,7 @@ import { useProfileByUsername } from "./useProfile";
 import ProfileActivityTab from "./ProfileActivityTab";
 import ProfileDiaryTab from "./ProfileDiaryTab";
 import { useToggleFollow } from "../search/useToggleFollow";
-import { supabase } from "../../lib/supabase";
+import { callSupabaseFunction } from "../../lib/callSupabaseFunction";
 import { useAuth } from "../auth/AuthProvider";
 
 type ProfileTabKey = "activity" | "diary";
@@ -131,101 +131,30 @@ const ProfilePage: React.FC = () => {
     setStartingConversation(true);
 
     try {
-      const myUserId = user.id;
+      const payload = await callSupabaseFunction<{
+        ok: boolean;
+        conversationId?: string;
+        error?: string;
+        code?: string;
+      }>("create-direct-conversation", {
+        targetUserId: profile.id,
+      });
 
-      const { data: myParticipantRows, error: myParticipantsError } = await supabase
-        .from("conversation_participants")
-        .select("conversation_id")
-        .eq("user_id", myUserId);
-
-      if (myParticipantsError) {
-        throw myParticipantsError;
+      if (!payload?.ok || !payload.conversationId) {
+        let friendly = payload?.error ?? "Failed to get conversation id. Please try again.";
+        if (payload?.code === "UNAUTHORIZED") {
+          friendly = "You need to be signed in to message other members.";
+        } else if (payload?.code === "BAD_REQUEST_SELF_TARGET") {
+          friendly = "You can’t start a conversation with yourself.";
+        } else if (payload?.code === "BLOCKED_BY_SELF") {
+          friendly = "You have blocked this user. Unblock them to send messages.";
+        } else if (payload?.code === "BLOCKED_BY_OTHER") {
+          friendly = "You cannot send messages because this user blocked you.";
+        }
+        throw new Error(friendly);
       }
 
-      const myConversationIds = (myParticipantRows ?? []).map(
-        (row: any) => row.conversation_id as string,
-      );
-
-      let directConversationId: string | null = null;
-
-      if (myConversationIds.length > 0) {
-        const { data: theirParticipantRows, error: theirParticipantsError } = await supabase
-          .from("conversation_participants")
-          .select("conversation_id")
-          .eq("user_id", profile.id)
-          .in("conversation_id", myConversationIds);
-
-        if (theirParticipantsError) {
-          throw theirParticipantsError;
-        }
-
-        const sharedConversationIds = Array.from(
-          new Set((theirParticipantRows ?? []).map((row: any) => row.conversation_id as string)),
-        );
-
-        if (sharedConversationIds.length > 0) {
-          const { data: existingConversations, error: conversationsError } = await supabase
-            .from("conversations")
-            .select("id, is_group, updated_at")
-            .in("id", sharedConversationIds)
-            .eq("is_group", false)
-            .order("updated_at", { ascending: false })
-            .limit(1);
-
-          if (conversationsError) {
-            throw conversationsError;
-          }
-
-          if (existingConversations && existingConversations.length > 0) {
-            directConversationId = existingConversations[0].id as string;
-          }
-        }
-      }
-
-      if (!directConversationId) {
-        const { data: newConversation, error: newConvError } = await supabase
-          .from("conversations")
-          .insert({
-            is_group: false,
-            title: null,
-            created_by: myUserId,
-          })
-          .select("id")
-          .single();
-
-        if (newConvError) {
-          throw newConvError;
-        }
-
-        const conversationId = newConversation?.id as string;
-
-        const { error: participantsInsertError } = await supabase
-          .from("conversation_participants")
-          .insert([
-            {
-              conversation_id: conversationId,
-              user_id: myUserId,
-              role: "member",
-            },
-            {
-              conversation_id: conversationId,
-              user_id: profile.id,
-              role: "member",
-            },
-          ]);
-
-        if (participantsInsertError) {
-          throw participantsInsertError;
-        }
-
-        directConversationId = conversationId;
-      }
-
-      if (!directConversationId) {
-        throw new Error("Failed to start a conversation.");
-      }
-
-      navigate(`/messages/${directConversationId}`);
+      navigate(`/messages/${payload.conversationId}`);
     } catch (err: any) {
       console.error("[ProfilePage] Failed to start conversation", err);
       alert(
