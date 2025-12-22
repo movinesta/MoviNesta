@@ -166,7 +166,7 @@ export async function requireAdmin(req: Request): Promise<{ userId: string; emai
     .maybeSingle();
 
   if (error) throw new HttpError(500, error.message);
-  if (!data?.user_id) throw new HttpError(403, "Not authorized");
+  if (!data?.user_id) throw new HttpError(403, "Not authorized: Admin access required");
 
   return { userId, email, role: data.role ?? "admin", svc };
 }

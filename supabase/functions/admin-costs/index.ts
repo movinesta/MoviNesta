@@ -91,7 +91,7 @@ serve(async (req) => {
           by_provider_budget: next.by_provider_budget,
           updated_at: new Date().toISOString(),
         }, { onConflict: "id" });
-      if (error) return json(500, { ok: false, message: error.message });
+      if (error) return json(req, 500, { ok: false, message: error.message });
     }
 
     const settings = await readSettings(svc);
@@ -106,7 +106,7 @@ serve(async (req) => {
       .gte("started_at", sinceIso)
       .order("started_at", { ascending: true });
 
-    if (rowsErr) return json(500, { ok: false, message: rowsErr.message });
+    if (rowsErr) return json(req, 500, { ok: false, message: rowsErr.message });
 
     const dailyAgg = new Map<string, { tokens: number; runs: number; errors: number }>();
     const dailyJobAgg = new Map<string, { tokens: number; runs: number; errors: number }>();
@@ -190,7 +190,7 @@ serve(async (req) => {
       remainingByProvider[p] = budgetByProvider[p] === null ? null : Math.max(0, Math.floor((budgetByProvider[p] as number) - used));
     }
 
-    return json(200, {
+    return json(req, 200, {
       ok: true,
       days,
       since: sinceIso,
@@ -210,6 +210,6 @@ serve(async (req) => {
       jobs,
     });
   } catch (e) {
-    return json(400, { ok: false, message: (e as any)?.message ?? String(e) });
+    return json(req, 400, { ok: false, message: (e as any)?.message ?? String(e) });
   }
 });
