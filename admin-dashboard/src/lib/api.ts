@@ -31,10 +31,41 @@ async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<OkEnvelope<T>> 
   const method = opts?.method ?? (opts?.body ? "POST" : "POST");
   const { data, error } = await supabase.functions.invoke(fn, { method, body: opts?.body });
 
-  if (error) throw new AdminApiError(error.message);
+  if (error) {
+    const parsedError = await parseFunctionsHttpError(error);
+    if (parsedError) throw parsedError;
+    throw new AdminApiError(error.message);
+  }
   if (isErrorEnvelope(data)) throw new AdminApiError(data.message ?? "Request failed", { code: data.code, requestId: data.requestId, details: data.details });
 
   return data as OkEnvelope<T>;
+}
+
+async function parseFunctionsHttpError(error: unknown): Promise<AdminApiError | null> {
+  if (!error || typeof error !== "object") return null;
+  const err = error as { name?: string; context?: Response };
+  if (err.name !== "FunctionsHttpError" || !err.context) return null;
+
+  const response = err.context;
+  const cloned = typeof response.clone === "function" ? response.clone() : response;
+  const contentType = cloned.headers?.get?.("Content-Type")?.split(";")[0].trim();
+
+  try {
+    if (contentType === "application/json") {
+      const data = await cloned.json();
+      if (isErrorEnvelope(data)) {
+        return new AdminApiError(data.message ?? "Request failed", { code: data.code, requestId: data.requestId, details: data.details });
+      }
+      if (data?.message) return new AdminApiError(String(data.message));
+    }
+
+    const text = await cloned.text();
+    if (text) return new AdminApiError(text);
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 /* =========================
