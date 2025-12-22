@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
 import { VOYAGE_DIM, VOYAGE_EMBED_MODEL } from "../_shared/config.ts";
 
 function clamp(n: number, a: number, b: number) {
@@ -85,6 +85,6 @@ serve(async (req) => {
 
     return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });

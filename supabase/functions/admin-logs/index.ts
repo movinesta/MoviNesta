@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(n, b));
@@ -23,6 +23,6 @@ serve(async (req) => {
     if (error) return json(req, 500, { ok: false, message: error.message });
     return json(req, 200, { ok: true, rows: data ?? [] });
   } catch (e) {
-    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });

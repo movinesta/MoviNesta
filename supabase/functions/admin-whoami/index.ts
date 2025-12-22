@@ -3,7 +3,7 @@
 //
 // Returns the current user identity + admin status.
 
-import { handleCors, json, getUserIdFromRequest, getSupabaseServiceClient } from "../_shared/admin.ts";
+import { handleCors, json, jsonError, getUserIdFromRequest, getSupabaseServiceClient } from "../_shared/admin.ts";
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -18,8 +18,6 @@ Deno.serve(async (req) => {
 
     return json(req, 200, { ok: true, is_admin: !!data, user: { id: userId, email } });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const status = msg === "Invalid session" ? 401 : 500;
-    return json(req, status, { ok: false, message: msg });
+    return jsonError(req, e);
   }
 });

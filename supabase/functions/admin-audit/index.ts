@@ -4,7 +4,7 @@
 // Admin-only endpoint to list recent admin audit log rows.
 // Uses strict CORS allowlist via `_shared/cors.ts`.
 
-import { handleCors, json, requireAdmin } from "../_shared/admin.ts";
+import { handleCors, json, jsonError, requireAdmin } from "../_shared/admin.ts";
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -25,8 +25,6 @@ Deno.serve(async (req) => {
     if (error) return json(req, 500, { ok: false, code: "DB_ERROR", error: error.message });
     return json(req, 200, { ok: true, data });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const status = msg === "forbidden" ? 403 : msg === "unauthenticated" ? 401 : 500;
-    return json(req, status, { ok: false, error: msg });
+    return jsonError(req, e);
   }
 });

@@ -80,6 +80,7 @@ export class HttpError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
+    this.name = "HttpError";
     this.status = status;
   }
 }
@@ -119,6 +120,25 @@ export function json(...args: any[]): Response {
   }
 
   return new Response(JSON.stringify(body), { status, headers });
+}
+
+export function getErrorStatus(err: unknown): number | null {
+  if (err instanceof HttpError) return err.status;
+  if (!err || typeof err !== "object") return null;
+  const maybe = (err as { status?: unknown; statusCode?: unknown }).status ??
+    (err as { status?: unknown; statusCode?: unknown }).statusCode;
+  if (typeof maybe === "number" && Number.isFinite(maybe)) return maybe;
+  if (typeof maybe === "string") {
+    const parsed = Number(maybe);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function jsonError(req: Request, err: unknown, fallbackStatus = 500): Response {
+  const status = getErrorStatus(err) ?? fallbackStatus;
+  const message = (err as { message?: string })?.message ?? String(err);
+  return json(req, status, { ok: false, message });
 }
 
 export function getSupabaseServiceClient() {

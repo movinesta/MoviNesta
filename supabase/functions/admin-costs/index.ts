@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
 
 type CostsSettingsRow = {
   id: number;
@@ -210,6 +210,6 @@ serve(async (req) => {
       jobs,
     });
   } catch (e) {
-    return json(req, 400, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });
