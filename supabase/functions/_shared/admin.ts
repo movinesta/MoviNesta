@@ -181,6 +181,7 @@ export async function requireAdmin(req: Request): Promise<{ userId: string; emai
   const svc = getSupabaseServiceClient();
 
   const { data, error } = await svc
+    .schema("public")
     .from("app_admins")
     .select("user_id, role")
     .eq("user_id", userId)
