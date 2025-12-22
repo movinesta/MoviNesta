@@ -14,12 +14,12 @@ Deno.serve(async (req) => {
     const svc = getSupabaseServiceClient();
 
     const { data, error } = await svc.from("app_admins").select("user_id").eq("user_id", userId).maybeSingle();
-    if (error) return json(req, 500, { ok: false, code: "DB_ERROR", error: error.message });
+    if (error) return json(req, 500, { ok: false, code: "DB_ERROR", message: error.message });
 
-    return json(req, 200, { ok: true, userId, email, isAdmin: !!data });
+    return json(req, 200, { ok: true, is_admin: !!data, user: { id: userId, email } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const status = msg === "Invalid session" ? 401 : 500;
-    return json(req, status, { ok: false, error: msg });
+    return json(req, status, { ok: false, message: msg });
   }
 });
