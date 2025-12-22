@@ -143,6 +143,7 @@ export function jsonError(req: Request, err: unknown, fallbackStatus = 500): Res
 
 export function getSupabaseServiceClient() {
   const cfg = getConfig();
+  assertServiceRoleConfig(cfg);
   if (!cfg.supabaseServiceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY missing");
   return createClient(cfg.supabaseUrl, cfg.supabaseServiceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -189,4 +190,34 @@ export async function requireAdmin(req: Request): Promise<{ userId: string; emai
   if (!data?.user_id) throw new HttpError(403, "Not authorized: Admin access required");
 
   return { userId, email, role: data.role ?? "admin", svc };
+}
+
+function assertServiceRoleConfig(cfg: { supabaseUrl: string; supabaseServiceRoleKey: string }) {
+  if (!cfg.supabaseUrl || cfg.supabaseUrl === "mock_url" || !cfg.supabaseUrl.startsWith("https://")) {
+    throw new HttpError(500, "SUPABASE_URL is missing or invalid for the edge runtime");
+  }
+
+  const role = decodeJwtRole(cfg.supabaseServiceRoleKey);
+  if (role && role !== "service_role") {
+    throw new HttpError(
+      500,
+      `SUPABASE_SERVICE_ROLE_KEY must be a service_role key (found role: ${role})`,
+    );
+  }
+}
+
+function decodeJwtRole(token: string): string | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(atob(base64UrlToBase64(parts[1])));
+    const role = payload?.role;
+    return typeof role === "string" ? role : null;
+  } catch {
+    return null;
+  }
+}
+
+function base64UrlToBase64(input: string): string {
+  return input.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(input.length / 4) * 4, "=");
 }
