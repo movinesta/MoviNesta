@@ -68,8 +68,9 @@ serve(async (req) => {
 
     return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    if (e instanceof HttpError) {
-      return json(req, e.status, { ok: false, message: e.message });
+    const maybeStatus = typeof (e as { status?: unknown })?.status === "number" ? (e as { status: number }).status : null;
+    if (e instanceof HttpError || maybeStatus) {
+      return json(req, maybeStatus ?? (e as HttpError).status, { ok: false, message: (e as Error).message });
     }
     return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
   }
