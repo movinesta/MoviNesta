@@ -64,7 +64,7 @@ export const getSourceLabel = (source?: SwipeDeckKind) => {
     case "trending":
       return "Trending now";
     case "popular":
-      return "Popular now";
+      return "Popular";
     default:
       return "Matched for you";
   }
