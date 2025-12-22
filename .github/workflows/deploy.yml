@@ -1,0 +1,93 @@
+name: Deploy to GitHub Pages and Supabase
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Node (use LTS v24)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Install dependencies (with some retry config for transient registry errors)
+      - name: Install dependencies
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 1000
+          npm config set fetch-retry-maxtimeout 60000
+          npm ci --legacy-peer-deps
+
+      # Create .env files for BOTH Vite projects (root + admin-dashboard)
+      - name: Create .env files
+        run: |
+          # Root app env
+          cat > .env <<EOF
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_TMDB_API_READ_ACCESS_TOKEN=${{ secrets.VITE_TMDB_API_READ_ACCESS_TOKEN }}
+          EOF
+
+          # Admin dashboard env (this is required for /admin)
+          cat > admin-dashboard/.env <<EOF
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_NAME=MoviNesta Admin
+          EOF
+
+      # Build Vite project (your build script copies admin-dashboard/dist into docs/admin)
+      - name: Build project
+        run: npm run build
+
+      # Upload the docs/ folder to GitHub Pages
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-supabase-functions:
+    runs-on: ubuntu-latest
+
+    # Make Supabase secrets available to all steps in this job
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy all Supabase Edge Functions
+        run: supabase functions deploy --project-ref "$PROJECT_ID" --use-api
