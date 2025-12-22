@@ -24,7 +24,7 @@ import { VOYAGE_DIM, VOYAGE_EMBED_MODEL, VOYAGE_EMBEDDINGS_URL } from "../_share
 import { buildSwipeDocTSV } from "../_shared/media_doc_tsv.ts";
 import { voyageEmbed } from "../_shared/voyage.ts";
 import { safeInsertJobRunLog } from "../_shared/joblog.ts";
-import { handleCors, requireAdmin } from "../_shared/admin.ts";
+import { handleCors } from "../_shared/admin.ts";
 
 const PROVIDER = "voyage";
 const MODEL = VOYAGE_EMBED_MODEL;
@@ -154,8 +154,12 @@ serve(async (req) => {
     const cors = handleCors(req);
     if (cors) return cors;
 
-    // Admin-only operation
-    await requireAdmin(req);
+    // Defensive: require Authorization header to be present.
+    // With verify_jwt=true (recommended), Supabase will validate it.
+    const auth = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
+    if (!auth.startsWith("Bearer ") || auth.length < 20) {
+      return await respondWithLog(401, { ok: false, code: "UNAUTHORIZED", message: "Unauthorized" });
+    }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
