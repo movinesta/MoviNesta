@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors, HttpError } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
 
 const LIMIT = 50;
 
@@ -68,10 +68,6 @@ serve(async (req) => {
 
     return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    const maybeStatus = typeof (e as { status?: unknown })?.status === "number" ? (e as { status: number }).status : null;
-    if (e instanceof HttpError || maybeStatus) {
-      return json(req, maybeStatus ?? (e as HttpError).status, { ok: false, message: (e as Error).message });
-    }
-    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });

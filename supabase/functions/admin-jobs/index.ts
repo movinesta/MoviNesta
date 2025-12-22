@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
 
 serve(async (req) => {
   const cors = handleCors(req);
@@ -117,8 +117,6 @@ serve(async (req) => {
 
     return json(req, 400, { ok: false, message: `Unknown action: ${action}` });
   } catch (e) {
-    // Important: return 500 here so client-side dashboards can distinguish
-    // unexpected server failures from validation/auth errors.
-    return json(req, 500, { ok: false, message: (e as any)?.message ?? String(e) });
+    return jsonError(req, e);
   }
 });
