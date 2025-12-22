@@ -111,7 +111,8 @@ export async function setRerank(payload: { swipe_enabled: boolean; search_enable
 export type JobsResp = {
   ok: true;
   job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
-  cron_jobs: Array<{ job_name: string; schedule: string | null; is_active: boolean; updated_at: string | null }>;
+  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string | null; active: boolean }>;
+  cron_error?: string;
 };
 
 export async function getJobs() {
@@ -119,19 +120,19 @@ export async function getJobs() {
 }
 
 export async function runCronNow(job_name: string) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", job_name } });
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", jobname: job_name } });
 }
 
 export async function setCronActive(job_name: string, is_active: boolean) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_active", job_name, is_active } });
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname: job_name, active: is_active } });
 }
 
 export async function setCronSchedule(job_name: string, schedule: string) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_schedule", job_name, schedule } });
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_schedule", jobname: job_name, schedule } });
 }
 
 export async function resetCursor(job_name: string, cursor: string | null) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cursor", job_name, cursor } });
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "reset_cursor", job_name, cursor } });
 }
 
 /* =========================
