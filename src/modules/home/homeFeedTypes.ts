@@ -1,27 +1,24 @@
 export type AvatarColorKey = "teal" | "violet" | "orange";
 
-export interface FeedTitle {
-  id: string;
-  name: string;
-  year: number;
-  posterUrl?: string;
-  backdropUrl?: string | null;
-}
-
-export interface FeedUser {
+export type FeedUser = {
   id: string;
   displayName: string;
-  username: string;
-  avatarUrl?: string;
-  avatarInitials: string;
+  avatarUrl?: string | null;
   avatarColor: AvatarColorKey;
-}
+};
 
-interface BaseFeedItem {
+export type FeedTitle = {
+  id: string;
+  name: string;
+  posterUrl?: string | null;
+  mediaType?: string | null;
+};
+
+type BaseFeedItem = {
   id: string;
   createdAt: string;
-  createdAtLabel: string;
-}
+  relativeTime: string;
+};
 
 export type HomeFeedItem =
   | (BaseFeedItem & {
@@ -45,6 +42,11 @@ export type HomeFeedItem =
       user: FeedUser;
       title: FeedTitle;
       note?: string;
+    })
+  | (BaseFeedItem & {
+      kind: "watchlist-remove";
+      user: FeedUser;
+      title: FeedTitle;
     })
   | (BaseFeedItem & {
       kind: "recommendation";
