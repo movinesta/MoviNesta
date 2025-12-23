@@ -34,6 +34,9 @@ type FollowRow = Database["public"]["Tables"]["follows"]["Row"];
  *
  * Looks up profiles by username/display name and annotates them with whether
  * the current user already follows them.
+ *
+ * NOTE: We DO NOT exclude the current user from results. The UI will hide
+ * follow/message actions for self.
  */
 export const useSearchPeople = (query: string) => {
   const trimmedQuery = query.trim();
@@ -58,10 +61,6 @@ export const useSearchPeople = (query: string) => {
         .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
         .limit(20);
 
-      if (user?.id) {
-        builder = builder.neq("id", user.id);
-      }
-
       if (signal) {
         builder = builder.abortSignal(signal);
       }
@@ -75,7 +74,6 @@ export const useSearchPeople = (query: string) => {
       }
 
       const profiles = (profilesResult.data as ProfileRow[]) ?? [];
-
       const profileIds = profiles.map((row) => row.id);
 
       // 2) Load basic stats (followers/following counts) for these profiles.
@@ -128,7 +126,7 @@ export const useSearchPeople = (query: string) => {
         });
       }
 
-      // 3) Load who the current user already follows.
+      // 4) Load who the current user already follows.
       let followsBuilder = supabase
         .from("follows")
         .select("followed_id")
@@ -194,10 +192,7 @@ export const useSearchPeople = (query: string) => {
 
       return scored
         .sort((a, b) => {
-          if (b.relevance !== a.relevance) {
-            return b.relevance - a.relevance;
-          }
-
+          if (b.relevance !== a.relevance) return b.relevance - a.relevance;
           const nameA = (a.displayName ?? a.username ?? "").toLowerCase();
           const nameB = (b.displayName ?? b.username ?? "").toLowerCase();
           return nameA.localeCompare(nameB);
