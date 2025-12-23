@@ -22,7 +22,20 @@ interface FeedEvent {
     status?: string;
 }
 
-const HomeFeedTab: React.FC = () => {
+interface HomeFeedTabProps {
+    isFiltersSheetOpen: boolean;
+    onFiltersSheetOpenChange: (open: boolean) => void;
+    quickFilter: "all" | "follows" | "reviews";
+}
+
+const HomeFeedTab: React.FC<HomeFeedTabProps> = ({
+    isFiltersSheetOpen,
+    onFiltersSheetOpenChange,
+    quickFilter,
+}) => {
+    void isFiltersSheetOpen;
+    void onFiltersSheetOpenChange;
+    void quickFilter;
     const { user } = useAuth();
 
     const { data: feedEvents, isLoading, isError, error, refetch } = useQuery<FeedEvent[]>({

@@ -16,8 +16,8 @@ import {
   clampYear,
   type SearchTabKey,
 } from "./searchState";
-import SearchTitlesTab from "./SearchTitlesTab";
-import SearchPeopleTab from "./SearchPeopleTab";
+import SearchTitlesTab from "./SearchTitlesTab_Improved";
+import SearchPeopleTab from "./SearchPeopleTab_Improved";
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
