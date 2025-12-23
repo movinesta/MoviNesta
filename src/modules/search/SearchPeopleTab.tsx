@@ -22,17 +22,18 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const trimmedQuery = query.trim();
   const normalizedQuery = trimmedQuery.replace(/^@+/, "");
   const effectiveQuery = normalizedQuery || trimmedQuery;
+
   const { data, isLoading, isError, error } = useSearchPeople(normalizedQuery);
   const toggleFollow = useToggleFollow();
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const [startingConversationFor, setStartingConversationFor] = useState<string | null>(null);
 
   const results = data ?? [];
 
   const handleStartConversation = async (targetUserId: string) => {
     if (!user?.id) {
-      // Shouldn't normally happen because search is behind auth, but guard just in case.
       alert("You need to be signed in to start a conversation.");
       return;
     }
@@ -137,8 +138,7 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Showing {results.length} profile
-          {results.length === 1 ? "" : "s"} for{" "}
+          Showing {results.length} profile{results.length === 1 ? "" : "s"} for{" "}
           <span className="rounded border border-border bg-card px-1.5 py-0.5 text-xs font-medium text-foreground">
             &ldquo;{effectiveQuery}&rdquo;
           </span>
@@ -151,6 +151,8 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
           const handle = person.username ? `@${person.username}` : null;
           const isTogglingThis =
             toggleFollow.isPending && toggleFollow.variables?.targetUserId === person.id;
+
+          const isSelf = Boolean(user?.id && user.id === person.id);
 
           return (
             <li
@@ -175,21 +177,29 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                     <User className="h-4 w-4" aria-hidden="true" />
                   )}
                 </div>
+
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                    {isSelf && (
+                      <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground">
+                        You
+                      </span>
+                    )}
+                  </div>
+
                   {handle && <p className="mt-0.5 text-xs text-muted-foreground">{handle}</p>}
+
                   {person.bio && (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {person.bio}
-                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{person.bio}</p>
                   )}
+
                   {(typeof person.followersCount === "number" ||
                     typeof person.followingCount === "number") && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {typeof person.followersCount === "number" && (
                         <span>
-                          {person.followersCount} follower
-                          {person.followersCount === 1 ? "" : "s"}
+                          {person.followersCount} follower{person.followersCount === 1 ? "" : "s"}
                         </span>
                       )}
                       {typeof person.followersCount === "number" &&
@@ -203,38 +213,42 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
               </Link>
 
               <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={() =>
-                    toggleFollow.mutate({
-                      targetUserId: person.id,
-                      currentlyFollowing: person.isFollowing,
-                    })
-                  }
-                  disabled={isTogglingThis}
-                  variant={person.isFollowing ? "outline" : "default"}
-                  size="sm"
-                  className={`h-auto rounded-full px-2.5 py-1.5 text-xs font-medium ${
-                    person.isFollowing
-                      ? "border-border bg-card/80 text-foreground hover:border-primary/70 hover:text-foreground disabled:opacity-60"
-                      : "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                  }`}
-                >
-                  {isTogglingThis ? (
-                    <span>Updating…</span>
-                  ) : person.isFollowing ? (
-                    <>
-                      <UserMinus className="h-3 w-3" aria-hidden="true" />
-                      <span>Following</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-3 w-3" aria-hidden="true" />
-                      <span>Follow</span>
-                    </>
-                  )}
-                </Button>
+                {/* ✅ Hide follow button for self */}
+                {!isSelf && (
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      toggleFollow.mutate({
+                        targetUserId: person.id,
+                        currentlyFollowing: person.isFollowing,
+                      })
+                    }
+                    disabled={isTogglingThis}
+                    variant={person.isFollowing ? "outline" : "default"}
+                    size="sm"
+                    className={`h-auto rounded-full px-2.5 py-1.5 text-xs font-medium ${
+                      person.isFollowing
+                        ? "border-border bg-card/80 text-foreground hover:border-primary/70 hover:text-foreground disabled:opacity-60"
+                        : "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                    }`}
+                  >
+                    {isTogglingThis ? (
+                      <span>Updating…</span>
+                    ) : person.isFollowing ? (
+                      <>
+                        <UserMinus className="h-3 w-3" aria-hidden="true" />
+                        <span>Following</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-3 w-3" aria-hidden="true" />
+                        <span>Follow</span>
+                      </>
+                    )}
+                  </Button>
+                )}
 
+                {/* Message already hidden for self */}
                 {user?.id !== person.id && (
                   <Button
                     type="button"
