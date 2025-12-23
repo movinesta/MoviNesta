@@ -16,9 +16,11 @@ const HomePage = lazyWithRetry(() => import("./modules/home/HomePage"));
 const SwipePage = lazyWithRetry(() => import("./modules/swipe/SwipePage"));
 const SearchPage = lazyWithRetry(() => import("./modules/search/SearchPage"));
 const DiaryPage = lazyWithRetry(() => import("./modules/diary/DiaryPage"));
-const ProfilePage = lazyWithRetry(() => import("./modules/profile/ProfilePage"));
+const ProfilePage = lazyWithRetry(() => import("./modules/profile/ProfilePage_Improved"));
 const SettingsOverviewPage = lazyWithRetry(() => import("./modules/settings/SettingsOverviewPage"));
-const SettingsProfilePage = lazyWithRetry(() => import("./modules/settings/SettingsProfilePage"));
+const SettingsProfilePage = lazyWithRetry(
+  () => import("./modules/settings/SettingsProfilePage_Improved"),
+);
 const SettingsAccountPage = lazyWithRetry(() => import("./modules/settings/SettingsAccountPage"));
 const SettingsNotificationsPage = lazyWithRetry(
   () => import("./modules/settings/SettingsNotificationsPage"),
@@ -28,7 +30,7 @@ const NotFoundPage = lazyWithRetry(() => import("./modules/misc/NotFoundPage"));
 const OnboardingPage = lazyWithRetry(() => import("./modules/misc/OnboardingPage"));
 const TasteOnboardingPage = lazyWithRetry(() => import("./modules/misc/TasteOnboardingPage"));
 
-const MessagesPage = lazyWithRetry(() => import("./modules/messages/MessagesPage"));
+const MessagesPage = lazyWithRetry(() => import("./modules/messages/MessagesPage_Improved"));
 const ConversationPage = lazyWithRetry(() => import("./modules/messages/ConversationPage"));
 const TitleDetailPage = lazyWithRetry(() => import("./modules/title/TitleDetailPage"));
 
