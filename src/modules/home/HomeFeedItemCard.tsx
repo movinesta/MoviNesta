@@ -1,5 +1,5 @@
 import React from "react";
-import { BookmarkPlus, Sparkles, Star } from "lucide-react";
+import { BookmarkMinus, BookmarkPlus, Sparkles, Star } from "lucide-react";
 import type { HomeFeedItem } from "./homeFeedTypes";
 import { Chip } from "@/components/ui/Chip";
 
@@ -28,76 +28,77 @@ const TitleBadge: React.FC<{ title: HomeFeedItem["title"] }> = ({ title }) => (
     </div>
     <div className="min-w-0">
       <p className="truncate text-[12px] font-medium text-foreground">{title.name}</p>
-      <p className="text-xs text-muted-foreground">{title.year}</p>
+      <p className="text-xs text-muted-foreground">{title.mediaType ?? "title"}</p>
     </div>
   </div>
 );
 
-const CardShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <article className="space-y-2 rounded-2xl border border-border bg-card/85 p-3 text-xs shadow-lg">
-    {children}
-  </article>
-);
-
-const UserRow: React.FC<{ item: HomeFeedItem }> = ({ item }) => (
-  <header className="flex items-center justify-between gap-2">
-    <div className="flex items-center gap-2">
+const UserRow: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
+  const u = item.user;
+  return (
+    <div className="flex items-center gap-3">
       <div
-        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${avatarColorClassName[item.user.avatarColor]}`}
-        aria-hidden
+        className={`grid h-9 w-9 place-items-center overflow-hidden rounded-full ${
+          avatarColorClassName[u.avatarColor]
+        }`}
       >
-        {item.user.avatarInitials}
+        {u.avatarUrl ? (
+          <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-xs font-semibold">{u.displayName.slice(0, 2).toUpperCase()}</span>
+        )}
       </div>
+
       <div className="min-w-0">
-        <p className="truncate text-[12px] font-semibold text-foreground">
-          {item.user.displayName}
-        </p>
-        <p className="text-xs text-muted-foreground">{item.createdAtLabel}</p>
+        <p className="truncate text-sm font-medium text-foreground">{u.displayName}</p>
+        <p className="text-xs text-muted-foreground">{item.relativeTime}</p>
       </div>
     </div>
-    {item.kind === "friend-rating" && (
-      <StatPill>
-        <Star className="h-3 w-3" aria-hidden />
-        <span>{item.rating.toFixed(1)}</span>
-      </StatPill>
-    )}
-    {item.kind === "recommendation" && item.score !== undefined && (
-      <StatPill>
-        <Sparkles className="h-3 w-3" aria-hidden />
-        <span>{item.score.toFixed(1)}</span>
-      </StatPill>
-    )}
-  </header>
+  );
+};
+
+const CardShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="rounded-2xl border border-border/50 bg-card/60 p-4 shadow-md backdrop-blur">
+    <div className="flex flex-col gap-3">{children}</div>
+  </div>
 );
 
-const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
+export const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
   switch (item.kind) {
     case "friend-rating":
       return (
         <CardShell>
           <UserRow item={item} />
           <TitleBadge title={item.title} />
-          <p className="text-xs text-muted-foreground">
-            Rated {item.rating.toFixed(1)} {item.emoji ?? "⭐️"}
-          </p>
-          {item.reviewSnippet && (
-            <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <StatPill>
+              <Star className="h-3 w-3" aria-hidden />
+              <span className="font-medium">{item.rating}</span>
+            </StatPill>
+            {item.emoji && <StatPill>{item.emoji}</StatPill>}
+          </div>
+          {item.reviewSnippet && <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>}
         </CardShell>
       );
+
     case "friend-review":
       return (
         <CardShell>
           <UserRow item={item} />
           <TitleBadge title={item.title} />
-          {item.rating && (
-            <p className="text-xs text-muted-foreground">Rated {item.rating.toFixed(1)}</p>
-          )}
-          {item.reviewSnippet && (
-            <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {typeof item.rating === "number" && (
+              <StatPill>
+                <Star className="h-3 w-3" aria-hidden />
+                <span className="font-medium">{item.rating}</span>
+              </StatPill>
+            )}
+            {item.emoji && <StatPill>{item.emoji}</StatPill>}
+          </div>
+          {item.reviewSnippet && <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>}
         </CardShell>
       );
+
     case "watchlist-add":
       return (
         <CardShell>
@@ -110,6 +111,19 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
           {item.note && <p className="text-xs text-muted-foreground">{item.note}</p>}
         </CardShell>
       );
+
+    case "watchlist-remove":
+      return (
+        <CardShell>
+          <UserRow item={item} />
+          <TitleBadge title={item.title} />
+          <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <BookmarkMinus className="h-3 w-3" aria-hidden />
+            Removed from watchlist
+          </div>
+        </CardShell>
+      );
+
     case "recommendation":
       return (
         <CardShell>
@@ -117,14 +131,13 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
           <TitleBadge title={item.title} />
           <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <Sparkles className="h-3 w-3" aria-hidden />
-            Recommendation
+            Recommended for you
           </div>
           {item.reason && <p className="text-xs text-muted-foreground">{item.reason}</p>}
         </CardShell>
       );
+
     default:
       return null;
   }
 };
-
-export default HomeFeedItemCard;
