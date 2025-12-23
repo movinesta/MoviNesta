@@ -18,11 +18,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Node (use LTS v24)
+      # Setup Node (LTS)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       # Install dependencies (with some retry config for transient registry errors)
@@ -36,21 +36,20 @@ jobs:
       # Create .env files for BOTH Vite projects (root + admin-dashboard)
       - name: Create .env files
         run: |
-          # Root app env
+          # Root app env (NO TMDB token in client)
           cat > .env <<EOF
           VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_TMDB_API_READ_ACCESS_TOKEN=${{ secrets.VITE_TMDB_API_READ_ACCESS_TOKEN }}
           EOF
 
-          # Admin dashboard env (this is required for /admin)
+          # Admin dashboard env (required for /admin)
           cat > admin-dashboard/.env <<EOF
           VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_NAME=MoviNesta Admin
           EOF
 
-      # Build Vite project (your build script copies admin-dashboard/dist into docs/admin)
+      # Build Vite project (build script copies admin-dashboard/dist into docs/admin)
       - name: Build project
         run: npm run build
 
