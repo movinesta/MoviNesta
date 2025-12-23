@@ -8,8 +8,8 @@ import { Chip } from "@/components/ui/Chip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 
 // Lazy-loaded tabs for perf
-const HomeFeedTab = lazy(() => import("./HomeFeedTab_Improved"));
-const HomeForYouTab = lazy(() => import("./HomeForYouTab_V3"));
+const HomeFeedTab = lazy(() => import("./HomeFeedTab"));
+const HomeForYouTab = lazy(() => import("./HomeForYouTab"));
 
 export type HomeTabKey = "feed" | "forYou";
 
