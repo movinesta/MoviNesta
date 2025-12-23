@@ -5,9 +5,72 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const { newDb } = require('pg-mem');
 
-const schemaPath = path.join(__dirname, '..', 'supabase', 'schema.sql');
+/**
+ * Option B:
+ * - Prefer the newest schema dump in supabase/schema/schema_full_*.sql
+ * - Fallback to supabase/schema.sql (legacy path)
+ * - Optional override via env var SUPABASE_SCHEMA_FILE (relative to repo root or absolute)
+ */
+function resolveSchemaPath() {
+  const repoRoot = path.join(__dirname, '..');
+
+  // 1) Explicit override
+  const envPath = process.env.SUPABASE_SCHEMA_FILE;
+  if (envPath) {
+    const abs = path.isAbsolute(envPath) ? envPath : path.join(repoRoot, envPath);
+    if (!fs.existsSync(abs)) {
+      console.error(`SUPABASE_SCHEMA_FILE is set but file not found: ${abs}`);
+      process.exit(1);
+    }
+    return abs;
+  }
+
+  // 2) Auto-pick newest supabase/schema/schema_full_*.sql
+  const schemaDir = path.join(repoRoot, 'supabase', 'schema');
+  if (fs.existsSync(schemaDir) && fs.statSync(schemaDir).isDirectory()) {
+    const files = fs.readdirSync(schemaDir);
+
+    const candidates = files
+      .filter((f) => /^schema_full_\d{8}(?:_\d{6})?\.sql$/i.test(f))
+      .map((filename) => {
+        const fullPath = path.join(schemaDir, filename);
+
+        // Prefer the timestamp embedded in filename, e.g. schema_full_20251223_071805.sql
+        const m = filename.match(/^schema_full_(\d{8})(?:_(\d{6}))?\.sql$/i);
+        const scoreFromName = m ? Number(`${m[1]}${m[2] || '000000'}`) : 0;
+
+        // As a fallback tie-breaker, use mtime
+        const mtimeMs = fs.statSync(fullPath).mtimeMs;
+
+        return { filename, fullPath, scoreFromName, mtimeMs };
+      })
+      .sort((a, b) => {
+        if (b.scoreFromName !== a.scoreFromName) return b.scoreFromName - a.scoreFromName;
+        return b.mtimeMs - a.mtimeMs;
+      });
+
+    if (candidates.length) return candidates[0].fullPath;
+  }
+
+  // 3) Legacy fallback
+  const legacy = path.join(repoRoot, 'supabase', 'schema.sql');
+  if (fs.existsSync(legacy)) return legacy;
+
+  console.error(
+    [
+      'No schema file found.',
+      `Looked for newest: ${path.join('supabase', 'schema', 'schema_full_*.sql')}`,
+      `Fallback path: ${path.join('supabase', 'schema.sql')}`,
+      'You can also set SUPABASE_SCHEMA_FILE to override.',
+    ].join('\n'),
+  );
+  process.exit(1);
+}
+
+const schemaPath = resolveSchemaPath();
 const rawSchemaSql = fs.readFileSync(schemaPath, 'utf8');
 
+// --- Extract FK relationships from the raw schema dump (before we strip FK lines for pg-mem)
 const fkDefs = [];
 const tableNames = [];
 const tableBlockRegex = /CREATE TABLE\s+public\.([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\);/g;
@@ -30,6 +93,7 @@ while ((match = tableBlockRegex.exec(rawSchemaSql)) !== null) {
   }
 }
 
+// --- Extract enums from the raw schema
 const enumDefs = new Map();
 const enumRegex = /CREATE TYPE\s+public\.([a-zA-Z0-9_]+)\s+AS ENUM\s*\(([^)]+)\)/gi;
 let enumMatch;
@@ -42,6 +106,14 @@ while ((enumMatch = enumRegex.exec(rawSchemaSql)) !== null) {
   enumDefs.set(name, values);
 }
 
+/**
+ * pg-mem is picky about some Postgres/Supabase-specific constructs.
+ * This "sanitized" schema gets loaded into pg-mem so we can query information_schema.columns
+ * to generate accurate column lists/types.
+ *
+ * NOTE: We intentionally strip FOREIGN KEY lines here because pg-mem can choke on some FK variants,
+ * but we already captured FKs above (fkDefs), and we emit relationships from that.
+ */
 const schemaSql = rawSchemaSql
   .replace(/CREATE EXTENSION[^;]+;/gi, '')
   .replace(/now\(\)\s*AT TIME ZONE\s*'[^']*'/gi, 'now()')
@@ -62,7 +134,7 @@ const mapScalarType = (udtName, enums) => {
     return `Database["public"]["Enums"]["${udtName}"]`;
   }
 
-  const base = udtName.startsWith('_') ? udtName.slice(1) : udtName;
+  const base = udtName && udtName.startsWith('_') ? udtName.slice(1) : udtName;
   const lookup = {
     text: 'string',
     varchar: 'string',
@@ -95,7 +167,7 @@ const mapScalarType = (udtName, enums) => {
 };
 
 const mapColumnType = (dataType, udtName, enums) => {
-  if (dataType === 'ARRAY' || udtName.startsWith('_')) {
+  if (dataType === 'ARRAY' || (udtName && udtName.startsWith('_'))) {
     const base = mapScalarType(udtName, enums);
     return `${base}[]`;
   }
@@ -109,11 +181,15 @@ const mapColumnType = (dataType, udtName, enums) => {
 
 (async () => {
   const db = newDb({ autoCreateForeignKeyIndices: true });
+
+  // Support common Supabase default function
   db.public.registerFunction({
     name: 'gen_random_uuid',
     returns: 'uuid',
     implementation: () => randomUUID(),
   });
+
+  // Some schemas reference auth.users; create a minimal placeholder
   db.public.none('CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid primary key);');
 
   try {
@@ -123,8 +199,9 @@ const mapColumnType = (dataType, udtName, enums) => {
       db.public.none(sql);
     }
   } catch (err) {
-    console.error('Failed to load supabase/schema.sql into the in-memory database.');
-    console.error(err.message);
+    console.error(`Failed to load schema into the in-memory database.`);
+    console.error(`Schema path: ${schemaPath}`);
+    console.error(err && err.message ? err.message : err);
     process.exit(1);
   }
 
@@ -246,4 +323,9 @@ const mapColumnType = (dataType, udtName, enums) => {
 
   const outPath = path.join(__dirname, '..', 'src', 'types', 'supabase.ts');
   fs.writeFileSync(outPath, lines.join('\n') + '\n');
+
+  const relOut = path.relative(path.join(__dirname, '..'), outPath);
+  const schemaRel = path.relative(path.join(__dirname, '..'), schemaPath);
+  console.log(`✅ Generated Supabase types -> ${relOut}`);
+  console.log(`📄 Schema used -> ${schemaRel}`);
 })();
