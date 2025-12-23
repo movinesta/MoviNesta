@@ -19,194 +19,121 @@ class AdminApiError extends Error {
   }
 }
 
-function isErrorEnvelope(x: unknown): x is ErrorEnvelope {
-  return !!x && typeof x === "object" && (x as any).ok === false;
+async function parseFunctionsHttpError(error: any): Promise<AdminApiError> {
+  // supabase-js errors can be:
+  // - FunctionsHttpError (has `context` with response)
+  // - normal Error
+  // We'll try to read structured JSON error if present.
+  try {
+    const res = (error as any)?.context?.response;
+    if (res && typeof res.json === "function") {
+      const data = (await res.json().catch(() => null)) as ErrorEnvelope | null;
+      if (data && data.ok === false) {
+        return new AdminApiError(data.message || "Admin function error", {
+          code: data.code,
+          requestId: data.requestId,
+          details: data.details,
+        });
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return new AdminApiError(error?.message || "Admin function error");
 }
 
-/**
- * Invoke a Supabase Edge Function from the admin dashboard.
- * Enforces the {ok:false} error envelope when returned by the function.
- */
 async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<OkEnvelope<T>> {
-  const method = opts?.method ?? (opts?.body ? "POST" : "POST");
-  const { data, error } = await supabase.functions.invoke(fn, { method, body: opts?.body });
+  const method = opts?.method ?? "POST";
+
+  const { data, error } = await supabase.functions.invoke(fn, {
+    method,
+    body: opts?.body,
+  });
 
   if (error) {
-    const parsedError = await parseFunctionsHttpError(error);
-    if (parsedError) throw parsedError;
-    throw new AdminApiError(error.message);
+    throw await parseFunctionsHttpError(error);
   }
-  if (isErrorEnvelope(data)) throw new AdminApiError(data.message ?? "Request failed", { code: data.code, requestId: data.requestId, details: data.details });
+
+  // Some functions wrap with { ok: true } — we allow either.
+  if (data && typeof data === "object" && "ok" in (data as any) && (data as any).ok === false) {
+    const e = data as ErrorEnvelope;
+    throw new AdminApiError(e.message || "Admin function error", {
+      code: e.code,
+      requestId: e.requestId,
+      details: e.details,
+    });
+  }
 
   return data as OkEnvelope<T>;
 }
 
-async function parseFunctionsHttpError(error: unknown): Promise<AdminApiError | null> {
-  if (!error || typeof error !== "object") return null;
-  const err = error as { name?: string; context?: Response };
-  if (err.name !== "FunctionsHttpError" || !err.context) return null;
-
-  const response = err.context;
-  const cloned = typeof response.clone === "function" ? response.clone() : response;
-  const contentType = cloned.headers?.get?.("Content-Type")?.split(";")[0].trim();
-
-  try {
-    if (contentType === "application/json") {
-      const data = await cloned.json();
-      if (isErrorEnvelope(data)) {
-        return new AdminApiError(data.message ?? "Request failed", { code: data.code, requestId: data.requestId, details: data.details });
-      }
-      if (data?.message) return new AdminApiError(String(data.message));
-    }
-
-    const text = await cloned.text();
-    if (text) return new AdminApiError(text);
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 /* =========================
- * WhoAmI
+ * Stats
  * ======================= */
 
-export type WhoAmI = { ok: true; is_admin: boolean; user: { id: string; email?: string | null } | null };
-
-export async function whoami() {
-  return invoke<WhoAmI>("admin-whoami");
-}
-
-/* =========================
- * Overview
- * ======================= */
-
-export type AdminOverviewResp = {
+export type StatsResp = {
   ok: true;
-  totals: {
-    users_total: number;
-    users_new_7d: number;
-    events_7d: number;
-    messages_7d: number;
-    swipes_7d: number;
-    likes_7d: number;
-    dislikes_7d: number;
-  };
-  embeddings?: {
-    active_provider?: string | null;
-    active_model?: string | null;
-    active_dimensions?: number | null;
-    active_task?: string | null;
-    rerank_swipe_enabled?: boolean | null;
-    rerank_search_enabled?: boolean | null;
-    rerank_top_k?: number | null;
-  } | null;
+  users_total?: number;
+  users_7d?: number;
+  users_30d?: number;
+  titles_total?: number;
+  ratings_total?: number;
+  reviews_total?: number;
+  watchlist_total?: number;
+  vectors_total?: number;
 };
 
-export async function getOverview() {
-  return invoke<AdminOverviewResp>("admin-overview");
+export async function getStats() {
+  return invoke<StatsResp>("admin-stats", { body: { action: "get" } });
 }
 
 /* =========================
- * Embeddings Settings
+ * Settings
  * ======================= */
 
-export type EmbeddingsResp = {
+export type SettingsResp = {
   ok: true;
+  settings: {
+    active_provider: string | null;
+    active_model: string | null;
+    active_dimensions: number | null;
+    changed_at: string | null;
+    changed_by: string | null;
+  };
+};
+
+export async function getEmbeddingSettings() {
+  return invoke<SettingsResp>("admin-settings", { body: { action: "get_embedding_settings" } });
+}
+
+export async function setEmbeddingSettings(payload: {
   active_provider: string | null;
   active_model: string | null;
   active_dimensions: number | null;
-  active_task: string | null;
-  rerank_swipe_enabled: boolean | null;
-  rerank_search_enabled: boolean | null;
-  rerank_top_k: number | null;
-};
-
-export async function getEmbeddings() {
-  return invoke<EmbeddingsResp>("admin-embeddings", { body: { action: "get" } });
-}
-
-export async function setActiveProfile(payload: { provider: string; model: string; dimensions: number; task: string }) {
-  return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_active_profile", ...payload } });
-}
-
-export async function setRerank(payload: { swipe_enabled: boolean; search_enabled: boolean; top_k: number }) {
-  return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_rerank", ...payload } });
-}
-
-/* =========================
- * Jobs / Cron
- * ======================= */
-
-export type JobsResp = {
-  ok: true;
-  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
-  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string | null; active: boolean }>;
-  cron_error?: string;
-};
-
-export async function getJobs() {
-  return invoke<JobsResp>("admin-jobs", { body: { action: "get" } });
-}
-
-export async function runCronNow(job_name: string) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", jobname: job_name } });
-}
-
-export async function setCronActive(job_name: string, is_active: boolean) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname: job_name, active: is_active } });
-}
-
-export async function setCronSchedule(job_name: string, schedule: string) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_schedule", jobname: job_name, schedule } });
-}
-
-export async function resetCursor(job_name: string, cursor: string | null) {
-  return invoke<{ ok: true }>("admin-jobs", { body: { action: "reset_cursor", job_name, cursor } });
-}
-
-/* =========================
- * Costs / Budgets
- * ======================= */
-
-export type CostsProviderDailyRow = { day: string; provider: string; cost_usd: number };
-export type CostsDailyJobRow = { day: string; job: string; provider: string; cost_usd: number };
-export type CostsJobSummaryRow = { job: string; provider: string; total_cost_usd: number };
-
-export type CostsResp = {
-  ok: true;
-  budgets: { month: string; provider: string; budget_usd: number }[];
-  costs_provider_daily: CostsProviderDailyRow[];
-  costs_daily_job: CostsDailyJobRow[];
-  job_summary: CostsJobSummaryRow[];
-};
-
-export async function getCosts() {
-  return invoke<CostsResp>("admin-costs");
-}
-
-export async function setCostsBudgets(payload: { budgets: { provider: string; budget_usd: number }[] }) {
-  return invoke<{ ok: true }>("admin-costs", { body: { action: "set_budgets", ...payload } });
-}
-
-/* =========================
- * Logs
- * ======================= */
-
-export type LogsResp = { ok: true; rows: any[] };
-
-export async function getLogs(payload?: { job?: string; limit?: number }) {
-  return invoke<LogsResp>("admin-logs", { body: { action: "get", ...(payload ?? {}) } });
+}) {
+  return invoke<{ ok: true }>("admin-settings", { body: { action: "set_embedding_settings", ...payload } });
 }
 
 /* =========================
  * Audit
  * ======================= */
 
-export type AuditResp = { ok: true; rows: any[] };
+export type AuditRow = {
+  id: string;
+  created_at: string;
+  admin_user_id: string;
+  action: string;
+  target: string;
+  details: unknown;
+};
 
-export async function getAudit(payload?: { user_id?: string; limit?: number }) {
+export type AuditResp = {
+  ok: true;
+  rows: AuditRow[];
+  next_before: string | null;
+};
+
+export async function getAudit(payload?: { before?: string | null; limit?: number }) {
   return invoke<AuditResp>("admin-audit", { body: { action: "get", ...(payload ?? {}) } });
 }
 
@@ -218,20 +145,19 @@ export type UsersResp = {
   ok: true;
   users: Array<{
     id: string;
-    email?: string | null;
-    created_at?: string | null;
-    is_banned?: boolean | null;
-    last_seen_at?: string | null;
-    display_name?: string | null;
+    email: string | null;
+    created_at: string | null;
+    banned_until: string | null;
   }>;
+  next_page: string | null;
 };
 
-export async function listUsers(payload?: { search?: string; limit?: number }) {
+export async function listUsers(payload?: { search?: string | null; page?: string | null }) {
   return invoke<UsersResp>("admin-users", { body: { action: "list", ...(payload ?? {}) } });
 }
 
-export async function banUser(user_id: string, is_banned: boolean) {
-  return invoke<{ ok: true }>("admin-users", { body: { action: "ban", user_id, is_banned } });
+export async function banUser(user_id: string, banned: boolean) {
+  return invoke<{ ok: true }>("admin-users", { body: { action: banned ? "ban" : "unban", user_id } });
 }
 
 export async function resetUserVectors(user_id: string) {
