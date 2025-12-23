@@ -63,7 +63,7 @@ const CardShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-export const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
+const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
   switch (item.kind) {
     case "friend-rating":
       return (
@@ -141,3 +141,7 @@ export const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
       return null;
   }
 };
+
+// ✅ Keep both exports so other files can import either way
+export { HomeFeedItemCard };
+export default HomeFeedItemCard;
