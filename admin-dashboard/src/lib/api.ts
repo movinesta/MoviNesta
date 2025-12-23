@@ -2,7 +2,6 @@ import { supabase } from "./supabaseClient";
 
 type InvokeOpts = { body?: unknown; method?: "POST" | "GET" };
 
-type OkEnvelope<T> = T & { ok?: true };
 type ErrorEnvelope = { ok: false; code?: string; message?: string; details?: unknown; requestId?: string };
 
 class AdminApiError extends Error {
@@ -19,122 +18,192 @@ class AdminApiError extends Error {
   }
 }
 
-async function parseFunctionsHttpError(error: any): Promise<AdminApiError> {
-  // supabase-js errors can be:
-  // - FunctionsHttpError (has `context` with response)
-  // - normal Error
-  // We'll try to read structured JSON error if present.
+function isErrorEnvelope(x: unknown): x is ErrorEnvelope {
+  return !!x && typeof x === "object" && (x as any).ok === false;
+}
+
+/**
+ * Invoke a Supabase Edge Function from the admin dashboard.
+ * - Handles Supabase FunctionsHttpError with JSON error envelopes when present.
+ * - Throws AdminApiError for consistent UI error handling.
+ */
+async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<T> {
+  const method = opts?.method ?? "POST";
+  const { data, error } = await supabase.functions.invoke(fn, { method, body: opts?.body });
+
+  if (error) {
+    const parsed = await parseFunctionsHttpError(error);
+    if (parsed) throw parsed;
+    throw new AdminApiError(error.message);
+  }
+
+  if (isErrorEnvelope(data)) {
+    throw new AdminApiError(data.message ?? "Request failed", {
+      code: data.code,
+      requestId: data.requestId,
+      details: data.details,
+    });
+  }
+
+  return data as T;
+}
+
+async function parseFunctionsHttpError(error: unknown): Promise<AdminApiError | null> {
+  if (!error || typeof error !== "object") return null;
+  const err = error as { name?: string; context?: any; message?: string };
+
+  // supabase-js typically uses name === "FunctionsHttpError" and context.response
+  if (err.name !== "FunctionsHttpError") return null;
+
+  const res: any = err.context?.response ?? err.context;
+  if (!res) return null;
+
   try {
-    const res = (error as any)?.context?.response;
-    if (res && typeof res.json === "function") {
-      const data = (await res.json().catch(() => null)) as ErrorEnvelope | null;
-      if (data && data.ok === false) {
-        return new AdminApiError(data.message || "Admin function error", {
-          code: data.code,
-          requestId: data.requestId,
-          details: data.details,
+    const cloned = typeof res.clone === "function" ? res.clone() : res;
+    const contentType = cloned.headers?.get?.("Content-Type")?.split(";")[0]?.trim?.();
+
+    if (contentType === "application/json" && typeof cloned.json === "function") {
+      const j = await cloned.json().catch(() => null);
+      if (isErrorEnvelope(j)) {
+        return new AdminApiError(j.message ?? "Request failed", {
+          code: j.code,
+          requestId: j.requestId,
+          details: j.details,
         });
       }
+      if (j?.message) return new AdminApiError(String(j.message));
+    }
+
+    if (typeof cloned.text === "function") {
+      const t = await cloned.text().catch(() => "");
+      if (t) return new AdminApiError(t);
     }
   } catch {
     // ignore
   }
-  return new AdminApiError(error?.message || "Admin function error");
-}
 
-async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<OkEnvelope<T>> {
-  const method = opts?.method ?? "POST";
-
-  const { data, error } = await supabase.functions.invoke(fn, {
-    method,
-    body: opts?.body,
-  });
-
-  if (error) {
-    throw await parseFunctionsHttpError(error);
-  }
-
-  // Some functions wrap with { ok: true } — we allow either.
-  if (data && typeof data === "object" && "ok" in (data as any) && (data as any).ok === false) {
-    const e = data as ErrorEnvelope;
-    throw new AdminApiError(e.message || "Admin function error", {
-      code: e.code,
-      requestId: e.requestId,
-      details: e.details,
-    });
-  }
-
-  return data as OkEnvelope<T>;
+  return new AdminApiError(err.message ?? "Function request failed");
 }
 
 /* =========================
- * Stats
+ * WhoAmI
  * ======================= */
 
-export type StatsResp = {
+export type WhoAmI = { ok: true; is_admin: boolean; user: { id: string; email?: string | null } | null };
+
+export async function whoami() {
+  return invoke<WhoAmI>("admin-whoami");
+}
+
+/* =========================
+ * Overview
+ * ======================= */
+
+export type AdminOverviewResp = {
   ok: true;
-  users_total?: number;
-  users_7d?: number;
-  users_30d?: number;
-  titles_total?: number;
-  ratings_total?: number;
-  reviews_total?: number;
-  watchlist_total?: number;
-  vectors_total?: number;
+  active_profile: { provider: string; model: string; dimensions: number; task: string } | null;
+  coverage: Array<{ provider: string; model: string; count: number }>;
+  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
+  recent_errors: Array<{ id: string | number; created_at?: string; started_at?: string; job_name: string; error_code?: string | null; error_message?: string | null }>;
+  last_job_runs: Array<{ id: string | number; started_at: string; finished_at?: string | null; job_name: string; ok: boolean }>;
 };
 
-export async function getStats() {
-  return invoke<StatsResp>("admin-stats", { body: { action: "get" } });
+export async function getOverview() {
+  return invoke<AdminOverviewResp>("admin-overview");
 }
 
 /* =========================
- * Settings
+ * Embeddings
  * ======================= */
 
-export type SettingsResp = {
+export type EmbeddingsResp = {
   ok: true;
-  settings: {
+  embedding_settings: {
+    id: number;
     active_provider: string | null;
     active_model: string | null;
     active_dimensions: number | null;
-    changed_at: string | null;
-    changed_by: string | null;
-  };
+    active_task: string | null;
+    rerank_swipe_enabled: boolean | null;
+    rerank_search_enabled: boolean | null;
+    rerank_top_k: number | null;
+    updated_at?: string | null;
+  } | null;
+  coverage: Array<{ provider: string; model: string; count: number }>;
 };
 
-export async function getEmbeddingSettings() {
-  return invoke<SettingsResp>("admin-settings", { body: { action: "get_embedding_settings" } });
+export async function getEmbeddings() {
+  return invoke<EmbeddingsResp>("admin-embeddings", { body: { action: "get" } });
 }
 
-export async function setEmbeddingSettings(payload: {
-  active_provider: string | null;
-  active_model: string | null;
-  active_dimensions: number | null;
-}) {
-  return invoke<{ ok: true }>("admin-settings", { body: { action: "set_embedding_settings", ...payload } });
+export async function setActiveProfile(payload: { provider: string; model: string; dimensions: number; task: string }) {
+  // Server may ignore provider/model/dimensions (locked profile). Keep payload for compatibility.
+  return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_active_profile", ...payload } });
+}
+
+export async function setRerank(payload: { swipe_enabled: boolean; search_enabled: boolean; top_k: number }) {
+  return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_rerank", ...payload } });
+}
+
+/* =========================
+ * Jobs / Cron
+ * ======================= */
+
+export type JobsResp = {
+  ok: true;
+  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
+  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string | null; active: boolean }>;
+  cron_error?: string;
+};
+
+export async function getJobs() {
+  return invoke<JobsResp>("admin-jobs", { body: { action: "get" } });
+}
+
+export async function runCronNow(jobname: string) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", jobname } });
+}
+
+export async function setCronActive(jobname: string, active: boolean) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname, active } });
+}
+
+export async function setCronSchedule(jobname: string, schedule: string) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_schedule", jobname, schedule } });
+}
+
+export async function resetCursor(job_name: string, cursor: string | null = null) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "reset_cursor", job_name, cursor } });
+}
+
+/* =========================
+ * Costs / Budgets
+ * ======================= */
+
+export async function getCosts(payload?: { days?: number }) {
+  return invoke<any>("admin-costs", { body: { ...(payload ?? {}) } });
+}
+
+export async function setCostsBudgets(payload: { total_daily_budget: number | null; by_provider_budget: Record<string, number> }) {
+  return invoke<{ ok: true }>("admin-costs", { body: { action: "set_budgets", ...payload } });
+}
+
+/* =========================
+ * Logs
+ * ======================= */
+
+export async function getLogs(payload?: { limit?: number; before?: string | null }) {
+  // Some versions support cursor pagination; others just support limit.
+  return invoke<any>("admin-logs", { body: { ...(payload ?? {}) } });
 }
 
 /* =========================
  * Audit
  * ======================= */
 
-export type AuditRow = {
-  id: string;
-  created_at: string;
-  admin_user_id: string;
-  action: string;
-  target: string;
-  details: unknown;
-};
-
-export type AuditResp = {
-  ok: true;
-  rows: AuditRow[];
-  next_before: string | null;
-};
-
-export async function getAudit(payload?: { before?: string | null; limit?: number }) {
-  return invoke<AuditResp>("admin-audit", { body: { action: "get", ...(payload ?? {}) } });
+export async function getAudit(payload?: { limit?: number; search?: string | null; before?: string | null }) {
+  // Your Audit page expects { rows, next_before }. Keep it flexible.
+  return invoke<any>("admin-audit", { body: { ...(payload ?? {}) } });
 }
 
 /* =========================
@@ -145,9 +214,9 @@ export type UsersResp = {
   ok: true;
   users: Array<{
     id: string;
-    email: string | null;
-    created_at: string | null;
-    banned_until: string | null;
+    email?: string | null;
+    created_at?: string | null;
+    banned_until?: string | null;
   }>;
   next_page: string | null;
 };
@@ -157,6 +226,7 @@ export async function listUsers(payload?: { search?: string | null; page?: strin
 }
 
 export async function banUser(user_id: string, banned: boolean) {
+  // ✅ FIX: server expects action "ban" or "unban" (not {is_banned:true/false})
   return invoke<{ ok: true }>("admin-users", { body: { action: banned ? "ban" : "unban", user_id } });
 }
 
