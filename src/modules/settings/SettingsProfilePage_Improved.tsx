@@ -165,7 +165,7 @@ const SettingsProfilePage: React.FC = () => {
                     </button>
 
                     {saveSuccess && (
-                        <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
                             <CheckCircle className="w-4 h-4" aria-hidden />
                             Profile updated successfully!
                         </p>
@@ -174,8 +174,8 @@ const SettingsProfilePage: React.FC = () => {
 
                 {/* Error Message */}
                 {saveError && (
-                    <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                        <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                    <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+                        <p className="text-sm text-red-600 flex items-center gap-2">
                             <AlertCircle className="w-4 h-4" aria-hidden />
                             {saveError}
                         </p>
