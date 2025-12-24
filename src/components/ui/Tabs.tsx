@@ -57,7 +57,7 @@ interface TabsListProps {
 
 export const TabsList: React.FC<TabsListProps> = ({ className = "", children }) => {
   const classes =
-    "flex max-w-full gap-1.5 overflow-x-auto rounded-lg bg-muted p-1.5 text-xs text-muted-foreground " +
+    "flex w-full max-w-full justify-center gap-1.5 overflow-x-auto rounded-lg bg-white/80 p-1.5 text-xs text-slate-600 ring-1 ring-slate-200/80 " +
     className;
 
   return (
@@ -84,11 +84,11 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
   const triggerId = `${idBase}-tab-${value}`;
 
   const base =
-    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all";
+    "inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all";
 
   const variant = isActive
-    ? "bg-background text-foreground shadow-sm"
-    : "text-muted-foreground hover:bg-background/80";
+    ? "bg-white text-slate-900 shadow-sm"
+    : "text-slate-600 hover:bg-white/70";
 
   const classes = [base, variant, className].filter(Boolean).join(" ");
 
