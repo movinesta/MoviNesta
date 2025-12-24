@@ -65,7 +65,7 @@ export default function Users() {
 
   const canNext = useMemo(() => Boolean(q.data?.next_page), [q.data?.next_page]);
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
   if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
 
   return (
@@ -123,7 +123,7 @@ export default function Users() {
                 <tr key={u.id}>
                   <Td className="text-sm">{u.email ?? "—"}</Td>
                   <Td className="font-mono text-xs">{u.id}</Td>
-                  <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(u.created_at)}</Td>
+                  <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(u.created_at)}</Td>
                   <Td className={banned ? "text-red-300" : "text-emerald-300"}>{banned ? "banned" : "active"}</Td>
                   <Td className="text-right">
                     <div className="flex justify-end gap-2">

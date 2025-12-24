@@ -596,7 +596,7 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
           {pick.posterUrl ? (
             <>
               <img src={pick.posterUrl} alt={pick.name} className="h-full w-full object-cover" />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
             </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-card/80 via-background to-primary/70 text-xs text-muted-foreground">

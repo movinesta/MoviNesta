@@ -19,24 +19,24 @@ const AvatarCircle: React.FC<{
     <button
       type="button"
       onClick={onClick}
-      className="flex w-20 flex-col items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+      className="flex w-20 flex-col items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       aria-label={label}
     >
-      <span className={cn("relative inline-flex h-16 w-16 items-center justify-center rounded-full p-[2px]", muted ? "bg-white/10" : ringClass)}>
-        <span className="relative inline-flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-black">
+      <span className={cn("relative inline-flex h-16 w-16 items-center justify-center rounded-full p-[2px]", muted ? "bg-muted" : ringClass)}>
+        <span className="relative inline-flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-muted">
           {src ? (
             <img src={src} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="text-sm font-semibold text-white/70">?</span>
+            <span className="text-sm font-semibold text-muted-foreground">?</span>
           )}
           {showPlus ? (
-            <span className="absolute bottom-0 right-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 ring-2 ring-black">
+            <span className="absolute bottom-0 right-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 ring-2 ring-background">
               <Plus className="h-3.5 w-3.5 text-white" aria-hidden />
             </span>
           ) : null}
         </span>
       </span>
-      <span className="w-20 truncate text-center text-[11px] text-white/80">{label}</span>
+      <span className="w-20 truncate text-center text-[11px] text-foreground">{label}</span>
     </button>
   );
 };
@@ -48,12 +48,12 @@ const HomeStoriesRow: React.FC = () => {
   // Skeleton row
   if (isLoading) {
     return (
-      <div className="-mx-4 border-b border-white/10 bg-black px-4 py-3">
+      <div className="-mx-4 border-b border-border bg-background px-4 py-3">
         <div className="flex gap-3 overflow-x-auto pb-2">
           {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="flex w-20 flex-col items-center gap-1">
-              <div className="h-16 w-16 rounded-full bg-white/10" />
-              <div className="h-2 w-16 rounded bg-white/10" />
+              <div className="h-16 w-16 rounded-full bg-muted" />
+              <div className="h-2 w-16 rounded bg-muted" />
             </div>
           ))}
         </div>
@@ -65,14 +65,14 @@ const HomeStoriesRow: React.FC = () => {
 
   if (!items.length) {
     return (
-      <div className="-mx-4 border-b border-white/10 bg-black px-4 py-3">
-        <div className="text-sm text-white/70">Follow people to see their highlights here.</div>
+      <div className="-mx-4 border-b border-border bg-background px-4 py-3">
+        <div className="text-sm text-muted-foreground">Follow people to see their highlights here.</div>
       </div>
     );
   }
 
   return (
-    <div className="-mx-4 border-b border-white/10 bg-black px-4 py-3">
+    <div className="-mx-4 border-b border-border bg-background px-4 py-3">
       <div className="flex gap-3 overflow-x-auto pb-2">
         {items.map((s, idx) => {
           const label = idx === 0 ? "Your story" : s.listName || s.username || "Story";

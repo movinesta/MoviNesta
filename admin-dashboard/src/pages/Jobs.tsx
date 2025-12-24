@@ -48,8 +48,8 @@ export default function Jobs() {
     },
   });
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-600">{(q.error as any).message}</div>;
 
   const d = q.data!;
 
@@ -72,7 +72,7 @@ export default function Jobs() {
               <tr key={i}>
                 <Td className="font-mono text-xs">{r.job_name}</Td>
                 <Td className="font-mono text-xs">{r.cursor ?? "—"}</Td>
-                <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.updated_at)}</Td>
+                <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.updated_at)}</Td>
                 <Td className="text-right">
                   <Button variant="ghost" onClick={() => mutReset.mutate(r.job_name)} disabled={mutReset.isPending}>
                     Reset cursor
@@ -82,7 +82,7 @@ export default function Jobs() {
             ))}
           </tbody>
         </Table>
-        {mutReset.isError ? <div className="mt-2 text-sm text-red-400">{(mutReset.error as any).message}</div> : null}
+        {mutReset.isError ? <div className="mt-2 text-sm text-red-600">{(mutReset.error as any).message}</div> : null}
       </Card>
 
       <Card title="Cron jobs (pg_cron)">
@@ -92,7 +92,7 @@ export default function Jobs() {
         </div>
 
         {d.cron_error ? (
-          <div className="mt-2 text-xs text-red-400">
+          <div className="mt-2 text-xs text-red-600">
             Could not load cron jobs: <span className="font-mono">{d.cron_error}</span>
           </div>
         ) : null}
@@ -133,7 +133,7 @@ export default function Jobs() {
                         </Button>
                       </div>
                     </Td>
-                    <Td className={r.active ? "text-emerald-300" : "text-zinc-500"}>{r.active ? "active" : "disabled"}</Td>
+                    <Td className={r.active ? "text-emerald-600" : "text-zinc-500"}>{r.active ? "active" : "disabled"}</Td>
                     <Td className="text-right">
                       <div className="inline-flex items-center gap-2">
                         <Button
@@ -174,9 +174,9 @@ export default function Jobs() {
             </tbody>
           </Table>
 
-          {mutCron.isError ? <div className="mt-2 text-sm text-red-400">{(mutCron.error as any).message}</div> : null}
-          {mutSchedule.isError ? <div className="mt-2 text-sm text-red-400">{(mutSchedule.error as any).message}</div> : null}
-          {mutRunNow.isError ? <div className="mt-2 text-sm text-red-400">{(mutRunNow.error as any).message}</div> : null}
+          {mutCron.isError ? <div className="mt-2 text-sm text-red-600">{(mutCron.error as any).message}</div> : null}
+          {mutSchedule.isError ? <div className="mt-2 text-sm text-red-600">{(mutSchedule.error as any).message}</div> : null}
+          {mutRunNow.isError ? <div className="mt-2 text-sm text-red-600">{(mutRunNow.error as any).message}</div> : null}
         </div>
       </Card>
     </div>

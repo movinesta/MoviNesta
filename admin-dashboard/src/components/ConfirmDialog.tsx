@@ -29,10 +29,10 @@ export function ConfirmDialog(props: {
       role="dialog"
       aria-modal="true"
     >
-      <div className="absolute inset-0 bg-black/60" onClick={props.onCancel} />
-      <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
-        <div className="text-lg font-semibold tracking-tight text-zinc-100">{props.title}</div>
-        <div className="mt-2 text-sm text-zinc-400">{props.message}</div>
+      <div className="absolute inset-0 bg-black/40" onClick={props.onCancel} />
+      <div className="relative w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
+        <div className="text-lg font-semibold tracking-tight text-zinc-900">{props.title}</div>
+        <div className="mt-2 text-sm text-zinc-600">{props.message}</div>
 
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={props.onCancel}>

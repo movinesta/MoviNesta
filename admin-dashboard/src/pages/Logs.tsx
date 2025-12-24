@@ -37,8 +37,8 @@ export default function Logs() {
     setSelectedId(null);
   }, [limit]);
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-600">{(q.error as any).message}</div>;
 
   return (
     <div className="space-y-6">
@@ -71,19 +71,19 @@ export default function Logs() {
                 <tr
                   key={r.id}
                   className={
-                    "cursor-pointer hover:bg-zinc-900/40 " +
-                    (String(selectedId) === String(r.id) ? "bg-zinc-900/60" : "")
+                    "cursor-pointer hover:bg-zinc-100 " +
+                    (String(selectedId) === String(r.id) ? "bg-zinc-200" : "")
                   }
                   onClick={() => setSelectedId(String(r.id))}
                 >
-                  <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.started_at)}</Td>
-                  <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.finished_at)}</Td>
+                  <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.started_at)}</Td>
+                  <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.finished_at)}</Td>
                   <Td className="font-mono text-xs">{r.job_name}</Td>
-                  <Td className={r.ok ? "text-emerald-300" : "text-red-300"}>{r.ok ? "OK" : "FAIL"}</Td>
+                  <Td className={r.ok ? "text-emerald-600" : "text-red-600"}>{r.ok ? "OK" : "FAIL"}</Td>
                   <Td className="text-right">{fmtInt(r.scanned)}</Td>
                   <Td className="text-right">{fmtInt(r.embedded)}</Td>
                   <Td className="text-right">{fmtInt(r.total_tokens)}</Td>
-                  <Td className="max-w-[20rem] truncate text-xs text-zinc-300">{r.error_message ?? "—"}</Td>
+                  <Td className="max-w-[20rem] truncate text-xs text-zinc-600">{r.error_message ?? "—"}</Td>
                 </tr>
               ))
             ) : (
@@ -98,7 +98,7 @@ export default function Logs() {
 
         <div className="mt-4 flex items-center justify-between">
           <button
-            className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
+            className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
             onClick={() => {
               setBefore(null);
               setHistory([]);
@@ -111,7 +111,7 @@ export default function Logs() {
 
           <div className="flex gap-2">
             <button
-              className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
               onClick={() => {
                 const prev = history[history.length - 1] ?? null;
                 setHistory((h) => h.slice(0, -1));
@@ -123,7 +123,7 @@ export default function Logs() {
               Prev
             </button>
             <button
-              className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
               onClick={() => {
                 if (!nextBefore) return;
                 setHistory((h) => [...h, before]);
@@ -170,15 +170,15 @@ function LogDetailsDrawer(props: { open: boolean; row: JobRunLog | null; onClose
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={props.onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-zinc-800 bg-zinc-950 p-5 shadow-xl">
+      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-zinc-200 bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold tracking-tight text-zinc-100">Job run details</div>
+            <div className="text-lg font-semibold tracking-tight text-zinc-900">Job run details</div>
             <div className="mt-1 text-xs text-zinc-500 font-mono">{r.id}</div>
           </div>
           <button
-            className="rounded-xl px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900/60"
+            className="rounded-xl px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100"
             onClick={props.onClose}
             aria-label="Close"
           >
@@ -189,25 +189,25 @@ function LogDetailsDrawer(props: { open: boolean; row: JobRunLog | null; onClose
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>
             <div className="text-xs font-medium text-zinc-500">Started</div>
-            <div className="text-zinc-200">{fmtDateTime(r.started_at)}</div>
+            <div className="text-zinc-700">{fmtDateTime(r.started_at)}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Finished</div>
-            <div className="text-zinc-200">{fmtDateTime(r.finished_at)}</div>
+            <div className="text-zinc-700">{fmtDateTime(r.finished_at)}</div>
           </div>
 
           <div>
             <div className="text-xs font-medium text-zinc-500">Job</div>
-            <div className="font-mono text-xs text-zinc-200">{r.job_name}</div>
+            <div className="font-mono text-xs text-zinc-700">{r.job_name}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Status</div>
-            <div className={r.ok ? "text-emerald-300" : "text-red-300"}>{r.ok ? "OK" : "FAIL"}</div>
+            <div className={r.ok ? "text-emerald-600" : "text-red-600"}>{r.ok ? "OK" : "FAIL"}</div>
           </div>
 
           <div>
             <div className="text-xs font-medium text-zinc-500">Provider / Model</div>
-            <div className="text-zinc-200">
+            <div className="text-zinc-700">
               <span className="font-mono text-xs">{r.provider ?? "—"}</span>
               <span className="text-zinc-600"> / </span>
               <span className="font-mono text-xs">{r.model ?? "—"}</span>
@@ -215,36 +215,36 @@ function LogDetailsDrawer(props: { open: boolean; row: JobRunLog | null; onClose
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Tokens</div>
-            <div className="text-zinc-200">{fmtInt(r.total_tokens)}</div>
+            <div className="text-zinc-700">{fmtInt(r.total_tokens)}</div>
           </div>
 
           <div>
             <div className="text-xs font-medium text-zinc-500">Scanned</div>
-            <div className="text-zinc-200">{fmtInt(r.scanned)}</div>
+            <div className="text-zinc-700">{fmtInt(r.scanned)}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Embedded</div>
-            <div className="text-zinc-200">{fmtInt(r.embedded)}</div>
+            <div className="text-zinc-700">{fmtInt(r.embedded)}</div>
           </div>
 
           <div>
             <div className="text-xs font-medium text-zinc-500">Skipped existing</div>
-            <div className="text-zinc-200">{fmtInt(r.skipped_existing)}</div>
+            <div className="text-zinc-700">{fmtInt(r.skipped_existing)}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Error code</div>
-            <div className="font-mono text-xs text-zinc-200">{r.error_code ?? "—"}</div>
+            <div className="font-mono text-xs text-zinc-700">{r.error_code ?? "—"}</div>
           </div>
         </div>
 
         <div className="mt-4">
           <div className="text-xs font-medium text-zinc-500">Error message</div>
-          <div className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-200">{r.error_message ?? "—"}</div>
+          <div className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-700">{r.error_message ?? "—"}</div>
         </div>
 
         <div className="mt-4">
           <div className="text-xs font-medium text-zinc-500">Meta</div>
-          <pre className="mt-2 max-h-[38vh] overflow-auto rounded-2xl border border-zinc-800 bg-zinc-900/30 p-3 text-xs text-zinc-200">
+          <pre className="mt-2 max-h-[38vh] overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
             {metaText}
           </pre>
         </div>

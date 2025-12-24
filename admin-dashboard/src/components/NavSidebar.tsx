@@ -15,9 +15,9 @@ const items = [
 
 export function NavSidebar(props: { appName?: string; onSignOut: () => void }) {
   return (
-    <div className="flex h-full w-64 flex-col border-r border-zinc-900 bg-zinc-950/80 p-4">
+    <div className="flex h-full w-64 flex-col border-r border-zinc-200 bg-white/90 p-4">
       <div className="mb-4">
-        <div className="text-lg font-semibold tracking-tight text-zinc-100">{props.appName ?? "Admin"}</div>
+        <div className="text-lg font-semibold tracking-tight text-zinc-900">{props.appName ?? "Admin"}</div>
         <div className="text-xs text-zinc-500">MoviNesta control center</div>
       </div>
 
@@ -31,8 +31,8 @@ export function NavSidebar(props: { appName?: string; onSignOut: () => void }) {
               end={it.to === "/"}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900/60",
-                  isActive && "bg-zinc-900/70 text-zinc-100",
+                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100",
+                  isActive && "bg-zinc-200 text-zinc-900",
                 )
               }
             >
@@ -45,7 +45,7 @@ export function NavSidebar(props: { appName?: string; onSignOut: () => void }) {
 
       <button
         onClick={props.onSignOut}
-        className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900/60"
+        className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100"
       >
         <LogOut size={18} />
         Sign out

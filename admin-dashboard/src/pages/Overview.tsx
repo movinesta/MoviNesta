@@ -14,8 +14,8 @@ function Title(props: { children: React.ReactNode }) {
 export default function Overview() {
   const q = useQuery({ queryKey: ["overview"], queryFn: getOverview });
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-600">{(q.error as any).message}</div>;
   const d = q.data!;
 
   const active = d.active_profile
@@ -90,7 +90,7 @@ export default function Overview() {
               {d.recent_errors.length ? (
                 d.recent_errors.map((r) => (
                   <tr key={r.id}>
-                    <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.created_at)}</Td>
+                    <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.created_at)}</Td>
                     <Td className="font-mono text-xs">{r.error_code ?? "—"}</Td>
                     <Td className="max-w-[28rem] truncate text-sm">{r.error_message ?? "—"}</Td>
                   </tr>
@@ -122,7 +122,7 @@ export default function Overview() {
                 <tr key={i}>
                   <Td className="font-mono text-xs">{r.job_name}</Td>
                   <Td className="font-mono text-xs">{r.cursor ?? "—"}</Td>
-                  <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.updated_at)}</Td>
+                  <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.updated_at)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -142,9 +142,9 @@ export default function Overview() {
               {d.last_job_runs.length ? (
                 d.last_job_runs.map((r) => (
                   <tr key={r.id}>
-                    <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.started_at)}</Td>
+                    <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.started_at)}</Td>
                     <Td className="font-mono text-xs">{r.job_name}</Td>
-                    <Td className={r.ok ? "text-emerald-300" : "text-red-300"}>{r.ok ? "OK" : "FAIL"}</Td>
+                    <Td className={r.ok ? "text-emerald-600" : "text-red-600"}>{r.ok ? "OK" : "FAIL"}</Td>
                   </tr>
                 ))
               ) : (

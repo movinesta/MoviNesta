@@ -46,8 +46,8 @@ export default function Audit() {
     setSearchApplied(searchDraft.trim());
   };
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-600">{(q.error as any).message}</div>;
 
   return (
     <div className="space-y-6">
@@ -69,7 +69,7 @@ export default function Audit() {
             />
           </div>
           <button
-            className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70"
+            className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200"
             onClick={applySearch}
           >
             Apply
@@ -105,16 +105,16 @@ export default function Audit() {
                   <tr
                     key={r.id}
                     className={
-                      "cursor-pointer hover:bg-zinc-900/40 " +
-                      (String(selectedId) === String(r.id) ? "bg-zinc-900/60" : "")
+                      "cursor-pointer hover:bg-zinc-100 " +
+                      (String(selectedId) === String(r.id) ? "bg-zinc-200" : "")
                     }
                     onClick={() => setSelectedId(String(r.id))}
                   >
-                    <Td className="whitespace-nowrap text-xs text-zinc-400">{fmtDateTime(r.created_at)}</Td>
-                    <Td className="max-w-[16rem] truncate text-xs text-zinc-300">{admin}</Td>
+                    <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.created_at)}</Td>
+                    <Td className="max-w-[16rem] truncate text-xs text-zinc-600">{admin}</Td>
                     <Td className="font-mono text-xs">{r.action}</Td>
                     <Td className="font-mono text-xs">{r.target}</Td>
-                    <Td className="max-w-[22rem] truncate text-xs text-zinc-300">{detailsPreview}</Td>
+                    <Td className="max-w-[22rem] truncate text-xs text-zinc-600">{detailsPreview}</Td>
                   </tr>
                 );
               })
@@ -129,21 +129,21 @@ export default function Audit() {
         </Table>
 
         <div className="mt-4 flex items-center justify-between">
-          <button
-            className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
-            onClick={() => {
-              setBefore(null);
-              setHistory([]);
-              setSelectedId(null);
-            }}
-            disabled={!before && history.length === 0}
-          >
-            First page
-          </button>
+            <button
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
+              onClick={() => {
+                setBefore(null);
+                setHistory([]);
+                setSelectedId(null);
+              }}
+              disabled={!before && history.length === 0}
+            >
+              First page
+            </button>
 
           <div className="flex gap-2">
             <button
-              className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
               onClick={() => {
                 const prev = history[history.length - 1] ?? null;
                 setHistory((h) => h.slice(0, -1));
@@ -155,7 +155,7 @@ export default function Audit() {
               Prev
             </button>
             <button
-              className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70 disabled:opacity-50"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
               onClick={() => {
                 const next = q.data?.next_before ?? null;
                 if (!next) return;
@@ -199,15 +199,15 @@ function AuditDetailsDrawer(props: { open: boolean; row: AuditLogRow | null; onC
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={props.onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-zinc-800 bg-zinc-950 p-5 shadow-xl">
+      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-zinc-200 bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold tracking-tight text-zinc-100">Audit details</div>
+            <div className="text-lg font-semibold tracking-tight text-zinc-900">Audit details</div>
             <div className="mt-1 text-xs text-zinc-500 font-mono">{r.id}</div>
           </div>
           <button
-            className="rounded-xl px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900/60"
+            className="rounded-xl px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100"
             onClick={props.onClose}
             aria-label="Close"
           >
@@ -218,25 +218,25 @@ function AuditDetailsDrawer(props: { open: boolean; row: AuditLogRow | null; onC
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>
             <div className="text-xs font-medium text-zinc-500">At</div>
-            <div className="text-zinc-200">{fmtDateTime(r.created_at)}</div>
+            <div className="text-zinc-700">{fmtDateTime(r.created_at)}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Admin</div>
-            <div className="text-zinc-200">{r.admin_email ?? r.admin_user_id ?? "—"}</div>
+            <div className="text-zinc-700">{r.admin_email ?? r.admin_user_id ?? "—"}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Action</div>
-            <div className="font-mono text-xs text-zinc-200">{r.action}</div>
+            <div className="font-mono text-xs text-zinc-700">{r.action}</div>
           </div>
           <div>
             <div className="text-xs font-medium text-zinc-500">Target</div>
-            <div className="font-mono text-xs text-zinc-200">{r.target}</div>
+            <div className="font-mono text-xs text-zinc-700">{r.target}</div>
           </div>
         </div>
 
         <div className="mt-4">
           <div className="text-xs font-medium text-zinc-500">Details</div>
-          <pre className="mt-2 max-h-[65vh] overflow-auto rounded-2xl border border-zinc-800 bg-zinc-900/30 p-3 text-xs text-zinc-200">
+          <pre className="mt-2 max-h-[65vh] overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
             {detailsText}
           </pre>
         </div>

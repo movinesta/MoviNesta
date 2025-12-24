@@ -80,19 +80,19 @@ function ToastViewport(props: { toasts: Toast[]; onDismiss: (id: string) => void
           key={t.id}
           className={cn(
             "pointer-events-auto rounded-2xl border p-3 shadow-lg",
-            "bg-zinc-950/90 backdrop-blur",
-            t.variant === "success" && "border-emerald-800/60",
-            t.variant === "error" && "border-red-800/60",
-            t.variant === "info" && "border-zinc-800",
+            "bg-white/95 backdrop-blur",
+            t.variant === "success" && "border-emerald-200",
+            t.variant === "error" && "border-red-200",
+            t.variant === "info" && "border-zinc-200",
           )}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              {t.title ? <div className="text-sm font-semibold text-zinc-100">{t.title}</div> : null}
-              <div className="mt-0.5 break-words text-sm text-zinc-300">{t.message}</div>
+              {t.title ? <div className="text-sm font-semibold text-zinc-900">{t.title}</div> : null}
+              <div className="mt-0.5 break-words text-sm text-zinc-600">{t.message}</div>
             </div>
             <button
-              className="rounded-lg px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              className="rounded-lg px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
               onClick={() => props.onDismiss(t.id)}
               aria-label="Dismiss"
             >

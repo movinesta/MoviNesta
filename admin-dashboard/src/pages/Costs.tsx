@@ -222,8 +222,8 @@ export default function Costs() {
     downloadText(`costs_jobs_${days}d.csv`, [header, ...lines].join("\n"), "text/csv");
   };
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-600">{(q.error as any).message}</div>;
 
   return (
     <div className="space-y-6">
@@ -255,7 +255,7 @@ export default function Costs() {
         <Card title="Alerts">
           <div className="space-y-2">
             {alerts.map((a, idx) => (
-              <div key={idx} className={cn("rounded-xl border px-3 py-2 text-sm", a.kind === "warn" ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-zinc-800 bg-zinc-950/40 text-zinc-200")}>
+              <div key={idx} className={cn("rounded-xl border px-3 py-2 text-sm", a.kind === "warn" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-zinc-200 bg-zinc-50 text-zinc-700")}>
                 {a.msg}
               </div>
             ))}
@@ -379,7 +379,7 @@ export default function Costs() {
                 setBudgetsDirty(true);
                 setByProviderJson(e.target.value);
               }}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-700"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300"
               spellCheck={false}
             />
             <div className="mt-1 text-xs text-zinc-500">Keys must match <span className="font-mono">job_run_log.provider</span>.</div>
@@ -432,7 +432,7 @@ export default function Costs() {
             {budgetsSaving ? "Saving…" : "Save budgets"}
           </Button>
           <div className="text-xs text-zinc-500">Stored in DB (<span className="font-mono">admin_costs_settings</span>). No ENV vars.</div>
-          {budgetsError ? <div className="text-xs text-red-400">{budgetsError}</div> : null}
+          {budgetsError ? <div className="text-xs text-red-600">{budgetsError}</div> : null}
         </div>
       </Card>
 
