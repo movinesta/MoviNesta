@@ -179,10 +179,10 @@ const HomeForYouTab = () => {
         return (
             <div className="flex flex-col items-center justify-center py-16 px-4">
                 <div className="text-center max-w-md">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         Couldn't Load Recommendations
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+                    <p className="text-sm text-gray-600 mb-4">{error}</p>
                     <button
                         onClick={() => window.location.reload()}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -228,19 +228,19 @@ const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ sec
         <section className="space-y-4">
             <div className="flex items-center justify-between px-4 sm:px-6">
                 <div className="flex items-center gap-3">
-                    <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" aria-hidden />
+                    <Icon className="w-5 h-5 text-blue-600" aria-hidden />
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <h2 className="text-lg font-semibold text-gray-900">
                             {section.title}
                         </h2>
                         {section.subtitle && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{section.subtitle}</p>
+                            <p className="text-sm text-gray-600">{section.subtitle}</p>
                         )}
                     </div>
                 </div>
                 <Link
                     to={`/recommendations/${section.kind}`}
-                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1"
                 >
                     See all
                     <ChevronRight className="w-4 h-4" aria-hidden />
@@ -274,7 +274,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
             to={`/title/${media_data.id}`}
             className="group flex-shrink-0 w-40 sm:w-48 space-y-2"
         >
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800">
+            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-gray-200">
                 {media_data.poster ? (
                     <img
                         src={media_data.poster}
@@ -309,14 +309,14 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ item, sectionKi
             </div>
 
             <div className="space-y-1">
-                <h3 className="font-medium text-sm text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <h3 className="font-medium text-sm text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
                     {media_data.title}
                 </h3>
                 {media_data.year && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{media_data.year}</p>
+                    <p className="text-xs text-gray-600">{media_data.year}</p>
                 )}
                 {match_reason && (
-                    <p className="text-xs text-gray-500 dark:text-gray-500 line-clamp-2">{match_reason}</p>
+                    <p className="text-xs text-gray-500 line-clamp-2">{match_reason}</p>
                 )}
             </div>
         </Link>
