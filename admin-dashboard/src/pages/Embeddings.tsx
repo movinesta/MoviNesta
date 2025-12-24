@@ -69,11 +69,11 @@ export default function Embeddings() {
     },
   });
 
-  if (q.isLoading) return <div className="text-sm text-zinc-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-400">{(q.error as any).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-zinc-500">Loading…</div>;
+  if (q.error) return <div className="text-sm text-red-600">{(q.error as any).message}</div>;
 
   // Avoid a controlled-input flash while we sync state from the loaded settings.
-  if (settings && !isInitialized) return <div className="text-sm text-zinc-400">Loading…</div>;
+  if (settings && !isInitialized) return <div className="text-sm text-zinc-500">Loading…</div>;
 
   return (
     <div className="space-y-6">
@@ -83,15 +83,15 @@ export default function Embeddings() {
         <Card title="Active embedding profile">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <div className="mb-1 text-xs font-medium text-zinc-400">Provider</div>
+              <div className="mb-1 text-xs font-medium text-zinc-600">Provider</div>
               <Input value={provider} disabled />
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-zinc-400">Model</div>
+              <div className="mb-1 text-xs font-medium text-zinc-600">Model</div>
               <Input value={model} disabled />
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-zinc-400">Dimensions</div>
+              <div className="mb-1 text-xs font-medium text-zinc-600">Dimensions</div>
               <Input
                 value={String(dimensions)}
                 disabled
@@ -99,7 +99,7 @@ export default function Embeddings() {
               />
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-zinc-400">Task</div>
+              <div className="mb-1 text-xs font-medium text-zinc-600">Task</div>
               <Input value={task} onChange={(e) => setTask(e.target.value)} placeholder="swipe" />
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function Embeddings() {
             {providerPresets.map((p) => (
               <button
                 key={`${p.provider}-${p.model}`}
-                className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/70"
+                className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200"
                 onClick={() => {
                   setProvider(p.provider);
                   setModel(p.model);
@@ -126,7 +126,7 @@ export default function Embeddings() {
               {mutProfile.isPending ? "Saving…" : "Set active profile"}
             </Button>
             {mutProfile.isError ? (
-              <div className="mt-2 text-sm text-red-400">{(mutProfile.error as any).message}</div>
+              <div className="mt-2 text-sm text-red-600">{(mutProfile.error as any).message}</div>
             ) : null}
           </div>
 
@@ -137,16 +137,16 @@ export default function Embeddings() {
 
         <Card title="Rerank settings (Voyage rerank-2.5)">
           <div className="space-y-3">
-            <label className="flex items-center gap-3 text-sm text-zinc-200">
+            <label className="flex items-center gap-3 text-sm text-zinc-700">
               <input type="checkbox" checked={rerankSwipe} onChange={(e) => setRerankSwipe(e.target.checked)} />
               Enable rerank for swipe deck
             </label>
-            <label className="flex items-center gap-3 text-sm text-zinc-200">
+            <label className="flex items-center gap-3 text-sm text-zinc-700">
               <input type="checkbox" checked={rerankSearch} onChange={(e) => setRerankSearch(e.target.checked)} />
               Enable rerank for search results
             </label>
             <div>
-              <div className="mb-1 text-xs font-medium text-zinc-400">Top K candidates to rerank</div>
+              <div className="mb-1 text-xs font-medium text-zinc-600">Top K candidates to rerank</div>
               <Input value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))} type="number" min={5} max={200} />
             </div>
 
@@ -154,7 +154,7 @@ export default function Embeddings() {
               {mutRerank.isPending ? "Saving…" : "Save rerank settings"}
             </Button>
             {mutRerank.isError ? (
-              <div className="text-sm text-red-400">{(mutRerank.error as any).message}</div>
+              <div className="text-sm text-red-600">{(mutRerank.error as any).message}</div>
             ) : null}
           </div>
         </Card>

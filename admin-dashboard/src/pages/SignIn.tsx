@@ -36,22 +36,22 @@ export default function SignIn() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <div className="mx-auto flex min-h-screen max-w-md items-center px-4">
-        <div className="w-full rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-sm">
+        <div className="w-full rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <div className="text-xl font-semibold tracking-tight">{appName}</div>
-          <div className="mt-1 text-sm text-zinc-500">Sign in to manage MoviNesta</div>
+          <div className="mt-1 text-sm text-zinc-600">Sign in to manage MoviNesta</div>
 
           <div className="mt-5 flex gap-2">
             <button
-              className={"rounded-xl px-3 py-2 text-sm " + (mode === "password" ? "bg-zinc-100 text-zinc-950" : "bg-zinc-900/60 text-zinc-200")}
+              className={"rounded-xl px-3 py-2 text-sm " + (mode === "password" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700")}
               onClick={() => setMode("password")}
               type="button"
             >
               Password
             </button>
             <button
-              className={"rounded-xl px-3 py-2 text-sm " + (mode === "magic" ? "bg-zinc-100 text-zinc-950" : "bg-zinc-900/60 text-zinc-200")}
+              className={"rounded-xl px-3 py-2 text-sm " + (mode === "magic" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700")}
               onClick={() => setMode("magic")}
               type="button"
             >
@@ -61,25 +61,25 @@ export default function SignIn() {
 
           <form className="mt-5 space-y-3" onSubmit={mode === "password" ? signInPassword : sendMagic}>
             <div>
-              <div className="mb-1 text-xs font-medium text-zinc-400">Email</div>
+              <div className="mb-1 text-xs font-medium text-zinc-600">Email</div>
               <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" type="email" required />
             </div>
 
             {mode === "password" ? (
               <div>
-                <div className="mb-1 text-xs font-medium text-zinc-400">Password</div>
+                <div className="mb-1 text-xs font-medium text-zinc-600">Password</div>
                 <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" type="password" required />
               </div>
             ) : null}
 
-            {msg ? <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-sm text-zinc-200">{msg}</div> : null}
+            {msg ? <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">{msg}</div> : null}
 
             <Button type="submit" disabled={busy}>
               {busy ? "Please wait…" : mode === "password" ? "Sign in" : "Send magic link"}
             </Button>
           </form>
 
-          <div className="mt-5 text-xs text-zinc-600">
+          <div className="mt-5 text-xs text-zinc-500">
             Tip: add your user id to <span className="font-mono">public.app_admins</span> to grant access.
           </div>
         </div>

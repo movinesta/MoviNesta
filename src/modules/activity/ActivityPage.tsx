@@ -55,7 +55,7 @@ const ActorAvatar: React.FC<{ actor: ActivityActor }> = ({ actor }) => {
   return actor.avatarUrl ? (
     <img src={actor.avatarUrl} alt="" className="h-11 w-11 rounded-full object-cover" />
   ) : (
-    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white/70">
+    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
       {initials || "?"}
     </div>
   );
@@ -76,7 +76,7 @@ const NotificationRow: React.FC<{
       <button
         type="button"
         onClick={onOpen}
-        className="flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+        className="flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
         <ActorAvatar actor={item.actor} />
       </button>
@@ -84,12 +84,12 @@ const NotificationRow: React.FC<{
       <button
         type="button"
         onClick={onOpen}
-        className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+        className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
-        <p className="text-sm text-white">
+        <p className="text-sm text-foreground">
           <span className="font-semibold">{name}</span>{" "}
-          <span className="text-white/80">{item.text.replace(name, "").trim()}</span>{" "}
-          <span className="text-xs text-white/50">{time}</span>
+          <span className="text-muted-foreground">{item.text.replace(name, "").trim()}</span>{" "}
+          <span className="text-xs text-muted-foreground">{time}</span>
         </p>
       </button>
 
@@ -98,7 +98,7 @@ const NotificationRow: React.FC<{
           <button
             type="button"
             onClick={onOpen}
-            className="h-12 w-12 overflow-hidden rounded-lg bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+            className="h-12 w-12 overflow-hidden rounded-lg bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             aria-label="Open"
           >
             <img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -119,7 +119,7 @@ const NotificationRow: React.FC<{
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
           aria-label="Dismiss"
         >
           <X className="h-4 w-4" aria-hidden />
@@ -130,8 +130,8 @@ const NotificationRow: React.FC<{
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="border-b border-white/10">
-    <h2 className="px-3 pb-1 pt-4 text-sm font-semibold text-white">{title}</h2>
+  <section className="border-b border-border">
+    <h2 className="px-3 pb-1 pt-4 text-sm font-semibold text-foreground">{title}</h2>
     {children}
   </section>
 );
@@ -169,21 +169,21 @@ const ActivityPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-1 flex-col bg-black pb-4 text-white">
+    <div className="flex flex-1 flex-col bg-background pb-4 text-foreground">
       <TopBar title="Activity" />
 
       <div className="flex flex-1 flex-col">
         {/* Follow requests (placeholder) */}
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-3 border-b border-white/10 px-3 py-4 text-left"
+          className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-4 text-left"
           onClick={() => navigate("/activity/requests")}
         >
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-white/10" />
+            <div className="h-11 w-11 rounded-full bg-muted" />
             <div>
               <div className="text-sm font-semibold">Follow requests</div>
-              <div className="text-xs text-white/60">
+              <div className="text-xs text-muted-foreground">
                 {peopleYouDontFollowBack.length
                   ? `${peopleYouDontFollowBack[0]?.displayName || peopleYouDontFollowBack[0]?.username || "Someone"}${
                       peopleYouDontFollowBack.length > 1
@@ -194,17 +194,17 @@ const ActivityPage: React.FC = () => {
               </div>
             </div>
           </div>
-          <ChevronRight className="h-5 w-5 text-white/60" aria-hidden />
+          <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden />
         </button>
 
         {isLoading ? (
-          <div className="px-3 py-6 text-sm text-white/70">Loading…</div>
+          <div className="px-3 py-6 text-sm text-muted-foreground">Loading…</div>
         ) : isError ? (
-          <div className="px-3 py-6 text-sm text-red-400">
+          <div className="px-3 py-6 text-sm text-red-600">
             {(error as Error)?.message || "Failed to load notifications."}
           </div>
         ) : notifications.length === 0 && peopleYouDontFollowBack.length === 0 ? (
-          <div className="px-3 py-10 text-center text-sm text-white/70">
+          <div className="px-3 py-10 text-center text-sm text-muted-foreground">
             No notifications yet.
           </div>
         ) : (
@@ -278,7 +278,7 @@ const ActivityPage: React.FC = () => {
                           <div className="truncate text-sm font-semibold">
                             {actor.displayName || actor.username || "User"}
                           </div>
-                          <div className="truncate text-xs text-white/60">Followed by {actor.username ? `@${actor.username.replace(/^@/, "")}` : "someone"}</div>
+                          <div className="truncate text-xs text-muted-foreground">Followed by {actor.username ? `@${actor.username.replace(/^@/, "")}` : "someone"}</div>
                         </div>
                       </button>
 
@@ -294,7 +294,7 @@ const ActivityPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => dismiss(id)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="Dismiss"
                       >
                         <X className="h-4 w-4" aria-hidden />

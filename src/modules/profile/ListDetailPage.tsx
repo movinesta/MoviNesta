@@ -78,8 +78,8 @@ const ListDetailPage: React.FC = () => {
                 ) : (
                   <div className="aspect-[2/3] w-full bg-muted" />
                 )}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1 pt-6 opacity-0 transition group-hover:opacity-100">
-                  <p className="line-clamp-1 text-left text-[10px] font-semibold text-white">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent px-2 pb-1 pt-6 opacity-0 transition group-hover:opacity-100">
+                  <p className="line-clamp-1 text-left text-[10px] font-semibold text-foreground">
                     {item.title ?? "Untitled"}
                   </p>
                 </div>

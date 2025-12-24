@@ -15,11 +15,11 @@ import { useToast } from "./components/ToastProvider";
 
 function FullscreenMsg(props: { title: string; body?: string; action?: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <div className="mx-auto flex min-h-screen max-w-xl items-center px-4">
-        <div className="w-full rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6">
+        <div className="w-full rounded-2xl border border-zinc-200 bg-white p-6">
           <div className="text-xl font-semibold tracking-tight">{props.title}</div>
-          {props.body ? <div className="mt-2 text-sm text-zinc-400">{props.body}</div> : null}
+          {props.body ? <div className="mt-2 text-sm text-zinc-600">{props.body}</div> : null}
           {props.action ? <div className="mt-5">{props.action}</div> : null}
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function App() {
         title="Something went wrong"
         body={err}
         action={
-          <button className="rounded-xl bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950" onClick={signOut}>
+          <button className="rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white" onClick={signOut}>
             Sign out
           </button>
         }
@@ -123,7 +123,7 @@ export default function App() {
         title="Not authorized"
         body="Your account is not in app_admins. Ask an existing admin to add your user id."
         action={
-          <button className="rounded-xl bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950" onClick={signOut}>
+          <button className="rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white" onClick={signOut}>
             Sign out
           </button>
         }
@@ -132,13 +132,13 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex h-screen bg-zinc-50 text-zinc-900">
       <NavSidebar appName={appName} onSignOut={signOut} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6">
           {revalidating ? (
-            <div className="mb-3 flex items-center gap-2 text-xs text-zinc-400">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-500" />
+            <div className="mb-3 flex items-center gap-2 text-xs text-zinc-500">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-400" />
               <span>Revalidating admin access…</span>
             </div>
           ) : null}

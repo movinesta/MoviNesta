@@ -5,29 +5,6 @@
     <title>MoviNesta</title>
     <link rel="icon" type="image/png" href="/dist/assets/movinesta-logo-neon-DA-ewCry.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      (() => {
-        const STORAGE_KEY = "moviNesta.ui";
-        const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
-        const applyTheme = (theme) => {
-          const resolved = theme === "system" ? (prefersDark() ? "dark" : "light") : theme;
-          if (resolved === "dark") {
-            document.documentElement.classList.add("dark");
-          } else {
-            document.documentElement.classList.remove("dark");
-          }
-        };
-
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          const parsed = raw ? JSON.parse(raw) : null;
-          const theme = parsed?.state?.theme ?? "dark";
-          applyTheme(theme);
-        } catch (error) {
-          applyTheme("dark");
-        }
-      })();
-    </script>
     <script type="module" crossorigin src="/MoviNesta/assets/index-DyWq_Gt8.js"></script>
     <link rel="stylesheet" crossorigin href="/MoviNesta/assets/index-4XrmDv29.css">
   </head>

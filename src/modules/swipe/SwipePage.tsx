@@ -1420,7 +1420,7 @@ const SwipePage: React.FC = () => {
                 role="group"
                 aria-roledescription="Movie card"
                 aria-label={buildSwipeCardLabel(activeCard)}
-                className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-card/95 via-background/95 to-card/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${isDetailMode ? "ring-1 ring-primary/40" : "border border-white/5"
+                className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-card/95 via-background/95 to-card/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${isDetailMode ? "ring-1 ring-primary/40" : "border border-border/60"
                   }`}
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
