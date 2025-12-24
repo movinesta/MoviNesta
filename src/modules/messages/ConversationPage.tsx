@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldX } from "lucide-react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { useAuth } from "../auth/AuthProvider";
 import type { ConversationListItem, ConversationParticipant } from "./useConversations";
@@ -31,7 +31,6 @@ import { useDeleteMessage } from "./useDeleteMessage";
 import { useFailedOutgoingMessages } from "./useFailedOutgoingMessages";
 import { useConversationInsertedMessageEffects } from "./useConversationInsertedMessageEffects";
 import { useConversationUnreadDivider } from "./useConversationUnreadDivider";
-import { ConversationHeader } from "./components/ConversationHeader";
 import { MessageList } from "./components/MessageList";
 import { MessageRow } from "./components/MessageRow";
 import { MessageScrollToLatest } from "./components/MessageScrollToLatest";
@@ -40,6 +39,7 @@ import { ConversationComposerBar } from "./components/ConversationComposerBar";
 import { EditMessageDialog } from "./components/EditMessageDialog";
 import { DeleteMessageDialog } from "./components/DeleteMessageDialog";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
+import TopBar from "@/components/shared/TopBar";
 
 // Re-export for modules that import message hooks from this file (e.g. SwipePage.tsx).
 // Note: This is intentionally a named export alongside the default export.
@@ -142,6 +142,12 @@ const ConversationPage: React.FC = () => {
     return null;
   }, [conversation]);
 
+  const conversationTitle =
+    conversation?.title ??
+    otherParticipant?.displayName ??
+    otherParticipant?.username ??
+    "Conversation";
+
   const sendMessage = useSendMessage(conversationId, {
     onFailed: onSendFailed,
     onRecovered: onSendRecovered,
@@ -210,6 +216,23 @@ const ConversationPage: React.FC = () => {
   });
 
   const showComposer = !isBlocked && !blockedYou;
+
+  const canToggleBlock = Boolean(otherParticipant) && !isGroupConversation;
+  const blockPending = block.isPending || unblock.isPending;
+  const blockAction = canToggleBlock
+    ? {
+        icon: ShieldX,
+        label: youBlocked ? "Unblock" : blockedYou ? "Blocked" : "Block",
+        onClick: () => {
+          if (youBlocked) {
+            unblock.mutate();
+          } else if (!blockedYou) {
+            block.mutate();
+          }
+        },
+        disabled: blockPending || isConversationsLoading || (blockedYou && !youBlocked),
+      }
+    : null;
 
   const {
     headerRef,
@@ -529,32 +552,14 @@ const ConversationPage: React.FC = () => {
   }, [handleJumpToLatest, handleJumpToUnread]);
 
   return (
-    <div
-      className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background"
-      style={{ paddingTop: headerHeight }}
-    >
+    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background">
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
-        <ConversationHeader
+        <TopBar
           ref={headerRef}
-          conversation={conversation}
-          isLoading={isConversationsLoading}
-          isGroupConversation={isGroupConversation}
-          otherParticipant={otherParticipant ?? undefined}
-          onBack={() => navigate("/messages")}
-          onToggleBlock={
-            !isGroupConversation && otherParticipant
-              ? () => {
-                if (youBlocked) {
-                  unblock.mutate();
-                } else if (!blockedYou) {
-                  block.mutate();
-                }
-              }
-              : undefined
-          }
-          blockPending={block.isPending || unblock.isPending}
-          youBlocked={youBlocked}
-          blockedYou={blockedYou}
+          title={conversationTitle}
+          actions={blockAction ? [blockAction] : undefined}
+          onBack={() => navigate(-1)}
+          canGoBack
         />
 
         {/* Body + input */}

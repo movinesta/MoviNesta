@@ -261,10 +261,7 @@ const SettingsProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <TopBar
-        title="Profile"
-        subtitle="Tune the essentials that shape how you appear across MoviNesta."
-      />
+      <TopBar title="Profile" />
 
       {/* Content */}
       <section className="px-1 pb-24">

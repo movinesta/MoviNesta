@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MessageCircle, Plus, Users } from "lucide-react";
+import { Menu, MessageCircle, SquarePen, Users } from "lucide-react";
 // React Query is used via hooks inside useConversations.
 
 import { useConversations, type ConversationListItem } from "./useConversations";
@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type ConversationFilter = "all" | "unread" | "groups";
 
@@ -165,17 +171,43 @@ const MessagesPage: React.FC = () => {
     <div className="flex flex-1 flex-col gap-4 pb-4">
       <TopBar
         title="Messages"
-        subtitle="Chat with friends, plan movie nights"
         actions={
-          <Button
-            type="button"
-            onClick={handleNewConversation}
-            className="h-11 w-11 p-0"
-            aria-label="New conversation"
-          >
-            <Plus className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleNewConversation}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
+              aria-label="Compose message"
+            >
+              <SquarePen className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
+                  aria-label="More options"
+                >
+                  <Menu className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleNewConversation}>
+                  New conversation
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         }
+      />
+
+      <SearchField
+        placeholder="Search chats or people…"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
       />
 
       {/* Status + filters row */}
@@ -200,11 +232,6 @@ const MessagesPage: React.FC = () => {
           </Tabs>
         </div>
       </div>
-      <SearchField
-        placeholder="Search chats or people…"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
 
       {/* Loading state – use global loading screen */}
       {isLoading && <LoadingScreen />}

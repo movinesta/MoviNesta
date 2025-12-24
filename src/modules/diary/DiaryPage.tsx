@@ -45,10 +45,7 @@ const DiaryPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-4">
-      <TopBar
-        title="Your clean movie diary"
-        subtitle="Log what you watch, manage your library, and keep tabs on your habits without the noise."
-      />
+      <TopBar title="Diary" />
 
       {/* Tabs */}
       <section className="px-2">

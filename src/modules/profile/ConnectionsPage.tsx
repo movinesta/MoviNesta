@@ -123,7 +123,6 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
   }, [flat, query]);
 
   const title = mode === "followers" ? "Followers" : "Following";
-  const subtitle = profile?.username ? `@${profile.username}` : undefined;
 
   const handleToggleFollow = (id: string, currentlyFollowing: boolean) => {
     toggleFollow.mutate({ targetUserId: id, currentlyFollowing });
@@ -143,7 +142,7 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
   if (isProfileLoading) {
     return (
       <div className="flex flex-1 flex-col gap-4 pb-4">
-        <TopBar title={title} subtitle="Loading…" onBack={() => navigate(-1)} />
+        <TopBar title={title} onBack={() => navigate(-1)} />
         <div className="px-3 text-xs text-muted-foreground">Loading connections…</div>
       </div>
     );
@@ -152,7 +151,7 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
   if (isProfileError || !profile) {
     return (
       <div className="flex flex-1 flex-col gap-4 pb-4">
-        <TopBar title={title} subtitle="Profile not found" onBack={() => navigate(-1)} />
+        <TopBar title={title} onBack={() => navigate(-1)} />
         <div className="px-3 text-xs text-muted-foreground">We couldn&apos;t load this profile.</div>
       </div>
     );
@@ -160,7 +159,7 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-4">
-      <TopBar title={title} subtitle={subtitle} onBack={() => navigate(-1)} />
+      <TopBar title={title} onBack={() => navigate(-1)} />
 
       <div className="px-3">
         <SearchField placeholder={`Search ${title.toLowerCase()}…`} value={query} onChange={(e) => setQuery(e.target.value)} />

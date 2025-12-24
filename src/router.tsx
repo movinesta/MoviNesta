@@ -36,6 +36,8 @@ const TasteOnboardingPage = lazyWithRetry(() => import("./modules/misc/TasteOnbo
 const MessagesPage = lazyWithRetry(() => import("./modules/messages/MessagesPage"));
 const ConversationPage = lazyWithRetry(() => import("./modules/messages/ConversationPage"));
 const TitleDetailPage = lazyWithRetry(() => import("./modules/title/TitleDetailPage"));
+const ActivityPage = lazyWithRetry(() => import("./modules/activity/ActivityPage"));
+const FollowRequestsPage = lazyWithRetry(() => import("./modules/activity/FollowRequestsPage"));
 
 const AppRoutes: React.FC = () => {
   return (
@@ -59,6 +61,8 @@ const AppRoutes: React.FC = () => {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/diary" element={<DiaryPage />} />
             <Route path="/title/:titleId" element={<TitleDetailPage />} />
+            <Route path="/activity" element={<ActivityPage />} />
+            <Route path="/activity/requests" element={<FollowRequestsPage />} />
             <Route path="/me" element={<MePage />} />
             <Route path="/u/:username" element={<ProfilePage />} />
             <Route path="/u/:username/followers" element={<FollowersPage />} />
