@@ -426,10 +426,7 @@ const TitleDetailPage: React.FC = () => {
   if (!titleId) {
     return (
       <div className="flex flex-1 flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
-        <TopBar
-          title="Title details"
-          subtitle="Pick something from search, your diary, or the feed to see its details."
-        />
+        <TopBar title="Title details" />
 
         <PageSection>
           <p className="text-sm text-muted-foreground">
@@ -543,6 +540,8 @@ const TitleDetailPage: React.FC = () => {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-5xl flex-col gap-4 px-3 pb-6 pt-2 sm:px-4 lg:px-6">
+      <TopBar title={displayTitle} />
+
       <div className="relative overflow-hidden rounded-3xl border border-border bg-card/80 shadow-md">
         <div className="absolute inset-0">
           {backdropImage ? (

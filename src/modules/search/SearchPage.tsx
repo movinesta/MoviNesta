@@ -209,8 +209,15 @@ const SearchPage: React.FC = () => {
   return (
     <div className="flex flex-1 flex-col gap-4 pb-4">
       <TopBar
-        title="Search without the clutter"
-        subtitle="Find titles, filmmakers, or friends instantly. Switch tabs to move between movies and people."
+        title="Search"
+        below={
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
+            <TabsList className="w-full">
+              <TabsTrigger value="titles">Titles</TabsTrigger>
+              <TabsTrigger value="people">People</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
       />
 
       {/* Search bar + filters */}
@@ -436,17 +443,6 @@ const SearchPage: React.FC = () => {
 
       {/* Tabs + results */}
       <section className="flex flex-1 flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:max-w-lg">
-            <Tabs value={activeTab} onValueChange={handleTabChange}>
-              <TabsList className="w-full">
-                <TabsTrigger value="titles">Titles</TabsTrigger>
-                <TabsTrigger value="people">People</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-
         <div
           aria-live="polite"
           className="flex-1 rounded-2xl border border-dashed border-border bg-card/60 px-3 py-3 text-[12px] text-muted-foreground"

@@ -303,7 +303,7 @@ const SettingsNotificationsPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <TopBar title="Notifications" subtitle="Control how MoviNesta keeps in touch with you." />
+      <TopBar title="Notifications" />
 
       <div className="mx-4 flex items-start gap-2 rounded-md border border-border bg-card/70 p-3 text-[12px] text-muted-foreground shadow-lg">
         <Info className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />

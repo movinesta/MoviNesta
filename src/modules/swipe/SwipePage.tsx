@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Flame,
   Info,
+  Menu,
   SkipForward,
   Sparkles,
   ThumbsDown,
@@ -37,6 +38,13 @@ import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { TitleType } from "@/types/supabase-helpers";
 import { CardMetadata, PosterFallback } from "./SwipeCardComponents";
 import FriendAvatarStack from "./FriendAvatarStack";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ONBOARDING_STORAGE_KEY = "mn_swipe_onboarding_seen";
 const SWIPE_DISTANCE_THRESHOLD = 88;
@@ -183,6 +191,7 @@ const WATCHLIST_STATUS = "want_to_watch" as DiaryStatus;
 const WATCHED_STATUS = "watched" as DiaryStatus;
 
 const SwipePage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     cards: rawCards,
     sessionId,
@@ -1304,7 +1313,26 @@ const SwipePage: React.FC = () => {
 
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-1 flex-col gap-4 pb-4">
-      <TopBar title="Swipe" subtitle="Combined For You, friends, and trending picks" />
+      <TopBar
+        title="Swipe"
+        actions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
+                aria-label="Swipe options"
+              >
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/search")}>Find titles</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
 
       <SwipeSyncBanner
         message={swipeSyncError}

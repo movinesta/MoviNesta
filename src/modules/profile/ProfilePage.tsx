@@ -6,6 +6,7 @@ import {
   Tag,
   Menu,
   Plus,
+  ChevronDown,
   ChevronRight,
   UserPlus2,
   MessageCircle,
@@ -33,6 +34,7 @@ import DiaryStatsTab from "@/modules/diary/DiaryStatsTab";
 import { useSuggestedPeople } from "./useSuggestedPeople";
 import { useProfileHighlights } from "./useProfileHighlights";
 import { useCreateHighlight } from "./useCreateHighlight";
+import TopBar from "@/components/shared/TopBar";
 
 type ProfileTab = "grid" | "timeline" | "stats";
 
@@ -181,30 +183,25 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col pb-24">
-      {/* Top header */}
-      <header className="sticky top-0 z-10 border-b border-border bg-background">
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="w-9" aria-hidden="true" />
-          <h1 className="max-w-[70%] truncate text-sm font-semibold text-foreground">
-            {displayName}
-          </h1>
-          <button
-            type="button"
-            onClick={() => {
-              if (isOwner) navigate("/settings");
-            }}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
-            aria-label={isOwner ? "Menu" : ""}
-            disabled={!isOwner}
-          >
-            {isOwner ? (
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            ) : (
-              <span className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-      </header>
+      <TopBar
+        title={
+          <span className="inline-flex items-center gap-1">
+            {profile?.username ?? displayName}
+            {isOwner ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : null}
+          </span>
+        }
+        actions={
+          isOwner
+            ? [
+                {
+                  icon: Menu,
+                  label: "Profile menu",
+                  onClick: () => navigate("/settings"),
+                },
+              ]
+            : undefined
+        }
+      />
 
       {/* Profile header */}
       <section className="px-3 pt-4">

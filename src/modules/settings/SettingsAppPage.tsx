@@ -24,7 +24,7 @@ const SettingsAppPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <TopBar title={t("settings.app.title")} subtitle={t("settings.app.subtitle") ?? undefined} />
+      <TopBar title={t("settings.app.title")} />
 
       <section className="space-y-4 px-4 pb-24">
         {/* Start tab */}

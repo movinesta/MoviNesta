@@ -46,10 +46,7 @@ const items: SettingsItem[] = [
 const SettingsOverviewPage: React.FC = () => {
   return (
     <div className="flex flex-1 flex-col gap-4 pb-2 pt-1">
-      <TopBar
-        title="All settings"
-        subtitle="Tune MoviNesta to match how you like to watch and track movies."
-      />
+      <TopBar title="Settings" />
 
       {/* List of sections */}
       <section className="space-y-3 px-1 pb-24">

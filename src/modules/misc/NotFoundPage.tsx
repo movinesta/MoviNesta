@@ -8,7 +8,7 @@ const NotFoundPage: React.FC = () => {
 
   return (
     <>
-      <TopBar title="Not found" subtitle="This scene is missing or no longer available." />
+      <TopBar title="Not found" />
       <div className="relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4 text-foreground">
         <div className="relative max-w-lg rounded-3xl border border-border bg-card/90 p-8 text-center shadow-md backdrop-blur">
           <div className="space-y-2">

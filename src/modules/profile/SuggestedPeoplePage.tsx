@@ -102,7 +102,7 @@ const SuggestedPeoplePage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col pb-24">
-      <TopBar title="Suggested people" subtitle="People with similar taste" onBack={() => navigate(-1)} />
+      <TopBar title="Suggested people" onBack={() => navigate(-1)} />
 
       {isLoading && (
         <div className="px-4 py-6 text-xs text-muted-foreground">Loading suggestions…</div>

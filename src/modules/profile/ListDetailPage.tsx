@@ -1,8 +1,8 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Share2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Share2 } from "lucide-react";
 import { useListDetail } from "./useListDetail";
+import TopBar from "@/components/shared/TopBar";
 
 const safeShare = async (title: string) => {
   try {
@@ -28,32 +28,16 @@ const ListDetailPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col pb-24">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-background px-3 py-2">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
-            aria-label="Back"
-          >
-            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-          </button>
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold text-foreground">{list?.name ?? "List"}</h1>
-            <p className="truncate text-xs text-muted-foreground">{list?.items.length ?? 0} titles</p>
-          </div>
-        </div>
-
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={() => safeShare(list?.name ?? "List")}
-          aria-label="Share"
-        >
-          <Share2 className="h-4 w-4" aria-hidden="true" />
-        </Button>
-      </header>
+      <TopBar
+        title={list?.name ?? "List"}
+        actions={[
+          {
+            icon: Share2,
+            label: "Share",
+            onClick: () => safeShare(list?.name ?? "List"),
+          },
+        ]}
+      />
 
       {isLoading && (
         <div className="px-4 py-6 text-xs text-muted-foreground">Loading list…</div>

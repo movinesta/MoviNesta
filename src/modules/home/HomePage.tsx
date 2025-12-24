@@ -1,11 +1,13 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import type { LucideIcon } from "lucide-react";
-import { Sparkles, Users } from "lucide-react";
+import { Heart, MessageCircle, Plus, Sparkles, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import TopBar from "../../components/shared/TopBar";
 import ChipRow from "../../components/shared/ChipRow";
 import { Chip } from "@/components/ui/Chip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import CreateActionSheet from "@/components/shared/CreateActionSheet";
 
 // Lazy-loaded tabs for perf
 const HomeFeedTab = lazy(() => import("./HomeFeedTab"));
@@ -79,10 +81,12 @@ const getFeedDescription = (quickFilter: QuickFilterKey): string => {
 
 const HomePage = () => {
   useDocumentTitle("Home");
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<HomeTabKey>("feed");
   const [isFeedFiltersOpen, setIsFeedFiltersOpen] = useState(false);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const activeTabConfig = HOME_TABS[activeTab];
 
@@ -102,23 +106,39 @@ const HomePage = () => {
 
   return (
     <main className="flex flex-1 flex-col gap-5 pb-4" role="main">
-      <TopBar title="Home" subtitle={activeTabConfig.subtitle} />
+      <TopBar
+        title="MoviNesta"
+        actions={[
+          {
+            icon: Plus,
+            label: "Create",
+            onClick: () => setIsCreateOpen(true),
+          },
+          {
+            icon: Heart,
+            label: "Activity",
+            onClick: () => navigate("/activity"),
+          },
+          {
+            icon: MessageCircle,
+            label: "Messages",
+            onClick: () => navigate("/messages"),
+          },
+        ]}
+        below={
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as HomeTabKey)}>
+            <TabsList className="w-full">
+              {HOME_TABS_LIST.map((tab) => (
+                <TabsTrigger key={tab.key} value={tab.key}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        }
+      />
 
       <section className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:max-w-lg">
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as HomeTabKey)}>
-              <TabsList className="w-full">
-                {HOME_TABS_LIST.map((tab) => (
-                  <TabsTrigger key={tab.key} value={tab.key}>
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-
         {activeTab === "feed" && (
           <div className="flex justify-center">
             <ChipRow
@@ -166,6 +186,8 @@ const HomePage = () => {
           )}
         </Suspense>
       </section>
+
+      <CreateActionSheet open={isCreateOpen} onOpenChange={setIsCreateOpen} />
     </main>
   );
 };

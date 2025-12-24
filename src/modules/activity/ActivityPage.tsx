@@ -170,7 +170,7 @@ const ActivityPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col bg-black pb-4 text-white">
-      <TopBar title="Notifications" />
+      <TopBar title="Activity" />
 
       <div className="flex flex-1 flex-col">
         {/* Follow requests (placeholder) */}
