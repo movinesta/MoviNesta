@@ -169,6 +169,7 @@ interface SwipeEventPayload {
 
 function mapKindToMode(kind: SwipeDeckKindOrCombined): MediaSwipeDeckMode {
   if (kind === "trending") return "trending";
+  if (kind === "popular") return "trending";
   if (kind === "from-friends") return "friends";
   if (kind === "combined") return "combined";
   return "for_you";
@@ -234,7 +235,7 @@ export async function fetchSwipeCardsFromSource(
         tmdbBackdropPath: card.tmdbBackdropPath ?? null,
         imdbRating: card.tmdbVoteAverage ?? null,
         rtTomatoMeter: null,
-        source: mapBackendSource((card as any).source ?? mode),
+        source: mapBackendSource((card as any).source ?? kind),
         why: card.why ?? null,
         overview: card.overview ?? null,
         genres: null,
@@ -295,7 +296,7 @@ export async function prefillSwipeDeckCache(
 }
 
 export function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): SwipeCardData[] {
-  const maxLength = Math.max(...lists.map((list) => list.length));
+  const maxLength = lists.length ? Math.max(...lists.map((list) => list.length)) : 0;
   const interleaved: SwipeCardData[] = [];
 
   for (let i = 0; i < maxLength; i += 1) {

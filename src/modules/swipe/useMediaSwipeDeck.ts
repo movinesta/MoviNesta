@@ -90,12 +90,13 @@ function mapKindToMode(kind: MediaSwipeDeckKindOrCombined): MediaSwipeDeckMode {
 
 function mapBackendSource(src: string | null | undefined): MediaSwipeCardUI["source"] {
   if (!src) return null;
-  if (src === "for_you") return "for-you";
-  if (src === "friends") return "from-friends";
-  if (src === "trending") return "trending";
-  if (src === "popular") return "popular";
-  if (src === "explore") return "explore";
-  if (src === "combined") return "combined";
+  const normalized = src.replace("-", "_");
+  if (normalized === "for_you") return "for-you";
+  if (normalized === "friends") return "from-friends";
+  if (normalized === "trending") return "trending";
+  if (normalized === "popular") return "popular";
+  if (normalized === "explore") return "explore";
+  if (normalized === "combined") return "combined";
   return null;
 }
 
@@ -287,7 +288,7 @@ export function useMediaSwipeDeck(
           id: c.mediaItemId,
           deckId,
           position: idx,
-          source: mapBackendSource((c as any).source ?? null),
+          source: mapBackendSource((c as any).source ?? kind),
         })) as MediaSwipeCardUI[];
 
         if (!incoming.length) {

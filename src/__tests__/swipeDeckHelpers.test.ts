@@ -55,6 +55,7 @@ describe("loadInitialSourceWeights", () => {
       "for-you": 1,
       "from-friends": 1,
       trending: 1,
+      popular: 1,
     });
   });
 
@@ -68,6 +69,7 @@ describe("loadInitialSourceWeights", () => {
       "for-you": 2.5,
       "from-friends": 1,
       trending: 0.5,
+      popular: 1,
     });
   });
 });
