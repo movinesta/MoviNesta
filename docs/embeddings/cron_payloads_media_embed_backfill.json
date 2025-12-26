@@ -1,0 +1,13 @@
+{
+  "notes": [
+    "Use this as the request body in Supabase Dashboard Cron for the Edge Function: media-embed-backfill.",
+    "This repo is locked to Voyage embeddings (provider=voyage, model=voyage-3-large, dimensions=1024).",
+    "Keep useSavedCursor=true so the function resumes from the last processed media_item_id." 
+  ],
+  "voyage_example": {
+    "batchSize": 64,
+    "task": "swipe",
+    "reembed": false,
+    "useSavedCursor": true
+  }
+}
