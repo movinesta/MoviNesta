@@ -237,6 +237,66 @@ interface TitleDetailRow {
   omdb_rated: string | null;
 }
 
+const fetchTitleDetailRow = async (titleId: string): Promise<TitleDetailRow | null> => {
+  const { data, error } = await supabase
+    .from("media_items")
+    .select(
+      "id, kind, omdb_plot, tmdb_overview, omdb_director, omdb_writer, omdb_actors, omdb_genre, omdb_language, tmdb_original_language, omdb_country, omdb_imdb_rating, omdb_imdb_votes, omdb_metascore, omdb_rating_rotten_tomatoes, omdb_poster, tmdb_poster_path, tmdb_backdrop_path, omdb_awards, omdb_box_office, omdb_released, tmdb_vote_average, tmdb_vote_count, tmdb_popularity, omdb_rated, omdb_runtime",
+    )
+    .eq("id", titleId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) return null;
+
+  const genres =
+    (data as any).omdb_genre != null
+      ? String((data as any).omdb_genre)
+          .split(",")
+          .map((g: string) => g.trim())
+          .filter(Boolean)
+      : null;
+
+  const rt = percentToNumber((data as any).omdb_rating_rotten_tomatoes);
+
+  return {
+    title_id: (data as any).id,
+    content_type: (data as any).kind ?? null,
+    plot: (data as any).omdb_plot ?? null,
+    tmdb_overview: (data as any).tmdb_overview ?? null,
+    tagline: null,
+    omdb_director: (data as any).omdb_director ?? null,
+    omdb_writer: (data as any).omdb_writer ?? null,
+    omdb_actors: (data as any).omdb_actors ?? null,
+    genres,
+    tmdb_genre_names: null,
+    language: null,
+    omdb_language: (data as any).omdb_language ?? null,
+    tmdb_original_language: (data as any).tmdb_original_language ?? null,
+    country: null,
+    omdb_country: (data as any).omdb_country ?? null,
+    imdb_rating: (data as any).omdb_imdb_rating ?? null,
+    imdb_votes: (data as any).omdb_imdb_votes ?? null,
+    metascore: (data as any).omdb_metascore ?? null,
+    rt_tomato_pct: rt,
+    poster_url: (data as any).omdb_poster ?? null,
+    tmdb_poster_path: (data as any).tmdb_poster_path ?? null,
+    backdrop_url: (data as any).tmdb_backdrop_path ?? null,
+    omdb_awards: (data as any).omdb_awards ?? null,
+    omdb_box_office_str: (data as any).omdb_box_office ?? null,
+    omdb_box_office: null,
+    omdb_released: (data as any).omdb_released ?? null,
+    tmdb_vote_average: (data as any).tmdb_vote_average ?? null,
+    tmdb_vote_count: (data as any).tmdb_vote_count ?? null,
+    tmdb_popularity: (data as any).tmdb_popularity ?? null,
+    tmdb_episode_run_time: null,
+    omdb_rated: (data as any).omdb_rated ?? null,
+  } as TitleDetailRow;
+};
+
 const WATCHLIST_STATUS = "want_to_watch" as DiaryStatus;
 const WATCHED_STATUS = "watched" as DiaryStatus;
 
@@ -373,6 +433,44 @@ const SwipePage: React.FC = () => {
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (typeof window === "undefined" || cards.length === 0) return;
+
+    const idle =
+      (window as typeof window & { requestIdleCallback?: typeof requestIdleCallback })
+        .requestIdleCallback;
+
+    const runPrefetch = () => {
+      const tasks = cards.map((card) => {
+        if (!card.id) return null;
+        const key = qk.titleDetail(card.id);
+        if (queryClient.getQueryData(key)) return null;
+        return queryClient.prefetchQuery({
+          queryKey: key,
+          queryFn: () => fetchTitleDetailRow(card.id),
+          staleTime: 1000 * 60 * 30,
+          gcTime: 1000 * 60 * 60,
+        });
+      });
+
+      void Promise.allSettled(tasks.filter(Boolean));
+    };
+
+    if (idle) {
+      const handle = idle(runPrefetch);
+      return () => {
+        if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
+          (window as typeof window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(
+            handle,
+          );
+        }
+      };
+    }
+
+    const timeout = window.setTimeout(runPrefetch, 280);
+    return () => window.clearTimeout(timeout);
+  }, [cards, queryClient]);
 
   // Lightweight director lookup for the *next* card preview so it can render the same
   // "Directed by" line as the active card. (The full title-detail query is scoped to
@@ -602,64 +700,7 @@ const SwipePage: React.FC = () => {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!activeTitleId) return null;
-
-      const { data, error } = await supabase
-        .from("media_items")
-        .select(
-          "id, kind, omdb_plot, tmdb_overview, omdb_director, omdb_writer, omdb_actors, omdb_genre, omdb_language, tmdb_original_language, omdb_country, omdb_imdb_rating, omdb_imdb_votes, omdb_metascore, omdb_rating_rotten_tomatoes, omdb_poster, tmdb_poster_path, tmdb_backdrop_path, omdb_awards, omdb_box_office, omdb_released, tmdb_vote_average, tmdb_vote_count, tmdb_popularity, omdb_rated, omdb_runtime",
-        )
-        .eq("id", activeTitleId)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data) return null;
-
-      const genres =
-        (data as any).omdb_genre != null
-          ? String((data as any).omdb_genre)
-            .split(",")
-            .map((g: string) => g.trim())
-            .filter(Boolean)
-          : null;
-
-      const rt = percentToNumber((data as any).omdb_rating_rotten_tomatoes);
-
-      return {
-        title_id: (data as any).id,
-        content_type: (data as any).kind ?? null,
-        plot: (data as any).omdb_plot ?? null,
-        tmdb_overview: (data as any).tmdb_overview ?? null,
-        tagline: null,
-        omdb_director: (data as any).omdb_director ?? null,
-        omdb_writer: (data as any).omdb_writer ?? null,
-        omdb_actors: (data as any).omdb_actors ?? null,
-        genres,
-        tmdb_genre_names: null,
-        language: null,
-        omdb_language: (data as any).omdb_language ?? null,
-        tmdb_original_language: (data as any).tmdb_original_language ?? null,
-        country: null,
-        omdb_country: (data as any).omdb_country ?? null,
-        imdb_rating: (data as any).omdb_imdb_rating ?? null,
-        imdb_votes: (data as any).omdb_imdb_votes ?? null,
-        metascore: (data as any).omdb_metascore ?? null,
-        rt_tomato_pct: rt,
-        poster_url: (data as any).omdb_poster ?? null,
-        tmdb_poster_path: (data as any).tmdb_poster_path ?? null,
-        backdrop_url: (data as any).tmdb_backdrop_path ?? null,
-        omdb_awards: (data as any).omdb_awards ?? null,
-        omdb_box_office_str: (data as any).omdb_box_office ?? null,
-        omdb_box_office: null,
-        omdb_released: (data as any).omdb_released ?? null,
-        tmdb_vote_average: (data as any).tmdb_vote_average ?? null,
-        tmdb_vote_count: (data as any).tmdb_vote_count ?? null,
-        tmdb_popularity: (data as any).tmdb_popularity ?? null,
-        tmdb_episode_run_time: null,
-        omdb_rated: (data as any).omdb_rated ?? null,
-      } as TitleDetailRow;
+      return fetchTitleDetailRow(activeTitleId);
     },
   });
 
@@ -2167,7 +2208,7 @@ const SwipePage: React.FC = () => {
 
                     {/* DETAIL MODE (keep existing, compact) */}
                     {isDetailMode && activeCard && (
-                      <>
+                      <div className="flex h-full flex-col">
                         <div className="relative h-[42%] overflow-hidden bg-[#261933]">
                           {showActivePoster && activeCard.posterUrl ? (
                             <>
@@ -2220,15 +2261,15 @@ const SwipePage: React.FC = () => {
                           </button>
                         </div>
 
-                        <div className="relative flex flex-1 flex-col bg-[#261933] px-5 pb-5 pt-4">
+                        <div className="relative flex min-h-0 flex-1 flex-col bg-[#261933] px-5 pb-5 pt-4">
                           <div
                             ref={detailContentRef}
                             id="swipe-detail-panel"
                             aria-label={isFullDetailOpen ? "Full details" : "Details summary"}
                             aria-live="polite"
-                            className="mt-1 flex flex-1 flex-col text-left text-[13px] text-white/70"
+                            className="mt-1 flex min-h-0 flex-1 flex-col text-left text-[13px] text-white/70"
                           >
-                          <div className="flex-1 overflow-hidden pr-1">
+                          <div className="flex min-h-0 flex-1 overflow-y-auto pr-1">
                                                   {!isFullDetailOpen ? (
                                                     // SUMMARY DETAIL: old + new info, clipped to card
                                                     <div className="space-y-3">
@@ -2594,7 +2635,7 @@ const SwipePage: React.FC = () => {
                                                 </div>
                           </div>
                         </div>
-                      </>
+                      </div>
                     )}
 
                   </article>
