@@ -114,10 +114,9 @@ function normalizeCard(
   card: MediaSwipeCardUI,
   tmdbPosterSize: UseMediaSwipeDeckOptions["tmdbPosterSize"],
 ): MediaSwipeCardUI {
-  const tmdbPoster = tmdbImageUrl(
-    card.tmdbPosterPath ?? card.tmdbBackdropPath,
-    tmdbPosterSize ?? "w342",
-  );
+  // Swipe UI uses vertical posters only. If we don't have a poster, fall back to PosterFallback
+  // instead of a landscape backdrop (keeps the deck consistent).
+  const tmdbPoster = tmdbImageUrl(card.tmdbPosterPath ?? null, tmdbPosterSize ?? "w342");
   const posterUrl = card.posterUrl ?? tmdbPoster ?? null;
 
   const title = (card.title ?? "").trim() || "Untitled";

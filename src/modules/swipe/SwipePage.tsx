@@ -1,21 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CheckCircle2,
-  Flame,
-  Bell,
-  Bookmark,
-  ChevronRight,
-  Heart,
-  Info,
-  Plus,
-  SlidersHorizontal,
-  Sparkles,
-  X,
-  Share2,
-  Star,
-  Search,
-  Link2,
-} from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -39,6 +23,7 @@ import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { TitleType } from "@/types/supabase-helpers";
 import { PosterFallback } from "./SwipeCardComponents";
 import FriendAvatarStack from "./FriendAvatarStack";
+import FriendsListModal from "./FriendsListModal";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -54,7 +39,8 @@ const SWIPE_VELOCITY_THRESHOLD = 0.32; // px per ms
 const MAX_DRAG = 220;
 const EXIT_MULTIPLIER = 16;
 const EXIT_MIN = 360;
-const ROTATION_FACTOR = 14;
+// Slightly more "Tinder-like" rotation (stronger tilt at the same drag distance)
+const ROTATION_FACTOR = 10;
 const DRAG_INTENT_THRESHOLD = 32;
 const FEEDBACK_ENABLED = true;
 
@@ -280,6 +266,7 @@ const SwipePage: React.FC = () => {
   } = useMediaSwipeDeck("combined", {
     limit: 72,
     kindFilter,
+    tmdbPosterSize: "w500",
   });
 
   const cards = useMemo(() => rawCards.map(adaptMediaSwipeCard), [rawCards]);
@@ -320,10 +307,9 @@ const SwipePage: React.FC = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const activeCardRaw = rawCards[currentIndex];
-  const nextCardRaw = rawCards[currentIndex + 1];
 
   const activeCard = cards[currentIndex];
-  const nextCard = cards[currentIndex + 1];
+
 
   const [isDragging, setIsDragging] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -333,7 +319,6 @@ const SwipePage: React.FC = () => {
     const hasSeen = localStorage.getItem(ONBOARDING_STORAGE_KEY);
     return !hasSeen;
   });
-  const [isNextPreviewActive, setIsNextPreviewActive] = useState(false);
   const [failedPosterIds, setFailedPosterIds] = useState<string[]>([]);
   const updatePosterFailure = (id: string | undefined, failed: boolean) => {
     if (!id) return;
@@ -350,13 +335,16 @@ const SwipePage: React.FC = () => {
   };
 
   const setActivePosterFailed = (failed: boolean) => updatePosterFailure(activeCard?.id, failed);
-  const setNextPosterFailed = (failed: boolean) => updatePosterFailure(nextCard?.id, failed);
 
   const activePosterFailed = !!activeCard?.id && failedPosterIds.includes(activeCard.id);
+
+  const nextCard = cards[currentIndex + 1] ?? null;
   const nextPosterFailed = !!nextCard?.id && failedPosterIds.includes(nextCard.id);
+  const showNextPoster = Boolean(nextCard?.posterUrl && !nextPosterFailed);
 
   const [dragIntent, setDragIntent] = useState<"like" | "dislike" | null>(null);
-  const [nextParallaxX, setNextParallaxX] = useState(0);
+
+  const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
 
   const [isDetailMode, setIsDetailMode] = useState(false);
   const [isFullDetailOpen, setIsFullDetailOpen] = useState(false);
@@ -381,9 +369,48 @@ const SwipePage: React.FC = () => {
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
 
   const activeTitleId = activeCard?.id ?? null;
+  const nextTitleId = nextCard?.id ?? null;
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Lightweight director lookup for the *next* card preview so it can render the same
+  // "Directed by" line as the active card. (The full title-detail query is scoped to
+  // the active card and is used heavily in detail mode.)
+  const { data: nextPreviewDetail } = useQuery<{
+    omdb_director: string | null;
+    omdb_genre: string | null;
+    omdb_rating_rotten_tomatoes: string | null;
+    omdb_imdb_rating: string | number | null;
+  } | null>({
+    queryKey: ["title-preview", nextTitleId] as const,
+    enabled: Boolean(nextTitleId),
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (!nextTitleId) return null;
+      const { data, error } = await supabase
+        .from("media_items")
+        .select(
+          "id, omdb_director, omdb_genre, omdb_rating_rotten_tomatoes, omdb_imdb_rating"
+        )
+        .eq("id", nextTitleId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        omdb_director: (data as any).omdb_director ?? null,
+        omdb_genre: (data as any).omdb_genre ?? null,
+        omdb_rating_rotten_tomatoes: (data as any).omdb_rating_rotten_tomatoes ?? null,
+        omdb_imdb_rating: (data as any).omdb_imdb_rating ?? null,
+      };
+    },
+  });
+
+  const nextDetailDirector = cleanText(nextPreviewDetail?.omdb_director);
+  const nextDetailRt = percentToNumber(nextPreviewDetail?.omdb_rating_rotten_tomatoes);
+  const nextDetailImdb = safeNumber(nextPreviewDetail?.omdb_imdb_rating);
 
   const { data: friendCount = 0 } = useQuery<number>({
     queryKey: ["friendCount", { userId: user?.id ?? null }],
@@ -806,11 +833,12 @@ const SwipePage: React.FC = () => {
   };
 
   const showActivePoster = Boolean(activeCard?.posterUrl && !activePosterFailed);
-  const showNextPoster = Boolean(nextCard?.posterUrl && !nextPosterFailed);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const nextPreviewRef = useRef<HTMLDivElement | null>(null);
   const dragStartX = useRef<number | null>(null);
   const dragDelta = useRef(0);
+  const tapStartedOnInteractiveRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const lastMoveX = useRef<number | null>(null);
   const lastMoveTime = useRef<number | null>(null);
@@ -830,7 +858,6 @@ const SwipePage: React.FC = () => {
     }
 
     setDragIntent(null);
-    setNextParallaxX(0);
 
     const node = cardRef.current;
     if (node) {
@@ -846,6 +873,7 @@ const SwipePage: React.FC = () => {
     }
 
     window.setTimeout(() => {
+      setNextPreviewTransform(0, true);
       setCurrentIndex((prev) => Math.min(prev + 1, cards.length));
       if (node) {
         node.style.transition = "none";
@@ -870,10 +898,6 @@ const SwipePage: React.FC = () => {
     setIsFullDetailOpen(false);
     setShowSharePresetSheet(false);
   }, [activeCard?.id]);
-
-  useEffect(() => {
-    setNextPosterFailed(false);
-  }, [nextCard?.id]);
 
   // Auto-skip cards that do not match local filters (genres / minimum IMDb rating).
   // We advance without sending skip events, so the deck movement stays clean.
@@ -967,14 +991,6 @@ const SwipePage: React.FC = () => {
     [],
   );
 
-  // next card preview timing
-  useEffect(() => {
-    if (!nextCard) return;
-    setIsNextPreviewActive(false);
-    const timeout = window.setTimeout(() => setIsNextPreviewActive(true), 16);
-    return () => window.clearTimeout(timeout);
-  }, [nextCard?.id]);
-
   // fetch more when low
   useEffect(() => {
     const remaining = cards.length - currentIndex;
@@ -990,6 +1006,26 @@ const SwipePage: React.FC = () => {
       setCurrentIndex((idx) => Math.max(4, idx - drop));
     }
   }, [cards.length, currentIndex, trimConsumed]);
+  const setNextPreviewTransform = useCallback((x: number, withTransition = false) => {
+    const node = nextPreviewRef.current;
+    if (!node) return;
+
+    // Option A: next card is the SAME size and centered behind the active card.
+    // We only "dim" it, and it brightens smoothly as the active card is dragged away.
+    const progress = clamp(Math.abs(x) / SWIPE_DISTANCE_THRESHOLD, 0, 1);
+
+    const brightness = 0.68 + progress * 0.32; // 0.68 -> 1.0
+    const saturate = 0.9 + progress * 0.1; // 0.9 -> 1.0
+
+    node.style.transition = withTransition
+      ? "filter 200ms cubic-bezier(0.22,0.61,0.36,1)"
+      : "none";
+
+    node.style.transform = "translate3d(0px, 0px, 0px)";
+    node.style.filter = `brightness(${brightness.toFixed(3)}) saturate(${saturate.toFixed(3)})`;
+  }, []);
+
+
 
   const setCardTransform = (x: number, withTransition = false) => {
     const node = cardRef.current;
@@ -997,11 +1033,11 @@ const SwipePage: React.FC = () => {
 
     const finalX = clamp(x, -MAX_DRAG, MAX_DRAG);
 
-    const rotateZ = clamp(finalX / ROTATION_FACTOR, -12, 12);
-    const dragRotateY = clamp(finalX / 26, -10, 10);
-    const baseScale = 1.02;
-    const extraScale = Math.min(Math.abs(finalX) / 900, 0.04);
-    const scale = baseScale + extraScale;
+    const rotateZ = clamp(finalX / ROTATION_FACTOR, -16, 16);
+    const dragRotateY = clamp(finalX / 24, -12, 12);
+    // Keep the card at a constant size while dragging so it matches the next-card
+    // preview exactly (Tinder-like). Rotation/tilt already provides enough depth.
+    const scale = 1;
 
     const hover = hoverTiltRef.current;
     const hoverRotateX = hover.y * -4;
@@ -1023,6 +1059,7 @@ const SwipePage: React.FC = () => {
     `;
 
     dragDelta.current = finalX;
+    setNextPreviewTransform(finalX, withTransition);
   };
 
   const resetCardPosition = () => {
@@ -1034,7 +1071,6 @@ const SwipePage: React.FC = () => {
     lastMoveTime.current = null;
     velocityRef.current = 0;
     setDragIntent(null);
-    setNextParallaxX(0);
   };
 
   const setUndo = (card: SwipeCardData, direction: SwipeDirection) => {
@@ -1141,7 +1177,6 @@ const SwipePage: React.FC = () => {
     });
 
     setDragIntent(null);
-    setNextParallaxX(0);
 
     if (direction === "dislike" && (activeCard.runtimeMinutes ?? 0) > 130) {
       setLongSkipStreak((s) => s + 1);
@@ -1226,6 +1261,10 @@ const SwipePage: React.FC = () => {
   const handlePointerDown = (x: number, pointerId: number, target: EventTarget | null) => {
     if (!activeCard || !activeCardRaw) return;
 
+    tapStartedOnInteractiveRef.current =
+      target instanceof HTMLElement &&
+      !!target.closest('button, a, input, textarea, select, [data-swipe-interactive="true"]');
+
     setIsDragging(true);
     dragStartX.current = x;
     dragDelta.current = 0;
@@ -1233,7 +1272,6 @@ const SwipePage: React.FC = () => {
     lastMoveTime.current = performance.now();
     velocityRef.current = 0;
     setDragIntent(null);
-    setNextParallaxX(0);
 
     ensureAudioContext();
 
@@ -1245,7 +1283,7 @@ const SwipePage: React.FC = () => {
       setIsDragging(false);
       resetCardPosition();
       safeVibrate(20);
-      setIsDetailMode((prev) => !prev);
+      setIsDetailMode(true);
       setIsFullDetailOpen(false);
     }, 550);
 
@@ -1278,7 +1316,6 @@ const SwipePage: React.FC = () => {
     }
 
     setCardTransform(dx);
-    setNextParallaxX(-dx * 0.06);
 
     let nextIntent: "like" | "dislike" | null = null;
     if (dx > DRAG_INTENT_THRESHOLD) nextIntent = "like";
@@ -1445,7 +1482,7 @@ const SwipePage: React.FC = () => {
     return (
       <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-4 sm:px-0">
         <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
-          <Sparkles className="mt-0.5 h-3.5 w-3.5 text-primary" />
+          <MaterialIcon name="auto_awesome" className="mt-0.5 text-[18px] text-primary" />
           <span>{smartHint}</span>
         </div>
       </div>
@@ -1490,9 +1527,6 @@ const SwipePage: React.FC = () => {
 
       if (matchPercent) parts.push(`${matchPercent}% Match`);
 
-      if (primaryImdbForMeta != null) {
-        parts.push(`IMDb ${primaryImdbForMeta.toFixed(1)}`);
-      }
       if (primaryRtForMeta != null) {
         parts.push(`RT ${primaryRtForMeta}%`);
       }
@@ -1572,7 +1606,7 @@ const SwipePage: React.FC = () => {
             className="inline-flex h-10 w-10 items-center justify-center text-muted-foreground/90 transition-colors hover:text-foreground"
             aria-label="Filters"
           >
-            <SlidersHorizontal className="h-6 w-6" />
+            <MaterialIcon name="tune" className="text-[26px]" />
           </button>
 
           <div className="text-center">
@@ -1588,7 +1622,7 @@ const SwipePage: React.FC = () => {
             className="relative inline-flex h-10 w-10 items-center justify-center text-muted-foreground/90 transition-colors hover:text-foreground"
             aria-label="Activity"
           >
-            <Bell className="h-6 w-6" />
+            <MaterialIcon name="notifications" className="text-[26px]" />
             <span
               aria-hidden="true"
               className="absolute right-[8px] top-[8px] h-2 w-2 rounded-full bg-primary"
@@ -1614,7 +1648,7 @@ const SwipePage: React.FC = () => {
 
           {isError && !isLoading && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
-              <Info className="h-8 w-8 text-amber-400" />
+              <MaterialIcon name="info" className="text-[32px] text-amber-400" />
               <p>We couldn&apos;t load your swipe deck.</p>
               <button
                 type="button"
@@ -1628,7 +1662,7 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && !isError && !activeCard && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
-              <Sparkles className="h-8 w-8 text-primary" />
+              <MaterialIcon name="auto_awesome" className="text-[32px] text-primary" />
               <p>All caught up. New cards will appear soon.</p>
               <button
                 type="button"
@@ -1642,43 +1676,264 @@ const SwipePage: React.FC = () => {
 
           {!isLoading && activeCard && (
             <>
-              {/* intent glow */}
-
-              {/* next preview */}
-              {nextCard && (
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md items-center justify-center rounded-2xl transition-all duration-300 ease-out"
-                  style={{
-                    transform: `${isNextPreviewActive
-                      ? "translateY(-40px) scale(0.9)"
-                      : "translateY(-10px) scale(0.84)"
-                      } translateX(${nextParallaxX}px)`,
-                    opacity: isNextPreviewActive ? 1 : 0,
-                  }}
-                >
-                  <div className="relative h-full w-full overflow-hidden rounded-2xl border border-border/40 shadow-lg">
-                    {showNextPoster && nextCard.posterUrl ? (
-                      <>
-                        <img
-                          src={nextCard.posterUrl}
-                          alt={buildSwipeCardLabel(nextCard) ?? nextCard.title}
-                          className="h-full w-full object-cover blur-[7px] brightness-[0.8]"
-                          loading="lazy"
-                          draggable={false}
-                          onError={() => setNextPosterFailed(true)}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/30 to-background/90" />
-                      </>
-                    ) : (
-                      <PosterFallback title={nextCard?.title} />
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* active card */}
               <div className="relative z-10 mx-auto h-[76%] max-h-[640px] w-full max-w-md">
+                {/* next card preview (shows the upcoming card) */}
+                {nextCard && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0"
+                  >
+                    {(() => {
+                      const card = nextCard;
+                      if (!card) return null;
+
+                      const nextFriendLikesCount =
+                        typeof card.friendLikesCount === "number"
+                          ? card.friendLikesCount
+                          : Array.isArray(card.friendProfiles)
+                            ? card.friendProfiles.length
+                            : 0;
+
+                      const nextFriendsLikedPercent =
+                        friendCount > 0
+                          ? Math.round((nextFriendLikesCount / Math.max(1, friendCount)) * 100)
+                          : 0;
+
+                      const nextImdb =
+                        typeof card.imdbRating === "number" && !Number.isNaN(card.imdbRating)
+                          ? card.imdbRating
+                          : nextDetailImdb ?? null;
+
+                      const nextRt =
+                        typeof card.rtTomatoMeter === "number" && !Number.isNaN(card.rtTomatoMeter)
+                          ? card.rtTomatoMeter
+                          : nextDetailRt ?? null;
+
+                      const nextMatch = computeMatchPercent({
+                        card: card,
+                        friendCount,
+                        imdb: nextImdb,
+                        rt: nextRt,
+                      });
+
+                      const nextGenreTags = (() => {
+                        const fromCard = Array.isArray(card.genres) ? card.genres : [];
+                        const fromOmdb =
+                          nextPreviewDetail?.omdb_genre != null
+                            ? String(nextPreviewDetail.omdb_genre)
+                  .split(",")
+                  .map((g) => g.trim())
+                  .filter(Boolean)
+                            : [];
+
+                        const src = fromCard.length > 0 ? fromCard : fromOmdb;
+                        return src
+                          .map((g) => String(g ?? "").trim())
+                          .filter(Boolean)
+                          .slice(0, 3);
+                      })();
+
+                      return (
+                        <div
+                          ref={nextPreviewRef}
+                          className="absolute inset-0"
+                          style={{ filter: "brightness(0.68) saturate(0.9)", willChange: "filter" }}
+                        >
+                          <div className="relative h-full w-full rounded-[44px] bg-gradient-to-b from-white/10 via-primary/25 to-white/10 p-[1.25px] shadow-[0_30px_90px_rgba(0,0,0,0.75)]">
+                            <div className="relative h-full w-full overflow-hidden rounded-[44px] bg-background/20 backdrop-blur-sm">
+                            {showNextPoster && card.posterUrl ? (
+                <img
+                  src={card.posterUrl}
+                  alt={buildSwipeCardLabel(card) ?? `${card.title} poster`}
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                  loading="lazy"
+                  onError={() => updatePosterFailure(card.id, true)}
+                />
+                            ) : (
+                <div className="h-full w-full">
+                  <PosterFallback title={card.title} />
+                </div>
+                            )}
+
+                            {/* overall dark overlay */}
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/70" />
+
+                            {/* recommendation / friends pill (top-left) */}
+                            <div className="absolute left-5 top-5">
+                {(() => {
+                  const src = card.source ?? "for-you";
+                  const isFriendSource = src === "from-friends";
+                  const verb = isFriendSource ? "watched" : "liked";
+
+                  const topFriend =
+                    card.topFriendName ??
+                    card.friendProfiles?.[0]?.display_name ??
+                    card.friendProfiles?.[0]?.username ??
+                    "";
+
+                  const extra = Math.max(0, nextFriendLikesCount - 1);
+
+                  const badgeLetter = src === "popular" ? "P" : src === "trending" ? "T" : "F";
+                  const fallbackLabel =
+                    src === "popular"
+                      ? "Popular right now"
+                      : src === "trending"
+                        ? "Trending for you"
+                        : "Recommended for you";
+
+                  const showFriendIdentity = isFriendSource && Boolean(topFriend);
+                  const initial = (topFriend.trim().charAt(0) || badgeLetter).toUpperCase();
+
+                  return (
+                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-2.5 py-2 shadow-sm backdrop-blur-md">
+                      <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-white/20 bg-white/10 text-sm font-semibold text-white/90">
+                        {showFriendIdentity && card.friendProfiles?.[0]?.avatar_url ? (
+                          <img
+                            src={card.friendProfiles[0].avatar_url}
+                            alt={topFriend || "Friend"}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span>{showFriendIdentity ? initial : badgeLetter}</span>
+                        )}
+                      </div>
+
+                      {isFriendSource && extra > 0 && (
+                        <div className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/10 text-sm font-semibold text-white/90">
+                          +{extra}
+                        </div>
+                      )}
+
+                      <div className="pr-1 text-sm font-semibold text-white/90">
+                        {showFriendIdentity ? (
+                          <>
+                            <span className="text-primary">{topFriend}</span>
+                            <span className="text-white/80"> &amp; others {verb}</span>
+                          </>
+                        ) : (
+                          <span className="text-white/80">{fallbackLabel}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+                            </div>
+
+                            {/* bottom gradient + content */}
+                            <div className="absolute inset-x-0 bottom-0 px-6 pb-6">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/85 via-black/40 to-transparent"
+                />
+
+                <div className="relative">
+                  {(() => {
+                    const src = card.source ?? "for-you";
+                    const cfg =
+                      src === "trending"
+                        ? { label: "Trending", icon: "local_fire_department" }
+                        : src === "popular"
+                          ? { label: "Popular", icon: "stars" }
+                          : src === "from-friends"
+                            ? { label: "From Friends", icon: "group" }
+                            : { label: "For You", icon: "auto_awesome" };
+
+                    return (
+                      <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/25 px-4 py-2 text-sm font-semibold tracking-[0.12em] text-primary-foreground backdrop-blur">
+                        <MaterialIcon name={cfg.icon} filled className="text-[18px]" />
+                        <span>{cfg.label}</span>
+                      </div>
+                    );
+                  })()}
+
+                  <h2 className="line-clamp-2 text-[40px] font-extrabold leading-[1.02] text-white">
+                    {card.title}
+                  </h2>
+
+                  {nextDetailDirector && (
+                    <p className="mt-1 text-lg font-semibold text-white/60">
+                      Directed by {nextDetailDirector.split(",")[0]}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-lg text-white/70">
+                    {(
+                      [
+                        card.year ? <span key="y">{card.year}</span> : null,
+                        nextMatch ? (
+                          <span key="m" className="font-semibold text-emerald-300">
+                            {nextMatch}% Match
+                          </span>
+                        ) : null,
+                        nextRt != null ? (
+                          <span key="r" className="text-white/70">
+                            RT {Math.round(nextRt)}%
+                          </span>
+                        ) : null,
+                        typeof card.runtimeMinutes === "number" && card.runtimeMinutes > 0
+                          ? <span key="t">{formatRuntime(card.runtimeMinutes)}</span>
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .map((node, idx) => (
+                          <React.Fragment key={idx}>
+                            {idx > 0 && <span className="mx-1 text-white/30">•</span>}
+                            {node as any}
+                          </React.Fragment>
+                        ))
+                    )}
+                  </div>
+
+                  {/* friends module (hidden when no friends data) */}
+                  {Array.isArray(card.friendProfiles) && card.friendProfiles.length > 0 && (
+                    <div
+                      className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left backdrop-blur-md"
+                      aria-label="Friends summary"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FriendAvatarStack profiles={card.friendProfiles} max={3} size={32} />
+                        <div className="leading-tight">
+                          <p className="text-lg font-extrabold text-white">
+                            {clamp(Math.round(nextFriendsLikedPercent), 0, 100)}% of friends
+                          </p>
+                          <p className="text-sm font-semibold text-white/60">
+                            {(card.source === "from-friends" ? "watched" : "liked")} this title
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/10 text-white/70">
+                        <MaterialIcon name="chevron_right" className="text-[26px]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* genre chips */}
+                  {nextGenreTags.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {nextGenreTags.map((g) => (
+                        <span
+                          key={g}
+                          className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white/75"
+                        >
+                          #{g}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                            </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <div className="relative h-full w-full rounded-[44px] bg-gradient-to-b from-white/10 via-primary/25 to-white/10 p-[1.25px] shadow-[0_30px_90px_rgba(0,0,0,0.75)]">
                   <article
                     ref={cardRef}
@@ -1721,7 +1976,7 @@ const SwipePage: React.FC = () => {
                           <>
                             <div className="pointer-events-none absolute inset-x-8 top-10 flex justify-start">
                               <div className="flex items-center gap-2 rounded-md bg-emerald-500/14 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200 shadow-md backdrop-blur-sm">
-                                <Heart className="h-4 w-4 text-emerald-300" />
+                                <MaterialIcon name="favorite" filled className="text-[18px] text-emerald-300" />
                                 <span>Love it</span>
                               </div>
                             </div>
@@ -1731,56 +1986,74 @@ const SwipePage: React.FC = () => {
                           <>
                             <div className="pointer-events-none absolute inset-x-8 top-10 flex justify-end">
                               <div className="flex items-center gap-2 rounded-md bg-rose-500/14 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-rose-200 shadow-md backdrop-blur-sm">
-                                <X className="h-4 w-4 text-rose-300" />
+                                <MaterialIcon name="close" className="text-[18px] text-rose-300" />
                                 <span>No thanks</span>
                               </div>
                             </div>
                           </>
                         )}
 
-                        {/* friend watched pill (top-left) */}
+                        {/* recommendation / friends pill (top-left) */}
                         <div className="absolute left-5 top-5">
-                          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-2.5 py-2 shadow-sm backdrop-blur-md">
-                            <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-white/20 bg-white/10 text-sm font-semibold text-white/90">
-                              {activeCard.friendProfiles?.[0]?.avatar_url ? (
-                                <img
-                                  src={activeCard.friendProfiles[0].avatar_url}
-                                  alt={activeCard.topFriendName ?? "Friend"}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <span>
-                                  {(() => {
-                                    const label =
-                                      activeCard.topFriendName ??
-                                      activeCard.friendProfiles?.[0]?.display_name ??
-                                      activeCard.friendProfiles?.[0]?.username ??
-                                      "Friend";
-                                    return (label.trim().charAt(0) || "F").toUpperCase();
-                                  })()}
-                                </span>
-                              )}
-                            </div>
+                          {(() => {
+                            const src = activeCard.source ?? "for-you";
+                            const isFriendSource = src === "from-friends";
+                            const verb = isFriendSource ? "watched" : "liked";
 
-                            {friendLikesCount > 1 && (
-                              <div className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/10 text-sm font-semibold text-white/90">
-                                +{Math.max(0, friendLikesCount - 1)}
+                            const topFriend =
+                              activeCard.topFriendName ??
+                              activeCard.friendProfiles?.[0]?.display_name ??
+                              activeCard.friendProfiles?.[0]?.username ??
+                              "";
+
+                            const extra = Math.max(0, friendLikesCount - 1);
+
+                            const badgeLetter = src === "popular" ? "P" : src === "trending" ? "T" : "F";
+                            const fallbackLabel =
+                              src === "popular"
+                                ? "Popular right now"
+                                : src === "trending"
+                                  ? "Trending for you"
+                                  : "Recommended for you";
+
+                            const showFriendIdentity = isFriendSource && Boolean(topFriend);
+                            const initial = (topFriend.trim().charAt(0) || badgeLetter).toUpperCase();
+
+                            return (
+                              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-2.5 py-2 shadow-sm backdrop-blur-md">
+                                <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-white/20 bg-white/10 text-sm font-semibold text-white/90">
+                                  {showFriendIdentity && activeCard.friendProfiles?.[0]?.avatar_url ? (
+                                    <img
+                                      src={activeCard.friendProfiles[0].avatar_url}
+                                      alt={topFriend || "Friend"}
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <span>{showFriendIdentity ? initial : badgeLetter}</span>
+                                  )}
+                                </div>
+
+                                {isFriendSource && extra > 0 && (
+                                  <div className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/10 text-sm font-semibold text-white/90">
+                                    +{extra}
+                                  </div>
+                                )}
+
+                                <div className="pr-1 text-sm font-semibold text-white/90">
+                                  {showFriendIdentity ? (
+                                    <>
+                                      <span className="text-primary">{topFriend}</span>
+                                      <span className="text-white/80"> &amp; others {verb}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-white/80">{fallbackLabel}</span>
+                                  )}
+                                </div>
                               </div>
-                            )}
-
-                            <div className="pr-1 text-sm font-semibold text-white/90">
-                              {activeCard.topFriendName ? (
-                                <>
-                                  <span className="text-primary">{activeCard.topFriendName}</span>
-                                  <span className="text-white/80"> &amp; others watched</span>
-                                </>
-                              ) : (
-                                <span className="text-white/80">Recommended for you</span>
-                              )}
-                            </div>
-                          </div>
+                            );
+                          })()}
                         </div>
 
                         {/* bottom gradient + content */}
@@ -1791,12 +2064,24 @@ const SwipePage: React.FC = () => {
                           />
 
                           <div className="relative">
-                            {activeCard.source === "trending" && (
-                              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/25 px-4 py-2 text-sm font-semibold tracking-[0.12em] text-primary-foreground backdrop-blur">
-                                <Flame className="h-4 w-4" />
-                                <span>TRENDING</span>
-                              </div>
-                            )}
+                            {(() => {
+                              const src = activeCard.source ?? "for-you";
+                              const cfg =
+                                src === "trending"
+                                  ? { label: "Trending", icon: "local_fire_department" }
+                                  : src === "popular"
+                                    ? { label: "Popular", icon: "stars" }
+                                    : src === "from-friends"
+                                      ? { label: "From Friends", icon: "group" }
+                                      : { label: "For You", icon: "auto_awesome" };
+
+                              return (
+                                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/25 px-4 py-2 text-sm font-semibold tracking-[0.12em] text-primary-foreground backdrop-blur">
+                                  <MaterialIcon name={cfg.icon} filled className="text-[18px]" />
+                                  <span>{cfg.label}</span>
+                                </div>
+                              );
+                            })()}
 
                             <h2 className="line-clamp-2 text-[40px] font-extrabold leading-[1.02] text-white">
                               {activeCard.title}
@@ -1808,64 +2093,59 @@ const SwipePage: React.FC = () => {
                               </p>
                             )}
 
-                            <div className="mt-4 flex flex-wrap items-center gap-3 text-lg text-white/70">
-                              {activeCard.year && <span>{activeCard.year}</span>}
-                              {activeCard.year && <span className="text-white/30">•</span>}
-                              <span className="font-semibold text-emerald-300">{matchPercent}% Match</span>
-                              <span className="text-white/30">•</span>
-                              {primaryImdbForMeta != null && (
-                                <span className="inline-flex items-center gap-2">
-                                  <Star className="h-5 w-5 fill-emerald-300 text-emerald-300" />
-                                  <span className="text-white/80">{primaryImdbForMeta.toFixed(1)}</span>
-                                </span>
-                              )}
-
-                              {primaryRtForMeta != null && (
-                                <>
-                                  <span className="text-white/30">•</span>
-                                  <span className="text-white/70">RT {Math.round(primaryRtForMeta)}%</span>
-                                </>
-                              )}
-
-                              {typeof activeCard.runtimeMinutes === "number" && activeCard.runtimeMinutes > 0 && (
-                                <>
-                                  <span className="text-white/30">•</span>
-                                  <span>{formatRuntime(activeCard.runtimeMinutes)}</span>
-                                </>
+                            <div className="mt-4 flex flex-wrap items-center gap-2 text-lg text-white/70">
+                              {(
+                                [
+                                  activeCard.year ? <span key="y">{activeCard.year}</span> : null,
+                                  matchPercent ? (
+                                    <span key="m" className="font-semibold text-emerald-300">
+                                      {matchPercent}% Match
+                                    </span>
+                                  ) : null,
+                                  primaryRtForMeta != null ? (
+                                    <span key="r" className="text-white/70">
+                                      RT {Math.round(primaryRtForMeta)}%
+                                    </span>
+                                  ) : null,
+                                  typeof activeCard.runtimeMinutes === "number" && activeCard.runtimeMinutes > 0
+                                    ? <span key="t">{formatRuntime(activeCard.runtimeMinutes)}</span>
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .map((node, idx) => (
+                                    <React.Fragment key={idx}>
+                                      {idx > 0 && <span className="mx-1 text-white/30">•</span>}
+                                      {node as any}
+                                    </React.Fragment>
+                                  ))
                               )}
                             </div>
 
-                            {/* friends module */}
-                            <button
-                              type="button"
-                              onClick={() => setIsDetailMode(true)}
-                              className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left backdrop-blur-md"
-                              aria-label="Open details"
-                            >
-                              <div className="flex items-center gap-3">
-                                {Array.isArray(activeCard.friendProfiles) && activeCard.friendProfiles.length > 0 ? (
+                            {/* friends module (hidden when no friends data) */}
+                            {Array.isArray(activeCard.friendProfiles) && activeCard.friendProfiles.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setIsFriendsModalOpen(true)}
+                                className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left backdrop-blur-md"
+                                aria-label="See friends"
+                                data-swipe-interactive="true"
+                              >
+                                <div className="flex items-center gap-3">
                                   <FriendAvatarStack profiles={activeCard.friendProfiles} max={3} size={32} />
-                                ) : (
-                                  <div className="flex -space-x-2" aria-hidden="true">
-                                    {Array.from({ length: 3 }).map((_, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="h-8 w-8 rounded-full border border-white/15 bg-white/10"
-                                      />
-                                    ))}
+                                  <div className="leading-tight">
+                                    <p className="text-lg font-extrabold text-white">
+                                      {clamp(Math.round(friendsLikedPercent), 0, 100)}% of friends
+                                    </p>
+                                    <p className="text-sm font-semibold text-white/60">
+                                      {(activeCard.source === "from-friends" ? "watched" : "liked")} this title
+                                    </p>
                                   </div>
-                                )}
-                                <div className="leading-tight">
-                                  <p className="text-lg font-extrabold text-white">
-                                    {clamp(Math.round(friendsLikedPercent), 0, 100)}% of friends
-                                  </p>
-                                  <p className="text-sm font-semibold text-white/60">liked this movie</p>
                                 </div>
-                              </div>
-                              <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/10 text-white/70">
-                                <ChevronRight className="h-6 w-6" />
-                              </div>
-                            </button>
+                                <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/10 text-white/70">
+                                  <MaterialIcon name="chevron_right" className="text-[26px]" />
+                                </div>
+                              </button>
+                            )}
 
                             {/* genre chips */}
                             {swipeGenreTags.length > 0 && (
@@ -1888,7 +2168,7 @@ const SwipePage: React.FC = () => {
                     {/* DETAIL MODE (keep existing, compact) */}
                     {isDetailMode && activeCard && (
                       <>
-                        <div className="relative h-[40%] overflow-hidden bg-gradient-to-br from-background/90 via-background/85 to-background/95">
+                        <div className="relative h-[42%] overflow-hidden bg-[#261933]">
                           {showActivePoster && activeCard.posterUrl ? (
                             <>
                               <img
@@ -1908,7 +2188,7 @@ const SwipePage: React.FC = () => {
                                 style={{ top: "3.4rem" }}
                               >
                                 <div
-                                  className="overflow-hidden rounded-2xl border border-border bg-background shadow-[0_14px_40px_rgba(0,0,0,0.85)]"
+                                  className="overflow-hidden rounded-2xl border border-white/10 bg-[#140b1f]/70 shadow-[0_14px_40px_rgba(0,0,0,0.85)]"
                                   style={{
                                     height: "clamp(120px, 22vh, 220px)",
                                     aspectRatio: "2 / 3",
@@ -1927,25 +2207,26 @@ const SwipePage: React.FC = () => {
                             <PosterFallback title={activeCard.title} />
                           )}
 
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-background/95" />
+                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-black/55 to-[#261933]" />
 
                           <button
                             type="button"
                             onClick={() => setIsDetailMode(false)}
                             className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/80 backdrop-blur hover:bg-white/15"
                             aria-label="Close details"
+                            data-swipe-interactive="true"
                           >
-                            <X className="h-5 w-5" />
+                            <MaterialIcon name="close" className="text-[22px]" />
                           </button>
                         </div>
 
-                        <div className="relative flex flex-1 flex-col bg-gradient-to-b from-background/92 via-background/96 to-background px-4 pb-4 pt-3 backdrop-blur-md">
+                        <div className="relative flex flex-1 flex-col bg-[#261933] px-5 pb-5 pt-4">
                           <div
                             ref={detailContentRef}
                             id="swipe-detail-panel"
                             aria-label={isFullDetailOpen ? "Full details" : "Details summary"}
                             aria-live="polite"
-                            className="mt-2 flex flex-1 flex-col text-left text-xs text-muted-foreground"
+                            className="mt-1 flex flex-1 flex-col text-left text-[13px] text-white/70"
                           >
                           <div className="flex-1 overflow-hidden pr-1">
                                                   {!isFullDetailOpen ? (
@@ -1953,14 +2234,14 @@ const SwipePage: React.FC = () => {
                                                     <div className="space-y-3">
                                                       {/* Title & compact badges */}
                                                       <div className="space-y-1.5">
-                                                        <h3 className="line-clamp-2 text-base font-semibold text-foreground sm:text-lg">
+                                                        <h3 className="line-clamp-2 text-2xl font-extrabold leading-[1.06] text-white">
                                                           {activeCard.title}
                                                         </h3>
                                                         {/* old info (same meta line as swipe) */}
                                                         {metaLine && (
-                                                          <p className="text-xs text-muted-foreground/90">{metaLine}</p>
+                                                          <p className="text-sm text-white/60">{metaLine}</p>
                                                         )}
-                                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground/90">
+                                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/65">
                                                           {detailGenres && (
                                                             <span className="inline-flex items-center gap-1">
                                                               <span className="font-medium text-foreground/90">Genres</span>
@@ -1976,12 +2257,12 @@ const SwipePage: React.FC = () => {
                                                             </span>
                                                           )}
                                                           {detailCertification && (
-                                                            <span className="rounded-full bg-card/80 px-2 py-0.5 text-xs font-medium text-foreground/90">
+                                                            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/85">
                                                               {detailCertification}
                                                             </span>
                                                           )}
                                                           {detailPrimaryCountryAbbr && (
-                                                            <span className="rounded-full bg-card/80 px-2 py-0.5 text-xs text-muted-foreground/90">
+                                                            <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/70">
                                                               {detailPrimaryCountryAbbr}
                                                             </span>
                                                           )}
@@ -1991,10 +2272,10 @@ const SwipePage: React.FC = () => {
                                                       {/* Overview (3 lines, with small heading) */}
                                                       {detailOverview && (
                                                         <div className="space-y-0.5">
-                                                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+                                                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
                                                             Overview
                                                           </p>
-                                                          <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground/90">
+                                                          <p className="line-clamp-3 text-sm leading-relaxed text-white/70">
                                                             {detailOverview}
                                                           </p>
                                                         </div>
@@ -2029,8 +2310,8 @@ const SwipePage: React.FC = () => {
 
                                                       {/* Your rating + quick actions */}
                                                       <div className="flex flex-wrap items-center gap-2 pt-1">
-                                                        <div className="inline-flex items-center gap-1 rounded-full bg-card/80 px-2.5 py-1">
-                                                          <span className="text-xs text-muted-foreground/80">
+                                                        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5">
+                                                          <span className="text-xs font-semibold text-white/50">
                                                             Your rating
                                                           </span>
                                                           <div className="flex items-center gap-0.5" aria-label="Your rating">
@@ -2045,11 +2326,10 @@ const SwipePage: React.FC = () => {
                                                                   onClick={() => handleStarClick(value)}
                                                                   className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
                                                                 >
-                                                                  <Star
-                                                                    className={`h-3.5 w-3.5 ${filled
-                                                                      ? "fill-yellow-400 text-yellow-400"
-                                                                      : "text-muted-foreground"
-                                                                      }`}
+                                                                  <MaterialIcon
+                                                                    name="star"
+                                                                    filled={filled}
+                                                                    className={`text-[16px] ${filled ? "text-yellow-400" : "text-white/30"}`}
                                                                   />
                                                                 </button>
                                                               );
@@ -2063,7 +2343,7 @@ const SwipePage: React.FC = () => {
                                                             onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
                                                             className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${statusIs(WATCHLIST_STATUS)
                                                               ? "bg-primary/90 text-primary-foreground"
-                                                              : "border border-border bg-card/80 text-muted-foreground hover:border-primary/70 hover:text-primary"
+                                                              : "border border-white/10 bg-white/10 text-white/75 hover:bg-white/15"
                                                               }`}
                                                           >
                                                             Watchlist
@@ -2073,7 +2353,7 @@ const SwipePage: React.FC = () => {
                                                             onClick={() => setDiaryStatus(WATCHED_STATUS)}
                                                             className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${statusIs(WATCHED_STATUS)
                                                               ? "bg-emerald-500/90 text-primary-foreground"
-                                                              : "border border-border bg-card/80 text-muted-foreground hover:border-emerald-400/80 hover:text-emerald-300"
+                                                              : "border border-white/10 bg-white/10 text-white/75 hover:bg-white/15"
                                                               }`}
                                                           >
                                                             Watched
@@ -2081,9 +2361,9 @@ const SwipePage: React.FC = () => {
                                                           <button
                                                             type="button"
                                                             onClick={() => setIsShareSheetOpen(true)}
-                                                            className="inline-flex items-center gap-1 rounded-full border border-border bg-card/80 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary/70 hover:text-primary"
+                                                            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-xs font-medium text-white/75 hover:bg-white/15"
                                                           >
-                                                            <Share2 className="h-3.5 w-3.5" />
+                                                            <MaterialIcon name="share" className="text-[16px]" />
                                                             <span className="hidden sm:inline">Share</span>
                                                           </button>
                                                         </div>
@@ -2093,11 +2373,11 @@ const SwipePage: React.FC = () => {
                                                       {(typeof activeCard.friendLikesCount === "number" &&
                                                         activeCard.friendLikesCount > 0) ||
                                                         (activeCard.topFriendName && activeCard.topFriendReviewSnippet) ? (
-                                                        <div className="space-y-1.5 rounded-2xl bg-card/80 px-3 py-2 text-xs text-foreground shadow-md">
+                                                        <div className="space-y-1.5 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-xs text-white/80 shadow-md">
                                                           {typeof activeCard.friendLikesCount === "number" &&
                                                             activeCard.friendLikesCount > 0 && (
-                                                              <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                                                <Flame className="h-4 w-4 text-primary/80" />
+                                                              <div className="inline-flex items-center gap-1 text-xs text-white/60">
+                                                                <MaterialIcon name="local_fire_department" filled className="text-[18px] text-primary/80" />
                                                                 {activeCard.friendLikesCount === 1
                                                                   ? "1 friend likes this"
                                                                   : `${activeCard.friendLikesCount} friends like this`}
@@ -2109,7 +2389,7 @@ const SwipePage: React.FC = () => {
                                                               onClick={() => setShowFullFriendReview((v) => !v)}
                                                               className="mt-1 inline-flex w-full items-start gap-2 text-left"
                                                             >
-                                                              <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
+                                                              <MaterialIcon name="check_circle" filled className="mt-0.5 text-[18px] text-primary" />
                                                               <div
                                                                 className={`overflow-hidden transition-all duration-200 ${showFullFriendReview ? "max-h-32" : "max-h-10"
                                                                   }`}
@@ -2357,7 +2637,7 @@ const SwipePage: React.FC = () => {
             className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/60 shadow-md backdrop-blur transition-all duration-150 hover:bg-white/15 active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Dislike"
           >
-            <X className="h-7 w-7" />
+            <MaterialIcon name="close" className="text-[30px]" />
           </button>
 
           <button
@@ -2367,12 +2647,7 @@ const SwipePage: React.FC = () => {
             className="relative inline-flex h-24 w-24 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_22px_55px_rgba(0,0,0,0.55)] transition-all duration-150 hover:brightness-110 active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Add to watchlist"
           >
-            <div className="relative">
-              <Bookmark className="h-11 w-11" />
-              <span className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-primary-foreground/20">
-                <Plus className="h-4 w-4 text-primary-foreground" />
-              </span>
-            </div>
+            <MaterialIcon name="bookmark_add" filled className="text-[44px]" />
           </button>
 
           <button
@@ -2382,7 +2657,7 @@ const SwipePage: React.FC = () => {
             className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/60 shadow-md backdrop-blur transition-all duration-150 hover:bg-white/15 active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Like"
           >
-            <Heart className="h-7 w-7" />
+            <MaterialIcon name="favorite" filled className="text-[30px]" />
           </button>
         </div>
 
@@ -2428,7 +2703,11 @@ const SwipePage: React.FC = () => {
                             : 'border-border/60 bg-background/30 text-muted-foreground hover:bg-background/45',
                         ].join(' ')}
                       >
-                        {active ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <span className="h-4 w-4" />}
+                        {active ? (
+                          <MaterialIcon name="check_circle" filled className="text-[18px] text-primary" />
+                        ) : (
+                          <span className="h-4 w-4" />
+                        )}
                         {opt.label}
                       </button>
                     );
@@ -2485,10 +2764,10 @@ const SwipePage: React.FC = () => {
                 )}
               </div>
 
-              {/* Minimum IMDb rating (client-side filter) */}
+              {/* Minimum rating (client-side filter; based on IMDb behind the scenes) */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <div className="text-xs font-semibold tracking-wide text-muted-foreground">Minimum IMDb</div>
+                  <div className="text-xs font-semibold tracking-wide text-muted-foreground">Minimum rating</div>
                   <div className="text-xs font-semibold text-foreground">
                     {minImdbRatingFilter <= 0 ? 'Any' : minImdbRatingFilter.toFixed(1)}
                   </div>
@@ -2600,9 +2879,11 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
         <div className="flex items-center justify-between px-4 pb-2">
           <button
             type="button"
-            className="rounded-full p-1 text-muted-foreground hover:bg-background/80"
+            aria-hidden="true"
+            tabIndex={-1}
+            className="rounded-full p-1 text-muted-foreground"
           >
-            <Search className="h-4 w-4" />
+            <MaterialIcon name="search" className="text-[18px]" />
           </button>
           <span className="text-sm font-semibold text-foreground">Send to</span>
           <button
@@ -2698,7 +2979,7 @@ const ShareRecipientChip: React.FC<ShareRecipientChipProps> = ({ conversation, t
         </div>
         {sendMessage.isSuccess && (
           <div className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
-            <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
+            <MaterialIcon name="check" filled className="text-[14px] text-primary-foreground" />
           </div>
         )}
       </div>
@@ -2729,7 +3010,7 @@ const ShareCopyLinkChip: React.FC<ShareCopyLinkChipProps> = ({ shareUrl }) => {
       className="flex w-[72px] flex-col items-center gap-1 text-center"
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary">
-        <Link2 className="h-4 w-4 text-primary-foreground" />
+        <MaterialIcon name="link" className="text-[18px] text-primary-foreground" />
       </div>
       <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">Copy link</span>
     </button>
@@ -2808,7 +3089,7 @@ const MoreShareChip: React.FC<MoreShareChipProps> = ({ onShareExternal }) => {
       className="flex w-[72px] flex-col items-center gap-1 text-center"
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted">
-        <Share2 className="h-4 w-4 text-muted-foreground" />
+        <MaterialIcon name="more_horiz" className="text-[18px] text-muted-foreground" />
       </div>
       <span className="line-clamp-2 max-w-[72px] text-xs text-foreground">More</span>
     </button>

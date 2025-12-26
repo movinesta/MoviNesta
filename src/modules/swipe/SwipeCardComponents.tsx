@@ -1,6 +1,6 @@
 import React from "react";
-import { ImageOff } from "lucide-react";
 import type { SwipeCardData } from "./useSwipeDeck";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
 interface CardMetadataProps {
   card: SwipeCardData;
@@ -33,7 +33,7 @@ export const PosterFallback: React.FC<{ title?: string }> = ({ title }) => (
   <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-background via-card to-background text-center">
     <div className="flex flex-col items-center gap-2 text-muted-foreground">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card/70 shadow-md">
-        <ImageOff className="h-6 w-6 text-muted-foreground" />
+        <MaterialIcon name="image_not_supported" className="text-[24px] text-muted-foreground" />
       </div>
       <span className="text-[12px] font-semibold">Artwork unavailable</span>
       {title && (
