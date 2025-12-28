@@ -41,17 +41,9 @@ module.exports = {
           foreground: colors.slate[50],
         },
 
-        // Extra palette helpers used by the screens.
+        // Extra palette helpers used by the swipe mock.
         "background-light": "#f7f6f8",
         "background-dark": "#191022",
-        "surface-dark": "#2a2136",
-        "surface-light": "#ffffff",
-        "surface-input": "#362348",
-        "text-secondary": "#ab9db9",
-        "primary-rich": "#6a0cd8",
-        "text-light": "#e0e0e0",
-        "text-dark": "#a0a0b0",
-        "bubble-incoming": "#322b3c",
       },
     },
   },

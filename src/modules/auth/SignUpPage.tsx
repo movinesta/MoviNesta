@@ -1,18 +1,24 @@
 import React, { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { supabase } from "@/lib/supabase";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { supabase } from "../../lib/supabase";
 import { MaterialIcon } from "@/components/ui/material-icon";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,24}$/;
 
-function validateSignUp(email: string, password: string, fullName: string, username: string) {
+function validateSignUp(
+  email: string,
+  password: string,
+  confirm: string,
+  fullName: string,
+  username: string,
+) {
   const errors: {
     email?: string;
     password?: string;
+    confirm?: string;
     fullName?: string;
     username?: string;
   } = {};
@@ -40,6 +46,12 @@ function validateSignUp(email: string, password: string, fullName: string, usern
     errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
   }
 
+  if (!confirm) {
+    errors.confirm = "Please confirm your password.";
+  } else if (password !== confirm) {
+    errors.confirm = "Passwords do not match.";
+  }
+
   return errors;
 }
 
@@ -49,6 +61,7 @@ const SignUpPage: React.FC = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,6 +70,7 @@ const SignUpPage: React.FC = () => {
     username?: string;
     email?: string;
     password?: string;
+    confirm?: string;
   }>({});
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -68,12 +82,13 @@ const SignUpPage: React.FC = () => {
     !!username.trim() &&
     !!email &&
     !!password &&
-    Object.keys(validateSignUp(email, password, fullName, username)).length === 0;
+    !!confirm &&
+    Object.keys(validateSignUp(email, password, confirm, fullName, username)).length === 0;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    const errors = validateSignUp(email, password, fullName, username);
+    const errors = validateSignUp(email, password, confirm, fullName, username);
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setError(null);
@@ -106,6 +121,7 @@ const SignUpPage: React.FC = () => {
         return;
       }
 
+      // If email confirmation is required, there will be no active session yet.
       if (!data.session) {
         setInfo(
           "Almost there! Check your email inbox for a confirmation link to activate your account.",
@@ -124,6 +140,8 @@ const SignUpPage: React.FC = () => {
         }
       }
 
+      // Otherwise, user is already signed in
+      // Route new accounts through a quick taste onboarding so "For you" works immediately.
       navigate("/onboarding", { replace: true });
     } catch (err) {
       console.error(err);
@@ -134,23 +152,23 @@ const SignUpPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col overflow-x-hidden">
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 p-4 pb-2 backdrop-blur-md dark:bg-background-dark/80">
+    <div className="min-h-screen bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col">
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 px-4 pb-2 pt-4 backdrop-blur-md dark:bg-background-dark/80">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex size-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
             aria-label="Go back"
           >
             <MaterialIcon name="arrow_back" className="text-[24px]" ariaLabel="Back" />
           </button>
           <div className="text-sm font-medium opacity-0">Sign Up</div>
-          <div className="size-12" />
+          <div className="h-12 w-12" />
         </div>
 
         <div className="flex flex-1 flex-col px-6 pb-8">
-          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight">
+          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
             Join the Fan Hub
           </h1>
           <p className="pb-6 text-center text-sm font-normal leading-normal text-[#ad92c9]">
@@ -182,36 +200,32 @@ const SignUpPage: React.FC = () => {
                   <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-[#ad92c9]/50 bg-[#362348] transition-all group-hover:border-primary group-hover:bg-primary/5">
                     <MaterialIcon
                       name="add_a_photo"
-                      className="text-[32px] text-[#ad92c9] transition-colors group-hover:text-primary"
-                      ariaLabel="Upload avatar"
+                      className="text-[32px] text-[#ad92c9] group-hover:text-primary"
                     />
                   </div>
                   <div className="absolute bottom-0 right-0 flex items-center justify-center rounded-full border-2 border-background-light bg-primary p-1 text-white shadow-lg dark:border-background-dark">
-                    <MaterialIcon name="add" className="text-[16px]" ariaLabel="Add" />
+                    <MaterialIcon name="add" className="text-[16px]" />
                   </div>
                 </div>
                 <p className="mt-1 text-xs font-medium text-[#ad92c9]">Profile Pic</p>
               </div>
+
               <div className="flex flex-1 flex-col gap-2">
-                <label className="group relative flex items-center">
-                  <MaterialIcon
-                    name="person"
-                    className="absolute left-5 z-10 text-[#ad92c9] transition-colors group-focus-within:text-primary"
-                    ariaLabel="Full name"
-                  />
+                <label className="relative flex items-center">
+                  <MaterialIcon name="person" className="absolute left-5 z-10 text-[#ad92c9]" />
                   <input
                     className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
                     placeholder="Full Name"
                     type="text"
                     value={fullName}
-                    onChange={(event) => {
-                      setFullName(event.target.value);
+                    onChange={(e) => {
+                      setFullName(e.target.value);
                       if (fieldErrors.fullName) {
                         setFieldErrors((prev) => ({ ...prev, fullName: undefined }));
                       }
                     }}
                     onBlur={() => {
-                      const errors = validateSignUp(email, password, fullName, username);
+                      const errors = validateSignUp(email, password, confirm, fullName, username);
                       if (errors.fullName) {
                         setFieldErrors((prev) => ({ ...prev, fullName: errors.fullName }));
                       }
@@ -223,25 +237,24 @@ const SignUpPage: React.FC = () => {
                   <p className="text-xs text-red-300">{fieldErrors.fullName}</p>
                 )}
 
-                <label className="group relative flex items-center">
+                <label className="relative flex items-center">
                   <MaterialIcon
                     name="alternate_email"
-                    className="absolute left-5 z-10 text-[#ad92c9] transition-colors group-focus-within:text-primary"
-                    ariaLabel="Username"
+                    className="absolute left-5 z-10 text-[#ad92c9]"
                   />
                   <input
                     className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
                     placeholder="Username"
                     type="text"
                     value={username}
-                    onChange={(event) => {
-                      setUsername(event.target.value);
+                    onChange={(e) => {
+                      setUsername(e.target.value);
                       if (fieldErrors.username) {
                         setFieldErrors((prev) => ({ ...prev, username: undefined }));
                       }
                     }}
                     onBlur={() => {
-                      const errors = validateSignUp(email, password, fullName, username);
+                      const errors = validateSignUp(email, password, confirm, fullName, username);
                       if (errors.username) {
                         setFieldErrors((prev) => ({ ...prev, username: errors.username }));
                       }
@@ -255,26 +268,22 @@ const SignUpPage: React.FC = () => {
               </div>
             </div>
 
-            <label className="group relative flex items-center">
-              <MaterialIcon
-                name="mail"
-                className="absolute left-5 z-10 text-[#ad92c9] transition-colors group-focus-within:text-primary"
-                ariaLabel="Email"
-              />
+            <label className="relative flex items-center">
+              <MaterialIcon name="mail" className="absolute left-5 z-10 text-[#ad92c9]" />
               <input
                 className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
                 placeholder="Email Address"
                 type="email"
                 autoComplete="email"
                 value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
+                onChange={(e) => {
+                  setEmail(e.target.value);
                   if (fieldErrors.email) {
                     setFieldErrors((prev) => ({ ...prev, email: undefined }));
                   }
                 }}
                 onBlur={() => {
-                  const errors = validateSignUp(email, password, fullName, username);
+                  const errors = validateSignUp(email, password, confirm, fullName, username);
                   if (errors.email) {
                     setFieldErrors((prev) => ({ ...prev, email: errors.email }));
                   }
@@ -284,26 +293,22 @@ const SignUpPage: React.FC = () => {
             </label>
             {fieldErrors.email && <p className="text-xs text-red-300">{fieldErrors.email}</p>}
 
-            <label className="group relative flex items-center">
-              <MaterialIcon
-                name="lock"
-                className="absolute left-5 z-10 text-[#ad92c9] transition-colors group-focus-within:text-primary"
-                ariaLabel="Password"
-              />
+            <label className="relative flex items-center">
+              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
               <input
                 className="h-12 w-full rounded-full border-none bg-white pl-14 pr-12 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
                 placeholder="Password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
                 value={password}
-                onChange={(event) => {
-                  setPassword(event.target.value);
+                onChange={(e) => {
+                  setPassword(e.target.value);
                   if (fieldErrors.password) {
                     setFieldErrors((prev) => ({ ...prev, password: undefined }));
                   }
                 }}
                 onBlur={() => {
-                  const errors = validateSignUp(email, password, fullName, username);
+                  const errors = validateSignUp(email, password, confirm, fullName, username);
                   if (errors.password) {
                     setFieldErrors((prev) => ({ ...prev, password: errors.password }));
                   }
@@ -319,14 +324,37 @@ const SignUpPage: React.FC = () => {
                 <MaterialIcon name={showPassword ? "visibility" : "visibility_off"} />
               </button>
             </label>
-            {fieldErrors.password && (
-              <p className="text-xs text-red-300">{fieldErrors.password}</p>
-            )}
+            {fieldErrors.password && <p className="text-xs text-red-300">{fieldErrors.password}</p>}
+
+            <label className="relative flex items-center">
+              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
+              <input
+                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
+                placeholder="Confirm Password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => {
+                  setConfirm(e.target.value);
+                  if (fieldErrors.confirm) {
+                    setFieldErrors((prev) => ({ ...prev, confirm: undefined }));
+                  }
+                }}
+                onBlur={() => {
+                  const errors = validateSignUp(email, password, confirm, fullName, username);
+                  if (errors.confirm) {
+                    setFieldErrors((prev) => ({ ...prev, confirm: errors.confirm }));
+                  }
+                }}
+                disabled={submitting}
+              />
+            </label>
+            {fieldErrors.confirm && <p className="text-xs text-red-300">{fieldErrors.confirm}</p>}
 
             <button
               type="submit"
               disabled={submitting || !isFormValid}
-              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting ? "Creating account…" : "Create Account"}
               <MaterialIcon name="arrow_forward" className="text-[20px]" ariaLabel="Submit" />
@@ -335,21 +363,20 @@ const SignUpPage: React.FC = () => {
 
           <div className="relative flex items-center py-6">
             <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
-            <span className="mx-4 text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
+            <span className="mx-4 flex-shrink text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
               Or join with
             </span>
             <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
           </div>
 
-          <div className="-mt-2 flex justify-center gap-4">
+          <div className="flex justify-center gap-4">
             <button
               type="button"
-              className="group relative flex size-14 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
-              aria-label="Join with Google"
+              className="relative flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              aria-label="Sign up with Google"
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-red-500/10 opacity-0 transition-opacity group-hover:opacity-100" />
               <svg
-                className="relative z-10 h-7 w-7"
+                className="h-7 w-7"
                 fill="none"
                 viewBox="0 0 48 48"
                 xmlns="http://www.w3.org/2000/svg"
@@ -374,31 +401,15 @@ const SignUpPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className="flex size-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:text-white dark:hover:bg-[#432c5a]"
-              aria-label="Join with Apple"
+              className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              aria-label="Sign up with Apple"
             >
               <svg
-                className="h-8 w-8"
+                className="h-8 w-8 text-white"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M17.4745 16.5164C18.9912 15.1118 20 13.1783 20 11C20 6.02944 15.9706 2 11 2C6.02944 2 2 6.02944 2 11C2 15.9706 6.02944 20 11 20C12.8715 20 14.6053 19.4542 16.0353 18.5283C16.1042 19.1601 16.5815 20.0906 17 21L17.4745 16.5164ZM11 18C7.13401 18 4 14.866 4 11C4 7.13401 7.13401 4 11 4C14.866 4 18 7.13401 18 11C18 12.9157 17.1685 14.6543 15.826 15.826L11 18Z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="flex size-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
-              aria-label="Join with Facebook"
-            >
-              <svg
-                className="h-8 w-8 text-[#0866FF]"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-              </svg>
+              />
             </button>
           </div>
 
@@ -406,7 +417,7 @@ const SignUpPage: React.FC = () => {
             <p className="text-sm font-medium text-[#ad92c9]">
               Already have an account?{" "}
               <Link to="/auth/signin" className="font-semibold text-primary hover:underline">
-                Sign In
+                Sign in
               </Link>
             </p>
           </div>

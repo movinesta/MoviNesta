@@ -1,131 +1,245 @@
-import React from "react";
-import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import React, { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-const MESSAGES_MARKUP = `
-<div class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display h-screen flex flex-col overflow-hidden antialiased selection:bg-primary selection:text-white">
-  <header class="px-4 pt-6 pb-2 shrink-0 z-10 bg-background-light dark:bg-background-dark sticky top-0">
-    <div class="flex items-center justify-between mb-4 mt-2">
-      <h1 class="text-3xl font-bold tracking-tight">Messages</h1>
-      <button class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-primary hover:text-white transition-colors">
-        <span class="material-symbols-outlined text-xl">edit_square</span>
-      </button>
-    </div>
-    <div class="relative w-full mb-4">
-      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <span class="material-symbols-outlined text-slate-400">search</span>
-      </div>
-      <input class="block w-full pl-10 pr-3 py-3 border-none rounded-full bg-white dark:bg-[#302839] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm" placeholder="Search friends or titles..." type="text" />
-    </div>
-    <div class="flex space-x-4 overflow-x-auto hide-scrollbar pb-4 -mx-4 px-4 border-b border-slate-200/50 dark:border-white/5">
-      <button class="flex flex-col items-center gap-1 shrink-0 group">
-        <div class="relative w-16 h-16 rounded-full flex items-center justify-center border-2 border-dashed border-primary/50 group-hover:border-primary transition-colors">
-          <span class="material-symbols-outlined text-3xl text-primary group-hover:text-primary/70">add</span>
+import { useConversations, type ConversationListItem } from "./useConversations";
+import { LoadingScreen } from "@/components/ui/loading-screen";
+import { MaterialIcon } from "@/components/ui/material-icon";
+
+const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
+  conversation,
+}) => {
+  const participants = conversation.participants ?? [];
+  const primaryParticipant = participants.find((p) => !p.isSelf) ?? participants[0] ?? null;
+  const timeLabel = conversation.lastMessageAtLabel ?? "Now";
+  const isGroup = conversation.isGroup;
+  const participantCount = participants.length;
+
+  return (
+    <li className="py-1">
+      <Link
+        to={`/messages/${conversation.id}`}
+        className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-white/5"
+      >
+        <div className="relative shrink-0">
+          {isGroup && participantCount > 1 ? (
+            <div className="grid h-16 w-16 grid-cols-2 gap-0.5 overflow-hidden rounded-full bg-slate-700">
+              {participants.slice(0, 4).map((participant) => (
+                <div
+                  key={participant.id}
+                  className="h-full w-full bg-cover bg-center"
+                  style={
+                    participant.avatarUrl
+                      ? { backgroundImage: `url(${participant.avatarUrl})` }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-primary/50">
+              {primaryParticipant?.avatarUrl ? (
+                <img
+                  src={primaryParticipant.avatarUrl}
+                  alt={primaryParticipant.displayName ?? undefined}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-white">
+                  {(primaryParticipant?.displayName ?? "?").slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              {!isGroup && conversation.hasUnread && (
+                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background-dark bg-green-500" />
+              )}
+            </div>
+          )}
         </div>
-        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-primary transition-colors">You</span>
-      </button>
-      <div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
-        <div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-primary/50 bg-gradient-to-tr from-yellow-400 to-pink-500 overflow-hidden">
-          <div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a smiling woman with glasses" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA1is9pV-1zJsWLIsmm7xCl91eNZvMp_Xi64S-jJ9-wjwx60gBa9iO8teMKoYMUX0CGmzs0QI8Vw5NTwp_tuXbW_3eFq5LtdtU2z_nGNJVYSwYi48698PM8p0pPpezD8-VGZKSR9O1RdGljbt350Cv8wx5ZjNI-DPRQtX12_7jvU4YmuH6zKB9oX4EGWEgu71vsayhzwmlPR9eX-5UBwgD9GOgSn_AqoIQteHz2hM3fJ0uRN5G8yLTQbyIN__7XtqI4X02_9P5mrj4");'>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="truncate text-base font-bold text-white">{conversation.title}</h3>
+            <span className="whitespace-nowrap text-xs font-medium text-primary">
+              {timeLabel}
+            </span>
           </div>
-          <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
-        </div>
-        <span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Sarah</span>
-      </div>
-      <div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
-        <div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
-          <div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a man in a suit" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAWHKs30UQXWzPKIsJrdxVQAaYB1hyyQZBfSbt3RJwftuJKm0gJvkLLEqWZcMqC-gEUOb1ezS2d-iARTgOKTPhWQZ2Jn-G9H8sOMGUcDLBz5xCx9_UzM4Q6fa6TyFNN50ihj89nLjXvASD6IbOcnadYj4XSdNVgNemtRJRSMI2MEwSGg8nRTMMhdCJ9EjYhnh-LCk6CR6MCKlvKxq0pQHtzoiqPmwFNP6OzxsQ817sw3uBFXTzQi3muP4e4huVNibjhS3IkrsRcRe4");'>
+          <div className="mt-0.5 flex items-center gap-2">
+            <p className="truncate text-sm text-slate-300">
+              {conversation.lastMessagePreview ?? "Start chatting"}
+            </p>
+            {conversation.hasUnread && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
           </div>
         </div>
-        <span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Mike</span>
-      </div>
-      <div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
-        <div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-primary/50 bg-gradient-to-tr from-yellow-400 to-pink-500 overflow-hidden">
-          <div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a professional woman" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA3A5NtN4_d8bmjuuesYr9CvWdiD8YKkaN_I5zlItsjSStEb7Lv-xk_J-RJNevfLx5-o7jxX9l1htLm-SP-gyws_4__a-CAGFmwl5G_61bNuoAX3nSBO1t8o-aP93DMw6SjryC3tZ-fdlUVaiv4sv4qxkwS7RPWMlgoOMyahMGk0z4DM7z1sksBdoL2RLPC7I5Adzfs51S8eMA7cmG17iC6BmMssVZg8usxYNX-Azyo1RqCJE5KXcLjNWmnADgF_Mrb2ZwWryq5EUI");'>
-          </div>
-          <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
-        </div>
-        <span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Jessica</span>
-      </div>
-      <div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
-        <div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
-          <div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a confident man" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAvVZZNVq80oymB7He6G-dmsYtIxxdIY6Zb4Zgy0bzN05iUzA24Y-u9hsJSKRoPYlkIdeKhM-Dl_cBPw1baSuUm0YQdmTXA6jtD7al8JgeBwaC7ot7wna_foD5bewBmDJFjI1_bxbvZVijT7sYd9JLGdvE-_z7sG0YTQeR5le5-c3T4JRN85qhgwbkpW8yXxMcHGvXFUzzw7xVkrPiZyosPx-Nun4EoVwPqwU3bQwvd7tvEcWJVvfDRDaOLPji6qtAkcJ01pXTBhWE");'>
-          </div>
-        </div>
-        <span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Harvey</span>
-      </div>
-      <div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
-        <div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-primary/50 bg-gradient-to-tr from-yellow-400 to-pink-500 overflow-hidden">
-          <div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a woman with red hair" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBeSceTi6tYjKaadrktO1Fnp11NZyRzU6s1cLf-MQISwPdUiPWpA94vNt_5rjWV-xmlP2L5qOAbfeyto07jr07nQ_t27cjChE-95jEpDNGEL6NSajPhYhKSpBqEO-q54e2jeTkaO45A00XOywmhP5re7rZvAP0mc72WvMFBQUiNeq1bcYc6thCdpsY9YhxRw0NNojQ6XcXF2ir0AjUMyc-V12onX2y3ALAY3Gy2nLuvVsSNqIM2XD_5Fnr2ApgmeCENKI6Y2zz__gY");'>
-          </div>
-          <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
-        </div>
-        <span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Donna</span>
-      </div>
-    </div>
-  </header>
-  <main class="flex-1 overflow-y-auto hide-scrollbar px-4 pb-32 pt-2 space-y-2">
-    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider py-2">Recent Chats</div>
-    <div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer relative">
-      <div class="relative shrink-0">
-        <div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16 border-2 border-primary/50" data-alt="Portrait of a smiling woman with glasses" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA1is9pV-1zJsWLIsmm7xCl91eNZvMp_Xi64S-jJ9-wjwx60gBa9iO8teMKoYMUX0CGmzs0QI8Vw5NTwp_tuXbW_3eFq5LtdtU2z_nGNJVYSwYi48698PM8p0pPpezD8-VGZKSR9O1RdGljbt350Cv8wx5ZjNI-DPRQtX12_7jvU4YmuH6zKB9oX4EGWEgu71vsayhzwmlPR9eX-5UBwgD9GOgSn_AqoIQteHz2hM3fJ0uRN5G8yLTQbyIN__7XtqI4X02_9P5mrj4");'>
-        </div>
-        <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
-      </div>
-      <div class="flex flex-col flex-1 min-w-0">
-        <div class="flex justify-between items-baseline">
-          <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Sarah Jenkins</h3>
-          <span class="text-xs font-medium text-primary whitespace-nowrap">10:42 AM</span>
-        </div>
-        <div class="flex items-center gap-1.5 mt-0.5">
-          <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">Did you see the twist in the finale?</p>
-          <div class="w-2.5 h-2.5 bg-primary rounded-full shrink-0"></div>
-        </div>
-      </div>
-    </div>
-    <div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
-      <div class="relative shrink-0">
-        <div class="grid grid-cols-2 gap-0.5 rounded-full h-16 w-16 overflow-hidden border-2 border-transparent group-hover:border-slate-200 dark:group-hover:border-slate-700 transition-colors bg-slate-200 dark:bg-slate-700">
-          <div class="bg-cover bg-center" data-alt="Abstract gradient orange" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuASgS2l6AHyBGe2NVGSXylBMDWMMCEsz0p4qy5Q_1VI69mO7Nhx3BuOBBpvz7JWD5VLFcEgrTSXmh1hJDRA8TRupfJA74vwDPBrslFBtJzaeX6DKCmuLJNjA-tstbXLCLJ6F8ne2O71CRpKAAIoFwfg0whgjHmyIMpOIIiujg14xMCilLwXDDbgvlKocDOxadQpoJ2ca1dbg3EgXx8ti3fwqDTim7_txX5Mnh0p9e6ILJ2AbSoQ49lpzG6wEkAUd6TIVT4JtTGthp8");'></div>
-          <div class="bg-cover bg-center" data-alt="Abstract gradient blue" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBBFsG7w3E6oOaiBm5FKs56UFbFD5lp3WaL2JePiGa5XfMLnqPXt-QqQDf6jo6LwUBU7vNqMtt1u9_7MOQra4X29C8UFEFzTq_beJpp2ZZXEjiYzDUEODZIGV117kPzv2iNVWG7CGL8k-9O3l0BHQjpZkcy7w31fxErfxV_aPbVDks_tIHLGWHIEmcncbFg5AhU98BnmhJ3I7al7ZOPJcZzniGQ70URm0_8lZGjmXR84HEN6Bqy2Y0sraNX5ZEjmA5PbQKBLSVwYEk");'></div>
-          <div class="bg-cover bg-center" data-alt="Abstract gradient green" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDhOvHJgF4pn7W-BddCfOZ6HwUiDvgjFeLUuq6UwsVb3EUBUkMQfFTSur44Uv41OcPL1H_5sMkG-iXgNi77E4QnziPr0keSmHV6vdEVEsKl1xXZNUS5jMeOivUAjJLu6nOuwbsH5JLNhkPikchb_0NYfmlaEDcF-o0D9EQui4zosSsrl4VZ35vilBuCPpx9ajynp8aKwbbrWG0IpRIMSbJiun4rmZ_s99Q9u1A03GeMyMF07nKjGmGLi8pROBL27vmDqvTRJ-umKes");'></div>
-          <div class="bg-cover bg-center" data-alt="Abstract gradient purple" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDHwyuxUQSRuUzJOi40ONc9gFbxqYrl6Og4lnMc8tbemUuYlhD6IIiZQ2N5vB_odoE7IxQcQEtIR3ArQpoP_Hwf3xtrM1xmfSnQvJRrqujLPR0PaLjeOjHoScfBKcs04i6u0ByR5BotrloEl6sArHV5B49fk3hae5skwjszWY8NV--sPdSF-cbKCzxM71XlRtUqOAwEmRmdVhSRMRS6jcpmo2_cvsKfLnCGxoOH84R7nuvNC35V_j6Ud_BI71BEPsHXd99NK5Q9ZSo");'></div>
-        </div>
-      </div>
-      <div class="flex flex-col flex-1 min-w-0">
-        <div class="flex justify-between items-baseline">
-          <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Movie Buffs Group</h3>
-          <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Yesterday</span>
-        </div>
-        <div class="flex items-center gap-2 mt-0.5">
-          <div class="shrink-0 w-8 h-8 rounded bg-cover bg-center border border-slate-200 dark:border-slate-700" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDNI8lSJUCbqsz0821pIc4utDrhifAEKK7z6SDUl5qBKAh2EyhUBP2greaK54bu2U3F4yFx98KqF8pmgkgVWwMnU4hfGXWHpMu1t95WvRrcLGd7BO97HEUR-QkHiKuzcYPcdL4cKFO9hAP6uIRIB57jhRuwmKkjZ-yeUob8jb1sku1MVV0LfGA0P5_86GE8Edfkcfupri7-onyhrw0jxtesJiwKdE9JZej9HVMNXx80aXqg2V-tt1pL57191mzi0yyXFJaFAKejCYk");' title="Dune: Part Two"></div>
-          <p class="text-sm text-slate-500 dark:text-slate-400 truncate">Let's watch Dune Part 2 this weekend.</p>
-        </div>
-      </div>
-    </div>
-    <div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
-      <div class="relative shrink-0">
-        <div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16" data-alt="Portrait of a man in a suit" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAWHKs30UQXWzPKIsJrdxVQAaYB1hyyQZBfSbt3RJwftuJKm0gJvkLLEqWZcMqC-gEUOb1ezS2d-iARTgOKTPhWQZ2Jn-G9H8sOMGUcDLBz5xCx9_UzM4Q6fa6TyFNN50ihj89nLjXvASD6IbOcnadYj4XSdNVgNemtRJRSMI2MEwSGg8nRTMMhdCJ9EjYhnh-LCk6CR6MCKlvKxq0pQHtzoiqPmwFNP6OzxsQ817sw3uBFXTzQi3muP4e4huVNibjhS3IkrsRcRe4");'>
-        </div>
-      </div>
-      <div class="flex flex-col flex-1 min-w-0">
-        <div class="flex justify-between items-baseline">
-          <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Mike Ross</h3>
-          <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Tue</span>
-        </div>
-        <div class="flex items-center gap-2 mt-0.5">
-          <div class="shrink-0 w-8 h-8 rounded bg-cover bg-center border border-slate-200 dark:border-slate-700" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA_ynu4qFTV5wyoJTmAQtouMjiLXOnrJw2JBV7mefAsFu4OtpAr0b6eOlB08s9nU1egeyTKUPy9ffC45WM589rxCkC1TSG8QFYewiI5W3-cgcXTLmW_hHkeJ7P9PMn8w6NeWITPmjz2-QivU_2s_BPmf7uRwM0hKOgJiWqVu1FPoIih96YMll5tHtXmaORflUBmfYV4HH4E4bRLNTBozBIcwkZir7ybGZjYMSmdC0hXr5a2glehoKQ7wqMEb-yjpKu34pgDjx67K_k");' title="Inception"></div>
-          <p class="text-sm text-slate-500 dark:text-slate-400 truncate">The cinematography was insane!</p>
-        </div>
-      </div>
-    </div>
-  </main>
-</div>
-`;
+      </Link>
+    </li>
+  );
+};
 
 const MessagesPage: React.FC = () => {
-  useDocumentTitle("Messages");
+  const navigate = useNavigate();
+  const { data, isLoading, isError, error, refetch, isFetching } = useConversations();
+  const [query, setQuery] = useState("");
 
-  return <div dangerouslySetInnerHTML={{ __html: MESSAGES_MARKUP }} />;
+  const trimmedQuery = query.trim().toLowerCase();
+
+  const conversations = useMemo(
+    () =>
+      (data ?? []).filter((conv) => {
+        if (!trimmedQuery) return true;
+        const haystack = [
+          conv.title,
+          conv.subtitle,
+          conv.lastMessagePreview ?? "",
+          ...conv.participants.map((p) => p.displayName),
+          ...conv.participants.map((p) => p.username).filter((u): u is string => Boolean(u)),
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(trimmedQuery);
+      }),
+    [data, trimmedQuery],
+  );
+
+  const storyParticipants = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; avatarUrl: string | null }>();
+
+    (data ?? []).forEach((conversation) => {
+      conversation.participants
+        .filter((p) => !p.isSelf)
+        .forEach((participant) => {
+          if (!map.has(participant.id)) {
+            map.set(participant.id, {
+              id: participant.id,
+              name: participant.displayName,
+              avatarUrl: participant.avatarUrl,
+            });
+          }
+        });
+    });
+
+    return Array.from(map.values()).slice(0, 8);
+  }, [data]);
+
+  const handleNewConversation = () => {
+    navigate("/messages/new");
+  };
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-sm text-white">
+        <p className="font-semibold">Unable to load messages.</p>
+        <p className="mt-1 text-xs text-slate-400">
+          {error?.message ?? "Please try again in a moment."}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen flex-1 flex-col overflow-hidden bg-background-dark text-white">
+      <header className="sticky top-0 z-10 bg-background-dark px-4 pb-2 pt-6">
+        <div className="mb-4 mt-2 flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Messages</h1>
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-white transition-colors hover:bg-primary"
+            aria-label="New message"
+          >
+            <MaterialIcon name="edit_square" className="text-xl" ariaLabel="New message" />
+          </button>
+        </div>
+
+        <div className="relative mb-4">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <MaterialIcon name="search" className="text-slate-400" />
+          </div>
+          <input
+            className="block w-full rounded-full border-none bg-[#302839] py-3 pl-10 pr-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Search friends or titles..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+
+        <div className="-mx-4 flex space-x-4 overflow-x-auto pb-4 pl-4 pr-4">
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="flex shrink-0 flex-col items-center gap-1"
+          >
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-primary/50">
+              <MaterialIcon name="add" className="text-3xl text-primary" />
+            </div>
+            <span className="text-xs font-medium text-slate-400">You</span>
+          </button>
+
+          {storyParticipants.map((participant) => (
+            <button
+              key={participant.id}
+              type="button"
+              className="flex shrink-0 flex-col items-center gap-1"
+            >
+              <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-primary/50">
+                {participant.avatarUrl ? (
+                  <img
+                    src={participant.avatarUrl}
+                    alt={participant.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-slate-700 text-xs font-semibold">
+                    {participant.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <span className="max-w-[64px] truncate text-xs font-medium text-white">
+                {participant.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-2">
+        <div className="py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Recent Chats
+        </div>
+        {conversations.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-xs text-slate-300">
+            <p className="font-semibold">No conversations yet.</p>
+            <p className="mt-1">Start a chat with your crew.</p>
+          </div>
+        ) : (
+          <ul>
+            {conversations.map((conversation) => (
+              <ConversationListRow key={conversation.id} conversation={conversation} />
+            ))}
+          </ul>
+        )}
+      </main>
+
+      {isFetching && (
+        <div className="pointer-events-none fixed bottom-24 right-4 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+          <MaterialIcon name="sync" className="text-base" />
+          Syncing…
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default MessagesPage;
