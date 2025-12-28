@@ -93,16 +93,16 @@ export const getBubbleAppearance = ({
   isDeleted: boolean;
 }) => {
   const baseBubbleColors = isSelf
-    ? "bg-primary text-primary-foreground"
-    : "bg-muted text-foreground";
+    ? "bg-primary text-white shadow-[0_0_20px_-6px_rgba(127,19,236,0.5)]"
+    : "bg-[#322b3c] text-slate-100";
 
   return {
     bubbleColors: isDeleted
       ? "bg-muted text-muted-foreground border border-dashed border-border"
       : baseBubbleColors,
     bubbleShape: isSelf
-      ? "rounded-tr-3xl rounded-tl-3xl rounded-bl-3xl rounded-br-2xl"
-      : "rounded-tr-3xl rounded-tl-3xl rounded-br-3xl rounded-bl-2xl",
+      ? "rounded-2xl rounded-tr-sm"
+      : "rounded-2xl rounded-tl-sm",
   };
 };
 

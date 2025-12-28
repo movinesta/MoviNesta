@@ -1,11 +1,8 @@
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import React, { FormEvent, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
-import TextField from "../../components/forms/TextField";
-import PasswordField from "../../components/forms/PasswordField";
-import AuthLayout from "./AuthLayout";
+import { MaterialIcon } from "@/components/ui/material-icon";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,6 +26,7 @@ const SignInPage: React.FC = () => {
   useDocumentTitle("Sign in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
@@ -86,106 +84,200 @@ const SignInPage: React.FC = () => {
   };
 
   return (
-    <AuthLayout
-      kicker="Welcome back"
-      title="Sign in to MoviNesta"
-      description="Pick up where you left off with your diary, recommendations, and watch crew."
-      footer={
-        <span>
-          Don&apos;t have an account?{" "}
-          <Link to="/auth/signup" className="font-medium text-primary hover:underline">
-            Create one
-          </Link>
-        </span>
-      }
-    >
-      {formError && (
-        <div
-          role="alert"
-          className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-        >
-          {formError}
+    <div className="min-h-screen bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col">
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 px-4 pb-2 pt-4 backdrop-blur-md dark:bg-background-dark/80">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
+            aria-label="Go back"
+          >
+            <MaterialIcon name="arrow_back" className="text-[24px]" ariaLabel="Back" />
+          </button>
+          <div className="text-sm font-medium opacity-0">Sign In</div>
+          <div className="h-12 w-12" />
         </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <TextField
-          id="email"
-          label="Email address"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            if (fieldErrors.email) {
-              setFieldErrors((prev) => ({ ...prev, email: undefined }));
-            }
-          }}
-          onBlur={() => {
-            const errors = validateSignIn(email, password);
-            if (errors.email) {
-              setFieldErrors((prev) => ({ ...prev, email: errors.email }));
-            }
-          }}
-          disabled={submitting}
-          error={fieldErrors.email}
-        />
+        <div className="flex flex-1 flex-col px-6 pb-8">
+          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
+            Welcome Back!
+          </h1>
+          <p className="pb-6 text-center text-sm font-normal leading-normal text-[#ad92c9]">
+            Glad to see you again at the fan hub!
+          </p>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="text-xs font-medium text-muted-foreground">
-              Password
+          {formError && (
+            <div
+              role="alert"
+              className="mb-4 rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+            >
+              {formError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2" noValidate>
+            <label className="relative flex items-center">
+              <MaterialIcon
+                name="alternate_email"
+                className="absolute left-5 z-10 text-[#ad92c9]"
+              />
+              <input
+                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
+                placeholder="Email or Username"
+                type="text"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) {
+                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  }
+                }}
+                onBlur={() => {
+                  const errors = validateSignIn(email, password);
+                  if (errors.email) {
+                    setFieldErrors((prev) => ({ ...prev, email: errors.email }));
+                  }
+                }}
+                disabled={submitting}
+              />
             </label>
+            {fieldErrors.email && <p className="text-xs text-red-300">{fieldErrors.email}</p>}
+
+            <label className="relative flex items-center">
+              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
+              <input
+                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-12 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
+                placeholder="Password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  }
+                }}
+                onBlur={() => {
+                  const errors = validateSignIn(email, password);
+                  if (errors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: errors.password }));
+                  }
+                }}
+                disabled={submitting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 z-10 text-[#ad92c9] transition-colors hover:text-white"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <MaterialIcon name={showPassword ? "visibility" : "visibility_off"} />
+              </button>
+            </label>
+            {fieldErrors.password && (
+              <p id="signin-password-error" className="text-xs text-red-300">
+                {fieldErrors.password}
+              </p>
+            )}
+
             <Link
               to="/auth/forgot-password"
-              className="text-xs font-medium text-primary hover:underline"
+              className="mt-1 text-right text-xs font-medium text-[#ad92c9] transition-colors hover:text-primary"
             >
-              Forgot password?
+              Forgot Password?
             </Link>
-          </div>
-          <PasswordField
-            id="password"
-            label=""
-            ariaLabelBase="password"
-            autoComplete="current-password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (fieldErrors.password) {
-                setFieldErrors((prev) => ({
-                  ...prev,
-                  password: undefined,
-                }));
-              }
-            }}
-            onBlur={() => {
-              const errors = validateSignIn(email, password);
-              if (errors.password) {
-                setFieldErrors((prev) => ({
-                  ...prev,
-                  password: errors.password,
-                }));
-              }
-            }}
-            disabled={submitting}
-            aria-invalid={!!fieldErrors.password}
-            aria-describedby={fieldErrors.password ? "signin-password-error" : undefined}
-          />
-          {fieldErrors.password && (
-            <p id="signin-password-error" className="text-xs text-destructive">
-              {fieldErrors.password}
-            </p>
-          )}
-        </div>
 
-        <Button type="submit" className="w-full" disabled={submitting || !isFormValid}>
-          {submitting ? "Signing you in…" : "Sign in"}
-        </Button>
-      </form>
-    </AuthLayout>
+            <button
+              type="submit"
+              disabled={submitting || !isFormValid}
+              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitting ? "Signing you in…" : "Sign In"}
+              <MaterialIcon name="arrow_forward" className="text-[20px]" ariaLabel="Submit" />
+            </button>
+          </form>
+
+          <div className="relative flex items-center py-8">
+            <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
+            <span className="mx-4 flex-shrink text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
+              Or sign in with
+            </span>
+            <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
+          </div>
+
+          <div className="flex justify-center gap-4">
+            <button
+              type="button"
+              className="relative flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              aria-label="Sign in with Google"
+            >
+              <svg
+                className="h-9 w-9"
+                fill="none"
+                viewBox="0 0 48 48"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M43.6191 20.0076H24.2862V27.9174H35.4984C34.4601 30.7303 32.7099 32.9691 30.229 34.4055L30.1983 34.619L36.313 39.4623L36.6568 39.4996C40.6622 35.8459 43.1558 30.6713 43.6191 20.0076Z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M24.2862 44C30.4079 44 35.6322 41.9368 39.6738 38.3075L30.229 34.4055C27.6047 36.1423 24.3297 37.218 24.2862 37.218C18.4552 37.218 13.4357 33.3283 11.5976 28.187L11.2372 28.211L4.85695 33.197L4.74751 33.3136C8.80775 41.6508 15.9324 44 24.2862 44Z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M11.5975 28.187C11.1394 26.8532 10.899 25.4379 10.899 24C10.899 22.5621 11.1394 21.1468 11.5975 19.813L11.5833 19.664L4.90823 14.733L4.7475 14.808C3.1207 18.0674 2.22754 21.9079 2.22754 26C2.22754 30.0921 3.1207 33.9326 4.7475 37.192L11.5975 28.187Z"
+                  fill="#FBBC04"
+                />
+                <path
+                  d="M24.2862 10.7788C27.5684 10.7788 29.8706 12.0006 31.4392 13.4795L39.8662 5.617C35.6111 2.05942 30.4079 0 24.2862 0C15.9324 0 8.80775 2.34919 4.74751 10.6864L11.5975 19.664C13.4357 14.5227 18.4552 10.7788 24.2862 10.7788Z"
+                  fill="#EA4335"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              aria-label="Sign in with another provider"
+            >
+              <svg
+                className="h-9 w-9 text-white"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M17.4745 16.5164C18.9912 15.1118 20 13.1783 20 11C20 6.02944 15.9706 2 11 2C6.02944 2 2 6.02944 2 11C2 15.9706 6.02944 20 11 20C12.8715 20 14.6053 19.4542 16.0353 18.5283C16.1042 19.1601 16.5815 20.0906 17 21L17.4745 16.5164ZM11 18C7.13401 18 4 14.866 4 11C4 7.13401 7.13401 4 11 4C14.866 4 18 7.13401 18 11C18 12.9157 17.1685 14.6543 15.826 15.826L11 18Z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              aria-label="Sign in with Facebook"
+            >
+              <svg
+                className="h-9 w-9 text-[#0866FF]"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-auto flex flex-col items-center gap-4 pt-8">
+            <p className="text-sm font-medium text-[#ad92c9]">
+              Don&apos;t have an account?{" "}
+              <Link to="/auth/signup" className="font-semibold text-primary hover:underline">
+                Sign Up
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
