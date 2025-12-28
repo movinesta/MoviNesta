@@ -2036,11 +2036,21 @@ export interface Database {
         };
         Returns: number;
       };
+      get_title_rating_summary_v1: {
+        Args: {
+          p_title_id: string | null;
+        };
+        Returns: Json[];
+      };
       handle_auth_user_updated: {
         Args: Record<string, never>;
         Returns: unknown;
       };
       handle_library_entry_activity: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
+      handle_library_entry_delete_activity: {
         Args: Record<string, never>;
         Returns: unknown;
       };
@@ -2264,6 +2274,10 @@ export interface Database {
         Args: Record<string, never>;
         Returns: unknown;
       };
+      sync_media_event_to_diary: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
       sync_profiles_public: {
         Args: Record<string, never>;
         Returns: unknown;
@@ -2319,7 +2333,7 @@ export interface Database {
       };
     };
     Enums: {
-      activity_event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent' | 'swipe_skipped';
+      activity_event_type: 'rating_created' | 'review_created' | 'watchlist_added' | 'watchlist_removed' | 'follow_created' | 'comment_created' | 'reply_created' | 'list_created' | 'list_item_added' | 'message_sent' | 'swipe_skipped' | 'watched';
       content_type: 'movie' | 'series' | 'anime';
       episode_status: 'watching' | 'watched' | 'skipped';
       impression_tag: 'loved_it' | 'good' | 'meh' | 'bad';

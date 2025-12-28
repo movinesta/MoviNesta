@@ -1,119 +1,74 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Menu, MessageCircle, SquarePen, Users } from "lucide-react";
-// React Query is used via hooks inside useConversations.
 
 import { useConversations, type ConversationListItem } from "./useConversations";
-import TopBar from "../../components/shared/TopBar";
-import SearchField from "../../components/shared/SearchField";
-import EmptyState from "../../components/shared/EmptyState";
-import { Chip } from "@/components/ui/chip";
 import { LoadingScreen } from "@/components/ui/loading-screen";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-type ConversationFilter = "all" | "unread" | "groups";
+import { MaterialIcon } from "@/components/ui/material-icon";
 
 const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
   conversation,
 }) => {
   const participants = conversation.participants ?? [];
   const primaryParticipant = participants.find((p) => !p.isSelf) ?? participants[0] ?? null;
-  const avatarInitial =
-    primaryParticipant?.displayName?.[0]?.toUpperCase() ??
-    primaryParticipant?.username?.[0]?.toUpperCase() ??
-    "?";
   const timeLabel = conversation.lastMessageAtLabel ?? "Now";
   const isGroup = conversation.isGroup;
   const participantCount = participants.length;
 
-  const rowBase =
-    "group flex items-center gap-3 rounded-xl px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
-  const rowState = conversation.hasUnread ? "bg-muted border border-border" : "hover:bg-muted/60";
-
   return (
-    <li className="py-1 sm:py-1.5">
-      <Link to={`/messages/${conversation.id}`} className={`${rowBase} ${rowState}`}>
-        <div className="relative flex h-12 w-12 items-center justify-center">
+    <li className="py-1">
+      <Link
+        to={`/messages/${conversation.id}`}
+        className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-white/5"
+      >
+        <div className="relative shrink-0">
           {isGroup && participantCount > 1 ? (
-            <div className="flex -space-x-2">
-              {participants.slice(0, 2).map((participant, idx) => (
-                <span
+            <div className="grid h-16 w-16 grid-cols-2 gap-0.5 overflow-hidden rounded-full bg-slate-700">
+              {participants.slice(0, 4).map((participant) => (
+                <div
                   key={participant.id}
-                  className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card text-xs font-semibold text-foreground ring-2 ring-background"
-                  style={{ zIndex: 2 - idx }}
-                >
-                  {participant.avatarUrl ? (
-                    <img
-                      src={participant.avatarUrl ?? ""}
-                      alt={participant.displayName ?? undefined}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    (participant.displayName?.[0]?.toUpperCase() ??
-                    participant.username?.[0]?.toUpperCase() ??
-                    "?")
-                  )}
-                </span>
+                  className="h-full w-full bg-cover bg-center"
+                  style={
+                    participant.avatarUrl
+                      ? { backgroundImage: `url(${participant.avatarUrl})` }
+                      : undefined
+                  }
+                />
               ))}
             </div>
           ) : (
-            <span
-              className={`inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-[12px] font-semibold text-foreground ${
-                conversation.hasUnread ? "bg-primary/20" : "bg-muted"
-              }`}
-            >
+            <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-primary/50">
               {primaryParticipant?.avatarUrl ? (
                 <img
-                  src={primaryParticipant.avatarUrl ?? ""}
+                  src={primaryParticipant.avatarUrl}
                   alt={primaryParticipant.displayName ?? undefined}
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
               ) : (
-                avatarInitial
+                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-white">
+                  {(primaryParticipant?.displayName ?? "?").slice(0, 1).toUpperCase()}
+                </div>
               )}
-            </span>
-          )}
-          {conversation.hasUnread && (
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-primary" />
+              {!isGroup && conversation.hasUnread && (
+                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background-dark bg-green-500" />
+              )}
+            </div>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p
-                className={`truncate text-sm ${
-                  conversation.hasUnread
-                    ? "font-semibold text-foreground"
-                    : "font-medium text-foreground"
-                }`}
-              >
-                {conversation.title}
-              </p>
-              {isGroup && (
-                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Users className="h-3 w-3" aria-hidden="true" />
-                  <span>{participantCount} participants</span>
-                </div>
-              )}
-            </div>
-            <span className="shrink-0 text-xs text-muted-foreground">{timeLabel}</span>
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="truncate text-base font-bold text-white">{conversation.title}</h3>
+            <span className="whitespace-nowrap text-xs font-medium text-primary">
+              {timeLabel}
+            </span>
           </div>
-          <p
-            className={`truncate text-[12px] ${
-              conversation.hasUnread ? "text-foreground" : "text-muted-foreground"
-            }`}
-          >
-            {conversation.lastMessagePreview ?? "Start chatting"}
-          </p>
+          <div className="mt-0.5 flex items-center gap-2">
+            <p className="truncate text-sm text-slate-300">
+              {conversation.lastMessagePreview ?? "Start chatting"}
+            </p>
+            {conversation.hasUnread && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
+          </div>
         </div>
       </Link>
     </li>
@@ -124,158 +79,163 @@ const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
   const { data, isLoading, isError, error, refetch, isFetching } = useConversations();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ConversationFilter>("all");
-
-  // NOTE: We intentionally do not subscribe to *all* message inserts here.
-  // A global realtime subscription without a per-user/per-conversation filter can become noisy and expensive.
-  // The conversations query already refetches on focus/reconnect and is periodically refreshed by React Query.
 
   const trimmedQuery = query.trim().toLowerCase();
-  const hasQuery = trimmedQuery.length > 0;
-
-  const totalUnread = useMemo(() => (data ?? []).filter((conv) => conv.hasUnread).length, [data]);
 
   const conversations = useMemo(
     () =>
-      (data ?? [])
-        // filter by type
-        .filter((conv) => {
-          if (filter === "unread") return conv.hasUnread;
-          if (filter === "groups") return conv.isGroup;
-          return true; // all
-        })
-        // filter by search query
-        .filter((conv) => {
-          if (!trimmedQuery) return true;
-          const haystack = [
-            conv.title,
-            conv.subtitle,
-            conv.lastMessagePreview ?? "",
-            ...conv.participants.map((p) => p.displayName),
-            ...conv.participants.map((p) => p.username).filter((u): u is string => Boolean(u)),
-          ]
-            .join(" ")
-            .toLowerCase();
+      (data ?? []).filter((conv) => {
+        if (!trimmedQuery) return true;
+        const haystack = [
+          conv.title,
+          conv.subtitle,
+          conv.lastMessagePreview ?? "",
+          ...conv.participants.map((p) => p.displayName),
+          ...conv.participants.map((p) => p.username).filter((u): u is string => Boolean(u)),
+        ]
+          .join(" ")
+          .toLowerCase();
 
-          return haystack.includes(trimmedQuery);
-        }),
-    [data, trimmedQuery, filter],
+        return haystack.includes(trimmedQuery);
+      }),
+    [data, trimmedQuery],
   );
 
+  const storyParticipants = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; avatarUrl: string | null }>();
+
+    (data ?? []).forEach((conversation) => {
+      conversation.participants
+        .filter((p) => !p.isSelf)
+        .forEach((participant) => {
+          if (!map.has(participant.id)) {
+            map.set(participant.id, {
+              id: participant.id,
+              name: participant.displayName,
+              avatarUrl: participant.avatarUrl,
+            });
+          }
+        });
+    });
+
+    return Array.from(map.values()).slice(0, 8);
+  }, [data]);
+
   const handleNewConversation = () => {
-    navigate("/search?tab=people&from=messages");
+    navigate("/messages/new");
   };
 
-  return (
-    <div className="flex flex-1 flex-col gap-4 pb-4">
-      <TopBar
-        title="Messages"
-        actions={
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleNewConversation}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
-              aria-label="Compose message"
-            >
-              <SquarePen className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
-                  aria-label="More options"
-                >
-                  <Menu className="h-5 w-5" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleNewConversation}>
-                  New conversation
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        }
-      />
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
-      <SearchField
-        placeholder="Search chats or people…"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-
-      {/* Status + filters row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-2 rounded-full bg-muted px-2 py-1">
-            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="font-medium">
-              {totalUnread > 0 ? `${totalUnread} unread` : "Inbox is caught up"}
-            </span>
-          </span>
-          {isFetching && !isLoading && <Chip className="px-2 py-1 text-xs">Syncing…</Chip>}
-        </div>
-
-        <div className="w-full sm:max-w-xs">
-          <Tabs value={filter} onValueChange={(value) => setFilter(value as ConversationFilter)}>
-            <TabsList className="w-full">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="unread">Unread</TabsTrigger>
-              <TabsTrigger value="groups">Groups</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+  if (isError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-sm text-white">
+        <p className="font-semibold">Unable to load messages.</p>
+        <p className="mt-1 text-xs text-slate-400">
+          {error?.message ?? "Please try again in a moment."}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white"
+        >
+          Try again
+        </button>
       </div>
+    );
+  }
 
-      {/* Loading state – use global loading screen */}
-      {isLoading && <LoadingScreen />}
+  return (
+    <div className="flex min-h-screen flex-1 flex-col overflow-hidden bg-background-dark text-white">
+      <header className="sticky top-0 z-10 bg-background-dark px-4 pb-2 pt-6">
+        <div className="mb-4 mt-2 flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Messages</h1>
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-white transition-colors hover:bg-primary"
+            aria-label="New message"
+          >
+            <MaterialIcon name="edit_square" className="text-xl" ariaLabel="New message" />
+          </button>
+        </div>
 
-      {/* Error state */}
-      {isError && !isLoading && (
-        <div className="flex flex-1 items-center justify-center">
-          <EmptyState
-            icon={<MessageCircle className="h-5 w-5" />}
-            title="Something went wrong"
-            subtitle={error?.message ?? "Please try again in a moment."}
-            actionLabel={isFetching ? "Retrying…" : "Reload inbox"}
-            onAction={() => refetch()}
+        <div className="relative mb-4">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <MaterialIcon name="search" className="text-slate-400" />
+          </div>
+          <input
+            className="block w-full rounded-full border-none bg-[#302839] py-3 pl-10 pr-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Search friends or titles..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-      )}
 
-      {/* No results for search */}
-      {!isLoading && !isError && hasQuery && conversations.length === 0 && (
-        <EmptyState
-          icon={<MessageCircle className="h-6 w-6" />}
-          title="No conversations match"
-          subtitle="Try a different name or clear your search to see all chats."
-          actionLabel="Clear search"
-          onAction={() => setQuery("")}
-        />
-      )}
+        <div className="-mx-4 flex space-x-4 overflow-x-auto pb-4 pl-4 pr-4">
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="flex shrink-0 flex-col items-center gap-1"
+          >
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-primary/50">
+              <MaterialIcon name="add" className="text-3xl text-primary" />
+            </div>
+            <span className="text-xs font-medium text-slate-400">You</span>
+          </button>
 
-      {/* No conversations at all */}
-      {!isLoading && !isError && !hasQuery && conversations.length === 0 && (
-        <EmptyState
-          icon={<MessageCircle className="h-6 w-6" />}
-          title="Plan together"
-          subtitle="Create a group chat to line up your next movie night."
-          actionLabel="New conversation"
-          onAction={handleNewConversation}
-        />
-      )}
+          {storyParticipants.map((participant) => (
+            <button
+              key={participant.id}
+              type="button"
+              className="flex shrink-0 flex-col items-center gap-1"
+            >
+              <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-primary/50">
+                {participant.avatarUrl ? (
+                  <img
+                    src={participant.avatarUrl}
+                    alt={participant.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-slate-700 text-xs font-semibold">
+                    {participant.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <span className="max-w-[64px] truncate text-xs font-medium text-white">
+                {participant.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      </header>
 
-      {/* Conversation list */}
-      {!isLoading && !isError && conversations.length > 0 && (
-        <div className="rounded-xl border border-border bg-background">
-          <ul className="divide-y divide-border px-2 py-1 sm:px-3">
-            {conversations.map((conv) => (
-              <ConversationListRow key={conv.id} conversation={conv} />
+      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-2">
+        <div className="py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Recent Chats
+        </div>
+        {conversations.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-xs text-slate-300">
+            <p className="font-semibold">No conversations yet.</p>
+            <p className="mt-1">Start a chat with your crew.</p>
+          </div>
+        ) : (
+          <ul>
+            {conversations.map((conversation) => (
+              <ConversationListRow key={conversation.id} conversation={conversation} />
             ))}
           </ul>
+        )}
+      </main>
+
+      {isFetching && (
+        <div className="pointer-events-none fixed bottom-24 right-4 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+          <MaterialIcon name="sync" className="text-base" />
+          Syncing…
         </div>
       )}
     </div>

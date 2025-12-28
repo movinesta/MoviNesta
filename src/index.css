@@ -111,6 +111,16 @@ body {
   font-variation-settings: "FILL" 1, "wght" 520, "GRAD" 0, "opsz" 24;
 }
 
+/* Hide scrollbars for chat panes and horizontal scrollers */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Fix chat layout issues with the Virtuoso viewport being absolutely positioned */
 .conversation-page [data-viewport-type="element"] {
   position: relative !important;

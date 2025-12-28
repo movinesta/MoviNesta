@@ -135,7 +135,7 @@ export function MessageList<T>({
         ref={virtuosoRef}
         data={items ?? []}
         style={{ height: "100%", width: "100%" }}
-        className="px-4 pt-6"
+        className="scrollbar-hide px-4 pt-4"
         alignToBottom
         followOutput={followOutput}
         atBottomStateChange={onAtBottomChange}

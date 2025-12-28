@@ -25,7 +25,7 @@ export const MessageBubble = React.memo(function MessageBubble({
       role={role ?? "button"}
       tabIndex={tabIndex ?? 0}
       className={cn(
-        "inline-flex max-w-[80%] px-4 py-2.5 text-sm transition-transform duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex max-w-[85%] px-5 py-3 text-[15px] leading-relaxed transition-transform duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         bubbleShape,
         bubbleColors,
         className,

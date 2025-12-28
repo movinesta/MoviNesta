@@ -35,6 +35,7 @@ const OnboardingPage = lazyWithRetry(() => import("./modules/misc/OnboardingPage
 const TasteOnboardingPage = lazyWithRetry(() => import("./modules/misc/TasteOnboardingPage"));
 
 const MessagesPage = lazyWithRetry(() => import("./modules/messages/MessagesPage"));
+const NewMessagePage = lazyWithRetry(() => import("./modules/messages/NewMessagePage"));
 const ConversationPage = lazyWithRetry(() => import("./modules/messages/ConversationPage"));
 const TitleDetailPage = lazyWithRetry(() => import("./modules/title/TitleDetailPageV2"));
 const TitleReviewsPage = lazyWithRetry(() => import("./modules/title/TitleReviewsPageV2"));
@@ -60,6 +61,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/swipe" element={<SwipePage />} />
             <Route path="/swipe/classic" element={<SwipePageClassic />} />
             <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/messages/new" element={<NewMessagePage />} />
             <Route path="/messages/:conversationId" element={<ConversationPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/diary" element={<DiaryPage />} />

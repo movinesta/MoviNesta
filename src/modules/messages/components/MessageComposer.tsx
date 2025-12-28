@@ -37,8 +37,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         <form
           {...formProps}
           className={cn(
-            "pointer-events-auto flex w-full flex-col gap-2 rounded-3xl border border-border/60 bg-card/85 p-3 shadow-[0_-12px_40px_rgba(0,0,0,0.16)] backdrop-blur-xl supports-[backdrop-filter]:bg-card/65",
-            "ring-1 ring-black/5",
+            "pointer-events-auto flex w-full flex-col gap-2 border-t border-white/5 bg-background-dark/95 p-3 shadow-[0_-12px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl",
             className,
           )}
           style={{ minHeight, ...style }}

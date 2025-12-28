@@ -39,7 +39,7 @@ import { ConversationComposerBar } from "./components/ConversationComposerBar";
 import { EditMessageDialog } from "./components/EditMessageDialog";
 import { DeleteMessageDialog } from "./components/DeleteMessageDialog";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
-import TopBar from "@/components/shared/TopBar";
+import { MaterialIcon } from "@/components/ui/material-icon";
 
 // Re-export for modules that import message hooks from this file (e.g. SwipePage.tsx).
 // Note: This is intentionally a named export alongside the default export.
@@ -551,20 +551,80 @@ const ConversationPage: React.FC = () => {
     );
   }
 
+  const headerSubtitle =
+    conversation?.subtitle ||
+    (isGroupConversation ? "Group chat" : "Active now");
+
   return (
-    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background">
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
-        <TopBar
+    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background-dark text-white">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-white/5 bg-background-dark sm:rounded-2xl">
+        <header
           ref={headerRef}
-          title={conversationTitle}
-          actions={blockAction ? [blockAction] : undefined}
-          onBack={() => navigate(-1)}
-          canGoBack
-        />
+          className="sticky top-0 z-20 flex items-center justify-between border-b border-white/5 bg-background-dark/80 px-4 py-3 backdrop-blur-md"
+        >
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              aria-label="Go back"
+            >
+              <MaterialIcon name="arrow_back" />
+            </button>
+            <div className="relative">
+              <div className="h-10 w-10 overflow-hidden rounded-full bg-white/10">
+                {otherParticipant?.avatarUrl ? (
+                  <img
+                    src={otherParticipant.avatarUrl}
+                    alt={otherParticipant.displayName ?? "Conversation"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-200">
+                    {(otherParticipant?.displayName ?? conversationTitle).slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {!isGroupConversation && (
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background-dark bg-green-500" />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-base font-bold leading-none text-white">{conversationTitle}</h1>
+              <p className="mt-1 text-xs font-medium text-primary">{headerSubtitle}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              aria-label="Video call"
+            >
+              <MaterialIcon name="videocam" />
+            </button>
+            <button
+              type="button"
+              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              aria-label="Conversation info"
+            >
+              <MaterialIcon name="info" />
+            </button>
+            {blockAction ? (
+              <button
+                type="button"
+                onClick={blockAction.onClick}
+                className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                aria-label={blockAction.label}
+              >
+                <ShieldX className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        </header>
 
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background-dark">
             {pollWhenRealtimeDown && (
               <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-4">
                 <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50/95 px-3 py-1 text-[12px] text-amber-800 shadow-sm">
@@ -577,25 +637,25 @@ const ConversationPage: React.FC = () => {
               items={visibleMessages}
               isLoading={isMessagesLoading && !hasVisibleMessages}
               loadingContent={
-                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-[12px] text-muted-foreground">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-background-dark/80 px-3 py-1.5 text-[12px] text-slate-300">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   <span>Loading messages…</span>
                 </div>
               }
               errorContent={
                 isMessagesError ? (
-                  <div className="mb-3 rounded-md border border-border bg-background/90 px-3 py-2 text-[12px] text-destructive">
-                    <p className="font-medium">We couldn&apos;t load this conversation.</p>
+                  <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-200">
+                    <p className="font-medium text-red-100">We couldn&apos;t load this conversation.</p>
                     {messagesError instanceof Error && (
-                      <p className="mt-1 text-xs text-muted-foreground">{messagesError.message}</p>
+                      <p className="mt-1 text-xs text-red-200/70">{messagesError.message}</p>
                     )}
                   </div>
                 ) : undefined
               }
               emptyContent={
                 !hasVisibleMessages ? (
-                  <div className="text-center text-[12px] text-muted-foreground">
-                    <p className="font-medium">
+                  <div className="text-center text-[12px] text-slate-400">
+                    <p className="font-medium text-slate-200">
                       {isGroupConversation ? "No messages in this group yet." : "No messages yet."}
                     </p>
                     <p className="mt-1">
@@ -609,7 +669,7 @@ const ConversationPage: React.FC = () => {
               footer={<div className="h-1" aria-hidden />}
               header={
                 hasMoreMessages ? (
-                  <div className="flex items-center justify-center pb-2 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-center pb-2 text-xs text-slate-400">
                     {isLoadingOlderMessages ? (
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -730,13 +790,13 @@ const ConversationPage: React.FC = () => {
           />
 
           {blockedYou && (
-            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-border bg-background/95 px-4 py-3 text-center text-xs text-muted-foreground">
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-white/10 bg-background-dark/95 px-4 py-3 text-center text-xs text-slate-300">
               <p>You can&apos;t send messages because this user has blocked you.</p>
             </div>
           )}
 
           {isBlocked && !blockedYou && (
-            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-border bg-background/95 px-4 py-3 text-center text-xs text-muted-foreground">
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-white/10 bg-background-dark/95 px-4 py-3 text-center text-xs text-slate-300">
               <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
             </div>
           )}
