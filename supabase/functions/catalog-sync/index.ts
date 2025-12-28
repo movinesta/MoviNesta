@@ -246,7 +246,7 @@ export async function handler(req: Request) {
   const { data, errorResponse } = await validateRequest<SyncRequest>(
     req,
     (body: unknown) => body as SyncRequest,
-    { logPrefix: `[${FN_NAME}]` },
+    { logPrefix: `[${FN_NAME}]`, requireJson: true },
   );
   if (errorResponse) return errorResponse;
 

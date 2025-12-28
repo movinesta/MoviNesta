@@ -57,6 +57,7 @@ export async function handler(req: Request){
 
   const { data, errorResponse } = await validateRequest<SyncBatchRequest>(req, parseRequestBody, {
     logPrefix: `[${FN_NAME}]`,
+    requireJson: true,
   });
   if (errorResponse) return errorResponse;
 

@@ -88,7 +88,7 @@ export async function handler(req: Request) {
   const { data, errorResponse } = await validateRequest<BackfillRequestBody>(
     req,
     parseRequestBody,
-    { logPrefix: `[${FN_NAME}]` },
+    { logPrefix: `[${FN_NAME}]`, requireJson: true },
   );
   if (errorResponse) return errorResponse;
 
@@ -125,8 +125,9 @@ export async function handler(req: Request) {
             }
           }
         }
-      } catch (err: any) {
-        log(logCtx, "fetchTmdbTrending error", { error: err.message });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        log(logCtx, "fetchTmdbTrending error", { error: message });
       }
 
       // 2) Discover pages
@@ -138,8 +139,9 @@ export async function handler(req: Request) {
               idSet.add(item.id);
             }
           }
-        } catch (err: any) {
-          log(logCtx, "fetchTmdbDiscover error", { page, error: err.message });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log(logCtx, "fetchTmdbDiscover error", { page, error: message });
           break; // Stop fetching pages for this type on error
         }
       }
@@ -193,10 +195,12 @@ export async function handler(req: Request) {
     });
 
     return jsonResponse(payload);
-  } catch (err: any) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
     log({ fn: FN_NAME }, "Unexpected error during backfill", {
-      error: err.message,
-      stack: err.stack,
+      error: message,
+      stack,
     });
 
     await safeInsertJobRunLog(admin, {
@@ -211,7 +215,7 @@ export async function handler(req: Request) {
       skipped_existing: null,
       total_tokens: null,
       error_code: "CATALOG_BACKFILL_ERROR",
-      error_message: err?.message ?? String(err),
+      error_message: message,
       meta: { reason, mediaTypes, pagesPerType, maxPerType },
     });
 

@@ -66,7 +66,7 @@ export async function handler(req: Request): Promise<Response> {
     const { data: payload, errorResponse } = await validateRequest<ReqPayload>(
       req,
       (raw) => RequestSchema.parse(raw ?? {}),
-      { logPrefix: `[${FN_NAME}]` },
+      { logPrefix: `[${FN_NAME}]`, requireJson: true },
     );
     if (errorResponse || !payload) return errorResponse!;
 

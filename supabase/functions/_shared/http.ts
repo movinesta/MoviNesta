@@ -203,12 +203,28 @@ type ValidationResult<T> =
 export async function validateRequest<T>(
   req: Request,
   parse: (body: unknown) => T,
-  options?: { logPrefix?: string },
+  options?: { logPrefix?: string; requireJson?: boolean },
 ): Promise<ValidationResult<T>> {
   const prefix = options?.logPrefix ?? "";
   let raw: unknown;
 
   try {
+    if (options?.requireJson) {
+      const contentType = req.headers.get("content-type") ?? "";
+      if (!isJsonContentType(contentType)) {
+        return {
+          data: null,
+          errorResponse: jsonError(
+            "Unsupported Media Type",
+            415,
+            "UNSUPPORTED_MEDIA_TYPE",
+            req,
+            { expected: "application/json" },
+          ),
+        };
+      }
+    }
+
     raw = await req.json();
   } catch (err) {
     if (prefix) console.error(`${prefix} invalid JSON body`, err);
@@ -231,6 +247,13 @@ export async function validateRequest<T>(
       errorResponse: jsonError("Invalid request body", 400, "BAD_REQUEST_INVALID_BODY", req),
     };
   }
+}
+
+function isJsonContentType(contentType: string): boolean {
+  const lower = contentType.toLowerCase();
+  if (!lower) return false;
+  if (lower.startsWith("application/json")) return true;
+  return lower.includes("+json");
 }
 
 /**

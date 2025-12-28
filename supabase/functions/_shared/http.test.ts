@@ -79,5 +79,18 @@ describe("http helpers", () => {
       expect(errorResponse).toBeInstanceOf(Response);
       expect(errorResponse!.status).toBe(400);
     });
+
+    it("should reject non-JSON content types when required", async () => {
+      const req = new Request("http://example.com", {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: JSON.stringify({ name: "Jules", age: 30 }),
+      });
+      const parser = (body: any) => ({ name: body.name, age: body.age });
+      const { data, errorResponse } = await validateRequest(req, parser, { requireJson: true });
+      expect(data).toBeNull();
+      expect(errorResponse).toBeInstanceOf(Response);
+      expect(errorResponse!.status).toBe(415);
+    });
   });
 });

@@ -65,7 +65,9 @@ export async function handler(req: Request){
 
     return jsonError("Method not allowed", 405, "METHOD_NOT_ALLOWED");
   } catch (err) {
-    log(logCtx, "Unhandled error", { error: err.message, stack: err.stack });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    log(logCtx, "Unhandled error", { error: message, stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR");
   }
 }
@@ -98,8 +100,10 @@ async function handleGet(supabase: SupabaseClient<Database>, user: User): Promis
 }
 
 async function handlePost(req: Request, supabase: SupabaseClient<Database>, user: User): Promise<Response> {
-  const { data: payload, errorResponse } = await validateRequest(req, (raw) =>
-    PreferencesUpdateSchema.parse(raw)
+  const { data: payload, errorResponse } = await validateRequest(
+    req,
+    (raw) => PreferencesUpdateSchema.parse(raw),
+    { requireJson: true },
   );
   if (errorResponse) return errorResponse;
 

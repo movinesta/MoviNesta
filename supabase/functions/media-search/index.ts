@@ -574,6 +574,7 @@ export async function handler(req: Request) {
 
   const { data, errorResponse } = await validateRequest<SearchRequest>(req, parseRequestBody, {
     logPrefix: `[${FN_NAME}]`,
+    requireJson: true,
   });
   if (errorResponse) return errorResponse;
 

@@ -2057,10 +2057,32 @@ declare
   conv_id uuid;
 begin
   if p_creator_id is null or p_target_user_id is null then
-    raise exception 'Missing user id';
+    raise exception 'MISSING_USER_ID' using errcode = '22004';
   end if;
   if p_creator_id = p_target_user_id then
-    raise exception 'Cannot create conversation with self';
+    raise exception 'SELF_CONVERSATION' using errcode = '22000';
+  end if;
+  if not exists (select 1 from auth.users where id = p_creator_id) then
+    raise exception 'CREATOR_NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if not exists (select 1 from auth.users where id = p_target_user_id) then
+    raise exception 'TARGET_NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if exists (
+    select 1
+    from public.blocked_users bu
+    where bu.blocker_id = p_creator_id
+      and bu.blocked_id = p_target_user_id
+  ) then
+    raise exception 'BLOCKED_BY_SELF' using errcode = 'P0001';
+  end if;
+  if exists (
+    select 1
+    from public.blocked_users bu
+    where bu.blocker_id = p_target_user_id
+      and bu.blocked_id = p_creator_id
+  ) then
+    raise exception 'BLOCKED_BY_OTHER' using errcode = 'P0001';
   end if;
 
   pair := array[p_creator_id, p_target_user_id];
@@ -9380,7 +9402,8 @@ ALTER TABLE public.app_admins OWNER TO postgres;
 CREATE TABLE public.blocked_users (
     blocker_id uuid NOT NULL,
     blocked_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT blocked_users_not_self CHECK ((blocker_id <> blocked_id))
 );
 
 
@@ -21638,4 +21661,3 @@ ALTER EVENT TRIGGER pgrst_drop_watch OWNER TO supabase_admin;
 --
 
 \unrestrict tUMbUkBxIy8WEzfQNg4NxXCfgIAcUznppXTGoLlch6ksJdvAjnSjZdLcrecUA60
-

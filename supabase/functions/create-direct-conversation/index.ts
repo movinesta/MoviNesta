@@ -37,6 +37,12 @@ export async function handler(req: Request) {
   const logCtx = { fn: FN_NAME };
 
   try {
+    if (req.method !== "POST") {
+      return jsonError("Method Not Allowed", 405, "METHOD_NOT_ALLOWED", req, {
+        allow: ["POST"],
+      });
+    }
+
     const supabaseAuth = getUserClient(req);
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
@@ -45,8 +51,10 @@ export async function handler(req: Request) {
       return jsonError("Unauthorized", 401, "UNAUTHORIZED", req);
     }
 
-    const { data: payload, errorResponse } = await validateRequest<RequestPayload>(req, (raw) =>
-      RequestPayloadSchema.parse(raw)
+    const { data: payload, errorResponse } = await validateRequest<RequestPayload>(
+      req,
+      (raw) => RequestPayloadSchema.parse(raw),
+      { requireJson: true },
     );
     if (errorResponse) return errorResponse;
 
@@ -75,6 +83,12 @@ export async function handler(req: Request) {
     );
 
     if (convErr || !convId) {
+      const mappedError = mapConversationRpcError(convErr?.message ?? "");
+      if (mappedError) {
+        log(logCtx, "Direct conversation rejected", { reason: mappedError.code });
+        return jsonError(mappedError.message, mappedError.status, mappedError.code, req);
+      }
+
       log(logCtx, "Failed to create direct conversation", { error: convErr?.message });
       return jsonError("Database operation failed", 500, "DB_ERROR", req);
     }
@@ -86,7 +100,9 @@ export async function handler(req: Request) {
 
     return jsonResponse({ ok: true, conversationId: convId }, 200, undefined, req);
   } catch (err) {
-    log(logCtx, "Unexpected error", { error: err.message, stack: err.stack });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    log(logCtx, "Unexpected error", { error: message, stack });
     return jsonError("Internal server error", 500, "INTERNAL_ERROR", req);
   }
 }
@@ -116,6 +132,29 @@ async function getBlockStatus(
   const blockedYou = data.some((r) => r.blocker_id === targetUserId);
 
   return { youBlocked, blockedYou };
+}
+
+function mapConversationRpcError(message: string) {
+  const normalized = message.toUpperCase();
+  if (normalized.includes("BLOCKED_BY_SELF")) {
+    return { status: 403, code: "BLOCKED_BY_SELF", message: "You have blocked this user." };
+  }
+  if (normalized.includes("BLOCKED_BY_OTHER")) {
+    return { status: 403, code: "BLOCKED_BY_OTHER", message: "This user has blocked you." };
+  }
+  if (normalized.includes("TARGET_NOT_FOUND")) {
+    return { status: 404, code: "TARGET_NOT_FOUND", message: "Target user does not exist." };
+  }
+  if (normalized.includes("CREATOR_NOT_FOUND")) {
+    return { status: 401, code: "UNAUTHORIZED", message: "User session is invalid." };
+  }
+  if (normalized.includes("SELF_CONVERSATION")) {
+    return { status: 400, code: "BAD_REQUEST_SELF_TARGET", message: "Cannot start a conversation with yourself." };
+  }
+  if (normalized.includes("MISSING_USER_ID")) {
+    return { status: 400, code: "BAD_REQUEST_MISSING_USER", message: "Missing user id." };
+  }
+  return null;
 }
 
 // NOTE: Conversation creation + participant linking is handled transactionally by

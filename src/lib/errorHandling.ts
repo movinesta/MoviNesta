@@ -86,8 +86,19 @@ export function captureException(
     user?: { id: string; email?: string };
   },
 ) {
+  const viteDev =
+    typeof import.meta !== "undefined" &&
+    "env" in import.meta &&
+    (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
+  const nodeEnv =
+    typeof process !== "undefined" &&
+    typeof process.env !== "undefined"
+      ? process.env.NODE_ENV
+      : undefined;
+  const isDev = viteDev || nodeEnv === "development";
+
   // Log to console in development
-  if (process.env.NODE_ENV === "development") {
+  if (isDev) {
     console.error("[Error Tracking]", {
       error,
       message: error.message,
