@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/modules/auth/AuthProvider";
 import { useToggleFollow } from "@/modules/search/useToggleFollow";
 import { useProfileByUsername } from "./useProfile";
-import { formatHandle, useProfileConnections, type ConnectionMode, type ConnectionPerson } from "./useProfileConnections";
+import {
+  formatHandle,
+  useProfileConnections,
+  type ConnectionMode,
+  type ConnectionPerson,
+} from "./useProfileConnections";
 
 const getInitial = (displayName: string | null, username: string | null) => {
   const source = (displayName ?? username ?? "?").replace(/^@/, "").trim();
@@ -60,7 +65,9 @@ function PersonRow({
             )}
           </div>
           {handle && <p className="mt-0.5 text-xs text-muted-foreground">{handle}</p>}
-          {person.bio && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{person.bio}</p>}
+          {person.bio && (
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{person.bio}</p>
+          )}
         </div>
       </Link>
 
@@ -98,9 +105,11 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
   const { user } = useAuth();
   const toggleFollow = useToggleFollow();
 
-  const { data: profile, isLoading: isProfileLoading, isError: isProfileError } = useProfileByUsername(
-    username ?? "",
-  );
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    isError: isProfileError,
+  } = useProfileByUsername(username ?? "");
 
   const connections = useProfileConnections(profile?.id ?? null, mode);
 
@@ -152,7 +161,9 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
     return (
       <div className="flex flex-1 flex-col gap-4 pb-4">
         <TopBar title={title} onBack={() => navigate(-1)} />
-        <div className="px-3 text-xs text-muted-foreground">We couldn&apos;t load this profile.</div>
+        <div className="px-3 text-xs text-muted-foreground">
+          We couldn&apos;t load this profile.
+        </div>
       </div>
     );
   }
@@ -162,7 +173,11 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
       <TopBar title={title} onBack={() => navigate(-1)} />
 
       <div className="px-3">
-        <SearchField placeholder={`Search ${title.toLowerCase()}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <SearchField
+          placeholder={`Search ${title.toLowerCase()}…`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
       <div className="flex-1 px-2">
@@ -193,9 +208,13 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
               components={{
                 Footer: () =>
                   connections.isFetchingNextPage ? (
-                    <div className="p-4 text-center text-xs text-muted-foreground">Loading more…</div>
+                    <div className="p-4 text-center text-xs text-muted-foreground">
+                      Loading more…
+                    </div>
                   ) : connections.hasNextPage ? (
-                    <div className="p-4 text-center text-xs text-muted-foreground">Scroll for more</div>
+                    <div className="p-4 text-center text-xs text-muted-foreground">
+                      Scroll for more
+                    </div>
                   ) : (
                     <div className="p-4 text-center text-xs text-muted-foreground">End</div>
                   ),

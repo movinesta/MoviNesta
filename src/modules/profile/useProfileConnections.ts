@@ -47,9 +47,10 @@ export function useProfileConnections(profileId: string | null | undefined, mode
         ascending: false,
       });
 
-      const { data: follows, error: followsError } = await (mode === "followers"
-        ? followQuery.eq("followed_id", profileId)
-        : followQuery.eq("follower_id", profileId)
+      const { data: follows, error: followsError } = await (
+        mode === "followers"
+          ? followQuery.eq("followed_id", profileId)
+          : followQuery.eq("follower_id", profileId)
       ).range(offset, offset + PAGE_SIZE - 1);
 
       if (followsError) {
@@ -57,7 +58,9 @@ export function useProfileConnections(profileId: string | null | undefined, mode
       }
 
       const followRows = (follows ?? []) as unknown as FollowRow[];
-      const ids = followRows.map((row) => (mode === "followers" ? row.follower_id : row.followed_id));
+      const ids = followRows.map((row) =>
+        mode === "followers" ? row.follower_id : row.followed_id,
+      );
 
       if (ids.length === 0) {
         return { items: [] };
@@ -76,7 +79,11 @@ export function useProfileConnections(profileId: string | null | undefined, mode
       const byId = new Map<string, any>(rows.map((row) => [row.id, row]));
 
       const avatarUrls = await Promise.all(
-        ids.map((id) => resolveAvatarUrl(typeof byId.get(id)?.avatar_url === "string" ? byId.get(id).avatar_url : null)),
+        ids.map((id) =>
+          resolveAvatarUrl(
+            typeof byId.get(id)?.avatar_url === "string" ? byId.get(id).avatar_url : null,
+          ),
+        ),
       );
 
       let viewerFollowing = new Set<string>();

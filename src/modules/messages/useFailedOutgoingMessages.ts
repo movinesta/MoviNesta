@@ -27,15 +27,16 @@ export function useFailedOutgoingMessages(args: {
     failedMessagesRef.current = failedMessages;
   }, [failedMessages]);
 
-  const [prevConversationId, setPrevConversationId] = useState(conversationId);
-  if (conversationId !== prevConversationId) {
-    setPrevConversationId(conversationId);
+  const prevConversationIdRef = useRef(conversationId);
+  useEffect(() => {
+    if (conversationId === prevConversationIdRef.current) return;
+    prevConversationIdRef.current = conversationId;
     setSendError(null);
     setLastFailedPayload(null);
     setLastFailedTempId(null);
     setFailedMessages({});
     failedMessagesRef.current = {};
-  }
+  }, [conversationId]);
 
   // Best-effort cleanup: if we navigate away while there are failed image uploads,
   // those objects would otherwise be orphaned.

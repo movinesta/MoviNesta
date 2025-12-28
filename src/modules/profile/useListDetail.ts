@@ -110,7 +110,15 @@ export const useListDetail = (listId: string | null | undefined) => {
       }
 
       const resolvedItems = itemRows
-        .map((row) => titlesById.get(row.title_id) ?? { titleId: row.title_id, title: null, year: null, posterUrl: null })
+        .map(
+          (row) =>
+            titlesById.get(row.title_id) ?? {
+              titleId: row.title_id,
+              title: null,
+              year: null,
+              posterUrl: null,
+            },
+        )
         .filter((i) => Boolean(i.titleId));
 
       return {

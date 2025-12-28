@@ -78,7 +78,7 @@ export interface Database {
         Row: {
           id: string;
           created_at: string;
-          admin_user_id: string;
+          admin_user_id: string | null;
           action: string;
           target: string;
           details: Json;
@@ -86,7 +86,7 @@ export interface Database {
         Insert: {
           id?: string;
           created_at?: string;
-          admin_user_id: string;
+          admin_user_id?: string | null;
           action: string;
           target: string;
           details?: Json;
@@ -94,7 +94,7 @@ export interface Database {
         Update: {
           id?: string;
           created_at?: string;
-          admin_user_id?: string;
+          admin_user_id?: string | null;
           action?: string;
           target?: string;
           details?: Json;
@@ -1516,6 +1516,28 @@ export interface Database {
         Relationships: [
         ];
       };
+      rate_limit_state: {
+        Row: {
+          rl_key: string;
+          action: string;
+          window_start: string;
+          count: number;
+        };
+        Insert: {
+          rl_key: string;
+          action: string;
+          window_start: string;
+          count: number;
+        };
+        Update: {
+          rl_key?: string;
+          action?: string;
+          window_start?: string;
+          count?: number;
+        };
+        Relationships: [
+        ];
+      };
       ratings: {
         Row: {
           id: string;
@@ -1545,111 +1567,6 @@ export interface Database {
           rating?: number;
           comment?: string | null;
           created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-        ];
-      };
-      recommendation_impressions: {
-        Row: {
-          id: string;
-          user_id: string;
-          session_id: string | null;
-          section: string;
-          media_item_id: string;
-          score: number | null;
-          rank: number | null;
-          is_exploration: boolean | null;
-          context_features: Json;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          session_id?: string | null;
-          section: string;
-          media_item_id: string;
-          score?: number | null;
-          rank?: number | null;
-          is_exploration?: boolean | null;
-          context_features?: Json;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          session_id?: string | null;
-          section?: string;
-          media_item_id?: string;
-          score?: number | null;
-          rank?: number | null;
-          is_exploration?: boolean | null;
-          context_features?: Json;
-          created_at?: string;
-        };
-        Relationships: [
-        ];
-      };
-      recommendation_interactions: {
-        Row: {
-          id: string;
-          impression_id: string | null;
-          user_id: string;
-          media_item_id: string;
-          interaction_type: string;
-          interaction_value: number | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          impression_id?: string | null;
-          user_id: string;
-          media_item_id: string;
-          interaction_type: string;
-          interaction_value?: number | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          impression_id?: string | null;
-          user_id?: string;
-          media_item_id?: string;
-          interaction_type?: string;
-          interaction_value?: number | null;
-          created_at?: string;
-        };
-        Relationships: [
-        ];
-      };
-      recommendation_performance: {
-        Row: {
-          section: string;
-          context_features: Json;
-          impressions: number | null;
-          clicks: number | null;
-          watches: number | null;
-          positive_ratings: number | null;
-          total_watch_time_seconds: number | null;
-          updated_at: string;
-        };
-        Insert: {
-          section: string;
-          context_features?: Json;
-          impressions?: number | null;
-          clicks?: number | null;
-          watches?: number | null;
-          positive_ratings?: number | null;
-          total_watch_time_seconds?: number | null;
-          updated_at?: string;
-        };
-        Update: {
-          section?: string;
-          context_features?: Json;
-          impressions?: number | null;
-          clicks?: number | null;
-          watches?: number | null;
-          positive_ratings?: number | null;
-          total_watch_time_seconds?: number | null;
           updated_at?: string;
         };
         Relationships: [
@@ -2017,6 +1934,14 @@ export interface Database {
         Args: Record<string, never>;
         Returns: unknown;
       };
+      check_rate_limit: {
+        Args: {
+          p_key: string | null;
+          p_action: string | null;
+          p_max_per_minute: number | null;
+        };
+        Returns: Json[];
+      };
       cleanup_media_events: {
         Args: {
           p_keep_days?: number | null;
@@ -2115,11 +2040,23 @@ export interface Database {
         Args: Record<string, never>;
         Returns: unknown;
       };
+      handle_library_entry_activity: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
       handle_new_auth_user: {
         Args: Record<string, never>;
         Returns: unknown;
       };
       handle_new_user: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
+      handle_rating_insert_activity: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
+      handle_review_insert_activity: {
         Args: Record<string, never>;
         Returns: unknown;
       };

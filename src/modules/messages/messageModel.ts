@@ -1,4 +1,3 @@
-import type { Database } from "@/types/supabase";
 import { formatDate, formatTime } from "@/utils/format";
 
 // Tables missing from generated types, defining manually

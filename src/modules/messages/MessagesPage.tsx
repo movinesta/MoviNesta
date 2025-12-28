@@ -7,7 +7,6 @@ import { useConversations, type ConversationListItem } from "./useConversations"
 import TopBar from "../../components/shared/TopBar";
 import SearchField from "../../components/shared/SearchField";
 import EmptyState from "../../components/shared/EmptyState";
-import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
@@ -192,9 +191,7 @@ const MessagesPage: React.FC = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
-                  Settings
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleNewConversation}>
                   New conversation
                 </DropdownMenuItem>

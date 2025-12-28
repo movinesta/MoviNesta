@@ -75,6 +75,7 @@ describe("realtimeListUpdaters", () => {
         state = updater(state);
       },
       invalidateQueries: (_args: any) => {
+        void _args;
         invalidated = true;
       },
     } as any;

@@ -114,17 +114,15 @@ function nextClientEventId(): string {
   return uuidv4Fallback();
 }
 
-function normalizeCard(
-  card: MediaSwipeCardUI,
-): MediaSwipeCardUI | null {
-// Prefer OMDb poster URLs; fall back to TMDB so users never see an empty deck.
-const omdbPoster = typeof card.posterUrl === "string" ? card.posterUrl.trim() : "";
-const posterUrl =
-  (omdbPoster && omdbPoster.toLowerCase() !== "n/a" ? omdbPoster : "") ||
-  (card.tmdbPosterPath ? (tmdbImageUrl(card.tmdbPosterPath, "w500") ?? "") : "") ||
-  (card.tmdbBackdropPath ? (tmdbImageUrl(card.tmdbBackdropPath, "w780") ?? "") : "");
+function normalizeCard(card: MediaSwipeCardUI): MediaSwipeCardUI | null {
+  // Prefer OMDb poster URLs; fall back to TMDB so users never see an empty deck.
+  const omdbPoster = typeof card.posterUrl === "string" ? card.posterUrl.trim() : "";
+  const posterUrl =
+    (omdbPoster && omdbPoster.toLowerCase() !== "n/a" ? omdbPoster : "") ||
+    (card.tmdbPosterPath ? (tmdbImageUrl(card.tmdbPosterPath, "w500") ?? "") : "") ||
+    (card.tmdbBackdropPath ? (tmdbImageUrl(card.tmdbBackdropPath, "w780") ?? "") : "");
 
-if (!posterUrl) return null;
+  if (!posterUrl) return null;
 
   const title = (card.title ?? "").trim() || "Untitled";
   return { ...card, posterUrl, title };
@@ -379,7 +377,15 @@ export function useMediaSwipeDeck(
 
     setStateSafe({ status: "loading", cards: [], errorMessage: null });
     fetchBatch(limit);
-  }, [fetchBatch, kind, limit, options?.kindFilter, options?.minImdbRating, JSON.stringify(options?.genresAny ?? []), setStateSafe]);
+  }, [
+    fetchBatch,
+    kind,
+    limit,
+    options?.kindFilter,
+    options?.minImdbRating,
+    JSON.stringify(options?.genresAny ?? []),
+    setStateSafe,
+  ]);
 
   const refresh = useCallback(() => {
     // If the caller did not force a specific seed, rotate the shared mode seed
@@ -395,7 +401,17 @@ export function useMediaSwipeDeck(
 
     setStateSafe({ status: "loading", cards: [], errorMessage: null });
     fetchBatch(limit);
-  }, [fetchBatch, limit, mode, options?.kindFilter, options?.minImdbRating, JSON.stringify(options?.genresAny ?? []), options?.seed, sessionId, setStateSafe]);
+  }, [
+    fetchBatch,
+    limit,
+    mode,
+    options?.kindFilter,
+    options?.minImdbRating,
+    JSON.stringify(options?.genresAny ?? []),
+    options?.seed,
+    sessionId,
+    setStateSafe,
+  ]);
 
   const trimConsumed = useCallback(
     (count: number) => {
@@ -538,7 +554,6 @@ export function useMediaSwipeDeck(
     },
     [eventMutation, sessionId],
   );
-
 
   return {
     sessionId,

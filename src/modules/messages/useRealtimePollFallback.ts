@@ -22,15 +22,16 @@ export const useRealtimePollFallback = (resetKey?: unknown) => {
   const [pollWhenRealtimeDown, setPollWhenRealtimeDown] = useState(false);
   const downTimeoutRef = useRef<number | null>(null);
 
-  const [prevResetKey, setPrevResetKey] = useState(resetKey);
-  if (resetKey !== prevResetKey) {
-    setPrevResetKey(resetKey);
+  const prevResetKeyRef = useRef(resetKey);
+  useEffect(() => {
+    if (Object.is(prevResetKeyRef.current, resetKey)) return;
+    prevResetKeyRef.current = resetKey;
     setPollWhenRealtimeDown(false);
     if (downTimeoutRef.current) {
       clearTimeout(downTimeoutRef.current);
       downTimeoutRef.current = null;
     }
-  }
+  }, [resetKey]);
 
   const onStatus = useCallback((status: ConversationRealtimeStatus) => {
     const shouldPoll = isRealtimeDown(status);

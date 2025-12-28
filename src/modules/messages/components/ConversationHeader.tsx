@@ -51,8 +51,8 @@ export const ConversationHeader = React.forwardRef<HTMLElement, ConversationHead
     const avatarFallback = isGroupConversation
       ? (conversation?.title?.slice(0, 2).toUpperCase() ?? "GM")
       : (otherParticipant?.displayName ?? otherParticipant?.username ?? "?")
-        .slice(0, 2)
-        .toUpperCase();
+          .slice(0, 2)
+          .toUpperCase();
 
     return (
       <header

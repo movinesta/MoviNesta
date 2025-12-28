@@ -439,27 +439,6 @@ const ConversationPage: React.FC = () => {
     }
   };
 
-  if (!conversationId) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="max-w-md rounded-xl border border-border bg-card px-5 py-6 text-center text-sm text-foreground">
-          <h1 className="text-base font-heading font-semibold">Conversation not found</h1>
-          <p className="mt-2 text-xs text-muted-foreground">
-            This page is meant to be opened from your messages list.
-          </p>
-          <p className="mt-4">
-            <Link
-              to="/messages"
-              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground"
-            >
-              Back to messages
-            </Link>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const handleRetryMessage = useCallback(
     (message: ConversationMessage) => {
       const payload = consumeFailedMessageForRetry(message.id);
@@ -550,6 +529,27 @@ const ConversationPage: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleJumpToLatest, handleJumpToUnread]);
+
+  if (!conversationId) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="max-w-md rounded-xl border border-border bg-card px-5 py-6 text-center text-sm text-foreground">
+          <h1 className="text-base font-heading font-semibold">Conversation not found</h1>
+          <p className="mt-2 text-xs text-muted-foreground">
+            This page is meant to be opened from your messages list.
+          </p>
+          <p className="mt-4">
+            <Link
+              to="/messages"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground"
+            >
+              Back to messages
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background">

@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { Sparkles, Flame } from "lucide-react";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { useAuth } from "./AuthProvider";
 

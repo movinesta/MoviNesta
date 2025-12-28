@@ -140,7 +140,9 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
 
   switch (row.event_type) {
     case "rating_created": {
-      const rating = rating0_10ToStars(extractNumber(payload, ["rating", "score", "value"]) ?? null);
+      const rating = rating0_10ToStars(
+        extractNumber(payload, ["rating", "score", "value"]) ?? null,
+      );
       if (rating == null) return null;
 
       return {
@@ -151,16 +153,19 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
         relativeTime,
         title,
         rating,
-        reviewSnippet: extractString(payload, ["reviewSnippet", "review", "snippet", "body", "text"]) ?? undefined,
+        reviewSnippet:
+          extractString(payload, ["reviewSnippet", "review", "snippet", "body", "text"]) ??
+          undefined,
         emoji: extractString(payload, ["emoji", "icon"]) ?? undefined,
       };
     }
 
     case "review_created": {
       const reviewSnippet =
-        extractString(payload, ["reviewSnippet", "review", "snippet", "body", "text"]) ??
-        "";
-      const rating = rating0_10ToStars(extractNumber(payload, ["rating", "score", "value"]) ?? null);
+        extractString(payload, ["reviewSnippet", "review", "snippet", "body", "text"]) ?? "";
+      const rating = rating0_10ToStars(
+        extractNumber(payload, ["rating", "score", "value"]) ?? null,
+      );
 
       return {
         kind: "friend-review",
@@ -266,7 +271,8 @@ export function useHomeFeed() {
     enabled: Boolean(userId),
     // Keep pageParam as a string cursor so AuthProvider prefetch and the UI hook share the same cache shape.
     initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) => fetchHomeFeedPage(userId as string, (pageParam as string | null) ?? null),
+    queryFn: ({ pageParam }) =>
+      fetchHomeFeedPage(userId as string, (pageParam as string | null) ?? null),
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
     staleTime: 60 * 1000,
   });
@@ -274,11 +280,7 @@ export function useHomeFeed() {
   const items = (query.data?.pages ?? []).flatMap((page) => page.items);
 
   const errorMessage =
-    query.error instanceof Error
-      ? query.error.message
-      : query.error
-        ? String(query.error)
-        : null;
+    query.error instanceof Error ? query.error.message : query.error ? String(query.error) : null;
 
   return {
     items,

@@ -296,11 +296,12 @@ export const searchTitles = async (params: {
 
       const type: TitleType = item.type === "tv" ? "series" : "movie";
       const key = item.tmdbId ? `${type}:${item.tmdbId}` : null;
-      const resolvedId = key && syncedByKey.get(key)
-        ? syncedByKey.get(key)!
-        : item.tmdbId
-          ? `${item.type === "tv" ? "tv" : "tmdb"}-${item.tmdbId}`
-          : `tmdb-${Math.random()}`;
+      const resolvedId =
+        key && syncedByKey.get(key)
+          ? syncedByKey.get(key)!
+          : item.tmdbId
+            ? `${item.type === "tv" ? "tv" : "tmdb"}-${item.tmdbId}`
+            : `tmdb-${Math.random()}`;
       const isSynced = !resolvedId.startsWith("tmdb-") && !resolvedId.startsWith("tv-");
 
       if (item.tmdbId) {

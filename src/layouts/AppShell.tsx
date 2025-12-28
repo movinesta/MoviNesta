@@ -122,7 +122,9 @@ const AppShell: React.FC = () => {
                             currentProfile?.avatarUrl ? (
                               <img
                                 src={currentProfile.avatarUrl}
-                                alt={currentProfile.displayName || currentProfile.username || "Profile"}
+                                alt={
+                                  currentProfile.displayName || currentProfile.username || "Profile"
+                                }
                                 className="h-5 w-5 rounded-full object-cover"
                               />
                             ) : (

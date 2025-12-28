@@ -39,9 +39,7 @@ const ListDetailPage: React.FC = () => {
         ]}
       />
 
-      {isLoading && (
-        <div className="px-4 py-6 text-xs text-muted-foreground">Loading list…</div>
-      )}
+      {isLoading && <div className="px-4 py-6 text-xs text-muted-foreground">Loading list…</div>}
 
       {isError && (
         <div className="px-4 py-6">

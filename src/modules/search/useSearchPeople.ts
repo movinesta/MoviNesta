@@ -197,7 +197,10 @@ export const useSearchPeople = (query: string) => {
           const nameB = (b.displayName ?? b.username ?? "").toLowerCase();
           return nameA.localeCompare(nameB);
         })
-        .map(({ relevance: _ignored, ...rest }) => rest);
+        .map(({ relevance, ...rest }) => {
+          void relevance;
+          return rest;
+        });
     },
   });
 };

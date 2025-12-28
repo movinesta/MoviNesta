@@ -135,8 +135,11 @@ const SuggestedPeoplePage: React.FC = () => {
         {people.map((person) => {
           const handle = formatHandle(person.username);
           const name = person.displayName || handle || "User";
-          const pending = toggleFollow.isPending && toggleFollow.variables?.targetUserId === person.id;
-          const starting = Boolean(startingConversationFor && startingConversationFor === person.id);
+          const pending =
+            toggleFollow.isPending && toggleFollow.variables?.targetUserId === person.id;
+          const starting = Boolean(
+            startingConversationFor && startingConversationFor === person.id,
+          );
 
           const hint =
             typeof person.commonTitlesCount === "number" && person.commonTitlesCount > 0
@@ -185,9 +188,7 @@ const SuggestedPeoplePage: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">{name}</p>
                   <p className="truncate text-xs text-muted-foreground">{handle}</p>
-                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                    {hint}
-                  </p>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{hint}</p>
                 </div>
 
                 <div className="flex items-center gap-2">

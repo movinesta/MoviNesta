@@ -1,7 +1,6 @@
 // src/modules/profile/useProfile.ts
 import { useQuery } from "@tanstack/react-query";
 import type { PostgrestError } from "@supabase/supabase-js";
-import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 

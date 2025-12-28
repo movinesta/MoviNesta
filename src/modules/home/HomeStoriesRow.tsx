@@ -5,8 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useHomeStories } from "./useHomeStories";
 import { cn } from "@/lib/utils";
 
-const ringClass =
-  "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-pink-500";
+const ringClass = "bg-gradient-to-tr from-fuchsia-500 via-amber-400 to-pink-500";
 
 const AvatarCircle: React.FC<{
   src: string | null;
@@ -22,7 +21,12 @@ const AvatarCircle: React.FC<{
       className="flex w-20 flex-col items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       aria-label={label}
     >
-      <span className={cn("relative inline-flex h-16 w-16 items-center justify-center rounded-full p-[2px]", muted ? "bg-muted" : ringClass)}>
+      <span
+        className={cn(
+          "relative inline-flex h-16 w-16 items-center justify-center rounded-full p-[2px]",
+          muted ? "bg-muted" : ringClass,
+        )}
+      >
         <span className="relative inline-flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-muted">
           {src ? (
             <img src={src} alt="" className="h-full w-full object-cover" />
@@ -66,7 +70,9 @@ const HomeStoriesRow: React.FC = () => {
   if (!items.length) {
     return (
       <div className="-mx-4 border-b border-border bg-background px-4 py-3">
-        <div className="text-sm text-muted-foreground">Follow people to see their highlights here.</div>
+        <div className="text-sm text-muted-foreground">
+          Follow people to see their highlights here.
+        </div>
       </div>
     );
   }

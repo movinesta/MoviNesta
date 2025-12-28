@@ -7,11 +7,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * Supabase realtime payload types are optimistic.
  * At runtime, payload.new / payload.old can be empty objects or null depending on event.
  */
-export const getRealtimeNewRow = <T extends Record<string, any>>(payload: RealtimePostgresChangesPayload<T>): unknown =>
-  (payload as unknown as { new: unknown }).new;
+export const getRealtimeNewRow = <T extends Record<string, any>>(
+  payload: RealtimePostgresChangesPayload<T>,
+): unknown => (payload as unknown as { new: unknown }).new;
 
-export const getRealtimeOldRow = <T extends Record<string, any>>(payload: RealtimePostgresChangesPayload<T>): unknown =>
-  (payload as unknown as { old: unknown }).old;
+export const getRealtimeOldRow = <T extends Record<string, any>>(
+  payload: RealtimePostgresChangesPayload<T>,
+): unknown => (payload as unknown as { old: unknown }).old;
 
 export const getStringField = (row: unknown, key: string): string | null => {
   if (!isRecord(row)) return null;

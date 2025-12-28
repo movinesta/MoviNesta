@@ -21,13 +21,16 @@ function initials(name: string): string {
   return (a + b).toUpperCase();
 }
 
-export default function FriendsListModal({ open, onOpenChange, profiles, verb }: FriendsListModalProps) {
+export default function FriendsListModal({
+  open,
+  onOpenChange,
+  profiles,
+  verb,
+}: FriendsListModalProps) {
   const navigate = useNavigate();
   const safe = Array.isArray(profiles) ? profiles.filter(Boolean) : [];
 
-  const title = safe.length
-    ? `Friends who ${verb}`
-    : `No friends ${verb} yet`;
+  const title = safe.length ? `Friends who ${verb}` : `No friends ${verb} yet`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,7 +51,9 @@ export default function FriendsListModal({ open, onOpenChange, profiles, verb }:
         </DialogHeader>
 
         {safe.length === 0 ? (
-          <p className="text-sm text-white/60">Once friends interact with titles, they’ll show up here.</p>
+          <p className="text-sm text-white/60">
+            Once friends interact with titles, they’ll show up here.
+          </p>
         ) : (
           <div className="mt-2 max-h-[60vh] overflow-y-auto pr-1">
             <div className="space-y-2">

@@ -1,7 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/modules/auth/AuthProvider";
-import { addDismissedSuggestedPerson, loadDismissedSuggestedPeople } from "./suggestedPeopleStorage";
+import {
+  addDismissedSuggestedPerson,
+  loadDismissedSuggestedPeople,
+} from "./suggestedPeopleStorage";
 import { resolveAvatarUrl } from "./resolveAvatarUrl";
 
 export interface SuggestedPerson {
@@ -66,7 +69,10 @@ export const useSuggestedPeople = () => {
         .limit(40);
 
       if (viewerRatingsError) {
-        console.warn("[useSuggestedPeople] Failed to load viewer ratings", viewerRatingsError.message);
+        console.warn(
+          "[useSuggestedPeople] Failed to load viewer ratings",
+          viewerRatingsError.message,
+        );
       }
 
       const viewerTop = (viewerRatings as any as ViewerRatingRow[] | null)
@@ -76,7 +82,9 @@ export const useSuggestedPeople = () => {
         : [];
 
       const viewerTopTitleIds = Array.from(new Set(viewerTop.map((row) => row.title_id)));
-      const viewerRatingByTitleId = new Map(viewerTop.map((row) => [row.title_id, row.rating ?? 0]));
+      const viewerRatingByTitleId = new Map(
+        viewerTop.map((row) => [row.title_id, row.rating ?? 0]),
+      );
 
       // Start with popular-ish accounts (user_stats is a light proxy).
       const { data: stats, error: statsError } = await supabase
@@ -89,7 +97,9 @@ export const useSuggestedPeople = () => {
         console.warn("[useSuggestedPeople] Failed to load user_stats", statsError.message);
       }
 
-      const statsRows = ((stats as any as UserStatsRow[]) ?? []).filter((row) => !excluded.has(row.user_id));
+      const statsRows = ((stats as any as UserStatsRow[]) ?? []).filter(
+        (row) => !excluded.has(row.user_id),
+      );
       const candidateIds = statsRows.map((row) => row.user_id).slice(0, 40);
 
       if (!candidateIds.length) return [];
@@ -112,7 +122,10 @@ export const useSuggestedPeople = () => {
       );
 
       // Batch-fetch candidate ratings against the viewer's favorites, if we have enough signal.
-      let overlapByUserId = new Map<string, { commonTitlesCount: number; matchPercent: number; score: number }>();
+      const overlapByUserId = new Map<
+        string,
+        { commonTitlesCount: number; matchPercent: number; score: number }
+      >();
 
       if (viewerTopTitleIds.length >= 5) {
         const { data: candidateRatings, error: candidateRatingsError } = await supabase
@@ -160,7 +173,9 @@ export const useSuggestedPeople = () => {
 
             // Score: more overlap is better, closer ratings is slightly better.
             const score = commonTitlesCount * 10 - avgAbsDiff * 2;
-            const matchPercent = Math.round((commonTitlesCount / Math.max(1, viewerTopTitleIds.length)) * 100);
+            const matchPercent = Math.round(
+              (commonTitlesCount / Math.max(1, viewerTopTitleIds.length)) * 100,
+            );
             overlapByUserId.set(id, { commonTitlesCount, matchPercent, score });
           });
         }

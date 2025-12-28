@@ -168,9 +168,7 @@ export function useActivityNotifications() {
       if (followsError) throw new Error(followsError.message);
 
       const followRows = (follows as unknown as FollowRow[]) ?? [];
-      const followerIds = Array.from(
-        new Set(followRows.map((r) => r.follower_id).filter(Boolean)),
-      );
+      const followerIds = Array.from(new Set(followRows.map((r) => r.follower_id).filter(Boolean)));
 
       // Who am I following (so we can show "Follow back")
       let viewerFollowing = new Set<string>();
@@ -201,9 +199,7 @@ export function useActivityNotifications() {
       }
 
       const commentRows = (commentRowsRaw as CommentJoinRow[] | null) ?? [];
-      const commenterIds = Array.from(
-        new Set(commentRows.map((r) => r.user_id).filter(Boolean)),
-      );
+      const commenterIds = Array.from(new Set(commentRows.map((r) => r.user_id).filter(Boolean)));
 
       const actorIds = Array.from(new Set([...followerIds, ...commenterIds]));
       const actorsById = await loadProfiles(actorIds);
@@ -240,7 +236,7 @@ export function useActivityNotifications() {
           const handle = normalizeHandle(actor.username);
           const name = actor.displayName || handle || "Someone";
           const titleId = row.reviews?.title_id ?? null;
-          const poster = titleId ? postersByTitleId.get(titleId) ?? null : null;
+          const poster = titleId ? (postersByTitleId.get(titleId) ?? null) : null;
           return {
             id: `comment:${row.id}`,
             kind: row.review_id ? "comment" : "reply",

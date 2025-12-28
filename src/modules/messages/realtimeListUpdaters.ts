@@ -34,7 +34,10 @@ type ConversationScopedUpsertArgs<Row, Item> = {
 /**
  * Factory for a realtime handler that upserts a conversation-scoped row into a cached list.
  */
-export const createConversationScopedUpsertIntoListHandler = <Row extends Record<string, any>, Item>(
+export const createConversationScopedUpsertIntoListHandler = <
+  Row extends Record<string, any>,
+  Item,
+>(
   args: ConversationScopedUpsertArgs<Row, Item>,
 ) => {
   return (payload: RealtimePostgresChangesPayload<Row>) => {
@@ -74,7 +77,9 @@ type RealtimeDeleteArgs<Item> = {
 /**
  * Factory for a realtime handler that deletes a row from a cached list.
  */
-export const createRealtimeDeleteFromListHandler = <Row extends Record<string, any>, Item>(args: RealtimeDeleteArgs<Item>) => {
+export const createRealtimeDeleteFromListHandler = <Row extends Record<string, any>, Item>(
+  args: RealtimeDeleteArgs<Item>,
+) => {
   return (payload: RealtimePostgresChangesPayload<Row>) => {
     const rowUnknown = getRealtimeOldRow(payload);
     const id = args.getRowId ? args.getRowId(rowUnknown) : getStringField(rowUnknown, "id");

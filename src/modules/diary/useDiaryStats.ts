@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { type DiaryStats, EMPTY_STATS } from "./diaryStatsReducer";
-import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -22,38 +21,38 @@ const toDiaryStats = (row?: DiaryStatsRow | null): DiaryStats => {
     row.rating_distribution,
   )
     ? (row.rating_distribution
-      .map((item) => {
-        if (!item || typeof item !== "object") return null;
-        const rating = Number((item as Record<string, unknown>).rating);
-        const count = Number((item as Record<string, unknown>).count);
-        if (Number.isNaN(rating) || Number.isNaN(count)) return null;
-        return { rating: rating0_10ToStars(rating) ?? rating, count };
-      })
-      .filter(Boolean) as DiaryStats["ratingDistribution"])
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const rating = Number((item as Record<string, unknown>).rating);
+          const count = Number((item as Record<string, unknown>).count);
+          if (Number.isNaN(rating) || Number.isNaN(count)) return null;
+          return { rating: rating0_10ToStars(rating) ?? rating, count };
+        })
+        .filter(Boolean) as DiaryStats["ratingDistribution"])
     : [];
 
   const topGenres: DiaryStats["topGenres"] = Array.isArray(row.top_genres)
     ? (row.top_genres
-      .map((item) => {
-        if (!item || typeof item !== "object") return null;
-        const genre = (item as Record<string, unknown>).genre;
-        const count = Number((item as Record<string, unknown>).count);
-        if (typeof genre !== "string" || Number.isNaN(count)) return null;
-        return { genre, count };
-      })
-      .filter(Boolean) as DiaryStats["topGenres"])
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const genre = (item as Record<string, unknown>).genre;
+          const count = Number((item as Record<string, unknown>).count);
+          if (typeof genre !== "string" || Number.isNaN(count)) return null;
+          return { genre, count };
+        })
+        .filter(Boolean) as DiaryStats["topGenres"])
     : [];
 
   const watchCountByMonth: DiaryStats["watchCountByMonth"] = Array.isArray(row.watch_count_by_month)
     ? (row.watch_count_by_month
-      .map((item) => {
-        if (!item || typeof item !== "object") return null;
-        const month = (item as Record<string, unknown>).month;
-        const count = Number((item as Record<string, unknown>).count);
-        if (typeof month !== "string" || Number.isNaN(count)) return null;
-        return { month, count };
-      })
-      .filter(Boolean) as DiaryStats["watchCountByMonth"])
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const month = (item as Record<string, unknown>).month;
+          const count = Number((item as Record<string, unknown>).count);
+          if (typeof month !== "string" || Number.isNaN(count)) return null;
+          return { month, count };
+        })
+        .filter(Boolean) as DiaryStats["watchCountByMonth"])
     : [];
 
   const averageRaw = row.average_rating;

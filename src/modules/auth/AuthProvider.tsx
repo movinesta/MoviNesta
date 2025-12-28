@@ -87,7 +87,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         queryClient.prefetchInfiniteQuery({
           queryKey: qk.homeFeed(userId),
           initialPageParam: null as string | null,
-          queryFn: ({ pageParam }) => fetchHomeFeedPage(userId, (pageParam as string | null) ?? null),
+          queryFn: ({ pageParam }) =>
+            fetchHomeFeedPage(userId, (pageParam as string | null) ?? null),
         }),
         queryClient.prefetchQuery({
           queryKey: ["conversations"],

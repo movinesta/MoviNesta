@@ -94,7 +94,9 @@ const TitleDetailPage: React.FC = () => {
   React.useEffect(() => {
     if (!titleId || !isVirtualId || !user?.id) return;
 
-    const tmdbIdRaw = titleId.startsWith("tv-") ? titleId.replace("tv-", "") : titleId.replace("tmdb-", "");
+    const tmdbIdRaw = titleId.startsWith("tv-")
+      ? titleId.replace("tv-", "")
+      : titleId.replace("tmdb-", "");
     const tmdbId = Number(tmdbIdRaw);
     const contentType = titleId.startsWith("tv-") ? "series" : "movie";
 
@@ -224,10 +226,11 @@ const TitleDetailPage: React.FC = () => {
       try {
         // Dynamic import or usage of fetchTmdbJson
         // We need to import fetchTmdbJson at top of file, assuming it's available.
-        const details = await import("@/lib/tmdb").then(m => m.fetchTmdbJson(
-          `/${mediaType}/${tmdbId}`,
-          { append_to_response: "credits,videos,external_ids" }
-        ));
+        const details = await import("@/lib/tmdb").then((m) =>
+          m.fetchTmdbJson(`/${mediaType}/${tmdbId}`, {
+            append_to_response: "credits,videos,external_ids",
+          }),
+        );
 
         if (!details) return null;
 
@@ -263,7 +266,11 @@ const TitleDetailPage: React.FC = () => {
           omdb_year: (d.release_date ?? d.first_air_date)?.substring(0, 4) ?? null,
           omdb_plot: null,
           omdb_director: d.credits?.crew?.find((c: any) => c.job === "Director")?.name ?? null,
-          omdb_actors: d.credits?.cast?.slice(0, 4).map((c: any) => c.name).join(", ") ?? null,
+          omdb_actors:
+            d.credits?.cast
+              ?.slice(0, 4)
+              .map((c: any) => c.name)
+              .join(", ") ?? null,
           created_at: new Date().toISOString(), // fake
           updated_at: new Date().toISOString(),
         } as any;
@@ -321,10 +328,10 @@ const TitleDetailPage: React.FC = () => {
       // Note: If titleId is virtual (tmdb-123), we won't find ratings in DB linked to it yet.
       // So if (titleId.startsWith('tmdb-') || titleId.startsWith('tv-')) return [];
 
-        const { data: ratings, error: ratingsError } = await supabase
-          .from("ratings")
-          .select("user_id, rating, created_at")
-          .eq("title_id", titleId)
+      const { data: ratings, error: ratingsError } = await supabase
+        .from("ratings")
+        .select("user_id, rating, created_at")
+        .eq("title_id", titleId)
         .in("user_id", friendIds)
         .order("rating", { ascending: false })
         .limit(40);
@@ -431,17 +438,17 @@ const TitleDetailPage: React.FC = () => {
   const tmdbGenresRaw = data?.tmdb_genres;
   const genres: string[] = Array.isArray(tmdbGenresRaw)
     ? tmdbGenresRaw
-      .map((item) => {
-        if (!item || typeof item !== "object") return null;
-        const name = (item as Record<string, unknown>).name;
-        return typeof name === "string" && name.trim() ? name.trim() : null;
-      })
-      .filter((value): value is string => Boolean(value))
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const name = (item as Record<string, unknown>).name;
+          return typeof name === "string" && name.trim() ? name.trim() : null;
+        })
+        .filter((value): value is string => Boolean(value))
     : typeof data?.omdb_genre === "string"
       ? data.omdb_genre
-        .split(",")
-        .map((g) => g.trim())
-        .filter(Boolean)
+          .split(",")
+          .map((g) => g.trim())
+          .filter(Boolean)
       : [];
 
   const primaryLanguage = summary?.originalLanguage ?? null;
@@ -649,10 +656,11 @@ const TitleDetailPage: React.FC = () => {
                 type="button"
                 onClick={() => setDiaryStatus("want_to_watch")}
                 disabled={updateStatus.isPending}
-                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${statusIs("want_to_watch")
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-foreground hover:border-primary/60 hover:text-primary"
-                  }`}
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+                  statusIs("want_to_watch")
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-foreground hover:border-primary/60 hover:text-primary"
+                }`}
               >
                 Add to watchlist
               </button>
@@ -660,10 +668,11 @@ const TitleDetailPage: React.FC = () => {
                 type="button"
                 onClick={() => setDiaryStatus("watching")}
                 disabled={updateStatus.isPending}
-                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${statusIs("watching")
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-foreground hover:border-primary/60 hover:text-primary"
-                  }`}
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+                  statusIs("watching")
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-foreground hover:border-primary/60 hover:text-primary"
+                }`}
               >
                 I’m watching
               </button>
@@ -671,10 +680,11 @@ const TitleDetailPage: React.FC = () => {
                 type="button"
                 onClick={() => setDiaryStatus("watched")}
                 disabled={updateStatus.isPending}
-                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${statusIs("watched")
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-foreground hover:border-primary/60 hover:text-primary"
-                  }`}
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] font-semibold transition ${
+                  statusIs("watched")
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-foreground hover:border-primary/60 hover:text-primary"
+                }`}
               >
                 Log as watched
               </button>

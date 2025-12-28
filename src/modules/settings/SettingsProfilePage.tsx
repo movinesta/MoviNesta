@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Loader2, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
@@ -87,9 +87,9 @@ const ProfileForm: React.FC<{
 
   const handleChange =
     (field: keyof ProfileFormState) =>
-      (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setForm((prev) => ({ ...prev, [field]: event.target.value }));
-      };
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -269,7 +269,11 @@ const SettingsProfilePage: React.FC = () => {
           <ProfileForm
             initialProfile={initialProfile}
             user={user}
-            key={(profile as any)?.displayName + ((profile as any)?.bio ?? "") + ((profile as any)?.avatarUrl ?? "")} // Re-mount if profile data changes remotely
+            key={
+              (profile as any)?.displayName +
+              ((profile as any)?.bio ?? "") +
+              ((profile as any)?.avatarUrl ?? "")
+            } // Re-mount if profile data changes remotely
           />
         </PageSection>
       </section>
