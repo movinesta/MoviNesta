@@ -10,7 +10,7 @@ const compat = new FlatCompat({
 
 module.exports = [
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", "src/types/supabase.ts"],
   },
   ...compat.extends(
     "eslint:recommended",

@@ -209,6 +209,8 @@ async function fetchMediaItemsByIds(client: any, ids: string[]): Promise<any[]> 
         "tmdb_first_air_date",
         "omdb_year",
         "tmdb_overview",
+        "tmdb_poster_path",
+        "tmdb_backdrop_path",
         "omdb_plot",
         "tmdb_original_language",
         "omdb_language",

@@ -2,13 +2,13 @@
 verify_jwt = false
 
 [functions.catalog-sync]
-verify_jwt = false
+verify_jwt = true
 
 [functions.media-swipe-deck]
-verify_jwt = false
+verify_jwt = true
 
 [functions.media-swipe-event]
-verify_jwt = false
+verify_jwt = true
 
 [functions.media-embed-backfill]
 verify_jwt = false
@@ -17,4 +17,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.debug-tastedive]
+verify_jwt = true
+
+[functions.media-smart-backfill]
 verify_jwt = false
+
+[functions.debug-env]
+verify_jwt = true

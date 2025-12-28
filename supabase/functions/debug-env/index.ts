@@ -10,7 +10,7 @@ import { log } from "../_shared/logger.ts";
 
 const FN_NAME = "debug-env";
 
-export function handler(req: Request) {
+export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
@@ -18,7 +18,7 @@ export function handler(req: Request) {
   // Admin-only in production to avoid leaking env flags.
   try {
     await requireAdmin(req);
-  } catch (e) {
+  } catch {
     return jsonError(req, "Forbidden", 403, "FORBIDDEN");
   }
 

@@ -364,13 +364,17 @@ async function maybeRerank(
     return { rows, status: settings.rerank_search_enabled ? "insufficient" : "disabled" };
   }
 
+  const userId = await getAuthedUserId(userClient);
+  if (!userId) {
+    return { rows, status: "unauthenticated" };
+  }
+
   const k = Math.min(rows.length, clamp(settings.rerank_top_k, 5, 200));
   const subset = rows.slice(0, k);
   const docs = subset.map(makeRerankDoc);
 
   // Cache key uses user_id and the exact candidate set being reranked.
   // This prevents repeated provider calls on tab focus/refetch.
-  const userId = await getAuthedUserId(userClient);
   const now = new Date();
   const cacheTtlSec = SEARCH_RERANK_CACHE_TTL_SECONDS;
 
@@ -379,11 +383,9 @@ async function maybeRerank(
   const candHash = await sha256Hex(subset.map((r) => String((r as any).id)).join(","));
 
   // Prefix with `search:` so it's easy to inspect from SQL with `key like 'search:%'`.
-  const cacheKey = userId
-    ? `search:voyage:${userId}:${qHash}:${opts.page}:${opts.limit}:${fHash}:${k}:${candHash}`
-    : null;
+  const cacheKey = `search:voyage:${userId}:${qHash}:${opts.page}:${opts.limit}:${fHash}:${k}:${candHash}`;
 
-  if (cacheKey && userId) {
+  if (cacheKey) {
     const cachedIds = await cacheGetOrderIds(adminClient, cacheKey);
     if (cachedIds?.length) {
       const rerankedSubset = applyOrderIds(subset, cachedIds);
@@ -402,13 +404,11 @@ async function maybeRerank(
   }
 
   // Cooldown: after a 429, skip rerank for a short time to avoid hammering Voyage.
-  if (userId) {
-    const cdKey = `cooldown:voyage_search_rerank:${userId}`;
-    const untilMs = await cooldownUntilMs(adminClient, cdKey);
-    if (untilMs && untilMs > Date.now()) {
-      console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: untilMs }));
-      return { rows, status: "cooldown" };
-    }
+  const cdKey = `cooldown:voyage_search_rerank:${userId}`;
+  const untilMs = await cooldownUntilMs(adminClient, cdKey);
+  if (untilMs && untilMs > Date.now()) {
+    console.log("MEDIA_SEARCH_RERANK_SKIPPED", JSON.stringify({ reason: "cooldown", until: untilMs }));
+    return { rows, status: "cooldown" };
   }
 
   try {
@@ -444,7 +444,7 @@ async function maybeRerank(
     }
 
     // Store cache (best-effort)
-    if (cacheKey && userId) {
+    if (cacheKey) {
       const expires = addSeconds(now, cacheTtlSec).toISOString();
       await cacheUpsert(adminClient, {
         key: cacheKey,
@@ -517,13 +517,24 @@ async function handleSearch(
   if (filters?.genreIds?.length) {
     builder = builder.overlaps("tmdb_genre_ids", filters.genreIds);
   }
-  if (typeof filters?.minYear === "number") {
-    const minDate = `${filters.minYear}-01-01`;
-    builder = builder.or(`tmdb_release_date.gte.${minDate},tmdb_first_air_date.gte.${minDate}`);
-  }
-  if (typeof filters?.maxYear === "number") {
-    const maxDate = `${filters.maxYear}-12-31`;
-    builder = builder.or(`tmdb_release_date.lte.${maxDate},tmdb_first_air_date.lte.${maxDate}`);
+  const hasMinYear = typeof filters?.minYear === "number";
+  const hasMaxYear = typeof filters?.maxYear === "number";
+  if (hasMinYear || hasMaxYear) {
+    const minDate = hasMinYear ? `${filters!.minYear}-01-01` : null;
+    const maxDate = hasMaxYear ? `${filters!.maxYear}-12-31` : null;
+    const parts: string[] = [];
+    for (const field of ["tmdb_release_date", "tmdb_first_air_date"]) {
+      if (minDate && maxDate) {
+        parts.push(`and(${field}.gte.${minDate},${field}.lte.${maxDate})`);
+      } else if (minDate) {
+        parts.push(`${field}.gte.${minDate}`);
+      } else if (maxDate) {
+        parts.push(`${field}.lte.${maxDate}`);
+      }
+    }
+    if (parts.length) {
+      builder = builder.or(parts.join(","));
+    }
   }
   if (filters?.originalLanguage) {
     builder = builder.eq("tmdb_original_language", filters.originalLanguage);
