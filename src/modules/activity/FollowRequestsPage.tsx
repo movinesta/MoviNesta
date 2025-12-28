@@ -17,8 +17,8 @@ const FollowRequestsPage: React.FC = () => {
         <div className="rounded-2xl border border-border bg-card/80 p-4 text-sm text-muted-foreground">
           Follow requests aren’t available yet.
           <div className="mt-2 text-xs text-muted-foreground">
-            When we add private profiles, approvals, and request management, this page will
-            become fully functional.
+            When we add private profiles, approvals, and request management, this page will become
+            fully functional.
           </div>
         </div>
       </div>

@@ -35,7 +35,8 @@ export const useUIStore = create<UIState>()(
         const raw = (persistedState || {}) as Record<string, unknown>;
 
         // Strip deprecated theme preferences from older storage versions.
-        const { theme: _theme, ...rest } = raw;
+        const rest = { ...raw };
+        delete (rest as { theme?: unknown }).theme;
 
         // Migrate removed "diary" tab keys -> "profile".
         const next = { ...rest } as Record<string, unknown>;

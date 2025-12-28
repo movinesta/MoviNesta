@@ -56,7 +56,9 @@ export const writeDeliveryReceipt = async (row: DeliveryReceiptWrite): Promise<v
     }
   }
 
-  const { error: insertError } = await supabase.from("message_delivery_receipts" as any).insert(row);
+  const { error: insertError } = await supabase
+    .from("message_delivery_receipts" as any)
+    .insert(row);
   if (insertError && !isDuplicateKey(insertError)) {
     console.error("[writeDeliveryReceipt] Failed to insert delivery receipt", insertError);
   }

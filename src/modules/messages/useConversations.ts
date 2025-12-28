@@ -101,9 +101,9 @@ export const fetchConversationSummaries = async (
         summary.title ??
         (others.length > 0
           ? others
-            .slice(0, 3)
-            .map((p) => p.displayName ?? p.username ?? "Unknown user")
-            .join(", ")
+              .slice(0, 3)
+              .map((p) => p.displayName ?? p.username ?? "Unknown user")
+              .join(", ")
           : "Group conversation");
       subtitle = others.length > 0 ? `${participants.length} participants` : "Group conversation";
     } else {

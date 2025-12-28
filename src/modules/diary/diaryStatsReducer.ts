@@ -1,5 +1,3 @@
-import type { Database } from "@/types/supabase";
-
 export interface RatingBucket {
   rating: number; // 0.5 steps
   count: number;

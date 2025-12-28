@@ -77,7 +77,9 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
             </StatPill>
             {item.emoji && <StatPill>{item.emoji}</StatPill>}
           </div>
-          {item.reviewSnippet && <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>}
+          {item.reviewSnippet && (
+            <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>
+          )}
         </CardShell>
       );
 
@@ -95,7 +97,9 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
             )}
             {item.emoji && <StatPill>{item.emoji}</StatPill>}
           </div>
-          {item.reviewSnippet && <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>}
+          {item.reviewSnippet && (
+            <p className="text-xs text-muted-foreground">“{item.reviewSnippet}”</p>
+          )}
         </CardShell>
       );
 

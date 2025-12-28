@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useToggleFollow } from "@/modules/search/useToggleFollow";
 
-import { useActivityNotifications, type ActivityNotification, type ActivityActor } from "./useActivityNotifications";
+import {
+  useActivityNotifications,
+  type ActivityNotification,
+  type ActivityActor,
+} from "./useActivityNotifications";
 
 const formatTimeAgo = (iso: string) => {
   const date = new Date(iso);
@@ -224,7 +228,11 @@ const ActivityPage: React.FC = () => {
                       followBackState={
                         showFollowBack
                           ? {
-                              label: toggleFollow.isPending && toggleFollow.variables?.targetUserId === item.actor.id ? "…" : followLabel,
+                              label:
+                                toggleFollow.isPending &&
+                                toggleFollow.variables?.targetUserId === item.actor.id
+                                  ? "…"
+                                  : followLabel,
                               disabled: toggleFollow.isPending,
                             }
                           : undefined
@@ -250,7 +258,11 @@ const ActivityPage: React.FC = () => {
                       followBackState={
                         showFollowBack
                           ? {
-                              label: toggleFollow.isPending && toggleFollow.variables?.targetUserId === item.actor.id ? "…" : followLabel,
+                              label:
+                                toggleFollow.isPending &&
+                                toggleFollow.variables?.targetUserId === item.actor.id
+                                  ? "…"
+                                  : followLabel,
                               disabled: toggleFollow.isPending,
                             }
                           : undefined
@@ -267,7 +279,7 @@ const ActivityPage: React.FC = () => {
                   const id = `dont-follow-back:${actor.id}`;
                   if (dismissed.has(id)) return null;
                   return (
-                    <div key={actor.id} className={cn("flex items-center gap-3 px-3 py-3")}> 
+                    <div key={actor.id} className={cn("flex items-center gap-3 px-3 py-3")}>
                       <button
                         type="button"
                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -278,14 +290,19 @@ const ActivityPage: React.FC = () => {
                           <div className="truncate text-sm font-semibold">
                             {actor.displayName || actor.username || "User"}
                           </div>
-                          <div className="truncate text-xs text-muted-foreground">Followed by {actor.username ? `@${actor.username.replace(/^@/, "")}` : "someone"}</div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            Followed by{" "}
+                            {actor.username ? `@${actor.username.replace(/^@/, "")}` : "someone"}
+                          </div>
                         </div>
                       </button>
 
                       <Button
                         size="sm"
                         className="h-9 rounded-full px-4"
-                        onClick={() => toggleFollow.mutate({ targetUserId: actor.id, currentlyFollowing: false })}
+                        onClick={() =>
+                          toggleFollow.mutate({ targetUserId: actor.id, currentlyFollowing: false })
+                        }
                         disabled={toggleFollow.isPending}
                       >
                         Follow back

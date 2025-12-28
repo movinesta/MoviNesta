@@ -2,7 +2,11 @@ import { useCallback, useMemo, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { TitleType } from "../../types/supabase-helpers";
-import { fetchMediaSwipeDeck, getOrCreateMediaSwipeSessionId, type MediaSwipeDeckMode } from "./mediaSwipeApi";
+import {
+  fetchMediaSwipeDeck,
+  getOrCreateMediaSwipeSessionId,
+  type MediaSwipeDeckMode,
+} from "./mediaSwipeApi";
 import { useMediaSwipeDeck } from "./useMediaSwipeDeck";
 
 // Canonical swipe intents used across the Swipe UI.
@@ -159,7 +163,9 @@ function mapDeckCardToSwipeCardData(
     ? card.friendProfiles
     : undefined;
 
-  const friendIds: string[] | undefined = Array.isArray(card.friendIds) ? card.friendIds : undefined;
+  const friendIds: string[] | undefined = Array.isArray(card.friendIds)
+    ? card.friendIds
+    : undefined;
 
   return {
     id: String(card.mediaItemId ?? card.id),
@@ -196,7 +202,8 @@ function mapDeckCardToSwipeCardData(
     source: mapBackendSource(card.source) ?? fallbackSource,
 
     initialRating: typeof card.initialRating === "number" ? card.initialRating : null,
-    initiallyInWatchlist: typeof card.initiallyInWatchlist === "boolean" ? card.initiallyInWatchlist : null,
+    initiallyInWatchlist:
+      typeof card.initiallyInWatchlist === "boolean" ? card.initiallyInWatchlist : null,
   };
 }
 
@@ -275,7 +282,10 @@ export function buildInterleavedDeck(lists: SwipeCardData[][], limit: number): S
   return result;
 }
 
-export function trimDeck(cards: SwipeCardData[], consumed: number): { remaining: SwipeCardData[]; exhausted: boolean } {
+export function trimDeck(
+  cards: SwipeCardData[],
+  consumed: number,
+): { remaining: SwipeCardData[]; exhausted: boolean } {
   if (consumed <= 0) return { remaining: cards, exhausted: false };
   const remaining = cards.slice(consumed);
   return { remaining, exhausted: remaining.length === 0 };
@@ -285,7 +295,10 @@ export function trimDeck(cards: SwipeCardData[], consumed: number): { remaining:
  * @deprecated Prefer `useMediaSwipeDeck` + local `currentIndex` state (as in SwipePage).
  * This wrapper is kept for backwards compatibility.
  */
-export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: number; kindFilter?: "movie" | "series" | "anime" | null }) {
+export function useSwipeDeck(
+  kind: SwipeDeckKindOrCombined,
+  options?: { limit?: number; kindFilter?: "movie" | "series" | "anime" | null },
+) {
   const limit = options?.limit ?? 40;
 
   const {
@@ -310,92 +323,109 @@ export function useSwipeDeck(kind: SwipeDeckKindOrCombined, options?: { limit?: 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
   const cards = useMemo(() => {
-    return rawCards.map((c: any, idx: number) => mapDeckCardToSwipeCardData(c, c.deckId ?? null, idx, kind));
+    return rawCards.map((c: any, idx: number) =>
+      mapDeckCardToSwipeCardData(c, c.deckId ?? null, idx, kind),
+    );
   }, [rawCards, kind]);
 
   const activeCard = cards[currentIndex] ?? null;
 
-  const setActiveCardIndex = useCallback((index: number) => {
-    setCurrentIndex(() => {
-      if (!Number.isFinite(index)) return 0;
-      return Math.max(0, Math.min(index, Math.max(0, cards.length - 1)));
-    });
-  }, [cards.length]);
-
-  const trimConsumedCompat = useCallback((consumed: number) => {
-    trimRawConsumed(consumed);
-    setCurrentIndex((i) => Math.max(0, i - consumed));
-  }, [trimRawConsumed]);
-
-  const refreshCompat = useCallback(async (opts?: { resetSeed?: boolean }) => {
-    await refresh(opts);
-    setCurrentIndex(0);
-  }, [refresh]);
-
-  const swipeCompat = useCallback((payload: SwipeEventPayload) => {
-    const raw = rawCards.find((c: any) => c.id === payload.cardId);
-    if (!raw) return;
-
-    swipe({ card: raw, direction: payload.direction });
-
-    // Optional feedback side-events (best-effort, queued offline).
-    const source = payload.sourceOverride ?? raw.source ?? null;
-    if (typeof payload.rating === "number") {
-      sendEvent({
-        eventType: "rating",
-        mediaItemId: raw.mediaItemId ?? raw.id,
-        mediaKind: raw.kind,
-        deckId: raw.deckId ?? null,
-        position: raw.position ?? null,
-        source,
-        rating0_10: payload.rating,
+  const setActiveCardIndex = useCallback(
+    (index: number) => {
+      setCurrentIndex(() => {
+        if (!Number.isFinite(index)) return 0;
+        return Math.max(0, Math.min(index, Math.max(0, cards.length - 1)));
       });
-    }
-    if (typeof payload.inWatchlist === "boolean") {
-      sendEvent({
-        eventType: "watchlist",
-        mediaItemId: raw.mediaItemId ?? raw.id,
-        mediaKind: raw.kind,
-        deckId: raw.deckId ?? null,
-        position: raw.position ?? null,
-        source,
-        inWatchlist: payload.inWatchlist,
-      });
-    }
+    },
+    [cards.length],
+  );
 
-    setCurrentIndex((i) => Math.min(i + 1, Math.max(0, cards.length - 1)));
-  }, [rawCards, swipe, sendEvent, cards.length]);
+  const trimConsumedCompat = useCallback(
+    (consumed: number) => {
+      trimRawConsumed(consumed);
+      setCurrentIndex((i) => Math.max(0, i - consumed));
+    },
+    [trimRawConsumed],
+  );
 
-  const swipeAsyncCompat = useCallback(async (payload: SwipeEventPayload) => {
-    swipeCompat(payload);
-    // Also await any explicit feedback events to preserve callsites that expect a Promise.
-    const raw = rawCards.find((c: any) => c.id === payload.cardId);
-    if (!raw) return;
+  const refreshCompat = useCallback(
+    async (opts?: { resetSeed?: boolean }) => {
+      await refresh(opts);
+      setCurrentIndex(0);
+    },
+    [refresh],
+  );
 
-    const source = payload.sourceOverride ?? raw.source ?? null;
-    if (typeof payload.rating === "number") {
-      await sendEventAsync({
-        eventType: "rating",
-        mediaItemId: raw.mediaItemId ?? raw.id,
-        mediaKind: raw.kind,
-        deckId: raw.deckId ?? null,
-        position: raw.position ?? null,
-        source,
-        rating0_10: payload.rating,
-      });
-    }
-    if (typeof payload.inWatchlist === "boolean") {
-      await sendEventAsync({
-        eventType: "watchlist",
-        mediaItemId: raw.mediaItemId ?? raw.id,
-        mediaKind: raw.kind,
-        deckId: raw.deckId ?? null,
-        position: raw.position ?? null,
-        source,
-        inWatchlist: payload.inWatchlist,
-      });
-    }
-  }, [rawCards, swipeCompat, sendEventAsync]);
+  const swipeCompat = useCallback(
+    (payload: SwipeEventPayload) => {
+      const raw = rawCards.find((c: any) => c.id === payload.cardId);
+      if (!raw) return;
+
+      swipe({ card: raw, direction: payload.direction });
+
+      // Optional feedback side-events (best-effort, queued offline).
+      const source = payload.sourceOverride ?? raw.source ?? null;
+      if (typeof payload.rating === "number") {
+        sendEvent({
+          eventType: "rating",
+          mediaItemId: raw.mediaItemId ?? raw.id,
+          mediaKind: raw.kind,
+          deckId: raw.deckId ?? null,
+          position: raw.position ?? null,
+          source,
+          rating0_10: payload.rating,
+        });
+      }
+      if (typeof payload.inWatchlist === "boolean") {
+        sendEvent({
+          eventType: "watchlist",
+          mediaItemId: raw.mediaItemId ?? raw.id,
+          mediaKind: raw.kind,
+          deckId: raw.deckId ?? null,
+          position: raw.position ?? null,
+          source,
+          inWatchlist: payload.inWatchlist,
+        });
+      }
+
+      setCurrentIndex((i) => Math.min(i + 1, Math.max(0, cards.length - 1)));
+    },
+    [rawCards, swipe, sendEvent, cards.length],
+  );
+
+  const swipeAsyncCompat = useCallback(
+    async (payload: SwipeEventPayload) => {
+      swipeCompat(payload);
+      // Also await any explicit feedback events to preserve callsites that expect a Promise.
+      const raw = rawCards.find((c: any) => c.id === payload.cardId);
+      if (!raw) return;
+
+      const source = payload.sourceOverride ?? raw.source ?? null;
+      if (typeof payload.rating === "number") {
+        await sendEventAsync({
+          eventType: "rating",
+          mediaItemId: raw.mediaItemId ?? raw.id,
+          mediaKind: raw.kind,
+          deckId: raw.deckId ?? null,
+          position: raw.position ?? null,
+          source,
+          rating0_10: payload.rating,
+        });
+      }
+      if (typeof payload.inWatchlist === "boolean") {
+        await sendEventAsync({
+          eventType: "watchlist",
+          mediaItemId: raw.mediaItemId ?? raw.id,
+          mediaKind: raw.kind,
+          deckId: raw.deckId ?? null,
+          position: raw.position ?? null,
+          source,
+          inWatchlist: payload.inWatchlist,
+        });
+      }
+    },
+    [rawCards, swipeCompat, sendEventAsync],
+  );
 
   return {
     cards,

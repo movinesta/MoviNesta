@@ -69,7 +69,7 @@ export const useProfileHighlights = (profileId: string | null | undefined, isOwn
 
       const coverByListId = new Map<string, string>();
 
-      for (const row of ((items as any as ListItemRow[]) ?? [])) {
+      for (const row of (items as any as ListItemRow[]) ?? []) {
         if (!row?.list_id || !row?.title_id) continue;
         if (!coverByListId.has(row.list_id)) {
           coverByListId.set(row.list_id, row.title_id);
@@ -118,7 +118,7 @@ export const useProfileHighlights = (profileId: string | null | undefined, isOwn
 
       return listRows.map((list) => {
         const coverTitleId = coverByListId.get(list.id) ?? null;
-        const coverPosterUrl = coverTitleId ? posterByTitleId.get(coverTitleId) ?? null : null;
+        const coverPosterUrl = coverTitleId ? (posterByTitleId.get(coverTitleId) ?? null) : null;
         return {
           id: list.id,
           name: list.name,

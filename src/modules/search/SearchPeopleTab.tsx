@@ -191,7 +191,9 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
                   {handle && <p className="mt-0.5 text-xs text-muted-foreground">{handle}</p>}
 
                   {person.bio && (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{person.bio}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                      {person.bio}
+                    </p>
                   )}
 
                   {(typeof person.followersCount === "number" ||

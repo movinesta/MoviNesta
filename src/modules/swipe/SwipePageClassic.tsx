@@ -25,7 +25,6 @@ import type { SwipeCardData, SwipeDirection } from "./useSwipeDeck";
 import {
   clamp,
   cleanText,
-  formatRuntime,
   abbreviateCountry,
   safeNumber,
   formatInt,
@@ -197,7 +196,6 @@ const SwipePageClassic: React.FC = () => {
     sessionId,
     isLoading,
     isError,
-    deckError,
     swipe,
     fetchMore,
     trimConsumed,
@@ -214,7 +212,6 @@ const SwipePageClassic: React.FC = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const activeCardRaw = rawCards[currentIndex];
-  const nextCardRaw = rawCards[currentIndex + 1];
 
   const activeCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
@@ -265,13 +262,12 @@ const SwipePageClassic: React.FC = () => {
 
   const [smartHint, setSmartHint] = useState<string | null>(null);
   const smartHintTimeoutRef = useRef<number | null>(null);
-  const [sessionSwipeCount, setSessionSwipeCount] = useState(0);
+  const [, setSessionSwipeCount] = useState(0);
   const [longSkipStreak, setLongSkipStreak] = useState(0);
 
   const detailContentRef = useRef<HTMLDivElement | null>(null);
   const dragStartedInDetailAreaRef = useRef(false);
 
-  const [showSharePresetSheet, setShowSharePresetSheet] = useState(false); // kept for future use
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
 
   const activeTitleId = activeCard?.id ?? null;
@@ -404,7 +400,7 @@ const SwipePageClassic: React.FC = () => {
     if (!ctx) return;
 
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => { });
+      ctx.resume().catch(() => {});
     }
 
     const osc = ctx.createOscillator();
@@ -469,9 +465,9 @@ const SwipePageClassic: React.FC = () => {
       const genres =
         (data as any).omdb_genre != null
           ? String((data as any).omdb_genre)
-            .split(",")
-            .map((g: string) => g.trim())
-            .filter(Boolean)
+              .split(",")
+              .map((g: string) => g.trim())
+              .filter(Boolean)
           : null;
 
       const rt = percentToNumber((data as any).omdb_rating_rotten_tomatoes);
@@ -522,14 +518,6 @@ const SwipePageClassic: React.FC = () => {
   const detailGenres =
     titleDetail?.tmdb_genre_names ?? titleDetail?.genres ?? activeCard?.genres ?? null;
 
-  const primaryLanguageRaw =
-    titleDetail?.language ??
-    titleDetail?.omdb_language ??
-    titleDetail?.tmdb_original_language ??
-    activeCard?.language ??
-    null;
-  const detailPrimaryLanguage = cleanText(primaryLanguageRaw);
-
   const primaryCountryRaw =
     titleDetail?.country ?? titleDetail?.omdb_country ?? activeCard?.country ?? null;
   const detailPrimaryCountry = cleanText(primaryCountryRaw);
@@ -540,13 +528,10 @@ const SwipePageClassic: React.FC = () => {
   const detailActors = cleanText(titleDetail?.omdb_actors);
 
   const externalImdbRating = titleDetail?.imdb_rating ?? activeCard?.imdbRating ?? null;
-  const externalTomato = titleDetail?.rt_tomato_pct ?? activeCard?.rtTomatoMeter ?? null;
   const externalMetascore = titleDetail?.metascore ?? null;
 
   const imdbVotes = titleDetail?.imdb_votes ?? null;
   const tmdbVoteAverage = titleDetail?.tmdb_vote_average ?? null;
-  const tmdbVoteCount = titleDetail?.tmdb_vote_count ?? null;
-  const tmdbPopularity = titleDetail?.tmdb_popularity ?? null;
 
   const detailAwards = cleanText(titleDetail?.omdb_awards);
   const detailBoxOffice = cleanText(titleDetail?.omdb_box_office_str);
@@ -571,8 +556,8 @@ const SwipePageClassic: React.FC = () => {
       ? (detailGenres as string[])
       : detailGenres
         ? String(detailGenres)
-          .split(",")
-          .map((g) => g.trim())
+            .split(",")
+            .map((g) => g.trim())
         : []) ?? [];
   const moreGenres = allGenresArray.length > 3 ? allGenresArray.slice(3).filter(Boolean) : [];
 
@@ -585,15 +570,6 @@ const SwipePageClassic: React.FC = () => {
   const languages = Array.from(
     new Set(allLanguagesRaw.map((l) => cleanText(l)).filter((l): l is string => !!l)),
   );
-
-  let episodeRuntimeMinutes: number | null = null;
-  if (Array.isArray(titleDetail?.tmdb_episode_run_time)) {
-    if (titleDetail.tmdb_episode_run_time.length > 0) {
-      episodeRuntimeMinutes = safeNumber(titleDetail.tmdb_episode_run_time[0]) ?? null;
-    }
-  } else if (titleDetail?.tmdb_episode_run_time != null) {
-    episodeRuntimeMinutes = safeNumber(titleDetail.tmdb_episode_run_time);
-  }
 
   const ensureSignedIn = () => {
     if (!user) {
@@ -700,7 +676,6 @@ const SwipePageClassic: React.FC = () => {
     setShowFullFriendReview(false);
     setIsDetailMode(false);
     setIsFullDetailOpen(false);
-    setShowSharePresetSheet(false);
   }, [activeCard?.id]);
 
   useEffect(() => {
@@ -768,7 +743,7 @@ const SwipePageClassic: React.FC = () => {
       if (longPressTimeoutRef.current != null) window.clearTimeout(longPressTimeoutRef.current);
       if (undoTimeoutRef.current != null) window.clearTimeout(undoTimeoutRef.current);
       if (smartHintTimeoutRef.current != null) window.clearTimeout(smartHintTimeoutRef.current);
-      if (audioContextRef.current) audioContextRef.current.close().catch(() => { });
+      if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
     },
     [],
   );
@@ -1150,7 +1125,8 @@ const SwipePageClassic: React.FC = () => {
     resetCardPosition();
   };
 
-  const overlaySourceLabel = activeCard?.why ?? getSourceLabel((activeCard?.source ?? undefined) as any);
+  const overlaySourceLabel =
+    activeCard?.why ?? getSourceLabel((activeCard?.source ?? undefined) as any);
   const actionsDisabled = !activeCard || isLoading || isError;
 
   // keyboard
@@ -1193,8 +1169,9 @@ const SwipePageClassic: React.FC = () => {
             return (
               <span
                 key={cardIndex}
-                className={`h-1.5 rounded-md transition-all ${isActive ? "w-4 bg-primary" : "w-2 bg-border/70"
-                  }`}
+                className={`h-1.5 rounded-md transition-all ${
+                  isActive ? "w-4 bg-primary" : "w-2 bg-border/70"
+                }`}
               />
             );
           })}
@@ -1245,7 +1222,7 @@ const SwipePageClassic: React.FC = () => {
     typeof activeCard?.imdbRating === "number" && !Number.isNaN(activeCard.imdbRating)
       ? activeCard.imdbRating
       : typeof titleDetail?.imdb_rating === "number" &&
-        !Number.isNaN(titleDetail.imdb_rating as number)
+          !Number.isNaN(titleDetail.imdb_rating as number)
         ? (titleDetail.imdb_rating as number)
         : safeNumber(titleDetail?.imdb_rating);
 
@@ -1253,30 +1230,30 @@ const SwipePageClassic: React.FC = () => {
     typeof activeCard?.rtTomatoMeter === "number" && !Number.isNaN(activeCard.rtTomatoMeter)
       ? activeCard.rtTomatoMeter
       : typeof titleDetail?.rt_tomato_pct === "number" &&
-        !Number.isNaN(titleDetail.rt_tomato_pct as number)
+          !Number.isNaN(titleDetail.rt_tomato_pct as number)
         ? (titleDetail.rt_tomato_pct as number)
         : safeNumber(titleDetail?.rt_tomato_pct);
 
   const metaLine = activeCard
     ? (() => {
-      const parts: string[] = [];
-      if (activeCard.year) parts.push(String(activeCard.year));
+        const parts: string[] = [];
+        if (activeCard.year) parts.push(String(activeCard.year));
 
-      const typeLabel =
-        (normalizedContentType ?? activeCard.type) === "series" ? "Series" : "Movie";
-      if (typeLabel) parts.push(typeLabel);
+        const typeLabel =
+          (normalizedContentType ?? activeCard.type) === "series" ? "Series" : "Movie";
+        if (typeLabel) parts.push(typeLabel);
 
-      if (primaryImdbForMeta != null) {
-        parts.push(`IMDb ${primaryImdbForMeta.toFixed(1)}`);
-      }
-      if (primaryRtForMeta != null) {
-        parts.push(`RT ${primaryRtForMeta}%`);
-      }
-      if (typeof activeCard.runtimeMinutes === "number" && activeCard.runtimeMinutes > 0) {
-        parts.push(`${activeCard.runtimeMinutes} min`);
-      }
-      return parts.join(" · ");
-    })()
+        if (primaryImdbForMeta != null) {
+          parts.push(`IMDb ${primaryImdbForMeta.toFixed(1)}`);
+        }
+        if (primaryRtForMeta != null) {
+          parts.push(`RT ${primaryRtForMeta}%`);
+        }
+        if (typeof activeCard.runtimeMinutes === "number" && activeCard.runtimeMinutes > 0) {
+          parts.push(`${activeCard.runtimeMinutes} min`);
+        }
+        return parts.join(" · ");
+      })()
     : "";
 
   const highlightLabel = (() => {
@@ -1387,10 +1364,11 @@ const SwipePageClassic: React.FC = () => {
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md items-center justify-center rounded-2xl transition-all duration-300 ease-out"
                   style={{
-                    transform: `${isNextPreviewActive
-                      ? "translateY(-40px) scale(0.9)"
-                      : "translateY(-10px) scale(0.84)"
-                      } translateX(${nextParallaxX}px)`,
+                    transform: `${
+                      isNextPreviewActive
+                        ? "translateY(-40px) scale(0.9)"
+                        : "translateY(-10px) scale(0.84)"
+                    } translateX(${nextParallaxX}px)`,
                     opacity: isNextPreviewActive ? 1 : 0,
                   }}
                 >
@@ -1420,8 +1398,9 @@ const SwipePageClassic: React.FC = () => {
                 role="group"
                 aria-roledescription="Movie card"
                 aria-label={buildSwipeCardLabel(activeCard)}
-                className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-card/95 via-background/95 to-card/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${isDetailMode ? "ring-1 ring-primary/40" : "border border-border/60"
-                  }`}
+                className={`relative z-10 mx-auto flex h-[72%] max-h-[480px] w-full max-w-md select-none flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-card/95 via-background/95 to-card/90 shadow-[0_28px_80px_rgba(0,0,0,0.85)] backdrop-blur transform-gpu will-change-transform ${
+                  isDetailMode ? "ring-1 ring-primary/40" : "border border-border/60"
+                }`}
                 onPointerDown={(e) => {
                   if (e.pointerType === "mouse" && e.button !== 0) return;
                   handlePointerDown(e.clientX, e.pointerId, e.target);
@@ -1441,8 +1420,9 @@ const SwipePageClassic: React.FC = () => {
 
                 {/* header / poster */}
                 <div
-                  className={`relative overflow-hidden bg-gradient-to-br from-background/90 via-background/85 to-background/95 transition-all duration-300 ease-out ${isDetailMode ? "h-[40%]" : "h-[58%]"
-                    }`}
+                  className={`relative overflow-hidden bg-gradient-to-br from-background/90 via-background/85 to-background/95 transition-all duration-300 ease-out ${
+                    isDetailMode ? "h-[40%]" : "h-[58%]"
+                  }`}
                 >
                   {showActivePoster && activeCard.posterUrl ? (
                     <>
@@ -1573,12 +1553,14 @@ const SwipePageClassic: React.FC = () => {
                           >
                             <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
                             <div
-                              className={`overflow-hidden transition-all duration-200 ${showFullFriendReview ? "max-h-32" : "max-h-10"
-                                }`}
+                              className={`overflow-hidden transition-all duration-200 ${
+                                showFullFriendReview ? "max-h-32" : "max-h-10"
+                              }`}
                             >
                               <span
-                                className={`block text-xs ${showFullFriendReview ? "" : "line-clamp-2"
-                                  }`}
+                                className={`block text-xs ${
+                                  showFullFriendReview ? "" : "line-clamp-2"
+                                }`}
                               >
                                 {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
                               </span>
@@ -1599,240 +1581,277 @@ const SwipePageClassic: React.FC = () => {
                       className="mt-2 flex flex-1 flex-col text-left text-xs text-muted-foreground"
                     >
                       <div className="flex min-h-0 flex-1 flex-col overflow-hidden pr-1">
-  {!isFullDetailOpen ? (
-    // DETAILS (no scroll): show the most useful info, clamp long text
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="shrink-0 space-y-1.5">
-        <h3 className="line-clamp-2 text-[clamp(1rem,3.8vw,1.25rem)] font-semibold text-foreground">
-          {activeCard.title}
-        </h3>
-        {metaLine && <p className="text-[11px] text-muted-foreground/90">{metaLine}</p>}
+                        {!isFullDetailOpen ? (
+                          // DETAILS (no scroll): show the most useful info, clamp long text
+                          <div className="flex min-h-0 flex-1 flex-col gap-3">
+                            <div className="shrink-0 space-y-1.5">
+                              <h3 className="line-clamp-2 text-[clamp(1rem,3.8vw,1.25rem)] font-semibold text-foreground">
+                                {activeCard.title}
+                              </h3>
+                              {metaLine && (
+                                <p className="text-[11px] text-muted-foreground/90">{metaLine}</p>
+                              )}
 
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/90">
-          {detailGenres && (
-            <span className="inline-flex items-center gap-1 min-w-0">
-              <span className="font-medium text-foreground/90">Genres</span>
-              <span className="truncate max-w-[220px]">
-                {Array.isArray(detailGenres)
-                  ? (detailGenres as string[]).slice(0, 3).join(", ")
-                  : String(detailGenres)
-                      .split(",")
-                      .map((g) => g.trim())
-                      .slice(0, 3)
-                      .join(", ")}
-              </span>
-            </span>
-          )}
-          {detailCertification && (
-            <span className="rounded-full bg-card/80 px-2 py-0.5 text-[11px] font-medium text-foreground/90">
-              {detailCertification}
-            </span>
-          )}
-          {detailPrimaryCountryAbbr && (
-            <span className="rounded-full bg-card/80 px-2 py-0.5 text-[11px] text-muted-foreground/90">
-              {detailPrimaryCountryAbbr}
-            </span>
-          )}
-        </div>
-      </div>
+                              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/90">
+                                {detailGenres && (
+                                  <span className="inline-flex items-center gap-1 min-w-0">
+                                    <span className="font-medium text-foreground/90">Genres</span>
+                                    <span className="truncate max-w-[220px]">
+                                      {Array.isArray(detailGenres)
+                                        ? (detailGenres as string[]).slice(0, 3).join(", ")
+                                        : String(detailGenres)
+                                            .split(",")
+                                            .map((g) => g.trim())
+                                            .slice(0, 3)
+                                            .join(", ")}
+                                    </span>
+                                  </span>
+                                )}
+                                {detailCertification && (
+                                  <span className="rounded-full bg-card/80 px-2 py-0.5 text-[11px] font-medium text-foreground/90">
+                                    {detailCertification}
+                                  </span>
+                                )}
+                                {detailPrimaryCountryAbbr && (
+                                  <span className="rounded-full bg-card/80 px-2 py-0.5 text-[11px] text-muted-foreground/90">
+                                    {detailPrimaryCountryAbbr}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
 
-      {detailOverview ? (
-        <div className="min-h-0 flex-1 space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
-            Overview
-          </p>
-          <p className="line-clamp-4 sm:line-clamp-5 md:line-clamp-6 text-[11px] leading-relaxed text-muted-foreground/90">
-            {detailOverview}
-          </p>
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1" />
-      )}
+                            {detailOverview ? (
+                              <div className="min-h-0 flex-1 space-y-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+                                  Overview
+                                </p>
+                                <p className="line-clamp-4 sm:line-clamp-5 md:line-clamp-6 text-[11px] leading-relaxed text-muted-foreground/90">
+                                  {detailOverview}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="min-h-0 flex-1" />
+                            )}
 
-      {(detailDirector || detailActors) ? (
-        <div className="shrink-0 space-y-1 text-[10.5px] text-muted-foreground/90">
-          {detailDirector && (
-            <p className="line-clamp-1">
-              <span className="font-medium text-foreground/90">Director:</span>{" "}
-              <span>{detailDirector}</span>
-            </p>
-          )}
-          {detailActors && (
-            <p className="line-clamp-1">
-              <span className="font-medium text-foreground/90">Cast:</span>{" "}
-              <span>
-                {detailActors
-                  .split(",")
-                  .map((a) => a.trim())
-                  .filter(Boolean)
-                  .slice(0, 4)
-                  .join(", ")}
-              </span>
-            </p>
-          )}
-        </div>
-      ) : null}
+                            {detailDirector || detailActors ? (
+                              <div className="shrink-0 space-y-1 text-[10.5px] text-muted-foreground/90">
+                                {detailDirector && (
+                                  <p className="line-clamp-1">
+                                    <span className="font-medium text-foreground/90">
+                                      Director:
+                                    </span>{" "}
+                                    <span>{detailDirector}</span>
+                                  </p>
+                                )}
+                                {detailActors && (
+                                  <p className="line-clamp-1">
+                                    <span className="font-medium text-foreground/90">Cast:</span>{" "}
+                                    <span>
+                                      {detailActors
+                                        .split(",")
+                                        .map((a) => a.trim())
+                                        .filter(Boolean)
+                                        .slice(0, 4)
+                                        .join(", ")}
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                            ) : null}
 
-      <div className="shrink-0 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1 rounded-full bg-card/80 px-2.5 py-1">
-            <span className="text-[11px] text-muted-foreground/80">Your rating</span>
-            <div className="flex items-center gap-0.5" aria-label="Your rating">
-              {Array.from({ length: 5 }).map((_, idx) => {
-                const value = idx + 1;
-                const filled = currentUserRating != null && currentUserRating >= value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => handleStarClick(value)}
-                    className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
-                  >
-                    <Star
-                      className={`h-3.5 w-3.5 ${filled ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                            <div className="shrink-0 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="inline-flex items-center gap-1 rounded-full bg-card/80 px-2.5 py-1">
+                                  <span className="text-[11px] text-muted-foreground/80">
+                                    Your rating
+                                  </span>
+                                  <div
+                                    className="flex items-center gap-0.5"
+                                    aria-label="Your rating"
+                                  >
+                                    {Array.from({ length: 5 }).map((_, idx) => {
+                                      const value = idx + 1;
+                                      const filled =
+                                        currentUserRating != null && currentUserRating >= value;
+                                      return (
+                                        <button
+                                          key={value}
+                                          type="button"
+                                          onClick={() => handleStarClick(value)}
+                                          className="flex h-5 w-5 items-center justify-center rounded-full hover:scale-105 focus-visible:outline-none"
+                                        >
+                                          <Star
+                                            className={`h-3.5 w-3.5 ${filled ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
+                                          />
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
 
-          <div className="ml-auto flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                statusIs(WATCHLIST_STATUS)
-                  ? "bg-primary/90 text-primary-foreground"
-                  : "border border-border bg-card/80 text-muted-foreground hover:border-primary/70 hover:text-primary"
-              }`}
-            >
-              Watchlist
-            </button>
-            <button
-              type="button"
-              onClick={() => setDiaryStatus(WATCHED_STATUS)}
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                statusIs(WATCHED_STATUS)
-                  ? "bg-emerald-500/90 text-primary-foreground"
-                  : "border border-border bg-card/80 text-muted-foreground hover:border-emerald-400/80 hover:text-emerald-300"
-              }`}
-            >
-              Watched
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsShareSheetOpen(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-card/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/70 hover:text-primary"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Share</span>
-            </button>
-          </div>
-        </div>
+                                <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDiaryStatus(WATCHLIST_STATUS)}
+                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                      statusIs(WATCHLIST_STATUS)
+                                        ? "bg-primary/90 text-primary-foreground"
+                                        : "border border-border bg-card/80 text-muted-foreground hover:border-primary/70 hover:text-primary"
+                                    }`}
+                                  >
+                                    Watchlist
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDiaryStatus(WATCHED_STATUS)}
+                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                      statusIs(WATCHED_STATUS)
+                                        ? "bg-emerald-500/90 text-primary-foreground"
+                                        : "border border-border bg-card/80 text-muted-foreground hover:border-emerald-400/80 hover:text-emerald-300"
+                                    }`}
+                                  >
+                                    Watched
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsShareSheetOpen(true)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/70 hover:text-primary"
+                                  >
+                                    <Share2 className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Share</span>
+                                  </button>
+                                </div>
+                              </div>
 
-        {(typeof activeCard.friendLikesCount === "number" && activeCard.friendLikesCount > 0) ||
-        (activeCard.topFriendName && activeCard.topFriendReviewSnippet) ? (
-          <div className="rounded-2xl bg-card/80 px-3 py-2 text-[11px] text-foreground shadow-md">
-            {typeof activeCard.friendLikesCount === "number" && activeCard.friendLikesCount > 0 && (
-              <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Flame className="h-4 w-4 text-primary/80" />
-                {activeCard.friendLikesCount === 1
-                  ? "1 friend likes this"
-                  : `${activeCard.friendLikesCount} friends like this`}
-              </div>
-            )}
-            {activeCard.topFriendName && activeCard.topFriendReviewSnippet && (
-              <div className="mt-1 inline-flex w-full items-start gap-2 text-left">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
-                <span className="block line-clamp-2 text-[11px]">
-                  {activeCard.topFriendName}: “{activeCard.topFriendReviewSnippet}”
-                </span>
-              </div>
-            )}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  ) : (
-    // FULL DETAILS (no scroll): compact grid, clamp values
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="shrink-0">
-        <h3 className="line-clamp-1 text-[clamp(0.95rem,3.4vw,1.1rem)] font-semibold text-foreground">
-          {activeCard.title}
-        </h3>
-        {metaLine && <p className="mt-0.5 text-[11px] text-muted-foreground/90">{metaLine}</p>}
-      </div>
+                              {(typeof activeCard.friendLikesCount === "number" &&
+                                activeCard.friendLikesCount > 0) ||
+                              (activeCard.topFriendName && activeCard.topFriendReviewSnippet) ? (
+                                <div className="rounded-2xl bg-card/80 px-3 py-2 text-[11px] text-foreground shadow-md">
+                                  {typeof activeCard.friendLikesCount === "number" &&
+                                    activeCard.friendLikesCount > 0 && (
+                                      <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                                        <Flame className="h-4 w-4 text-primary/80" />
+                                        {activeCard.friendLikesCount === 1
+                                          ? "1 friend likes this"
+                                          : `${activeCard.friendLikesCount} friends like this`}
+                                      </div>
+                                    )}
+                                  {activeCard.topFriendName &&
+                                    activeCard.topFriendReviewSnippet && (
+                                      <div className="mt-1 inline-flex w-full items-start gap-2 text-left">
+                                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
+                                        <span className="block line-clamp-2 text-[11px]">
+                                          {activeCard.topFriendName}: “
+                                          {activeCard.topFriendReviewSnippet}”
+                                        </span>
+                                      </div>
+                                    )}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : (
+                          // FULL DETAILS (no scroll): compact grid, clamp values
+                          <div className="flex min-h-0 flex-1 flex-col gap-3">
+                            <div className="shrink-0">
+                              <h3 className="line-clamp-1 text-[clamp(0.95rem,3.4vw,1.1rem)] font-semibold text-foreground">
+                                {activeCard.title}
+                              </h3>
+                              {metaLine && (
+                                <p className="mt-0.5 text-[11px] text-muted-foreground/90">
+                                  {metaLine}
+                                </p>
+                              )}
+                            </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
-  {(() => {
-    const tiles: Array<{ label: string; value: string }> = [];
+                            <div className="min-h-0 flex-1 overflow-hidden">
+                              <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
+                                {(() => {
+                                  const tiles: Array<{ label: string; value: string }> = [];
 
-    if (moreGenres.length > 0) {
-      tiles.push({ label: "Genres", value: moreGenres.slice(0, 6).join(", ") });
-    }
-    if (languages.length > 0) {
-      tiles.push({ label: "Languages", value: languages.slice(0, 4).join(", ") });
-    }
-    if (detailWriter) {
-      tiles.push({ label: "Writers", value: detailWriter });
-    }
-    if (detailActors) {
-      const allNames = detailActors
-        .split(",")
-        .map((a) => a.trim())
-        .filter(Boolean);
-      const extra = allNames.slice(3);
-      if (extra.length > 0) {
-        tiles.push({ label: "More cast", value: extra.slice(0, 8).join(", ") });
-      }
-    }
-    if (detailReleased) {
-      tiles.push({ label: "Released", value: detailReleased });
-    }
-    if (detailAwards) {
-      tiles.push({ label: "Awards", value: detailAwards });
-    }
-    if (detailBoxOffice) {
-      tiles.push({ label: "Box office", value: detailBoxOffice });
-    }
-    if (imdbVotes && formatInt(imdbVotes)) {
-      tiles.push({ label: "IMDb votes", value: String(formatInt(imdbVotes)) });
-    }
-    if (externalMetascore && safeNumber(externalMetascore) != null) {
-      tiles.push({ label: "Metascore", value: String(safeNumber(externalMetascore)) });
-    }
-    if (tmdbVoteAverage && safeNumber(tmdbVoteAverage) != null) {
-      tiles.push({
-        label: "TMDB",
-        value: String(safeNumber(tmdbVoteAverage)?.toFixed(1)),
-      });
-    }
+                                  if (moreGenres.length > 0) {
+                                    tiles.push({
+                                      label: "Genres",
+                                      value: moreGenres.slice(0, 6).join(", "),
+                                    });
+                                  }
+                                  if (languages.length > 0) {
+                                    tiles.push({
+                                      label: "Languages",
+                                      value: languages.slice(0, 4).join(", "),
+                                    });
+                                  }
+                                  if (detailWriter) {
+                                    tiles.push({ label: "Writers", value: detailWriter });
+                                  }
+                                  if (detailActors) {
+                                    const allNames = detailActors
+                                      .split(",")
+                                      .map((a) => a.trim())
+                                      .filter(Boolean);
+                                    const extra = allNames.slice(3);
+                                    if (extra.length > 0) {
+                                      tiles.push({
+                                        label: "More cast",
+                                        value: extra.slice(0, 8).join(", "),
+                                      });
+                                    }
+                                  }
+                                  if (detailReleased) {
+                                    tiles.push({ label: "Released", value: detailReleased });
+                                  }
+                                  if (detailAwards) {
+                                    tiles.push({ label: "Awards", value: detailAwards });
+                                  }
+                                  if (detailBoxOffice) {
+                                    tiles.push({ label: "Box office", value: detailBoxOffice });
+                                  }
+                                  if (imdbVotes && formatInt(imdbVotes)) {
+                                    tiles.push({
+                                      label: "IMDb votes",
+                                      value: String(formatInt(imdbVotes)),
+                                    });
+                                  }
+                                  if (externalMetascore && safeNumber(externalMetascore) != null) {
+                                    tiles.push({
+                                      label: "Metascore",
+                                      value: String(safeNumber(externalMetascore)),
+                                    });
+                                  }
+                                  if (tmdbVoteAverage && safeNumber(tmdbVoteAverage) != null) {
+                                    tiles.push({
+                                      label: "TMDB",
+                                      value: String(safeNumber(tmdbVoteAverage)?.toFixed(1)),
+                                    });
+                                  }
 
-    return tiles.slice(0, 8).map((tile) => (
-      <div key={tile.label} className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
-          {tile.label}
-        </p>
-        <p className="line-clamp-2">{tile.value}</p>
-      </div>
-    ));
-  })()}
-</div>
+                                  return tiles.slice(0, 8).map((tile) => (
+                                    <div key={tile.label} className="min-w-0">
+                                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+                                        {tile.label}
+                                      </p>
+                                      <p className="line-clamp-2">{tile.value}</p>
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
 
-{detailOverview && (
-          <div className="mt-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Overview</p>
-            <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/90">{detailOverview}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )}
-</div>
+                              {detailOverview && (
+                                <div className="mt-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-2">
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+                                    Overview
+                                  </p>
+                                  <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/90">
+                                    {detailOverview}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
-<div className="mt-2 flex shrink-0 justify-end">
+                      <div className="mt-2 flex shrink-0 justify-end">
                         <button
                           type="button"
                           onClick={() => setIsFullDetailOpen((val) => !val)}
@@ -1979,8 +1998,6 @@ const SwipeShareSheet: React.FC<SwipeShareSheetProps> = ({
         role="dialog"
         aria-modal="true"
         className="pointer-events-auto mb-[72px] w-full max-w-md self-center rounded-t-2xl bg-card pb-3 pt-2 shadow-[0_-18px_45px_rgba(0,0,0,0.65)]"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 pb-2">
           <button

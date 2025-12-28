@@ -239,8 +239,7 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
       }
 
       return rows.map((row) => {
-        const resolvedTitleId =
-          row.media_item_id ?? (isUuid(row.title_id) ? row.title_id : null);
+        const resolvedTitleId = row.media_item_id ?? (isUuid(row.title_id) ? row.title_id : null);
         const title = resolvedTitleId ? (titlesById.get(resolvedTitleId) ?? null) : null;
         const kind = mapEventTypeToDiaryKind(row.event_type);
         const payload = validateActivityPayload(row.event_type, row.payload);

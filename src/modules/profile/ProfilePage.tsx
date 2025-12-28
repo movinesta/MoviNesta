@@ -14,7 +14,14 @@ import {
   Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -179,7 +186,8 @@ const ProfilePage: React.FC = () => {
   }
 
   const profileUrl = `${window.location.origin}/u/${profile.username ?? username ?? ""}`;
-  const followPending = toggleFollow.isPending && toggleFollow.variables?.targetUserId === profile.id;
+  const followPending =
+    toggleFollow.isPending && toggleFollow.variables?.targetUserId === profile.id;
 
   return (
     <div className="flex flex-1 flex-col pb-24">
@@ -223,7 +231,7 @@ const ProfilePage: React.FC = () => {
 
             {isOwner && (
               <div className="absolute -top-6 left-0 rounded-full bg-muted/90 px-3 py-1 text-[11px] text-muted-foreground shadow">
-                What's on your mind?
+                What&apos;s on your mind?
               </div>
             )}
 
@@ -357,9 +365,7 @@ const ProfilePage: React.FC = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem
-                    onClick={() => safeShare(`${displayName}`, profileUrl)}
-                  >
+                  <DropdownMenuItem onClick={() => safeShare(`${displayName}`, profileUrl)}>
                     <Copy className="mr-2 h-4 w-4" />
                     Copy link
                   </DropdownMenuItem>
@@ -552,7 +558,9 @@ const ProfilePage: React.FC = () => {
             ) : libraryEntries.length === 0 ? (
               <div className="flex min-h-[30vh] items-center justify-center px-4">
                 <div className="max-w-sm rounded-2xl border border-border bg-card/80 p-5 text-center text-xs text-muted-foreground shadow-lg">
-                  <p className="font-heading text-sm font-semibold text-foreground">No titles yet</p>
+                  <p className="font-heading text-sm font-semibold text-foreground">
+                    No titles yet
+                  </p>
                   <p className="mt-1 text-xs">
                     {isOwner
                       ? "Start rating titles and your library will appear here."
@@ -604,14 +612,18 @@ const ProfilePage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>New highlight</DialogTitle>
             <DialogDescription>
-              Create a saved list that shows up on your profile. "Top movies" works great as a starting point.
+              Create a saved list that shows up on your profile. &quot;Top movies&quot; works great
+              as a starting point.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-foreground">Name</label>
+              <label htmlFor="highlight-name" className="text-xs font-medium text-foreground">
+                Name
+              </label>
               <Input
+                id="highlight-name"
                 value={highlightName}
                 onChange={(e) => setHighlightName(e.target.value)}
                 placeholder="Top movies"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import type { LucideIcon } from "lucide-react";
 import { Heart, MessageCircle, Plus, Sparkles, Users } from "lucide-react";
@@ -94,13 +94,6 @@ const HomePage = () => {
     setQuickFilter(key);
   };
 
-  // Reset quick filter when leaving Feed
-  useEffect(() => {
-    if (activeTab !== "feed") {
-      setQuickFilter("all");
-    }
-  }, [activeTab]);
-
   const computedDescription =
     activeTab === "feed" ? getFeedDescription(quickFilter) : activeTabConfig.description;
 
@@ -126,7 +119,16 @@ const HomePage = () => {
           },
         ]}
         below={
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as HomeTabKey)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              const nextTab = value as HomeTabKey;
+              setActiveTab(nextTab);
+              if (nextTab !== "feed") {
+                setQuickFilter("all");
+              }
+            }}
+          >
             <TabsList className="w-full">
               {HOME_TABS_LIST.map((tab) => (
                 <TabsTrigger key={tab.key} value={tab.key}>

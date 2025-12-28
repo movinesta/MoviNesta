@@ -125,7 +125,9 @@ export const useHomeStories = () => {
         if (picked) primaryListByUserId.set(id, picked);
       }
 
-      const primaryListIds = Array.from(new Set(Array.from(primaryListByUserId.values()).map((l) => l.id)));
+      const primaryListIds = Array.from(
+        new Set(Array.from(primaryListByUserId.values()).map((l) => l.id)),
+      );
 
       // 4) Pick a cover title for each list.
       const coverTitleByListId = new Map<string, string>();
@@ -198,7 +200,7 @@ export const useHomeStories = () => {
         .map((id) => {
           const p = profileById.get(id);
           const list = primaryListByUserId.get(id);
-          const coverTitleId = list ? coverTitleByListId.get(list.id) ?? null : null;
+          const coverTitleId = list ? (coverTitleByListId.get(list.id) ?? null) : null;
           return {
             userId: id,
             username: p?.username ?? null,
@@ -206,7 +208,7 @@ export const useHomeStories = () => {
             avatarUrl: avatarById.get(id) ?? null,
             listId: list?.id ?? null,
             listName: list?.name ?? null,
-            coverPosterUrl: coverTitleId ? posterByTitleId.get(coverTitleId) ?? null : null,
+            coverPosterUrl: coverTitleId ? (posterByTitleId.get(coverTitleId) ?? null) : null,
           } satisfies HomeStory;
         })
         .filter((s) => Boolean(s.username || s.displayName));

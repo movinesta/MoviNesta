@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Bell, Inbox, ThumbsUp, AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TopBar from "../../components/shared/TopBar";

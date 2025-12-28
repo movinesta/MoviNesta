@@ -56,14 +56,8 @@ const MePage: React.FC = () => {
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="max-w-sm rounded-2xl border border-border bg-card/80 p-5 text-center text-xs text-muted-foreground shadow-lg">
           <p className="font-heading text-sm font-semibold text-foreground">Finish setting up</p>
-          <p className="mt-1 text-xs">
-            Add a username so we can create your profile link.
-          </p>
-          <Button
-            type="button"
-            className="mt-4"
-            onClick={() => navigate("/settings/profile")}
-          >
+          <p className="mt-1 text-xs">Add a username so we can create your profile link.</p>
+          <Button type="button" className="mt-4" onClick={() => navigate("/settings/profile")}>
             Set username
           </Button>
         </div>

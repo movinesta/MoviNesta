@@ -67,7 +67,8 @@ export function MessageList<T>({
   autoScrollEnabled = true,
   virtuosoRef: externalVirtuosoRef,
 }: MessageListProps<T>) {
-  const virtuosoRef = externalVirtuosoRef ?? React.useRef<VirtuosoHandle | null>(null);
+  const internalVirtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+  const virtuosoRef = externalVirtuosoRef ?? internalVirtuosoRef;
   const baseIndex = Math.max(0, firstItemIndex ?? 0);
 
   const prevLastKeyRef = React.useRef<React.Key | null>(null);

@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
@@ -36,7 +35,6 @@ type LibraryRow = {
 };
 
 type TitleRow = ReturnType<typeof mapMediaItemToSummary>;
-type LibraryRowWithTitle = LibraryRow & { titles: TitleRow | null };
 type RatingRow = { title_id: string; rating: number };
 type TitleDiaryRow = { status: DiaryStatus };
 type TitleDiaryRatingRow = { rating: number };

@@ -1,6 +1,6 @@
 import React, { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { supabase } from "../../lib/supabase";
 import TextField from "../../components/forms/TextField";
@@ -54,9 +54,6 @@ const SignUpPage: React.FC = () => {
   const [info, setInfo] = useState<string | null>(null);
 
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/";
 
   const isFormValid =
     !!email &&
