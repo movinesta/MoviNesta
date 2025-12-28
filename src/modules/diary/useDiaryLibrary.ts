@@ -5,6 +5,7 @@ import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 import { TitleType } from "@/types/supabase-helpers";
 import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
+import { rating0_10ToStars, starsToRating0_10 } from "@/lib/ratings";
 
 export type DiaryStatus = "want_to_watch" | "watching" | "watched" | "dropped";
 
@@ -119,7 +120,10 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
 
         if (!ratingsError && ratings) {
           ratingsByTitleId = new Map(
-            (ratings as any as RatingRow[]).map((row) => [row.title_id, row.rating]),
+            (ratings as any as RatingRow[]).map((row) => [
+              row.title_id,
+              rating0_10ToStars(row.rating),
+            ]),
           );
         } else if (ratingsError) {
           console.warn(
@@ -206,7 +210,7 @@ export const useTitleDiaryEntry = (titleId: string | null | undefined) => {
 
       return {
         status: (libraryRow as any as TitleDiaryRow)?.status ?? null,
-        rating: (ratingRow as any as TitleDiaryRatingRow)?.rating ?? null,
+        rating: rating0_10ToStars((ratingRow as any as TitleDiaryRatingRow)?.rating ?? null),
       };
     },
   });
@@ -280,11 +284,16 @@ export const useDiaryLibraryMutations = () => {
         return { titleId, rating: null };
       }
 
+      const nextRating = starsToRating0_10(rating);
+      if (nextRating == null) {
+        throw new Error("Invalid rating value");
+      }
+
       const { error } = await supabase.from("ratings" as any).upsert(
         {
           user_id: userId,
           title_id: titleId,
-          rating,
+          rating: nextRating,
           updated_at: new Date().toISOString(),
           content_type: type,
         },

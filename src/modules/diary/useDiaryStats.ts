@@ -4,6 +4,7 @@ import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
+import { rating0_10ToStars } from "@/lib/ratings";
 
 type DiaryStatsRow = {
   rating_distribution: { rating: number; count: number }[] | null;
@@ -26,7 +27,7 @@ const toDiaryStats = (row?: DiaryStatsRow | null): DiaryStats => {
         const rating = Number((item as Record<string, unknown>).rating);
         const count = Number((item as Record<string, unknown>).count);
         if (Number.isNaN(rating) || Number.isNaN(count)) return null;
-        return { rating, count };
+        return { rating: rating0_10ToStars(rating) ?? rating, count };
       })
       .filter(Boolean) as DiaryStats["ratingDistribution"])
     : [];
@@ -57,7 +58,9 @@ const toDiaryStats = (row?: DiaryStatsRow | null): DiaryStats => {
 
   const averageRaw = row.average_rating;
   const averageRating =
-    averageRaw === null || typeof averageRaw === "undefined" ? null : Number(averageRaw);
+    averageRaw === null || typeof averageRaw === "undefined"
+      ? null
+      : rating0_10ToStars(Number(averageRaw));
 
   return {
     totalRated: Number(row.total_rated ?? 0),

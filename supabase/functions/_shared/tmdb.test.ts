@@ -8,6 +8,9 @@ const mockConfig = {
   supabaseAnonKey: "test_anon_key",
   supabaseServiceRoleKey: "test_service_key",
   tmdbApiReadAccessToken: "test_tmdb_token",
+  omdbApiKey: "",
+  tastediveApiKey: "",
+  internalJobToken: "",
 };
 __setConfigForTesting(mockConfig);
 

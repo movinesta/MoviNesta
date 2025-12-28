@@ -59,6 +59,15 @@ const mapMediaItemRowToResult = (row: MediaItemRow): TitleSearchResult => {
 const PAGE_SIZE = 20;
 const BATCH_SYNC_LIMIT = 5;
 
+const isSessionAvailable = async () => {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return Boolean(data?.session?.access_token);
+  } catch {
+    return false;
+  }
+};
+
 const searchSupabaseTitles = async (
   query: string,
   filters: TitleSearchFilters | undefined,
@@ -145,14 +154,24 @@ const searchSupabaseTitles = async (
     builder = builder.overlaps("tmdb_genre_ids", filters.genreIds);
   }
 
-  if (typeof filters?.minYear === "number") {
-    const minDate = `${filters.minYear}-01-01`;
-    builder = builder.or(`tmdb_release_date.gte.${minDate},tmdb_first_air_date.gte.${minDate}`);
-  }
-
-  if (typeof filters?.maxYear === "number") {
-    const maxDate = `${filters.maxYear}-12-31`;
-    builder = builder.or(`tmdb_release_date.lte.${maxDate},tmdb_first_air_date.lte.${maxDate}`);
+  const hasMinYear = typeof filters?.minYear === "number";
+  const hasMaxYear = typeof filters?.maxYear === "number";
+  if (hasMinYear || hasMaxYear) {
+    const minDate = hasMinYear ? `${filters!.minYear}-01-01` : null;
+    const maxDate = hasMaxYear ? `${filters!.maxYear}-12-31` : null;
+    const parts: string[] = [];
+    for (const field of ["tmdb_release_date", "tmdb_first_air_date"]) {
+      if (minDate && maxDate) {
+        parts.push(`and(${field}.gte.${minDate},${field}.lte.${maxDate})`);
+      } else if (minDate) {
+        parts.push(`${field}.gte.${minDate}`);
+      } else if (maxDate) {
+        parts.push(`${field}.lte.${maxDate}`);
+      }
+    }
+    if (parts.length) {
+      builder = builder.or(parts.join(","));
+    }
   }
 
   if (filters?.originalLanguage) {
@@ -230,35 +249,44 @@ export const searchTitles = async (params: {
     return true;
   });
 
-  const upsertedByTmdb = new Map<number, string>();
+  const syncedByKey = new Map<string, string>();
+  if (filteredExternal.length && (await isSessionAvailable())) {
+    const batchItems = filteredExternal
+      .filter((item) => item.tmdbId)
+      .slice(0, BATCH_SYNC_LIMIT)
+      .map((item) => ({
+        tmdbId: item.tmdbId ?? null,
+        imdbId: item.imdbId ?? null,
+        contentType: item.type === "tv" ? "series" : "movie",
+      }));
 
-  if (filteredExternal.length) {
-    try {
-      const { data, error } = await supabase
-        .from("media_items" as any)
-        .upsert(
-          filteredExternal.slice(0, BATCH_SYNC_LIMIT).map((item) => ({
-            tmdb_id: item.tmdbId,
-            omdb_imdb_id: item.imdbId ?? null,
-            kind: item.type === "tv" ? "series" : "movie",
-            tmdb_title: item.title,
-            tmdb_release_date: item.year ? `${item.year}-01-01` : null,
-          })),
-          { onConflict: "kind,tmdb_id" },
-        )
-        .select("id, tmdb_id");
+    if (batchItems.length) {
+      try {
+        const resp = await callSupabaseFunction<{
+          ok: boolean;
+          results: Array<{
+            tmdbId: number | null;
+            imdbId: string | null;
+            contentType?: "movie" | "series" | null;
+            mediaItemId: string | null;
+            status: "fulfilled" | "rejected";
+          }>;
+        }>(
+          "catalog-sync-batch",
+          { items: batchItems, options: { syncOmdb: true, forceRefresh: false } },
+          { signal, timeoutMs: 20000 },
+        );
 
-      if (error) {
-        console.error("[search.service] Failed to upsert media_items. This might be due to missing RLS permissions or schema mismatch.", error);
-      }
-
-      (data as any[] ?? []).forEach((row) => {
-        if (row.tmdb_id != null && row.id) {
-          upsertedByTmdb.set(Number(row.tmdb_id), row.id);
+        if (resp?.ok && Array.isArray(resp.results)) {
+          resp.results.forEach((row) => {
+            if (!row?.mediaItemId || !row.tmdbId || !row.contentType) return;
+            const key = `${row.contentType}:${row.tmdbId}`;
+            syncedByKey.set(key, row.mediaItemId);
+          });
         }
-      });
-    } catch (err) {
-      console.warn("[search.service] media_items upsert failed", err);
+      } catch (err) {
+        console.warn("[search.service] catalog-sync-batch failed", err);
+      }
     }
   }
 
@@ -267,11 +295,13 @@ export const searchTitles = async (params: {
       throwIfAborted(signal);
 
       const type: TitleType = item.type === "tv" ? "series" : "movie";
-      const resolvedId =
-        item.tmdbId && upsertedByTmdb.get(item.tmdbId)
-          ? upsertedByTmdb.get(item.tmdbId)!
-          : `tmdb-${item.tmdbId ?? Math.random()}`;
-      const isSynced = !resolvedId.startsWith("tmdb-");
+      const key = item.tmdbId ? `${type}:${item.tmdbId}` : null;
+      const resolvedId = key && syncedByKey.get(key)
+        ? syncedByKey.get(key)!
+        : item.tmdbId
+          ? `${item.type === "tv" ? "tv" : "tmdb"}-${item.tmdbId}`
+          : `tmdb-${Math.random()}`;
+      const isSynced = !resolvedId.startsWith("tmdb-") && !resolvedId.startsWith("tv-");
 
       if (item.tmdbId) {
         seenTmdbIds.add(item.tmdbId);

@@ -4,12 +4,13 @@
 // Schema source of truth: schema_full_20251224_004751.sql
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import type { Database } from "../../../src/types/supabase.ts";
 import { getConfig } from "../_shared/config.ts";
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { enforceRateLimit } from "../_shared/rateLimit.ts";
+import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 
 const FN_NAME = "catalog-sync";
 
@@ -138,14 +139,18 @@ function normalizeExternal(reqBody: SyncRequest): { external: ExternalInput; opt
 }
 
 async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  const { tmdbApiKey } = getConfig();
-  if (!tmdbApiKey) throw new Error("Missing TMDB_API_KEY");
+  const { tmdbApiReadAccessToken } = getConfig();
+  if (!tmdbApiReadAccessToken) throw new Error("Missing TMDB_API_READ_ACCESS_TOKEN");
 
   const url = new URL(`https://api.themoviedb.org/3/${path.replace(/^\//, "")}`);
-  url.searchParams.set("api_key", tmdbApiKey);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${tmdbApiReadAccessToken}`,
+      Accept: "application/json",
+    },
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`TMDB request failed: ${res.status} ${text}`);
@@ -250,14 +255,13 @@ export async function handler(req: Request) {
     return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return jsonError("Missing Authorization header", 401, "MISSING_AUTH");
+  const userClient = getUserClient(req);
+  const { data: authData, error: authError } = await userClient.auth.getUser();
+  if (authError || !authData?.user?.id) {
+    return jsonError("Unauthorized", 401, "UNAUTHORIZED");
   }
 
-  const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  const adminClient = getAdminClient(req);
 
   const { external, options } = normalizeExternal(data);
   let kind: MediaKind = toKind(external.type ?? null, data.contentType);
@@ -277,7 +281,7 @@ export async function handler(req: Request) {
     return jsonError("Missing tmdbId or imdbId", 400, "MISSING_IDS");
   }
 
-  const existing = await findExisting(supabase, kind, tmdbId, imdbId);
+  const existing = await findExisting(adminClient, kind, tmdbId, imdbId);
   if (existing && !options.forceRefresh) {
     // If we already have TMDB data, and OMDb is either disabled or present, we can return early.
     const hasTmdb = Boolean(existing.tmdb_raw);
@@ -410,7 +414,7 @@ export async function handler(req: Request) {
   };
 
   const onConflict = tmdbId != null ? "kind,tmdb_id" : "omdb_imdb_id";
-  const saved = await upsertMediaItem(supabase, insert, onConflict);
+  const saved = await upsertMediaItem(adminClient, insert, onConflict);
 
   return jsonResponse<SyncResponse>({
     ok: true,

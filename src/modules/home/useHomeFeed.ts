@@ -13,6 +13,7 @@ import type { Database } from "@/types/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { formatTimeAgo } from "../messages/formatTimeAgo";
 import type { AvatarColorKey, FeedTitle, FeedUser, HomeFeedItem } from "./homeFeedTypes";
+import { rating0_10ToStars } from "@/lib/ratings";
 
 type HomeFeedRow = Database["public"]["Functions"]["get_home_feed_v2"]["Returns"][number];
 type MediaItemRow = Database["public"]["Tables"]["media_items"]["Row"];
@@ -139,17 +140,19 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
 
   switch (row.event_type) {
     case "rating_created": {
-      const rating = extractNumber(payload, ["rating", "score", "value"]);
+      const rating = rating0_10ToStars(extractNumber(payload, ["rating", "score", "value"]) ?? null);
       if (rating == null) return null;
 
       return {
-        kind: "rating",
+        kind: "friend-rating",
         id: row.id,
         user,
         createdAt,
         relativeTime,
         title,
         rating,
+        reviewSnippet: extractString(payload, ["reviewSnippet", "review", "snippet", "body", "text"]) ?? undefined,
+        emoji: extractString(payload, ["emoji", "icon"]) ?? undefined,
       };
     }
 
@@ -157,10 +160,10 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
       const reviewSnippet =
         extractString(payload, ["reviewSnippet", "review", "snippet", "body", "text"]) ??
         "";
-      const rating = extractNumber(payload, ["rating", "score", "value"]);
+      const rating = rating0_10ToStars(extractNumber(payload, ["rating", "score", "value"]) ?? null);
 
       return {
-        kind: "review",
+        kind: "friend-review",
         id: row.id,
         user,
         createdAt,
@@ -168,18 +171,30 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
         title,
         rating: rating ?? undefined,
         reviewSnippet,
+        emoji: extractString(payload, ["emoji", "icon"]) ?? undefined,
       };
     }
 
     case "watchlist_added": {
       return {
-        kind: "status",
+        kind: "watchlist-add",
         id: row.id,
         user,
         createdAt,
         relativeTime,
         title,
-        status: "planned",
+        note: extractString(payload, ["note", "message", "extra"]) ?? undefined,
+      };
+    }
+
+    case "watchlist_removed": {
+      return {
+        kind: "watchlist-remove",
+        id: row.id,
+        user,
+        createdAt,
+        relativeTime,
+        title,
       };
     }
 
@@ -193,7 +208,7 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
         createdAt,
         relativeTime,
         title,
-        blurb,
+        reason: blurb,
       };
     }
 

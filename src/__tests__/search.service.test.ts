@@ -4,33 +4,36 @@ import type { ExternalTitleResult } from "../modules/search/externalMovieSearch"
 const state = vi.hoisted(() => ({
   supabaseRows: [] as any[],
   externalResults: [] as ExternalTitleResult[],
-  invokeResponses: [] as Array<{ titleId?: string; tmdbId?: number; imdbId?: string }>,
+  invokeResponses: [] as Array<{
+    tmdbId?: number;
+    imdbId?: string | null;
+    contentType?: "movie" | "series";
+    mediaItemId?: string | null;
+  }>,
 }));
 
 const mockInvoke = vi.hoisted(() =>
-  vi.fn(async () => ({ data: { results: state.invokeResponses } })),
+  vi.fn(async (name: string) => {
+    if (name === "media-search") {
+      return { data: { ok: true, results: state.supabaseRows, hasMore: false } };
+    }
+    if (name === "catalog-sync-batch") {
+      return { data: { ok: true, results: state.invokeResponses } };
+    }
+    return { data: { ok: true } };
+  }),
 );
 
 vi.mock("../lib/supabase", () => {
   const createBuilder = () => {
     const builder: any = {
-      _upsertPayload: null as any,
       _result: null as any,
       select: vi.fn(function select() {
-        if (builder._upsertPayload) {
-          const mapped =
-            (builder._upsertPayload as any[])?.map((row) => {
-              const match = state.invokeResponses.find((resp) => resp.tmdbId === row.tmdb_id);
-              return { id: match?.titleId ?? null, tmdb_id: row.tmdb_id };
-            }) ?? [];
-          builder._result = { data: mapped, error: null, count: mapped.length };
-        } else {
-          builder._result = {
-            data: state.supabaseRows,
-            error: null,
-            count: state.supabaseRows.length,
-          };
-        }
+        builder._result = {
+          data: state.supabaseRows,
+          error: null,
+          count: state.supabaseRows.length,
+        };
         return builder;
       }),
       order: vi.fn().mockReturnThis(),
@@ -43,10 +46,7 @@ vi.mock("../lib/supabase", () => {
       lte: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
       overlaps: vi.fn().mockReturnThis(),
-      upsert: vi.fn((payload: any) => {
-        builder._upsertPayload = payload;
-        return builder;
-      }),
+      textSearch: vi.fn().mockReturnThis(),
       then: (onfulfilled: (value: any) => any) => {
         const result =
           builder._result ??
@@ -66,6 +66,9 @@ vi.mock("../lib/supabase", () => {
     supabase: {
       from: vi.fn(() => createBuilder()),
       functions: { invoke: mockInvoke },
+      auth: {
+        getSession: vi.fn(async () => ({ data: { session: { access_token: "token" } } })),
+      },
     },
   };
 });
@@ -155,8 +158,8 @@ describe("searchTitles merge logic", () => {
     ];
 
     state.invokeResponses.push(
-      { tmdbId: 222, titleId: "synced-222" },
-      { tmdbId: 333, titleId: undefined },
+      { tmdbId: 222, contentType: "series", mediaItemId: "synced-222" },
+      { tmdbId: 333, contentType: "movie", mediaItemId: null },
     );
 
     const page = await searchTitles({ query: "test" });

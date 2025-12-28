@@ -43,12 +43,12 @@ export async function handler(req: Request) {
   const rl = await enforceRateLimit(req, { action: "catalog_search", maxPerMinute: 60 });
   if (!rl.ok) return jsonError(rl.message, rl.status);
 
-  const { supabaseUrl, supabaseAnonKey, tmdbApiKey } = getConfig();
+  const { supabaseUrl, supabaseAnonKey, tmdbApiReadAccessToken } = getConfig();
   if (!supabaseUrl || !supabaseAnonKey) {
     return jsonError("Server misconfigured", 500, "SERVER_MISCONFIGURED");
   }
 
-  if (!tmdbApiKey) {
+  if (!tmdbApiReadAccessToken) {
     return jsonError("TMDB API key not configured", 500, "MISSING_TMDB_KEY");
   }
 
@@ -80,7 +80,7 @@ export async function handler(req: Request) {
 
   const tmdbRes = await fetch(url.toString(), {
     headers: {
-      Authorization: `Bearer ${tmdbApiKey}`,
+      Authorization: `Bearer ${tmdbApiReadAccessToken}`,
       "Content-Type": "application/json",
     },
   });

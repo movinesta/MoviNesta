@@ -200,7 +200,7 @@ const fetchHomeRecommendations = async (
   const friendIds =
     follows.map((row) => row.followed_id).filter((value): value is string => Boolean(value)) ?? [];
 
-  const seedRating = ratings.find((row) => (row.rating ?? 0) >= 4.0) ?? ratings[0] ?? null;
+  const seedRating = ratings.find((row) => (row.rating ?? 0) >= 8.0) ?? ratings[0] ?? null;
   const seedTitleId = seedRating?.title_id ?? null;
 
   // -------------------------------------------------------------------

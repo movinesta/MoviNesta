@@ -3,6 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handler } from "./index.ts";
 import { __setConfigForTesting } from "../_shared/config.ts";
 
+vi.mock("../_shared/admin.ts", () => ({
+  requireAdmin: vi.fn().mockResolvedValue({ userId: "admin", email: "admin@example.com", role: "admin", svc: {} }),
+}));
+
 vi.mock("https://deno.land/std@0.224.0/http/server.ts", () => ({
   serve: vi.fn(),
 }));
@@ -13,6 +17,9 @@ describe("debug-env handler", () => {
     supabaseAnonKey: "test_anon_key",
     supabaseServiceRoleKey: "test_service_key",
     tmdbApiReadAccessToken: "tmdb_token",
+    omdbApiKey: "",
+    tastediveApiKey: "",
+    internalJobToken: "",
   };
   __setConfigForTesting(mockConfig);
 

@@ -3,14 +3,10 @@
 // Trending refresh entrypoint (v2).
 //
 // This version is aligned with pg_cron + pg_net calls that use:
-//   Authorization: Bearer <anon_key>
-// per Supabase docs for scheduling Edge Functions with Vault + pg_net.
-//
-// It does NOT require a custom INTERNAL_CRON_TOKEN header.
+//   x-job-token: <INTERNAL_JOB_TOKEN>
 // Security model:
-// - Keep verify_jwt = true (default) so Supabase validates the JWT-based anon key.
-//   See docs: by default Edge Functions require a valid JWT in Authorization.
-// - If you previously set verify_jwt=false for this function, remove that override.
+// - verify_jwt = false
+// - INTERNAL_JOB_TOKEN required
 //
 // What it does:
 // - Calls RPC: public.refresh_media_trending_scores(lookback_days, half_life_hours, completeness_min)
@@ -22,6 +18,7 @@ import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_sha
 import { log } from "../_shared/logger.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 import { safeInsertJobRunLog } from "../_shared/joblog.ts";
+import { requireInternalJob } from "../_shared/internal.ts";
 
 const FN_NAME = "media-trending-refresh";
 
@@ -37,12 +34,8 @@ export async function handler(req: Request): Promise<Response> {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  // Defensive: require Authorization header to be present.
-  // With verify_jwt=true (recommended), Supabase will validate it.
-  const auth = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
-  if (!auth.startsWith("Bearer ") || auth.length < 20) {
-    return jsonError("Unauthorized", 401, "UNAUTHORIZED");
-  }
+  const internalGuard = requireInternalJob(req);
+  if (internalGuard) return internalGuard;
 
   const startedAt = new Date().toISOString();
 
