@@ -11,6 +11,9 @@ export interface AppConfig {
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
   tmdbApiReadAccessToken: string;
+  omdbApiKey: string;
+  tastediveApiKey: string;
+  internalJobToken: string;
 }
 
 const getRequiredEnv = (key: string): string => {
@@ -30,6 +33,9 @@ export const getConfigFromEnv = (): AppConfig => {
     supabaseAnonKey: getRequiredEnv("SUPABASE_ANON_KEY"),
     supabaseServiceRoleKey: getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
     tmdbApiReadAccessToken: getRequiredEnv("TMDB_API_READ_ACCESS_TOKEN"),
+    omdbApiKey: Deno.env.get("OMDB_API_KEY") ?? "",
+    tastediveApiKey: Deno.env.get("TASTEDIVE_API_KEY") ?? "",
+    internalJobToken: Deno.env.get("INTERNAL_JOB_TOKEN") ?? "",
   };
 };
 
@@ -55,6 +61,9 @@ export const getConfig = (): AppConfig => {
         supabaseAnonKey: "mock_key",
         supabaseServiceRoleKey: "mock_service_key",
         tmdbApiReadAccessToken: "mock_tmdb_token",
+        omdbApiKey: "",
+        tastediveApiKey: "",
+        internalJobToken: "",
       };
     }
   }

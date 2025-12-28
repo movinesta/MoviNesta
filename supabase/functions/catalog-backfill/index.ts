@@ -19,6 +19,7 @@ import { triggerCatalogSyncForTitle } from "../_shared/catalog-sync.ts";
 import { log } from "../_shared/logger.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 import { safeInsertJobRunLog } from "../_shared/joblog.ts";
+import { requireInternalJob } from "../_shared/internal.ts";
 
 const FN_NAME = "catalog-backfill";
 
@@ -77,6 +78,9 @@ export async function handler(req: Request) {
   if (req.method !== "POST") {
     return jsonError("Method not allowed", 405);
   }
+
+  const internalGuard = requireInternalJob(req);
+  if (internalGuard) return internalGuard;
 
   const startedAt = new Date().toISOString();
   const admin = getAdminClient();

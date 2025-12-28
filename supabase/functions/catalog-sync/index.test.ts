@@ -11,8 +11,10 @@ vi.mock("../_shared/config.ts", () => ({
   getConfig: () => ({
     supabaseUrl: "https://example.supabase.co",
     supabaseAnonKey: "anon",
-    tmdbApiKey: "tmdb_key",
+    tmdbApiReadAccessToken: "tmdb_key",
     omdbApiKey: "omdb_key",
+    tastediveApiKey: "",
+    internalJobToken: "",
   }),
 }));
 
@@ -45,6 +47,9 @@ describe("catalog-sync handler", () => {
 
     mockSupabaseClient = {
       from: vi.fn(() => builder),
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }),
+      },
     };
 
     mockFetch.mockImplementation(async (input: any) => {

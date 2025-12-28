@@ -31,7 +31,7 @@ const ALLOWED_PATHS: RegExp[] = [
   /^\/person\/[0-9]+(?:\/\w+)?$/,
   /^\/genre\/(movie|tv)\/list$/,
   /^\/discover\/(movie|tv)$/,
-  /^\/trending\/(movie|tv)\/\w+$/,
+  /^\/trending\/(movie|tv|all)\/(day|week)$/,
 ];
 
 const ALLOWED_PARAMS = new Set([
@@ -49,11 +49,6 @@ const ALLOWED_PARAMS = new Set([
 
 const MAX_QUERY_LEN = 200;
 const MAX_PAGE = 50;
-
-// Lightweight in-memory rate limit. Best-effort per-instance.
-const WINDOW_MS = 60_000;
-const MAX_REQ_PER_WINDOW = 60;
-const rateCounters = new Map<string, { resetAt: number; count: number }>();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -106,21 +101,7 @@ function sanitizeParams(raw: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-function rateLimitKey(req: Request, userId: string): string {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-  return `${userId}:${ip}`;
-}
-
-function checkRateLimit(key: string): boolean {
-  const now = Date.now();
-  const entry = rateCounters.get(key);
-  if (!entry || now >= entry.resetAt) {
-    rateCounters.set(key, { resetAt: now + WINDOW_MS, count: 1 });
-    return true;
-  }
-  entry.count += 1;
-  return entry.count <= MAX_REQ_PER_WINDOW;
-}
+// Rate limiting handled by shared helper (DB-backed).
 
 async function fetchFromTmdb(url: URL, token: string): Promise<unknown> {
   const headers: Record<string, string> = {
@@ -156,8 +137,6 @@ export async function handler(req: Request) {
   if (authErr || !authData?.user?.id) {
     return jsonError(req, "Unauthorized", 401, "UNAUTHORIZED");
   }
-  const userId = authData.user.id;
-
   let payload: ProxyPayload;
   try {
     payload = (await req.json()) as ProxyPayload;
@@ -180,8 +159,7 @@ export async function handler(req: Request) {
       ? (rawParams as Record<string, unknown>)
       : {};
 
-  const key = rateLimitKey(req, userId);
-  const rl = await enforceRateLimit(supabaseAuth, "tmdb", 120, 60);
+  const rl = await enforceRateLimit(req, { action: "tmdb", maxPerMinute: 120 });
   if (!rl.ok) {
     return jsonError(req, "Rate limit exceeded", 429, "RATE_LIMIT", { retryAfterSeconds: rl.retryAfterSeconds });
   }

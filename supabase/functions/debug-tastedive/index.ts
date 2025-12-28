@@ -7,7 +7,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { handleOptions, jsonError, jsonResponse } from "../_shared/http.ts";
 import { getUserClient } from "../_shared/supabase.ts";
 import { enforceRateLimit } from "../_shared/rateLimit.ts";
-import { fetchJsonWithTimeout } from "../_shared/fetch.ts";
+import { getConfig } from "../_shared/config.ts";
 
 type TasteType = "movie" | "show";
 
@@ -32,12 +32,12 @@ serve(async (req: Request) => {
     return jsonError(req, "Unauthorized", 401, "UNAUTHORIZED");
   }
 
-  const rl = await enforceRateLimit(supabase, "tastedive", 60, 60);
+  const rl = await enforceRateLimit(req, { action: "tastedive", maxPerMinute: 60 });
   if (!rl.ok) {
     return jsonError(req, "Rate limit exceeded", 429, "RATE_LIMIT", { retryAfterSeconds: rl.retryAfterSeconds });
   }
 
-  const apiKey = Deno.env.get("TASTEDIVE_API_KEY");
+  const { tastediveApiKey: apiKey } = getConfig();
   if (!apiKey) {
     return jsonError(req, "Missing secret: TASTEDIVE_API_KEY", 500, "MISSING_SECRET");
   }

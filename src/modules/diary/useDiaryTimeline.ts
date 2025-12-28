@@ -3,6 +3,7 @@ import type { Database } from "@/types/supabase";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
+import { rating0_10ToStars } from "@/lib/ratings";
 
 type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
 type TitleRow = ReturnType<typeof mapMediaItemToSummary>;
@@ -254,9 +255,9 @@ export const useDiaryTimeline = (userIdOverride?: string | null) => {
           posterUrl: title?.posterUrl ?? title?.backdropUrl ?? null,
           rating:
             payload?.event_type === "rating_created"
-              ? payload.rating
+              ? rating0_10ToStars(payload.rating)
               : payload?.event_type === "review_created"
-                ? (payload.rating ?? null)
+                ? rating0_10ToStars(payload.rating ?? null)
                 : null,
           reviewSnippet:
             payload?.event_type === "review_created" ? (payload.review_snippet ?? null) : null,

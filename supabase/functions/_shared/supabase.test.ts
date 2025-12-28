@@ -18,6 +18,9 @@ describe("supabase clients", () => {
     supabaseAnonKey: "test_anon_key",
     supabaseServiceRoleKey: "test_service_key",
     tmdbApiReadAccessToken: "tmdb_token",
+    omdbApiKey: "",
+    tastediveApiKey: "",
+    internalJobToken: "",
   };
   __setConfigForTesting(mockConfig);
 

@@ -19,6 +19,7 @@ import { tmdbImageUrl } from "@/lib/tmdb";
 import type { SwipeCardData } from "../swipe/useSwipeDeck";
 import { fetchMediaSwipeDeck, getOrCreateMediaSwipeSessionId } from "../swipe/mediaSwipeApi";
 import { mapMediaItemToSummary, type MediaItemRow } from "@/lib/mediaItems";
+import { rating0_10ToStars } from "@/lib/ratings";
 
 type TitleRow = MediaItemRow;
 
@@ -69,6 +70,11 @@ const parseOptionalNumber = (value?: string | number | null): number | null => {
   return Number.isFinite(num) ? num : null;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isUuid = (value: string | null | undefined): value is string =>
+  typeof value === "string" && UUID_REGEX.test(value);
+
 interface CreateDirectConversationResponse {
   ok: boolean;
   conversationId?: string;
@@ -81,6 +87,44 @@ const TitleDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [startingConversationFor, setStartingConversationFor] = React.useState<string | null>(null);
   const swipeSessionId = React.useMemo(() => getOrCreateMediaSwipeSessionId(), []);
+  const isVirtualId = Boolean(titleId?.startsWith("tmdb-") || titleId?.startsWith("tv-"));
+  const isDiaryEnabled = isUuid(titleId);
+  const { user } = useAuth();
+
+  React.useEffect(() => {
+    if (!titleId || !isVirtualId || !user?.id) return;
+
+    const tmdbIdRaw = titleId.startsWith("tv-") ? titleId.replace("tv-", "") : titleId.replace("tmdb-", "");
+    const tmdbId = Number(tmdbIdRaw);
+    const contentType = titleId.startsWith("tv-") ? "series" : "movie";
+
+    if (!Number.isFinite(tmdbId) || tmdbId <= 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const payload = await callSupabaseFunction<{ ok: boolean; media_item_id?: string }>(
+          "catalog-sync",
+          { tmdbId, contentType },
+          { timeoutMs: 25000 },
+        );
+
+        if (cancelled) return;
+
+        const resolvedId = payload?.media_item_id ?? null;
+        if (payload?.ok && resolvedId) {
+          navigate(`/title/${resolvedId}`, { replace: true });
+        }
+      } catch (err) {
+        console.warn("[TitleDetailPage] Failed to sync catalog title", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [titleId, isVirtualId, navigate, user?.id]);
 
   const handleStartConversation = async (targetUserId: string) => {
     if (!user?.id) {
@@ -233,9 +277,8 @@ const TitleDetailPage: React.FC = () => {
     },
   });
 
-  const { user } = useAuth();
   const { updateStatus, updateRating } = useDiaryLibraryMutations();
-  const { data: diaryEntryData } = useTitleDiaryEntry(titleId);
+  const { data: diaryEntryData } = useTitleDiaryEntry(isDiaryEnabled ? titleId : null);
   const diaryEntry = diaryEntryData ?? { status: null, rating: null };
   const { data: friendsReactions, isLoading: friendsReactionsLoading } = useQuery<
     {
@@ -248,12 +291,12 @@ const TitleDetailPage: React.FC = () => {
     }[]
   >({
     queryKey: qk.friendsTitleReactions(user?.id ?? null, titleId),
-    enabled: Boolean(user?.id && titleId),
+    enabled: Boolean(user?.id && isDiaryEnabled),
     staleTime: 1000 * 60,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     queryFn: async () => {
-      if (!user?.id || !titleId) return [];
+      if (!user?.id || !titleId || !isDiaryEnabled) return [];
 
       const userId = user.id;
 
@@ -278,10 +321,10 @@ const TitleDetailPage: React.FC = () => {
       // Note: If titleId is virtual (tmdb-123), we won't find ratings in DB linked to it yet.
       // So if (titleId.startsWith('tmdb-') || titleId.startsWith('tv-')) return [];
 
-      const { data: ratings, error: ratingsError } = await supabase
-        .from("ratings")
-        .select("user_id, rating, created_at")
-        .eq("title_id", titleId)
+        const { data: ratings, error: ratingsError } = await supabase
+          .from("ratings")
+          .select("user_id, rating, created_at")
+          .eq("title_id", titleId)
         .in("user_id", friendIds)
         .order("rating", { ascending: false })
         .limit(40);
@@ -323,7 +366,7 @@ const TitleDetailPage: React.FC = () => {
           displayName: profile?.displayName ?? null,
           username: profile?.username ?? null,
           avatarUrl: profile?.avatarUrl ?? null,
-          rating: (r.rating as number | null) ?? null,
+          rating: rating0_10ToStars((r.rating as number | null) ?? null),
           createdAt: (r.created_at as string | null) ?? null,
         };
       });
@@ -512,6 +555,10 @@ const TitleDetailPage: React.FC = () => {
 
   const setDiaryStatus = (status: DiaryStatus) => {
     if (!ensureSignedIn() || updateStatus.isPending) return;
+    if (!isDiaryEnabled) {
+      alert("This title is still syncing. Try again in a moment.");
+      return;
+    }
     if (!normalizedContentType) {
       alert("We couldn't determine the content type for this title yet.");
       return;
@@ -522,6 +569,10 @@ const TitleDetailPage: React.FC = () => {
 
   const setDiaryRating = (nextRating: number | null) => {
     if (!ensureSignedIn() || updateRating.isPending) return;
+    if (!isDiaryEnabled) {
+      alert("This title is still syncing. Try again in a moment.");
+      return;
+    }
     if (!normalizedContentType) {
       alert("We couldn't determine the content type for this title yet.");
       return;
@@ -637,7 +688,7 @@ const TitleDetailPage: React.FC = () => {
                 onChange={setDiaryRating}
               />
               {diaryEntry?.rating != null && (
-                <span className="text-xs text-muted-foreground">{diaryEntry.rating}/10</span>
+                <span className="text-xs text-muted-foreground">{diaryEntry.rating}/5</span>
               )}
             </div>
 
@@ -827,7 +878,7 @@ const TitleDetailPage: React.FC = () => {
                               </span>
                               {friend.rating != null && (
                                 <span className="text-xs text-muted-foreground">
-                                  Rated {friend.rating}/10
+                                  Rated {friend.rating}/5
                                 </span>
                               )}
                             </div>

@@ -73,7 +73,7 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
           <div className="flex flex-wrap items-center gap-2">
             <StatPill>
               <Star className="h-3 w-3" aria-hidden />
-              <span className="font-medium">{item.rating}</span>
+              <span className="font-medium">{item.rating}/5</span>
             </StatPill>
             {item.emoji && <StatPill>{item.emoji}</StatPill>}
           </div>
@@ -90,7 +90,7 @@ const HomeFeedItemCard: React.FC<HomeFeedItemCardProps> = ({ item }) => {
             {typeof item.rating === "number" && (
               <StatPill>
                 <Star className="h-3 w-3" aria-hidden />
-                <span className="font-medium">{item.rating}</span>
+                <span className="font-medium">{item.rating}/5</span>
               </StatPill>
             )}
             {item.emoji && <StatPill>{item.emoji}</StatPill>}

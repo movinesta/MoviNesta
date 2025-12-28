@@ -12,8 +12,10 @@ vi.mock("../_shared/config.ts", () => ({
   getConfig: () => ({
     supabaseUrl: "https://example.supabase.co",
     supabaseAnonKey: "anon",
-    tmdbApiKey: "tmdb_token",
-    omdbApiKey: null,
+    tmdbApiReadAccessToken: "tmdb_token",
+    omdbApiKey: "",
+    tastediveApiKey: "",
+    internalJobToken: "",
   }),
 }));
 

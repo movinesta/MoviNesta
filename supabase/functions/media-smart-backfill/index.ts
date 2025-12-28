@@ -9,12 +9,12 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeInsertJobRunLog } from "../_shared/joblog.ts";
+import { requireInternalJob } from "../_shared/internal.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const TMDB_API_READ_ACCESS_TOKEN = Deno.env.get("TMDB_API_READ_ACCESS_TOKEN") ?? null;
-const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY") ?? null;
 const OMDB_API_KEY = Deno.env.get("OMDB_API_KEY") ?? null;
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -505,8 +505,7 @@ async function putOmdbCache(kind: MediaKind, imdbId: string, raw: any) {
 function tmdbAuthHeaders(url: URL) {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (TMDB_API_READ_ACCESS_TOKEN) headers["Authorization"] = `Bearer ${TMDB_API_READ_ACCESS_TOKEN}`;
-  else if (TMDB_API_KEY) url.searchParams.set("api_key", TMDB_API_KEY);
-  else throw new Error("Missing TMDb auth: set TMDB_API_READ_ACCESS_TOKEN or TMDB_API_KEY");
+  else throw new Error("Missing TMDb auth: set TMDB_API_READ_ACCESS_TOKEN");
   return headers;
 }
 
@@ -1345,6 +1344,11 @@ serve(async (req) => {
   };
 
   try {
+    const internalGuard = requireInternalJob(req);
+    if (internalGuard) {
+      return await respondWithLog({ ok: false, code: "INVALID_JOB_TOKEN", error: "Unauthorized" }, 401);
+    }
+
     const body = await readJsonBody(req);
 
     const limit = Math.max(1, Math.min(Number(body?.limit ?? 10), 500));
@@ -1378,7 +1382,7 @@ serve(async (req) => {
     if (body?.ping === true) {
       return json({
         ok: true,
-        tmdb_auth_mode: TMDB_API_READ_ACCESS_TOKEN ? "bearer_token" : (TMDB_API_KEY ? "api_key" : "missing"),
+        tmdb_auth_mode: TMDB_API_READ_ACCESS_TOKEN ? "bearer_token" : "missing",
         has_OMDB_API_KEY: Boolean(OMDB_API_KEY),
       });
     }

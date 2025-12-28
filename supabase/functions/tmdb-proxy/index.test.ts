@@ -7,6 +7,17 @@ vi.mock("https://deno.land/std@0.224.0/http/server.ts", () => ({
   serve: vi.fn(),
 }));
 
+vi.mock("../_shared/supabase.ts", () => ({
+  getUserClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }),
+    },
+  })),
+  getAdminClient: vi.fn(() => ({
+    rpc: vi.fn().mockResolvedValue({ data: [{ ok: true, remaining: 10, reset_at: null }], error: null }),
+  })),
+}));
+
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
@@ -18,6 +29,9 @@ describe("tmdb-proxy handler", () => {
       supabaseAnonKey: "",
       supabaseServiceRoleKey: "",
       tmdbApiReadAccessToken: "test-token",
+      omdbApiKey: "",
+      tastediveApiKey: "",
+      internalJobToken: "",
     });
   });
 
@@ -32,7 +46,7 @@ describe("tmdb-proxy handler", () => {
       }),
     });
 
-    const res = await handler(req);
+    const res = await mod.handler(req);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -52,7 +66,7 @@ describe("tmdb-proxy handler", () => {
       }),
     });
 
-    const res = await handler(req);
+    const res = await mod.handler(req);
     expect(res.status).toBe(400);
   });
 });
