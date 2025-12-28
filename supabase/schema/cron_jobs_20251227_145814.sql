@@ -1,8 +1,17 @@
-select cron.schedule('catalog-backfill-daily', '0 3 * * *', 'select
-      net.http_post(
-        url :=
-          (select decrypted_secret
-           from vault.decrypted_secrets
+        headers := jsonb_build_object(
+          ''Content-Type'', ''application/json'',
+          -- Use anon key as Bearer token so Authorization is present
+          ''Authorization'',
+            ''Bearer '' ||
+            (select decrypted_secret
+             from vault.decrypted_secrets
+             where name = ''anon_key''),
+          ''x-job-token'',
+            (select decrypted_secret
+             from vault.decrypted_secrets
+             where name = ''internal_job_token'')
+        ),
+
            where name = ''project_url'')
           || ''/functions/v1/catalog-backfill'',
         headers := jsonb_build_object(

@@ -94,20 +94,20 @@ create policy ratings_insert_self
   on public.ratings
   for insert
   to authenticated
-  with check (user_id = auth.uid());
+  with check (user_id = (select auth.uid()));
 
 create policy ratings_update_self
   on public.ratings
   for update
   to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 create policy ratings_delete_self
   on public.ratings
   for delete
   to authenticated
-  using (user_id = auth.uid());
+  using (user_id = (select auth.uid()));
 
 -- library_entries
 
@@ -119,20 +119,20 @@ create policy library_entries_insert_self
   on public.library_entries
   for insert
   to authenticated
-  with check (user_id = auth.uid());
+  with check (user_id = (select auth.uid()));
 
 create policy library_entries_update_self
   on public.library_entries
   for update
   to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 create policy library_entries_delete_self
   on public.library_entries
   for delete
   to authenticated
-  using (user_id = auth.uid());
+  using (user_id = (select auth.uid()));
 
 -- reviews
 
@@ -144,20 +144,20 @@ create policy reviews_insert_self
   on public.reviews
   for insert
   to authenticated
-  with check (user_id = auth.uid());
+  with check (user_id = (select auth.uid()));
 
 create policy reviews_update_self
   on public.reviews
   for update
   to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 create policy reviews_delete_self
   on public.reviews
   for delete
   to authenticated
-  using (user_id = auth.uid());
+  using (user_id = (select auth.uid()));
 
 -- -----------------------------------------------------------------------------
 -- 3) Activity feed triggers
