@@ -141,27 +141,3 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-.hide-scrollbar::-webkit-scrollbar,
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-.hide-scrollbar,
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.glow-effect {
-  transition: box-shadow 0.3s ease-in-out;
-  box-shadow: 0 0 0px rgba(231, 70, 70, 0.4);
-}
-
-.glow-effect:hover {
-  box-shadow: 0 0 5px rgba(231, 70, 70, 0.45);
-}
-
-.form-input-glow:focus {
-  box-shadow: 0 0 5px rgba(231, 70, 70, 0.45);
-}

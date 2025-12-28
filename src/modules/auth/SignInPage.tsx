@@ -1,9 +1,8 @@
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import React, { FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-
-import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { supabase } from "../../lib/supabase";
 import { MaterialIcon } from "@/components/ui/material-icon";
-import { supabase } from "@/lib/supabase";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,6 +37,7 @@ const SignInPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // If RequireAuth redirected the user here, it passes the previous location in state
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/";
 
   const isFormValid =
@@ -73,6 +73,7 @@ const SignInPage: React.FC = () => {
         return;
       }
 
+      // AuthProvider will pick up the new session via onAuthStateChange
       navigate(from, { replace: true });
     } catch (err) {
       console.error(err);
@@ -83,23 +84,23 @@ const SignInPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col overflow-x-hidden">
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 p-4 pb-2 backdrop-blur-md dark:bg-background-dark/80">
+    <div className="min-h-screen bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col">
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 px-4 pb-2 pt-4 backdrop-blur-md dark:bg-background-dark/80">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex size-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
             aria-label="Go back"
           >
             <MaterialIcon name="arrow_back" className="text-[24px]" ariaLabel="Back" />
           </button>
           <div className="text-sm font-medium opacity-0">Sign In</div>
-          <div className="size-12" />
+          <div className="h-12 w-12" />
         </div>
 
         <div className="flex flex-1 flex-col px-6 pb-8">
-          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight">
+          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
             Welcome Back!
           </h1>
           <p className="pb-6 text-center text-sm font-normal leading-normal text-[#ad92c9]">
@@ -116,11 +117,10 @@ const SignInPage: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-2" noValidate>
-            <label className="group relative flex items-center">
+            <label className="relative flex items-center">
               <MaterialIcon
                 name="alternate_email"
-                className="absolute left-5 z-10 text-[#ad92c9] transition-colors group-focus-within:text-primary"
-                ariaLabel="Email"
+                className="absolute left-5 z-10 text-[#ad92c9]"
               />
               <input
                 className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
@@ -145,12 +145,8 @@ const SignInPage: React.FC = () => {
             </label>
             {fieldErrors.email && <p className="text-xs text-red-300">{fieldErrors.email}</p>}
 
-            <label className="group relative flex items-center">
-              <MaterialIcon
-                name="lock"
-                className="absolute left-5 z-10 text-[#ad92c9] transition-colors group-focus-within:text-primary"
-                ariaLabel="Password"
-              />
+            <label className="relative flex items-center">
+              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
               <input
                 className="h-12 w-full rounded-full border-none bg-white pl-14 pr-12 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
                 placeholder="Password"
@@ -196,7 +192,7 @@ const SignInPage: React.FC = () => {
             <button
               type="submit"
               disabled={submitting || !isFormValid}
-              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting ? "Signing you in…" : "Sign In"}
               <MaterialIcon name="arrow_forward" className="text-[20px]" ariaLabel="Submit" />
@@ -205,7 +201,7 @@ const SignInPage: React.FC = () => {
 
           <div className="relative flex items-center py-8">
             <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
-            <span className="mx-4 text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
+            <span className="mx-4 flex-shrink text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
               Or sign in with
             </span>
             <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
@@ -214,12 +210,11 @@ const SignInPage: React.FC = () => {
           <div className="flex justify-center gap-4">
             <button
               type="button"
-              className="group relative flex size-16 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="relative flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
               aria-label="Sign in with Google"
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-red-500/10 opacity-0 transition-opacity group-hover:opacity-100" />
               <svg
-                className="relative z-10 h-9 w-9"
+                className="h-9 w-9"
                 fill="none"
                 viewBox="0 0 48 48"
                 xmlns="http://www.w3.org/2000/svg"
@@ -244,11 +239,11 @@ const SignInPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className="flex size-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:text-white dark:hover:bg-[#432c5a]"
-              aria-label="Sign in with Apple"
+              className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              aria-label="Sign in with another provider"
             >
               <svg
-                className="h-9 w-9"
+                className="h-9 w-9 text-white"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
@@ -258,7 +253,7 @@ const SignInPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className="flex size-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
               aria-label="Sign in with Facebook"
             >
               <svg
