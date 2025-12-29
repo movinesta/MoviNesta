@@ -93,7 +93,7 @@ const AppShell: React.FC = () => {
                   className={({ isActive }) => {
                     const active = manualActive ?? isActive;
                     return [
-                      "group flex flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-1 text-xs font-medium transition",
+                      "group flex min-h-11 flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-1 text-xs font-medium transition sm:min-h-0",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       active ? "text-primary" : "text-muted-foreground hover:text-muted-foreground",
                     ].join(" ");
