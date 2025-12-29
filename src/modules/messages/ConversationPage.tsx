@@ -556,23 +556,23 @@ const ConversationPage: React.FC = () => {
     (isGroupConversation ? "Group chat" : "Active now");
 
   return (
-    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background-dark text-white">
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-white/5 bg-background-dark sm:rounded-2xl">
+    <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-black/5 bg-background-light dark:border-white/5 dark:bg-background-dark sm:rounded-2xl">
         <header
           ref={headerRef}
-          className="sticky top-0 z-20 flex items-center justify-between border-b border-white/5 bg-background-dark/80 px-4 py-3 backdrop-blur-md"
+          className="sticky top-0 z-20 flex items-center justify-between border-b border-black/5 bg-white/80 px-4 py-3 backdrop-blur-md dark:border-white/5 dark:bg-background-dark/80"
         >
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-black/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
               aria-label="Go back"
             >
               <MaterialIcon name="arrow_back" />
             </button>
             <div className="relative">
-              <div className="h-10 w-10 overflow-hidden rounded-full bg-white/10">
+              <div className="h-10 w-10 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                 {otherParticipant?.avatarUrl ? (
                   <img
                     src={otherParticipant.avatarUrl}
@@ -580,31 +580,33 @@ const ConversationPage: React.FC = () => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-200">
+                  <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-600 dark:text-slate-200">
                     {(otherParticipant?.displayName ?? conversationTitle).slice(0, 2).toUpperCase()}
                   </div>
                 )}
               </div>
               {!isGroupConversation && (
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background-dark bg-green-500" />
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background-light bg-green-500 dark:border-background-dark" />
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-base font-bold leading-none text-white">{conversationTitle}</h1>
+              <h1 className="text-base font-bold leading-none text-slate-900 dark:text-white">
+                {conversationTitle}
+              </h1>
               <p className="mt-1 text-xs font-medium text-primary">{headerSubtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-black/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
               aria-label="Video call"
             >
               <MaterialIcon name="videocam" />
             </button>
             <button
               type="button"
-              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-black/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
               aria-label="Conversation info"
             >
               <MaterialIcon name="info" />
@@ -613,7 +615,7 @@ const ConversationPage: React.FC = () => {
               <button
                 type="button"
                 onClick={blockAction.onClick}
-                className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                className="rounded-full p-2 text-slate-500 transition-colors hover:bg-black/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
                 aria-label={blockAction.label}
               >
                 <ShieldX className="h-4 w-4" aria-hidden="true" />
@@ -624,7 +626,7 @@ const ConversationPage: React.FC = () => {
 
         {/* Body + input */}
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background-dark">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background-light dark:bg-background-dark">
             {pollWhenRealtimeDown && (
               <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-4">
                 <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50/95 px-3 py-1 text-[12px] text-amber-800 shadow-sm">

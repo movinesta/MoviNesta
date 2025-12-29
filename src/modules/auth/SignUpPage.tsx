@@ -6,7 +6,7 @@ import { MaterialIcon } from "@/components/ui/material-icon";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
-const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,24}$/;
+const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 
 function validateSignUp(
   email: string,
@@ -15,6 +15,7 @@ function validateSignUp(
   fullName: string,
   username: string,
 ) {
+  const normalizedUsername = username.trim().replace(/^@+/, "").toLowerCase();
   const errors: {
     email?: string;
     password?: string;
@@ -27,11 +28,11 @@ function validateSignUp(
     errors.fullName = "Full name is required.";
   }
 
-  if (!username.trim()) {
+  if (!normalizedUsername) {
     errors.username = "Username is required.";
-  } else if (!USERNAME_REGEX.test(username.trim())) {
+  } else if (!USERNAME_REGEX.test(normalizedUsername)) {
     errors.username =
-      "Usernames must be 3-24 characters and only include letters, numbers, underscores, or dots.";
+      "Usernames must be 3-30 characters and only include lowercase letters, numbers, or underscores.";
   }
 
   if (!email) {
@@ -102,7 +103,7 @@ const SignUpPage: React.FC = () => {
       setInfo(null);
       setFieldErrors({});
 
-      const trimmedUsername = username.trim().replace(/^@+/, "");
+      const trimmedUsername = username.trim().replace(/^@+/, "").toLowerCase();
       const trimmedName = fullName.trim();
 
       const { data, error } = await supabase.auth.signUp({
