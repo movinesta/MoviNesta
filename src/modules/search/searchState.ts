@@ -1,7 +1,7 @@
 import type { TitleSearchFilters } from "./useSearchTitles";
 
 // Search UI supports a combined "all" mode (titles + people).
-export type SearchTabKey = "all" | "titles" | "people";
+export type SearchTabKey = "all" | "titles" | "people" | "news";
 
 const validTypes: TitleSearchFilters["type"][] = ["all", "movie", "series", "anime"];
 
@@ -9,6 +9,7 @@ export const parseTabFromParams = (params: URLSearchParams): SearchTabKey => {
   const tabParam = params.get("tab");
   if (tabParam === "people") return "people";
   if (tabParam === "titles") return "titles";
+  if (tabParam === "news") return "news";
   if (tabParam === "all") return "all";
   // Default to the new V2 "all" experience.
   return "all";

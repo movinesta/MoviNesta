@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import RequireAuth from "./modules/auth/RequireAuth";
@@ -57,7 +57,8 @@ const AppRoutes: React.FC = () => {
         <Route element={<RequireAuth />}>
           <Route path="/onboarding" element={<TasteOnboardingPage />} />
           <Route element={<AppShell />}>
-            <Route index element={<HomePage />} />
+            <Route index element={<Navigate to="/search" replace />} />
+            <Route path="/home" element={<HomePage />} />
             <Route path="/swipe" element={<SwipePage />} />
             <Route path="/swipe/classic" element={<SwipePageClassic />} />
             <Route path="/messages" element={<MessagesPage />} />

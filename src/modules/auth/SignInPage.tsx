@@ -38,7 +38,8 @@ const SignInPage: React.FC = () => {
   const location = useLocation();
 
   // If RequireAuth redirected the user here, it passes the previous location in state
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/";
+  const from =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/search";
 
   const isFormValid =
     !!email && !!password && Object.keys(validateSignIn(email, password)).length === 0;
