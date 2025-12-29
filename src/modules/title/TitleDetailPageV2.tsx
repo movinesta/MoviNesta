@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { RatingStars } from "@/components/RatingStars";
+import { MaterialIcon } from "@/components/ui/material-icon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
@@ -105,7 +106,11 @@ function getYearFromRow(row: TitleV2Row) {
 }
 
 function getTitleFromRow(row: TitleV2Row) {
-  return row.tmdb_title ?? row.tmdb_name ?? row.omdb_title ?? "Untitled";
+  const candidates = [row.tmdb_title, row.tmdb_name, row.omdb_title];
+  const title = candidates
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .find((value) => Boolean(value));
+  return title || "Untitled";
 }
 
 function getOverviewFromRow(row: TitleV2Row) {
@@ -204,6 +209,79 @@ function timeAgo(iso: string) {
   if (months < 12) return `${months}mo ago`;
   const years = Math.floor(days / 365);
   return `${years}y ago`;
+}
+
+function ReviewPreviewCard({
+  review,
+  profile,
+}: {
+  review: ReviewPreviewRow;
+  profile: ProfilePublicRow | null;
+}) {
+  const [showSpoiler, setShowSpoiler] = React.useState(false);
+  const initials = (profile?.display_name ?? profile?.username ?? "?")
+    .split(/\s+/g)
+    .slice(0, 2)
+    .map((p) => p.slice(0, 1).toUpperCase())
+    .join("")
+    .slice(0, 2);
+  const stars = review.rating == null ? null : rating0_10ToStars(review.rating);
+  const isSpoiler = Boolean(review.spoiler);
+  const canShow = !isSpoiler || showSpoiler;
+
+  return (
+    <div className="rounded-2xl bg-[#302839] p-4 transition-colors hover:bg-[#382f42]">
+      <div className="mb-3 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt={profile.display_name ?? profile.username ?? "User"}
+              className="size-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex size-10 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
+              {initials}
+            </div>
+          )}
+          <div>
+            <p className="text-sm font-bold text-white">
+              {profile?.display_name ?? profile?.username ?? "User"}
+            </p>
+            <p className="text-xs text-white/40">{timeAgo(review.created_at)}</p>
+          </div>
+        </div>
+        {stars != null ? (
+          <div className="flex items-center gap-1 rounded-lg bg-[#211a29] px-2 py-1">
+            <MaterialIcon name="star" className="text-sm text-yellow-500" filled />
+            <span className="text-xs font-bold text-white">{stars.toFixed(1)}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {review.headline ? (
+        <p className="mb-2 text-sm font-semibold text-white">{review.headline}</p>
+      ) : null}
+      {review.body ? (
+        canShow ? (
+          <p className="text-sm leading-relaxed text-white/75">{review.body}</p>
+        ) : (
+          <div className="rounded-xl border border-white/10 bg-[#211a29] p-3 text-sm text-white/80">
+            <p>Spoiler warning</p>
+            <button
+              type="button"
+              className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-primary"
+              onClick={() => setShowSpoiler(true)}
+              aria-expanded={showSpoiler}
+            >
+              View spoiler
+              <MaterialIcon name="chevron_right" className="text-base" />
+            </button>
+          </div>
+        )
+      ) : null}
+    </div>
+  );
 }
 
 function Divider() {
@@ -439,6 +517,10 @@ export default function TitleDetailPageV2() {
   const toggleLike = useMutation({
     mutationFn: async () => {
       if (!titleId) return;
+      if (!user?.id) {
+        alert("Sign in to like this title.");
+        return;
+      }
 
       // Optimistic
       await queryClient.cancelQueries({ queryKey: ["media_feedback", user?.id, titleId] });
@@ -465,7 +547,12 @@ export default function TitleDetailPageV2() {
 
   const toggleWatchlist = useMutation({
     mutationFn: async () => {
-      if (!user?.id || !titleId) return;
+      if (!user?.id || !titleId) {
+        if (!user?.id) {
+          alert("Sign in to add this title to your watchlist.");
+        }
+        return;
+      }
       const row = titleQuery.data;
       if (!row) return;
       const type = getContentTypeFromRow(row);
@@ -618,7 +705,7 @@ export default function TitleDetailPageV2() {
       {/* Top bar */}
       <div className="fixed top-0 z-30 -mx-4 flex w-full items-center justify-between bg-gradient-to-b from-black/60 to-transparent px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         <CircleIconButton label="Back" onClick={() => navigate(-1)}>
-          <span className="material-symbols-outlined">arrow_back</span>
+          <MaterialIcon name="arrow_back" />
         </CircleIconButton>
 
         <div className="flex items-center gap-2">
@@ -628,16 +715,11 @@ export default function TitleDetailPageV2() {
             disabled={!titleId || toggleLike.isPending}
             onClick={() => toggleLike.mutate()}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontVariationSettings: `'FILL' ${isLiked ? 1 : 0}` } as any}
-            >
-              favorite
-            </span>
+            <MaterialIcon name="favorite" filled={isLiked} />
           </CircleIconButton>
 
           <CircleIconButton label="More" onClick={() => {}} disabled>
-            <span className="material-symbols-outlined">more_vert</span>
+            <MaterialIcon name="more_vert" />
           </CircleIconButton>
         </div>
       </div>
@@ -696,7 +778,7 @@ export default function TitleDetailPageV2() {
                   rel="noreferrer"
                   className="flex h-14 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-base font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 active:scale-[0.98]"
                 >
-                  <span className="material-symbols-outlined">play_circle</span>
+                  <MaterialIcon name="play_circle" />
                   Play Trailer
                 </a>
               ) : (
@@ -719,12 +801,7 @@ export default function TitleDetailPageV2() {
                   (status === "want_to_watch" ? " ring-2 ring-primary/70" : "")
                 }
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontVariationSettings: `'FILL' ${status === "want_to_watch" ? 1 : 0}` } as any}
-                >
-                  bookmark_add
-                </span>
+                <MaterialIcon name="bookmark_add" filled={status === "want_to_watch"} />
               </button>
 
               <button
@@ -733,7 +810,7 @@ export default function TitleDetailPageV2() {
                 onClick={handleShare}
                 className="flex size-14 items-center justify-center rounded-full bg-[#302839] text-white transition-all hover:bg-[#3d3349] active:scale-[0.98]"
               >
-                <span className="material-symbols-outlined">ios_share</span>
+                <MaterialIcon name="ios_share" />
               </button>
             </div>
 
@@ -795,7 +872,7 @@ export default function TitleDetailPageV2() {
                         <img src={img} alt={name} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-white/50">
-                          <span className="material-symbols-outlined">person</span>
+                          <MaterialIcon name="person" />
                         </div>
                       )}
                     </div>
@@ -886,62 +963,13 @@ export default function TitleDetailPageV2() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </>
             ) : (
-              reviewsPreviewQuery.data?.reviews?.map((r) => {
-                const profile = reviewsPreviewQuery.data?.profilesById.get(r.user_id) ?? null;
-                const initials = (profile?.display_name ?? profile?.username ?? "?")
-                  .split(/\s+/g)
-                  .slice(0, 2)
-                  .map((p) => p.slice(0, 1).toUpperCase())
-                  .join("")
-                  .slice(0, 2);
-                const stars = r.rating == null ? null : rating0_10ToStars(r.rating);
-
-                return (
-                  <div
-                    key={r.id}
-                    className="rounded-2xl bg-[#302839] p-4 transition-colors hover:bg-[#382f42]"
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        {profile?.avatar_url ? (
-                          <img
-                            src={profile.avatar_url}
-                            alt={profile.display_name ?? profile.username ?? "User"}
-                            className="size-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex size-10 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
-                            {initials}
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-sm font-bold text-white">
-                            {profile?.display_name ?? profile?.username ?? "User"}
-                          </p>
-                          <p className="text-xs text-white/40">{timeAgo(r.created_at)}</p>
-                        </div>
-                      </div>
-                      {stars != null ? (
-                        <div className="flex items-center gap-1 rounded-lg bg-[#211a29] px-2 py-1">
-                          <span
-                            className="material-symbols-outlined text-sm text-yellow-500"
-                            style={{ fontVariationSettings: `'FILL' 1` } as any}
-                          >
-                            star
-                          </span>
-                          <span className="text-xs font-bold text-white">{stars.toFixed(1)}</span>
-                        </div>
-                      ) : null}
-                    </div>
-                    {r.headline ? (
-                      <p className="mb-2 text-sm font-semibold text-white">{r.headline}</p>
-                    ) : null}
-                    {r.body ? (
-                      <p className="text-sm leading-relaxed text-white/75">{r.body}</p>
-                    ) : null}
-                  </div>
-                );
-              })
+              reviewsPreviewQuery.data?.reviews?.map((r) => (
+                <ReviewPreviewCard
+                  key={r.id}
+                  review={r}
+                  profile={reviewsPreviewQuery.data?.profilesById.get(r.user_id) ?? null}
+                />
+              ))
             )}
 
             {!reviewsPreviewQuery.isLoading && (reviewsPreviewQuery.data?.reviews?.length ?? 0) === 0 ? (
@@ -958,7 +986,7 @@ export default function TitleDetailPageV2() {
                 className="inline-flex items-center gap-2 text-sm font-semibold text-primary"
               >
                 View all reviews
-                <span className="material-symbols-outlined text-base">chevron_right</span>
+                <MaterialIcon name="chevron_right" className="text-base" />
               </Link>
             </div>
           ) : null}

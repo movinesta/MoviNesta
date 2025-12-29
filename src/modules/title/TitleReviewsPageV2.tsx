@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { RatingStars } from "@/components/RatingStars";
+import { MaterialIcon } from "@/components/ui/material-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,13 @@ function compactNumber(n: number) {
   } catch {
     return String(n);
   }
+}
+
+function pickTitle(...candidates: Array<string | null | undefined>) {
+  const value = candidates
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .find((item) => Boolean(item));
+  return value || "Reviews";
 }
 
 function timeAgo(iso: string) {
@@ -179,12 +187,7 @@ function ReviewCard({
 
         {stars != null ? (
           <div className="flex items-center gap-1 rounded-lg bg-[#211a29] px-2 py-1">
-            <span
-              className="material-symbols-outlined text-sm text-yellow-500"
-              style={{ fontVariationSettings: `'FILL' 1` } as any}
-            >
-              star
-            </span>
+            <MaterialIcon name="star" className="text-sm text-yellow-500" filled />
             <span className="text-xs font-bold text-white">{stars.toFixed(1)}</span>
           </div>
         ) : null}
@@ -207,7 +210,7 @@ function ReviewCard({
                 onClick={() => setShowSpoiler(true)}
               >
                 View spoiler
-                <span className="material-symbols-outlined text-base">chevron_right</span>
+                <MaterialIcon name="chevron_right" className="text-base" />
               </button>
             </div>
           )}
@@ -219,14 +222,14 @@ function ReviewCard({
           type="button"
           className="inline-flex items-center gap-1 transition-colors hover:text-primary"
         >
-          <span className="material-symbols-outlined text-base">thumb_up</span>
+          <MaterialIcon name="thumb_up" className="text-base" />
           <span>{reactions.up ? compactNumber(reactions.up) : "0"}</span>
         </button>
         <button
           type="button"
           className="inline-flex items-center gap-1 transition-colors hover:text-red-400"
         >
-          <span className="material-symbols-outlined text-base">thumb_down</span>
+          <MaterialIcon name="thumb_down" className="text-base" />
           <span>{reactions.down ? compactNumber(reactions.down) : "0"}</span>
         </button>
         <button
@@ -462,8 +465,11 @@ export default function TitleReviewsPageV2() {
     },
   });
 
-  const titleName =
-    titleQuery.data?.tmdb_title ?? titleQuery.data?.tmdb_name ?? titleQuery.data?.omdb_title ?? "Reviews";
+  const titleName = pickTitle(
+    titleQuery.data?.tmdb_title,
+    titleQuery.data?.tmdb_name,
+    titleQuery.data?.omdb_title,
+  );
   const releaseYear = (() => {
     const raw = titleQuery.data?.tmdb_release_date ?? titleQuery.data?.tmdb_first_air_date ?? null;
     if (!raw) return null;
@@ -597,6 +603,11 @@ export default function TitleReviewsPageV2() {
     return { reviews, profiles, reactions, totalCount };
   }, [reviewsQuery.data]);
 
+  const visibleReviews = React.useMemo(
+    () => (includeSpoilers ? flat.reviews : flat.reviews.filter((r) => !r.spoiler)),
+    [flat.reviews, includeSpoilers],
+  );
+
   const avgStars = summaryQuery.data?.average_rating_0_5 ?? null;
   const displayAvg = avgStars == null ? "–" : avgStars.toFixed(1);
   const displayCount = summaryQuery.data?.ratings_count ?? flat.totalCount;
@@ -629,18 +640,20 @@ export default function TitleReviewsPageV2() {
   return (
     <div className="relative min-h-[calc(100dvh-(5.5rem+env(safe-area-inset-bottom)))] bg-[#1a1322] pb-24">
       {/* Top bar */}
-      <div className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-[#1a1322]/80 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur">
+      <div className="sticky top-0 z-30 -mx-4 flex items-center justify-between bg-[#1a1322]/80 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur relative">
         <CircleIconButton label="Back" onClick={() => navigate(-1)}>
-          <span className="material-symbols-outlined">arrow_back</span>
+          <MaterialIcon name="arrow_back" />
         </CircleIconButton>
 
-        <div className="text-center">
-          <p className="text-sm font-semibold text-white">{titleQuery.isLoading ? "" : titleName}</p>
-          <p className="text-xs text-white/50">{titleSubtitle || "Ratings & reviews"}</p>
+        <div className="absolute left-1/2 w-[60%] -translate-x-1/2 text-center">
+          <p className="truncate text-sm font-semibold text-white">
+            {titleQuery.isLoading ? "" : titleName}
+          </p>
+          <p className="truncate text-xs text-white/50">{titleSubtitle || "Ratings & reviews"}</p>
         </div>
 
         <CircleIconButton label="More" onClick={handleShare}>
-          <span className="material-symbols-outlined">more_vert</span>
+          <MaterialIcon name="more_vert" />
         </CircleIconButton>
       </div>
 
@@ -689,9 +702,13 @@ export default function TitleReviewsPageV2() {
                   ? "border-primary bg-primary text-white"
                   : "border-white/10 bg-white/10 text-white/70 hover:bg-white/20",
               )}
+              aria-pressed={includeSpoilers}
             >
               Spoilers
-              <span className="material-symbols-outlined text-base">visibility_off</span>
+              <MaterialIcon
+                name={includeSpoilers ? "visibility" : "visibility_off"}
+                className="text-base"
+              />
             </button>
           </div>
         </div>
@@ -708,7 +725,7 @@ export default function TitleReviewsPageV2() {
             </>
           ) : null}
 
-          {(includeSpoilers ? flat.reviews : flat.reviews.filter((r) => !r.spoiler)).map((r) => (
+          {visibleReviews.map((r) => (
             <ReviewCard
               key={r.id}
               review={r}
@@ -717,9 +734,11 @@ export default function TitleReviewsPageV2() {
             />
           ))}
 
-          {!reviewsQuery.isLoading && flat.reviews.length === 0 ? (
+          {!reviewsQuery.isLoading && visibleReviews.length === 0 ? (
             <div className="rounded-2xl bg-[#302839] p-4 text-sm text-white/60">
-              No reviews yet. Be the first to share your thoughts.
+              {flat.reviews.length > 0 && !includeSpoilers
+                ? "No spoiler-free reviews yet. Toggle spoilers to view all reviews."
+                : "No reviews yet. Be the first to share your thoughts."}
             </div>
           ) : null}
 
