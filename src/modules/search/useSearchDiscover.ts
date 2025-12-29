@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { mapMediaItemToSummary } from "@/lib/mediaItems";
 import { tmdbImageUrl } from "@/lib/tmdb";
+import type { Json } from "@/types/supabase";
 
-import type { Database } from "@/types/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import {
   fetchMediaSwipeDeck,
@@ -13,7 +13,16 @@ import {
   type MediaSwipeCard,
 } from "../swipe/mediaSwipeApi";
 
-type HomeFeedRow = Database["public"]["Functions"]["get_home_feed_v2"]["Returns"][number];
+type HomeFeedRow = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  event_type: string;
+  actor_profile?: Json | null;
+  media_item?: Json | null;
+  media_item_id?: string | null;
+  payload?: Json | null;
+};
 
 export type DiscoverPoster = {
   id: string;
@@ -68,7 +77,6 @@ function cardToDiscoverPoster(card: MediaSwipeCard | null | undefined): Discover
 function rowToDiscoverPoster(
   row: HomeFeedRow,
   actorAvatarUrl: string | null,
-  actorId: string,
 ): DiscoverPoster | null {
   const title = mapMediaItemToSummary(row.media_item as any);
   const id = title.id;
@@ -89,14 +97,15 @@ function rowToDiscoverPoster(
 }
 
 export function useSearchTrendingNow(limit = 10) {
-  const { session } = useAuth();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   return useQuery({
-    queryKey: ["search", "discover", "trending", session?.user?.id ?? "anon", limit],
-    enabled: Boolean(session?.user?.id),
+    queryKey: ["search", "discover", "trending", userId ?? "anon", limit],
+    enabled: Boolean(userId),
     staleTime: 1000 * 60 * 10,
     queryFn: async () => {
-      const sessionId = `search_v2_${session?.user?.id ?? "anon"}`;
+      const sessionId = `search_v2_${userId ?? "anon"}`;
       const seed = getOrCreateSwipeDeckSeedForMode(sessionId, "trending", null);
       const deck = await fetchMediaSwipeDeck({ sessionId, mode: "trending", limit, seed });
       return deck.cards.map(cardToDiscoverPoster).filter((v): v is DiscoverPoster => Boolean(v));
@@ -110,9 +119,20 @@ function normalizeActorProfile(raw: any): { id: string; avatarUrl: string | null
   return { id, avatarUrl };
 }
 
+function isHomeFeedRow(value: unknown): value is HomeFeedRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === "string" &&
+    typeof row.created_at === "string" &&
+    typeof row.user_id === "string" &&
+    typeof row.event_type === "string"
+  );
+}
+
 export function useSearchFriendsAreWatching(limit = 8) {
-  const { session } = useAuth();
-  const userId = session?.user?.id ?? null;
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   const q = useQuery({
     queryKey: ["search", "discover", "friends", userId, limit],
@@ -129,10 +149,12 @@ export function useSearchFriendsAreWatching(limit = 8) {
       });
 
       if (error) throw new Error(error.message);
-      const rows = (data ?? []) as HomeFeedRow[];
+      const rows: HomeFeedRow[] = (Array.isArray(data) ? data : []).filter(isHomeFeedRow);
 
       // Only friends activity (exclude current user).
-      const friendRows = rows.filter((r) => r.user_id !== userId && r.media_item_id);
+      const friendRows = rows.filter(
+        (r) => r.user_id !== userId && typeof r.media_item_id === "string" && r.media_item_id,
+      );
 
       // Aggregate by title.
       const byTitle = new Map<
@@ -147,7 +169,7 @@ export function useSearchFriendsAreWatching(limit = 8) {
       >();
 
       for (const r of friendRows) {
-        const mediaId = (r.media_item_id ?? "").toString();
+        const mediaId = r.media_item_id ?? "";
         if (!mediaId) continue;
 
         const actor = normalizeActorProfile(r.actor_profile);
@@ -178,7 +200,7 @@ export function useSearchFriendsAreWatching(limit = 8) {
       const scored = Array.from(byTitle.values())
         .map((agg) => {
           const total = agg.users.size;
-          const poster = rowToDiscoverPoster(agg.row, null, "");
+          const poster = rowToDiscoverPoster(agg.row, null);
           if (!poster) return null;
 
           // Attach avatar stack.
@@ -214,8 +236,8 @@ export function useSearchFriendsAreWatching(limit = 8) {
 }
 
 export function useSearchCuratedLists(limit = 8) {
-  const { session } = useAuth();
-  const enabled = Boolean(session?.user?.id);
+  const { user } = useAuth();
+  const enabled = Boolean(user?.id);
 
   return useQuery({
     queryKey: ["search", "discover", "curated_lists", limit],

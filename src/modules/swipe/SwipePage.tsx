@@ -227,14 +227,6 @@ const percentToNumber = (value: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const rating0_10ToStars = (rating0_10: unknown): number | null => {
-  if (rating0_10 == null) return null;
-  const n = typeof rating0_10 === "number" ? rating0_10 : Number(String(rating0_10).trim());
-  if (!Number.isFinite(n)) return null;
-  const stars = Math.round(n / 2);
-  return stars <= 0 ? null : Math.min(5, Math.max(1, stars));
-};
-
 const starsToRating0_10 = (stars: number | null): number | null => {
   if (stars == null) return null;
   const s = Math.round(stars);

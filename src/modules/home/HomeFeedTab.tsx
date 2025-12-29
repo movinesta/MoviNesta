@@ -25,7 +25,10 @@ const filterMatchesItem = (
   const matchesFeedFilter = (() => {
     switch (filter) {
       case "ratings":
-        return item.kind === "friend-rating" || (item.kind === "friend-watched" && typeof (item as any).rating === "number");
+        return (
+          item.kind === "friend-rating" ||
+          (item.kind === "friend-watched" && typeof (item as any).rating === "number")
+        );
       case "reviews":
         return item.kind === "friend-review";
       case "watchlist":
@@ -81,7 +84,8 @@ export const FeedSkeleton = () => (
 
 const EmptyFeedState = () => (
   <div className="rounded-2xl border border-dashed border-border bg-card/60 p-4 text-center text-xs text-muted-foreground">
-    Your friends’ activity will show up here once they start marking titles watched, rating, and reviewing.
+    Your friends’ activity will show up here once they start marking titles watched, rating, and
+    reviewing.
   </div>
 );
 

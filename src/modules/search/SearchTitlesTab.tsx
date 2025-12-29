@@ -95,6 +95,8 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, onRes
       movie: "Movies",
       series: "Series",
       anime: "Anime",
+      episode: "Episodes",
+      other: "Other",
       all: "All",
     };
 

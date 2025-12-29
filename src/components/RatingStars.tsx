@@ -1,26 +1,26 @@
 import React from "react";
 
 type RatingStarsProps = {
-  value: number | null | undefined;
+  value?: number | null;
+  rating?: number | null;
   max?: number;
   disabled?: boolean;
   onChange?: (next: number | null) => void;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | number;
 };
 
 export const RatingStars: React.FC<RatingStarsProps> = ({
   value,
+  rating,
   max = 5,
   disabled,
   onChange,
   size = "sm",
 }) => {
-  const current = value ?? 0;
-
-  const baseClasses =
-    size === "sm"
-      ? "inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs transition"
-      : "inline-flex h-6 w-6 items-center justify-center rounded-full border text-sm transition";
+  const current = value ?? rating ?? 0;
+  const sizeValue = typeof size === "number" ? size : size === "md" ? 24 : 20;
+  const fontSize = Math.max(10, Math.round(sizeValue * 0.6));
+  const baseClasses = "inline-flex items-center justify-center rounded-full border transition";
 
   return (
     <div className="flex items-center gap-0.5">
@@ -37,6 +37,7 @@ export const RatingStars: React.FC<RatingStarsProps> = ({
               onChange(next);
             }}
             disabled={disabled}
+            style={{ width: sizeValue, height: sizeValue, fontSize }}
             className={`${baseClasses} ${
               active
                 ? "border-primary/80 bg-primary/90 text-primary-foreground"

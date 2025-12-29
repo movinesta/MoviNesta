@@ -8,14 +8,12 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { mapMediaItemToSummary } from "@/lib/mediaItems";
 import { qk } from "@/lib/queryKeys";
 import { supabase } from "@/lib/supabase";
-import type { Database } from "@/types/supabase";
-
+import type { Database, Json } from "@/types/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { formatTimeAgo } from "../messages/formatTimeAgo";
 import type { AvatarColorKey, FeedTitle, FeedUser, HomeFeedItem } from "./homeFeedTypes";
 import { rating0_10ToStars } from "@/lib/ratings";
 
-type HomeFeedRow = Database["public"]["Functions"]["get_home_feed_v2"]["Returns"][number];
 type MediaItemRow = Database["public"]["Tables"]["media_items"]["Row"];
 
 type FeedCursor = {
@@ -53,6 +51,16 @@ type ActorProfileJson = {
   username?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
+};
+
+type HomeFeedRow = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  event_type: string;
+  actor_profile?: Json | null;
+  media_item?: Json | null;
+  payload?: Json | null;
 };
 
 const PAGE_SIZE = 40;
@@ -95,7 +103,7 @@ function normalizeTitle(raw: unknown): FeedTitle | null {
     posterUrl: summary.posterUrl ?? summary.backdropUrl ?? null,
     mediaType: summary.type ?? "movie",
     year: summary.year ?? null,
-    subtitle: summary.subtitle ?? null,
+    subtitle: null,
     backdropUrl: summary.backdropUrl ?? null,
   };
 }
@@ -189,7 +197,9 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
         relativeTime,
         title,
         // rating may be merged in client if a nearby rating_created exists
-        rating: rating0_10ToStars(extractNumber(payload, ["rating", "score", "value"]) ?? null) ?? undefined,
+        rating:
+          rating0_10ToStars(extractNumber(payload, ["rating", "score", "value"]) ?? null) ??
+          undefined,
       };
     }
 
@@ -235,6 +245,16 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
   }
 }
 
+function isHomeFeedRow(value: unknown): value is HomeFeedRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === "string" &&
+    typeof row.created_at === "string" &&
+    typeof row.user_id === "string" &&
+    typeof row.event_type === "string"
+  );
+}
 
 function mergeWatchedAndRating(items: HomeFeedItem[]): HomeFeedItem[] {
   const out: HomeFeedItem[] = [];
@@ -300,11 +320,11 @@ async function fetchHomeFeedPageV2(userId: string, cursor: FeedCursor | null) {
     throw error;
   }
 
-  const rows = (data ?? []) as HomeFeedRow[];
+  const rows: HomeFeedRow[] = (Array.isArray(data) ? data : []).filter(isHomeFeedRow);
 
   // The SQL function fetches `limit + 1` rows so we can detect if there is another page.
   const hasMore = rows.length > PAGE_SIZE;
-  const pageRows = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  const pageRows: HomeFeedRow[] = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
 
   const rawItems = pageRows.map(rowToFeedItem).filter(Boolean) as HomeFeedItem[];
   const items = mergeWatchedAndRating(rawItems);

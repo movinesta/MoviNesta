@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useCurrentProfile } from "./useProfile";
+import { useCurrentProfile, type ProfileSummary } from "./useProfile";
 import TopBar from "@/components/shared/TopBar";
 
 /**
@@ -13,7 +13,8 @@ import TopBar from "@/components/shared/TopBar";
  */
 const MePage: React.FC = () => {
   const navigate = useNavigate();
-  const { data: profile, isLoading, isError, error } = useCurrentProfile();
+  const { data, isLoading, isError, error } = useCurrentProfile();
+  const profile = data as ProfileSummary | null | undefined;
 
   React.useEffect(() => {
     if (!profile) return;

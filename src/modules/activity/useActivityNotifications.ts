@@ -209,14 +209,14 @@ export function useActivityNotifications() {
         .filter((v): v is string => typeof v === "string" && v.length > 0);
       const postersByTitleId = await loadTitlePosters(commentTitleIds);
 
-      const followNotifications: ActivityNotification[] = followRows
-        .map((row) => {
-          const actor = actorsById.get(row.follower_id);
-          if (!actor) return null;
-          const handle = normalizeHandle(actor.username);
-          const name = actor.displayName || handle || "Someone";
-          const isFollowingBack = viewerFollowing.has(actor.id);
-          return {
+      const followNotifications: ActivityNotification[] = followRows.flatMap((row) => {
+        const actor = actorsById.get(row.follower_id);
+        if (!actor) return [];
+        const handle = normalizeHandle(actor.username);
+        const name = actor.displayName || handle || "Someone";
+        const isFollowingBack = viewerFollowing.has(actor.id);
+        return [
+          {
             id: `follow:${row.follower_id}:${row.created_at}`,
             kind: "follow",
             createdAt: row.created_at,
@@ -225,19 +225,19 @@ export function useActivityNotifications() {
             linkTo: actor.username ? `/u/${actor.username}` : undefined,
             canFollowBack: true,
             isFollowingBack,
-          } satisfies ActivityNotification;
-        })
-        .filter((v): v is ActivityNotification => Boolean(v));
+          } satisfies ActivityNotification,
+        ];
+      });
 
-      const commentNotifications: ActivityNotification[] = commentRows
-        .map((row) => {
-          const actor = actorsById.get(row.user_id);
-          if (!actor) return null;
-          const handle = normalizeHandle(actor.username);
-          const name = actor.displayName || handle || "Someone";
-          const titleId = row.reviews?.title_id ?? null;
-          const poster = titleId ? (postersByTitleId.get(titleId) ?? null) : null;
-          return {
+      const commentNotifications: ActivityNotification[] = commentRows.flatMap((row) => {
+        const actor = actorsById.get(row.user_id);
+        if (!actor) return [];
+        const handle = normalizeHandle(actor.username);
+        const name = actor.displayName || handle || "Someone";
+        const titleId = row.reviews?.title_id ?? null;
+        const poster = titleId ? (postersByTitleId.get(titleId) ?? null) : null;
+        return [
+          {
             id: `comment:${row.id}`,
             kind: row.review_id ? "comment" : "reply",
             createdAt: row.created_at,
@@ -245,9 +245,9 @@ export function useActivityNotifications() {
             text: `${name} commented: “${snippet(row.body)}”`,
             thumbnailUrl: poster,
             linkTo: titleId ? `/title/${titleId}` : undefined,
-          } satisfies ActivityNotification;
-        })
-        .filter((v): v is ActivityNotification => Boolean(v));
+          } satisfies ActivityNotification,
+        ];
+      });
 
       const notifications = [...followNotifications, ...commentNotifications].sort((a, b) =>
         a.createdAt < b.createdAt ? 1 : -1,

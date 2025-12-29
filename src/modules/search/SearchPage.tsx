@@ -25,6 +25,13 @@ import {
 
 type ChipKey = "all" | "movies" | "series" | "people" | "news";
 
+type FriendProfileRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
 const Chip: React.FC<{
   label: string;
   active: boolean;
@@ -34,9 +41,7 @@ const Chip: React.FC<{
     type="button"
     onClick={onClick}
     className={`flex h-9 shrink-0 items-center justify-center rounded-2xl px-5 text-sm font-medium transition-transform active:scale-95 ${
-      active
-        ? "bg-primary text-primary-foreground"
-        : "bg-muted/70 text-foreground hover:bg-muted"
+      active ? "bg-primary text-primary-foreground" : "bg-muted/70 text-foreground hover:bg-muted"
     }`}
   >
     {label}
@@ -66,12 +71,7 @@ const RatingPill: React.FC<{ label: string | null }> = ({ label }) => {
   if (!label) return null;
   return (
     <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-white backdrop-blur-sm">
-      <MaterialIcon
-        name="star"
-        filled
-        className="text-[14px] text-yellow-400"
-        ariaLabel="Rating"
-      />
+      <MaterialIcon name="star" filled className="text-[14px] text-yellow-400" ariaLabel="Rating" />
       <span>{label}</span>
     </div>
   );
@@ -86,7 +86,7 @@ const DiscoverPosterCard: React.FC<{
   friendAvatarUrls?: string[];
   friendExtraCount?: number;
 }> = ({ id, title, imageUrl, ratingLabel, subtitle, friendAvatarUrls, friendExtraCount }) => {
-  const friendProfiles = (friendAvatarUrls ?? []).map((url, idx) => ({
+  const friendProfiles: FriendProfileRow[] = (friendAvatarUrls ?? []).map((url, idx) => ({
     id: `${id}_${idx}`,
     username: null,
     display_name: null,
@@ -112,7 +112,11 @@ const DiscoverPosterCard: React.FC<{
         className="relative aspect-[2/3] w-full overflow-hidden rounded-[20px] bg-muted shadow-lg transition-transform duration-300 group-hover:scale-[1.02]"
         style={
           imageUrl
-            ? { backgroundImage: `url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+            ? {
+                backgroundImage: `url(${imageUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
             : undefined
         }
       >
@@ -170,7 +174,12 @@ const CuratedListCard: React.FC<{
       <div className="mt-2 flex items-center gap-2">
         <div className="h-6 w-6 overflow-hidden rounded-full bg-muted">
           {ownerAvatarUrl ? (
-            <img src={ownerAvatarUrl} alt={ownerLabel} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={ownerAvatarUrl}
+              alt={ownerLabel}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
           ) : (
             <div className="h-full w-full bg-primary/20" />
           )}
@@ -179,7 +188,11 @@ const CuratedListCard: React.FC<{
       </div>
     </div>
 
-    <MaterialIcon name="chevron_right" className="text-[22px] text-muted-foreground" ariaLabel="Open" />
+    <MaterialIcon
+      name="chevron_right"
+      className="text-[22px] text-muted-foreground"
+      ariaLabel="Open"
+    />
   </Link>
 );
 
@@ -210,7 +223,11 @@ const PeoplePreviewRow: React.FC<{ person: PeopleSearchResult }> = ({ person }) 
         <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
         {handle ? <p className="truncate text-xs text-muted-foreground">{handle}</p> : null}
       </div>
-      <MaterialIcon name="chevron_right" className="text-[22px] text-muted-foreground" ariaLabel="Open" />
+      <MaterialIcon
+        name="chevron_right"
+        className="text-[22px] text-muted-foreground"
+        ariaLabel="Open"
+      />
     </Link>
   );
 };
@@ -223,7 +240,10 @@ function deriveChipFromTab(tab: SearchTabKey, filters: TitleSearchFilters): Chip
   return "all";
 }
 
-function chipToParams(chip: ChipKey): { tab: SearchTabKey; nextFilters?: Partial<TitleSearchFilters> } {
+function chipToParams(chip: ChipKey): {
+  tab: SearchTabKey;
+  nextFilters?: Partial<TitleSearchFilters>;
+} {
   if (chip === "news") return { tab: "news" };
   if (chip === "people") return { tab: "people" };
   if (chip === "movies") return { tab: "titles", nextFilters: { type: "movie" } };
@@ -233,14 +253,14 @@ function chipToParams(chip: ChipKey): { tab: SearchTabKey; nextFilters?: Partial
 
 const SearchPage: React.FC = () => {
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
 
   const query = (params.get("q") ?? "").toString();
   const trimmedQuery = query.trim();
   const tab = parseTabFromParams(params);
 
-  const filters = React.useMemo(() => parseTitleFiltersFromParams(params), [params]);
+  const filters = parseTitleFiltersFromParams(params);
   const activeChip = deriveChipFromTab(tab, filters);
 
   const setChip = React.useCallback(
@@ -327,7 +347,11 @@ const SearchPage: React.FC = () => {
       <div className="sticky top-0 z-30 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
         <div className="flex flex-col gap-4">
           <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-input bg-card px-4 shadow-sm focus-within:ring-2 focus-within:ring-primary">
-            <MaterialIcon name="search" className="text-[20px] text-muted-foreground" ariaLabel="Search" />
+            <MaterialIcon
+              name="search"
+              className="text-[20px] text-muted-foreground"
+              ariaLabel="Search"
+            />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -391,7 +415,11 @@ const SearchPage: React.FC = () => {
         </div>
       ) : isDiscover ? (
         <div className="flex flex-col pt-6">
-          <SectionHeader title="Friends Are Watching" actionLabel="See All" onAction={seeAllFriends} />
+          <SectionHeader
+            title="Friends Are Watching"
+            actionLabel="See All"
+            onAction={seeAllFriends}
+          />
           <div className="grid grid-cols-2 gap-4 px-4">
             {friendsWatching.isLoading ? (
               Array.from({ length: 4 }).map((_, idx) => (
@@ -402,12 +430,10 @@ const SearchPage: React.FC = () => {
                 </div>
               ))
             ) : friendsWatching.data?.length ? (
-              friendsWatching.data.map((item) => (
-                <DiscoverPosterCard key={item.id} {...item} />
-              ))
+              friendsWatching.data.map((item) => <DiscoverPosterCard key={item.id} {...item} />)
             ) : (
               <div className="col-span-2 rounded-3xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-                {session?.user?.id
+                {user?.id
                   ? "Your friends’ activity will show up here once they start rating, watching, or adding to watchlists."
                   : "Sign in to see what your friends are watching."}
               </div>
@@ -417,20 +443,18 @@ const SearchPage: React.FC = () => {
           <div className="flex flex-col pt-8">
             <SectionHeader title="Trending Now" actionLabel="See All" onAction={seeAllTrending} />
             <div className="flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {trendingNow.isLoading ? (
-                Array.from({ length: 6 }).map((_, idx) => (
-                  <div key={idx} className="w-36 shrink-0">
-                    <div className="aspect-[2/3] w-full animate-pulse rounded-[20px] bg-muted" />
-                    <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-muted" />
-                  </div>
-                ))
-              ) : (
-                (trendingNow.data ?? []).map((item) => (
-                  <div key={item.id} className="w-36 shrink-0">
-                    <DiscoverPosterCard {...item} friendAvatarUrls={[]} friendExtraCount={0} />
-                  </div>
-                ))
-              )}
+              {trendingNow.isLoading
+                ? Array.from({ length: 6 }).map((_, idx) => (
+                    <div key={idx} className="w-36 shrink-0">
+                      <div className="aspect-[2/3] w-full animate-pulse rounded-[20px] bg-muted" />
+                      <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-muted" />
+                    </div>
+                  ))
+                : (trendingNow.data ?? []).map((item) => (
+                    <div key={item.id} className="w-36 shrink-0">
+                      <DiscoverPosterCard {...item} friendAvatarUrls={[]} friendExtraCount={0} />
+                    </div>
+                  ))}
             </div>
           </div>
 

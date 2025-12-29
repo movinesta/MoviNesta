@@ -36,9 +36,8 @@ export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
       };
     }
 
-    // External URLs are treated as untrusted. Do not auto-load third-party images.
     if (isHttpUrl(path)) {
-      setError(true);
+      setUrl(path);
       return () => {
         cancelled = true;
       };
@@ -72,16 +71,6 @@ export const ChatImage: React.FC<{ path: string }> = ({ path }) => {
   }, [path]);
 
   if (error) {
-    if (path && isHttpUrl(path)) {
-      return (
-        <div className="mt-1 text-xs text-muted-foreground">
-          External image link:{" "}
-          <a href={path} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-            open
-          </a>
-        </div>
-      );
-    }
     return <div className="mt-1 text-xs text-muted-foreground">Image unavailable.</div>;
   }
 

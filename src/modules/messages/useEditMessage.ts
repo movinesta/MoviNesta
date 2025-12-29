@@ -7,6 +7,7 @@ import { conversationMessagesQueryKey } from "./queryKeys";
 import { buildEditedMessageBody } from "./messageText";
 import { replaceMessageById } from "./conversationMessagesCache";
 import { MESSAGE_SELECT } from "./messageSelect";
+import type { Json } from "@/types/supabase";
 
 export const useEditMessage = (conversationId: string | null) => {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ export const useEditMessage = (conversationId: string | null) => {
       if (!userId) throw new Error("You must be signed in to edit messages.");
       if (attachmentUrl) throw new Error("Cannot edit messages with attachments.");
 
-      const nextBody = buildEditedMessageBody(currentBody, text);
+      const nextBody = buildEditedMessageBody(currentBody, text) as Json;
 
       const { data, error } = await supabase
         .from("messages")

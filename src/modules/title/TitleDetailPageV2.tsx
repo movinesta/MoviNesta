@@ -13,10 +13,7 @@ import { rating0_10ToStars } from "@/lib/ratings";
 import { supabase } from "@/lib/supabase";
 import { tmdbImageUrl } from "@/lib/tmdb";
 import { useAuth } from "@/modules/auth/AuthProvider";
-import {
-  useDiaryLibraryMutations,
-  useTitleDiaryEntry,
-} from "@/modules/diary/useDiaryLibrary";
+import { useDiaryLibraryMutations, useTitleDiaryEntry } from "@/modules/diary/useDiaryLibrary";
 import { getOrCreateMediaSwipeSessionId, sendMediaSwipeEvent } from "@/modules/swipe/mediaSwipeApi";
 import type { TitleType } from "@/types/supabase-helpers";
 
@@ -76,7 +73,9 @@ type ProfilePublicRow = {
 
 function compactNumber(n: number) {
   try {
-    return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(n);
+    return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(
+      n,
+    );
   } catch {
     return String(n);
   }
@@ -157,9 +156,7 @@ function extractYouTubeTrailerUrl(tmdbRaw: unknown): string | null {
     candidates.find((v) => fn(v) && v.site === "YouTube" && typeof v.key === "string");
 
   const trailer =
-    pick((v) => v.type === "Trailer") ||
-    pick((v) => v.type === "Teaser") ||
-    pick(() => true);
+    pick((v) => v.type === "Trailer") || pick((v) => v.type === "Teaser") || pick(() => true);
 
   if (!trailer?.key) return null;
   return `https://www.youtube.com/watch?v=${encodeURIComponent(trailer.key)}`;
@@ -577,23 +574,29 @@ export default function TitleDetailPageV2() {
           eventType: "watchlist",
           inWatchlist: shouldEnable,
           source: "title",
-          payload: { action: shouldEnable ? "watchlist_add" : "watchlist_remove", origin: "title_detail" },
+          payload: {
+            action: shouldEnable ? "watchlist_add" : "watchlist_remove",
+            origin: "title_detail",
+          },
         }),
       );
 
       if (shouldEnable) {
-        tasks.push(diaryMutations.updateStatus.mutateAsync({ titleId, status: "want_to_watch", type }));
+        tasks.push(
+          diaryMutations.updateStatus.mutateAsync({ titleId, status: "want_to_watch", type }),
+        );
       } else {
         // Remove the entry (keeps library clean and triggers watchlist_removed activity)
         tasks.push(
-          supabase
-            .from("library_entries")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("title_id", titleId)
-            .then(({ error }) => {
-              if (error) throw error;
-            }),
+          Promise.resolve(
+            supabase
+              .from("library_entries")
+              .delete()
+              .eq("user_id", user.id)
+              .eq("title_id", titleId),
+          ).then(({ error }) => {
+            if (error) throw error;
+          }),
         );
       }
 
@@ -793,7 +796,9 @@ export default function TitleDetailPageV2() {
 
               <button
                 type="button"
-                aria-label={status === "want_to_watch" ? "Remove from watchlist" : "Add to watchlist"}
+                aria-label={
+                  status === "want_to_watch" ? "Remove from watchlist" : "Add to watchlist"
+                }
                 onClick={() => toggleWatchlist.mutate()}
                 disabled={!titleId || !row || toggleWatchlist.isPending}
                 className={
@@ -877,7 +882,9 @@ export default function TitleDetailPageV2() {
                       )}
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-semibold text-white">{name ? shortName(name) : ""}</p>
+                      <p className="text-xs font-semibold text-white">
+                        {name ? shortName(name) : ""}
+                      </p>
                       <p className="text-[10px] text-white/45">{role}</p>
                     </div>
                   </div>
@@ -896,10 +903,7 @@ export default function TitleDetailPageV2() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Ratings &amp; Reviews</h3>
             {titleId ? (
-              <Link
-                to={`/title/${titleId}/reviews`}
-                className="text-sm font-semibold text-primary"
-              >
+              <Link to={`/title/${titleId}/reviews`} className="text-sm font-semibold text-primary">
                 See all
               </Link>
             ) : null}
@@ -972,7 +976,8 @@ export default function TitleDetailPageV2() {
               ))
             )}
 
-            {!reviewsPreviewQuery.isLoading && (reviewsPreviewQuery.data?.reviews?.length ?? 0) === 0 ? (
+            {!reviewsPreviewQuery.isLoading &&
+            (reviewsPreviewQuery.data?.reviews?.length ?? 0) === 0 ? (
               <div className="rounded-2xl bg-[#302839] p-4 text-sm text-white/60">
                 No reviews yet. Be the first to rate and review this title.
               </div>

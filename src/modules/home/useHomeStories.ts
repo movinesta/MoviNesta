@@ -19,7 +19,10 @@ export interface HomeStory {
 type FollowRow = Pick<Database["public"]["Tables"]["follows"]["Row"], "followed_id">;
 type ProfileRow = Database["public"]["Tables"]["profiles_public"]["Row"];
 type ListRow = Database["public"]["Tables"]["lists"]["Row"];
-type ListItemRow = Pick<Database["public"]["Tables"]["list_items"]["Row"], "list_id" | "title_id" | "position" | "created_at">;
+type ListItemRow = Pick<
+  Database["public"]["Tables"]["list_items"]["Row"],
+  "list_id" | "title_id" | "position" | "created_at"
+>;
 type MediaItemRow = Database["public"]["Tables"]["media_items"]["Row"];
 
 const pickPrimaryListForUser = (lists: ListRow[]) => {

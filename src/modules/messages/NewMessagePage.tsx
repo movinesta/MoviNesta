@@ -153,12 +153,17 @@ const NewMessagePage: React.FC = () => {
         </div>
 
         <div className="bg-background px-4 py-3">
-          <label className="flex h-12 w-full flex-col">
+          <label
+            htmlFor="new-message-search"
+            className="flex h-12 w-full flex-col"
+            aria-label="Search contacts"
+          >
             <div className="flex h-full flex-1 items-stretch rounded-xl border border-input bg-card shadow-sm">
               <div className="flex items-center justify-center rounded-l-xl px-4 text-muted-foreground">
                 <MaterialIcon name="search" className="text-[24px]" />
               </div>
               <input
+                id="new-message-search"
                 className="h-full w-full rounded-xl rounded-l-none border-none bg-transparent px-4 pl-2 text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
                 placeholder="Search friends or username"
                 value={query}
@@ -189,13 +194,86 @@ const NewMessagePage: React.FC = () => {
           </h3>
         </div>
         <div className="flex flex-col">
-          {suggestedContacts.map((person) => (
-            <label
-              key={person.id}
-              className="flex min-h-16 cursor-pointer items-center justify-between gap-4 border-b border-border/60 px-4 py-3 transition-colors hover:bg-muted/60"
-            >
-              <div className="flex flex-1 items-center gap-4 overflow-hidden">
-                <div className="relative">
+          {suggestedContacts.map((person) => {
+            const inputId = `new-message-suggested-${person.id}`;
+            return (
+              <label
+                key={person.id}
+                htmlFor={inputId}
+                aria-label={`Select ${person.displayName}`}
+                className="flex min-h-16 cursor-pointer items-center justify-between gap-4 border-b border-border/60 px-4 py-3 transition-colors hover:bg-muted/60"
+              >
+                <div className="flex flex-1 items-center gap-4 overflow-hidden">
+                  <div className="relative">
+                    <div className="h-12 w-12 overflow-hidden rounded-full bg-muted shadow-sm">
+                      {person.avatarUrl ? (
+                        <img
+                          src={person.avatarUrl}
+                          alt={person.displayName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-foreground">
+                          {person.displayName.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-base font-medium">{person.displayName}</p>
+                      {person.matchLabel && (
+                        <span className="text-sm font-semibold text-primary">
+                          {person.matchLabel}
+                        </span>
+                      )}
+                    </div>
+                    {person.subtitle && (
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        {person.subtitle}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="pl-4">
+                  <div className="relative flex h-7 w-7 items-center justify-center">
+                    <input
+                      id={inputId}
+                      type="checkbox"
+                      checked={selectedIds.includes(person.id)}
+                      onChange={() => toggleSelection(person.id)}
+                      className="h-6 w-6 cursor-pointer appearance-none rounded-full border-2 border-border bg-transparent checked:border-primary checked:bg-primary"
+                    />
+                    <MaterialIcon
+                      name="check"
+                      className={`absolute text-[16px] text-primary-foreground transition-opacity ${
+                        selectedIds.includes(person.id) ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="px-4 pb-2 pt-6">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            All Contacts
+          </h3>
+        </div>
+        <div className="flex flex-col pb-20">
+          {allContacts.map((person) => {
+            const inputId = `new-message-contact-${person.id}`;
+            return (
+              <label
+                key={person.id}
+                htmlFor={inputId}
+                aria-label={`Select ${person.displayName}`}
+                className="flex min-h-16 cursor-pointer items-center justify-between gap-4 border-b border-border/60 px-4 py-3 transition-colors hover:bg-muted/60"
+              >
+                <div className="flex flex-1 items-center gap-4 overflow-hidden">
                   <div className="h-12 w-12 overflow-hidden rounded-full bg-muted shadow-sm">
                     {person.avatarUrl ? (
                       <img
@@ -209,103 +287,42 @@ const NewMessagePage: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-base font-medium">{person.displayName}</p>
-                    {person.matchLabel && (
-                      <span className="text-sm font-semibold text-primary">
-                        {person.matchLabel}
-                      </span>
-                    )}
-                  </div>
-                  {person.subtitle && (
-                    <p className="mt-1 truncate text-sm text-muted-foreground">
-                      {person.subtitle}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="pl-4">
-                <div className="relative flex h-7 w-7 items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(person.id)}
-                    onChange={() => toggleSelection(person.id)}
-                    className="h-6 w-6 cursor-pointer appearance-none rounded-full border-2 border-border bg-transparent checked:border-primary checked:bg-primary"
-                  />
-                  <MaterialIcon
-                    name="check"
-                    className={`absolute text-[16px] text-primary-foreground transition-opacity ${
-                      selectedIds.includes(person.id) ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                </div>
-              </div>
-            </label>
-          ))}
-        </div>
-
-        <div className="px-4 pb-2 pt-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-            All Contacts
-          </h3>
-        </div>
-        <div className="flex flex-col pb-20">
-          {allContacts.map((person) => (
-            <label
-              key={person.id}
-              className="flex min-h-16 cursor-pointer items-center justify-between gap-4 border-b border-border/60 px-4 py-3 transition-colors hover:bg-muted/60"
-            >
-              <div className="flex flex-1 items-center gap-4 overflow-hidden">
-                <div className="h-12 w-12 overflow-hidden rounded-full bg-muted shadow-sm">
-                  {person.avatarUrl ? (
-                    <img
-                      src={person.avatarUrl}
-                      alt={person.displayName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-foreground">
-                      {person.displayName.slice(0, 1).toUpperCase()}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-base font-medium">{person.displayName}</p>
+                      {person.matchLabel && (
+                        <span className="text-sm font-semibold text-primary">
+                          {person.matchLabel}
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-base font-medium">{person.displayName}</p>
-                    {person.matchLabel && (
-                      <span className="text-sm font-semibold text-primary">
-                        {person.matchLabel}
-                      </span>
+                    {person.subtitle && (
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        {person.subtitle}
+                      </p>
                     )}
                   </div>
-                  {person.subtitle && (
-                    <p className="mt-1 truncate text-sm text-muted-foreground">
-                      {person.subtitle}
-                    </p>
-                  )}
                 </div>
-              </div>
-              <div className="pl-4">
-                <div className="relative flex h-7 w-7 items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(person.id)}
-                    onChange={() => toggleSelection(person.id)}
-                    className="h-6 w-6 cursor-pointer appearance-none rounded-full border-2 border-border bg-transparent checked:border-primary checked:bg-primary"
-                  />
-                  <MaterialIcon
-                    name="check"
-                    className={`absolute text-[16px] text-primary-foreground transition-opacity ${
-                      selectedIds.includes(person.id) ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
+                <div className="pl-4">
+                  <div className="relative flex h-7 w-7 items-center justify-center">
+                    <input
+                      id={inputId}
+                      type="checkbox"
+                      checked={selectedIds.includes(person.id)}
+                      onChange={() => toggleSelection(person.id)}
+                      className="h-6 w-6 cursor-pointer appearance-none rounded-full border-2 border-border bg-transparent checked:border-primary checked:bg-primary"
+                    />
+                    <MaterialIcon
+                      name="check"
+                      className={`absolute text-[16px] text-primary-foreground transition-opacity ${
+                        selectedIds.includes(person.id) ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  </div>
                 </div>
-              </div>
-            </label>
-          ))}
+              </label>
+            );
+          })}
         </div>
       </div>
     </div>

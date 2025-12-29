@@ -44,6 +44,17 @@ const tryParseJsonObject = (raw: string): Record<string, unknown> | null => {
 
 const coerceString = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
+const extractBlocksText = (blocks: unknown): string | null => {
+  if (!Array.isArray(blocks)) return null;
+  const lines = blocks
+    .map((block) => (isPlainObject(block) ? coerceString(block.text) : null))
+    .map((line) => line?.trim() ?? "")
+    .filter(Boolean);
+
+  if (!lines.length) return null;
+  return lines.join("\n");
+};
+
 /**
  * Normalize any supported message body variant into a consistent object.
  */
@@ -65,7 +76,11 @@ export function parseMessageBody(body: unknown): ParsedMessageBody {
     coerceString(obj?.type) ??
     (legacyText != null ? "text" : "unknown");
 
-  const text = coerceString(obj?.text) ?? (legacyText != null ? legacyText : "");
+  const text =
+    coerceString(obj?.text) ??
+    coerceString(obj?.message) ??
+    extractBlocksText(obj?.blocks) ??
+    (legacyText != null ? legacyText : "");
 
   const clientId = coerceString(obj?.clientId) ?? coerceString(obj?.client_id) ?? null;
 
@@ -102,7 +117,15 @@ export function getMessageClientId(body: unknown): string | null {
 /** Extract meta payload (if any) from any supported body variant. */
 export function getMessageMeta(body: unknown): MessageMeta {
   const parsed = parseMessageBody(body);
-  return parsed.meta ?? {};
+  const meta = parsed.meta ?? {};
+  const picked: MessageMeta = {};
+
+  if (typeof meta.deleted === "boolean") picked.deleted = meta.deleted;
+  if (typeof meta.deletedAt === "string") picked.deletedAt = meta.deletedAt;
+  if (typeof meta.editedAt === "string") picked.editedAt = meta.editedAt;
+  if (typeof meta.caption === "string") picked.caption = meta.caption;
+
+  return picked;
 }
 
 /**
@@ -141,7 +164,7 @@ export function parseMessageText(body: unknown): string {
  * - deleted messages are prefixed with 🗑️
  * - image placeholder is prefixed with 📷
  */
-export function getMessagePreview(body: unknown, maxLen = 120): string {
+export function getMessagePreview(body: unknown, maxLen = 120): string | null {
   const parsed = parseMessageBody(body);
   const meta = parsed.meta ?? {};
   const type = parsed.type;
@@ -158,7 +181,7 @@ export function getMessagePreview(body: unknown, maxLen = 120): string {
 
   if (typeof preview !== "string") preview = "";
   const clean = preview.trim();
-  if (!clean) return "";
+  if (!clean) return null;
 
   if (maxLen > 0 && clean.length > maxLen) {
     return clean.slice(0, Math.max(0, maxLen - 1)).trimEnd() + "…";

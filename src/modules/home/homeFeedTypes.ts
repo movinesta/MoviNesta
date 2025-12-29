@@ -12,6 +12,9 @@ export type FeedTitle = {
   name: string;
   posterUrl?: string | null;
   mediaType?: string | null;
+  year?: number | null;
+  subtitle?: string | null;
+  backdropUrl?: string | null;
 };
 
 type BaseFeedItem = {
