@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { qk } from "@/lib/queryKeys";
 import { rating0_10ToStars, starsToRating0_10 } from "@/lib/ratings";
 import { supabase } from "@/lib/supabase";
@@ -214,14 +215,26 @@ function ReviewCard({
       ) : null}
 
       <div className="mt-4 flex items-center gap-4 text-xs text-white/55">
-        <div className="inline-flex items-center gap-1">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 transition-colors hover:text-primary"
+        >
           <span className="material-symbols-outlined text-base">thumb_up</span>
           <span>{reactions.up ? compactNumber(reactions.up) : "0"}</span>
-        </div>
-        <div className="inline-flex items-center gap-1">
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 transition-colors hover:text-red-400"
+        >
           <span className="material-symbols-outlined text-base">thumb_down</span>
           <span>{reactions.down ? compactNumber(reactions.down) : "0"}</span>
-        </div>
+        </button>
+        <button
+          type="button"
+          className="ml-auto rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/20"
+        >
+          Reply
+        </button>
       </div>
     </div>
   );
@@ -420,6 +433,7 @@ export default function TitleReviewsPageV2() {
   const canUseId = /^[0-9a-fA-F-]{36}$/.test(titleId);
 
   const [sort, setSort] = React.useState<"recent" | "top" | "critical">("recent");
+  const [includeSpoilers, setIncludeSpoilers] = React.useState(false);
   const [composerOpen, setComposerOpen] = React.useState(false);
 
   const titleQuery = useQuery({
@@ -429,16 +443,45 @@ export default function TitleReviewsPageV2() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("media_items")
-        .select("id,tmdb_title,tmdb_name,omdb_title")
+        .select("id,tmdb_title,tmdb_name,omdb_title,tmdb_release_date,tmdb_first_air_date,tmdb_genres,omdb_genre")
         .eq("id", titleId)
         .maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
-      return (data as any as { id: string; tmdb_title: string | null; tmdb_name: string | null; omdb_title: string | null }) ?? null;
+      return (
+        (data as any as {
+          id: string;
+          tmdb_title: string | null;
+          tmdb_name: string | null;
+          omdb_title: string | null;
+          tmdb_release_date: string | null;
+          tmdb_first_air_date: string | null;
+          tmdb_genres: { name?: string }[] | null;
+          omdb_genre: string | null;
+        }) ?? null
+      );
     },
   });
 
   const titleName =
     titleQuery.data?.tmdb_title ?? titleQuery.data?.tmdb_name ?? titleQuery.data?.omdb_title ?? "Reviews";
+  const releaseYear = (() => {
+    const raw = titleQuery.data?.tmdb_release_date ?? titleQuery.data?.tmdb_first_air_date ?? null;
+    if (!raw) return null;
+    const year = Number(String(raw).slice(0, 4));
+    return Number.isNaN(year) ? null : year;
+  })();
+  const primaryGenre = (() => {
+    const tmdbGenres = titleQuery.data?.tmdb_genres ?? [];
+    if (Array.isArray(tmdbGenres)) {
+      const item = tmdbGenres.find((g) => g?.name);
+      if (item?.name) return item.name;
+    }
+    const omdb = titleQuery.data?.omdb_genre ?? null;
+    if (omdb) return String(omdb).split(",")[0]?.trim() ?? null;
+    return null;
+  })();
+  const subtitleParts = [releaseYear ? String(releaseYear) : null, primaryGenre].filter(Boolean);
+  const titleSubtitle = subtitleParts.join(" • ");
 
   const summaryQuery = useQuery({
     queryKey: ["title", "rating-summary", canUseId ? titleId : null],
@@ -593,51 +636,64 @@ export default function TitleReviewsPageV2() {
 
         <div className="text-center">
           <p className="text-sm font-semibold text-white">{titleQuery.isLoading ? "" : titleName}</p>
-          <p className="text-xs text-white/50">Ratings &amp; reviews</p>
+          <p className="text-xs text-white/50">{titleSubtitle || "Ratings & reviews"}</p>
         </div>
 
-        <CircleIconButton label="Share" onClick={handleShare}>
-          <span className="material-symbols-outlined">ios_share</span>
+        <CircleIconButton label="More" onClick={handleShare}>
+          <span className="material-symbols-outlined">more_vert</span>
         </CircleIconButton>
       </div>
 
       <div className="px-4 pt-6">
-        <div className="rounded-3xl bg-[#211a29] p-5">
-          <div className="flex items-center justify-between gap-6">
-            <div>
-              <p className="text-5xl font-black leading-none tracking-tight text-white">{displayAvg}</p>
-              <div className="mt-2">
-                {avgStars != null ? <RatingStars rating={avgStars} size={14} /> : <Skeleton className="h-4 w-24" />}
-              </div>
-              <p className="mt-2 text-xs text-white/50">
-                {summaryQuery.isLoading ? "Loading…" : displayCount ? `${compactNumber(displayCount)} verified ratings` : "No ratings yet"}
-              </p>
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex min-w-[100px] flex-col items-center justify-center gap-1">
+            <p className="text-5xl font-black leading-none tracking-tight text-white">{displayAvg}</p>
+            <div className="mt-1">
+              {avgStars != null ? <RatingStars rating={avgStars} size={14} /> : <Skeleton className="h-4 w-24" />}
             </div>
+            <p className="mt-2 text-xs text-white/50">
+              {summaryQuery.isLoading ? "Loading…" : displayCount ? `${compactNumber(displayCount)} verified ratings` : "No ratings yet"}
+            </p>
+          </div>
 
-            <div className="min-w-[220px] flex-1">
-              {summaryQuery.data ? <StarsHistogram summary={summaryQuery.data} /> : <Skeleton className="h-24 w-full" />}
-            </div>
+          <div className="min-w-[200px] flex-1">
+            {summaryQuery.data ? <StarsHistogram summary={summaryQuery.data} /> : <Skeleton className="h-24 w-full" />}
           </div>
         </div>
 
-        <div className="mt-6 flex gap-2">
-          {[{ k: "recent", label: "Most Recent" }, { k: "top", label: "Highest Rated" }, { k: "critical", label: "Critical" }].map(
-            (t) => (
-              <button
-                key={t.k}
-                type="button"
-                onClick={() => setSort(t.k as any)}
-                className={
-                  "flex-1 rounded-full border px-4 py-2 text-xs font-semibold transition " +
-                  (sort === t.k
-                    ? "border-primary bg-primary/20 text-white"
-                    : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10")
-                }
-              >
-                {t.label}
-              </button>
-            ),
-          )}
+        <div className="mt-6 overflow-x-auto pb-2">
+          <div className="flex gap-2 pr-2">
+            {[{ k: "recent", label: "Most Recent" }, { k: "top", label: "Highest Rated" }, { k: "critical", label: "Critical" }].map(
+              (t) => (
+                <button
+                  key={t.k}
+                  type="button"
+                  onClick={() => setSort(t.k as any)}
+                  className={
+                    "flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-xs font-semibold transition " +
+                    (sort === t.k
+                      ? "border-primary bg-primary text-white"
+                      : "border-white/10 bg-white/10 text-white/70 hover:bg-white/20")
+                  }
+                >
+                  {t.label}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              onClick={() => setIncludeSpoilers((prev) => !prev)}
+              className={cn(
+                "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-xs font-semibold transition",
+                includeSpoilers
+                  ? "border-primary bg-primary text-white"
+                  : "border-white/10 bg-white/10 text-white/70 hover:bg-white/20",
+              )}
+            >
+              Spoilers
+              <span className="material-symbols-outlined text-base">visibility_off</span>
+            </button>
+          </div>
         </div>
 
         <div className="my-6">
@@ -652,7 +708,7 @@ export default function TitleReviewsPageV2() {
             </>
           ) : null}
 
-          {flat.reviews.map((r) => (
+          {(includeSpoilers ? flat.reviews : flat.reviews.filter((r) => !r.spoiler)).map((r) => (
             <ReviewCard
               key={r.id}
               review={r}

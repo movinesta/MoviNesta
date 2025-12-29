@@ -522,55 +522,21 @@ export default function TitleDetailPageV2() {
     },
   });
 
-  const toggleWatched = useMutation({
-    mutationFn: async () => {
-      if (!user?.id || !titleId) return;
-      const row = titleQuery.data;
-      if (!row) return;
-      const type = getContentTypeFromRow(row);
+  const handleShare = async () => {
+    if (typeof window === "undefined") return;
+    const url = window.location.href;
+    const titleLabel = title || "MoviNesta";
 
-      const nextIsWatched = status !== "watched";
-      const nowIso = new Date().toISOString();
-
-      // Optimistic
-      queryClient.setQueryData(qk.titleDiary(user.id, titleId), (prev: any) => {
-        return { ...(prev ?? {}), status: nextIsWatched ? "watched" : null };
-      });
-
-      if (nextIsWatched) {
-        // Write watched with a completed_at timestamp.
-        const { error } = await supabase.from("library_entries").upsert(
-          {
-            user_id: user.id,
-            title_id: titleId,
-            content_type: type,
-            status: "watched",
-            completed_at: nowIso,
-            updated_at: nowIso,
-          },
-          { onConflict: "user_id,title_id" },
-        );
-        if (error) throw error;
-      } else {
-        // Toggle off: remove only if it was watched.
-        const { error } = await supabase
-          .from("library_entries")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("title_id", titleId)
-          .eq("status", "watched");
-        if (error) throw error;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: titleLabel, url });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
       }
-    },
-    onSettled: () => {
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: qk.titleDiary(user.id, titleId ?? undefined) });
-        queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(user.id) });
-        queryClient.invalidateQueries({ queryKey: qk.diaryStats(user.id) });
-        queryClient.invalidateQueries({ queryKey: qk.homeFeed(user.id) });
-      }
-    },
-  });
+    } catch {
+      // ignore
+    }
+  };
 
   // Track detail open / close (soft-fail)
   React.useEffect(() => {
@@ -650,7 +616,7 @@ export default function TitleDetailPageV2() {
       </div>
 
       {/* Top bar */}
-      <div className="sticky top-0 z-30 -mx-4 flex items-center justify-between px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+      <div className="fixed top-0 z-30 -mx-4 flex w-full items-center justify-between bg-gradient-to-b from-black/60 to-transparent px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         <CircleIconButton label="Back" onClick={() => navigate(-1)}>
           <span className="material-symbols-outlined">arrow_back</span>
         </CircleIconButton>
@@ -677,7 +643,7 @@ export default function TitleDetailPageV2() {
       </div>
 
       {/* Main content */}
-      <main className="relative z-10 mt-[40vh] px-0 pb-16">
+      <main className="relative z-10 mt-[45vh] px-0 pb-20">
         <div className="flex flex-col items-center px-4 text-center">
           {/* Rating ring */}
           <div className="mb-4 relative group">
@@ -712,7 +678,7 @@ export default function TitleDetailPageV2() {
               {genres.slice(0, 3).map((g) => (
                 <div
                   key={g}
-                  className="flex h-8 items-center justify-center rounded-full border border-white/10 bg-white/10 px-4 backdrop-blur-sm"
+                  className="flex h-8 items-center justify-center rounded-full border border-white/5 bg-white/10 px-4 backdrop-blur-sm"
                 >
                   <p className="text-xs font-medium uppercase tracking-wide text-white">{g}</p>
                 </div>
@@ -763,21 +729,11 @@ export default function TitleDetailPageV2() {
 
               <button
                 type="button"
-                aria-label={status === "watched" ? "Remove watched" : "Mark watched"}
-                onClick={() => toggleWatched.mutate()}
-                disabled={!titleId || !row || toggleWatched.isPending}
-                className={
-                  "flex size-14 items-center justify-center rounded-full bg-[#302839] text-white transition-all hover:bg-[#3d3349] active:scale-[0.98] " +
-                  (status === "watched" ? " ring-2 ring-primary/70" : "") +
-                  (status === "watched" ? " opacity-90" : "")
-                }
+                aria-label="Share"
+                onClick={handleShare}
+                className="flex size-14 items-center justify-center rounded-full bg-[#302839] text-white transition-all hover:bg-[#3d3349] active:scale-[0.98]"
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontVariationSettings: `'FILL' ${status === "watched" ? 1 : 0}` } as any}
-                >
-                  check_circle
-                </span>
+                <span className="material-symbols-outlined">ios_share</span>
               </button>
             </div>
 
@@ -1008,6 +964,8 @@ export default function TitleDetailPageV2() {
           ) : null}
         </section>
       </main>
+
+      <div className="pointer-events-none fixed bottom-0 left-0 h-12 w-full bg-gradient-to-t from-background to-transparent" />
     </div>
   );
 }
