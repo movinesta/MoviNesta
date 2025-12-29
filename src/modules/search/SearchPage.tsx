@@ -319,20 +319,20 @@ const SearchPage: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-light pb-24 text-slate-900 dark:bg-background-dark dark:text-white">
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background pb-24 text-foreground">
       {/* Top spacer (keeps content from hugging the very top under native safe areas) */}
       <div className="h-12 w-full" />
 
       {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-background-light/95 px-4 pb-2 pt-2 backdrop-blur-md dark:bg-background-dark/95">
+      <div className="sticky top-0 z-30 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
         <div className="flex flex-col gap-4">
-          <label className="flex h-12 w-full items-center gap-3 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-primary dark:bg-surface-dark dark:ring-transparent">
+          <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-input bg-card px-4 shadow-sm focus-within:ring-2 focus-within:ring-primary">
             <MaterialIcon name="search" className="text-[20px] text-muted-foreground" ariaLabel="Search" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search movies, shows, people..."
-              className="h-full flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-muted-foreground"
+              className="h-full flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}

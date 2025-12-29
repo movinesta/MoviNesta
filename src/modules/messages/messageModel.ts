@@ -94,7 +94,7 @@ export const getBubbleAppearance = ({
 }) => {
   const baseBubbleColors = isSelf
     ? "bg-primary text-white shadow-[0_0_20px_-6px_rgba(127,19,236,0.5)]"
-    : "bg-[#322b3c] text-slate-100";
+    : "bg-card text-foreground border border-border/60";
 
   return {
     bubbleColors: isDeleted

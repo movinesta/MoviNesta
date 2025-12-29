@@ -34,14 +34,14 @@ export default function FriendsListModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border border-white/10 bg-[#140b1f] text-foreground">
+      <DialogContent className="max-w-md border border-border/60 bg-card text-foreground">
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
-            <DialogTitle className="text-base font-semibold text-white">{title}</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-foreground">{title}</DialogTitle>
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="-mr-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+              className="-mr-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition hover:bg-background/80 hover:text-foreground"
               aria-label="Close"
               data-swipe-interactive="true"
             >
@@ -51,7 +51,7 @@ export default function FriendsListModal({
         </DialogHeader>
 
         {safe.length === 0 ? (
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-muted-foreground">
             Once friends interact with titles, they’ll show up here.
           </p>
         ) : (
@@ -65,7 +65,7 @@ export default function FriendsListModal({
                   <button
                     key={p.id}
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-left hover:bg-white/10"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/40 px-3 py-2.5 text-left transition hover:bg-background/70"
                     onClick={() => {
                       if (uname) {
                         onOpenChange(false);
@@ -75,7 +75,7 @@ export default function FriendsListModal({
                     aria-label={uname ? `Open ${display} profile` : display}
                     data-swipe-interactive="true"
                   >
-                    <div className="h-10 w-10 overflow-hidden rounded-full border border-white/10 bg-white/5">
+                    <div className="h-10 w-10 overflow-hidden rounded-full border border-border/60 bg-muted">
                       {p.avatar_url ? (
                         <img
                           src={p.avatar_url}
@@ -85,22 +85,24 @@ export default function FriendsListModal({
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="grid h-full w-full place-items-center text-xs font-semibold text-white/80">
+                        <div className="grid h-full w-full place-items-center text-xs font-semibold text-foreground/80">
                           {fallback}
                         </div>
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-white">{display}</div>
+                      <div className="truncate text-sm font-semibold text-foreground">{display}</div>
                       {uname ? (
-                        <div className="truncate text-xs text-white/55">@{uname}</div>
+                        <div className="truncate text-xs text-muted-foreground">@{uname}</div>
                       ) : (
-                        <div className="truncate text-xs text-white/45">Profile unavailable</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          Profile unavailable
+                        </div>
                       )}
                     </div>
 
-                    <div className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70">
+                    <div className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-background/60 text-muted-foreground">
                       <MaterialIcon name="chevron_right" className="text-[22px]" />
                     </div>
                   </button>
