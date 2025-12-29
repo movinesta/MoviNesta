@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Home, Flame, MessageCircle, Search } from "lucide-react";
 import { useUIStore } from "../lib/ui-store";
 import { useI18n } from "@/i18n/useI18n";
@@ -7,9 +7,7 @@ import { useCurrentProfile } from "@/modules/profile/useProfile";
 
 const AppShell: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { setLastVisitedTab, startTab } = useUIStore();
-  const hasAppliedStartTab = React.useRef(false);
+  const { setLastVisitedTab } = useUIStore();
   const { t } = useI18n();
   const { data: currentProfile } = useCurrentProfile();
 
@@ -24,7 +22,7 @@ const AppShell: React.FC = () => {
 
   const bottomTabs = React.useMemo(
     () => [
-      { key: "home" as const, to: "/", label: t("nav.home"), icon: Home },
+      { key: "home" as const, to: "/home", label: t("nav.home"), icon: Home },
       { key: "swipe" as const, to: "/swipe", label: t("nav.swipe"), icon: Flame },
       { key: "messages" as const, to: "/messages", label: t("nav.messages"), icon: MessageCircle },
       { key: "search" as const, to: "/search", label: t("nav.search"), icon: Search },
@@ -34,15 +32,10 @@ const AppShell: React.FC = () => {
   );
 
   React.useEffect(() => {
-    if (hasAppliedStartTab.current) return;
-    if (location.pathname === "/" && startTab !== "home") {
-      const target = startTab === "swipe" ? "/swipe" : "/me";
-      navigate(target, { replace: true });
-      setLastVisitedTab(startTab);
-      hasAppliedStartTab.current = true;
+    if (location.pathname === "/search") {
+      setLastVisitedTab("search");
     }
-    hasAppliedStartTab.current = true;
-  }, [location.pathname, navigate, setLastVisitedTab, startTab]);
+  }, [location.pathname, setLastVisitedTab]);
 
   const isConversationRoute =
     location.pathname.startsWith("/messages/") && location.pathname !== "/messages";

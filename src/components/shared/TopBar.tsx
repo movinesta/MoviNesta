@@ -17,7 +17,7 @@ interface TopBarProps {
   below?: React.ReactNode;
 }
 
-const ROOT_ROUTES = new Set(["/", "/swipe", "/messages", "/search", "/me"]);
+const ROOT_ROUTES = new Set(["/home", "/swipe", "/messages", "/search", "/me"]);
 
 const normalizePath = (pathname: string) =>
   pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;

@@ -23,7 +23,7 @@ import {
   useSearchTrendingNow,
 } from "./useSearchDiscover";
 
-type ChipKey = "all" | "movies" | "series" | "people";
+type ChipKey = "all" | "movies" | "series" | "people" | "news";
 
 const Chip: React.FC<{
   label: string;
@@ -216,6 +216,7 @@ const PeoplePreviewRow: React.FC<{ person: PeopleSearchResult }> = ({ person }) 
 };
 
 function deriveChipFromTab(tab: SearchTabKey, filters: TitleSearchFilters): ChipKey {
+  if (tab === "news") return "news";
   if (tab === "people") return "people";
   if (filters.type === "movie") return "movies";
   if (filters.type === "series") return "series";
@@ -223,6 +224,7 @@ function deriveChipFromTab(tab: SearchTabKey, filters: TitleSearchFilters): Chip
 }
 
 function chipToParams(chip: ChipKey): { tab: SearchTabKey; nextFilters?: Partial<TitleSearchFilters> } {
+  if (chip === "news") return { tab: "news" };
   if (chip === "people") return { tab: "people" };
   if (chip === "movies") return { tab: "titles", nextFilters: { type: "movie" } };
   if (chip === "series") return { tab: "titles", nextFilters: { type: "series" } };
@@ -250,7 +252,7 @@ const SearchPage: React.FC = () => {
         // Preserve search string.
         next.set("tab", nextTab);
 
-        if (nextTab === "people") {
+        if (nextTab === "people" || nextTab === "news") {
           next.delete("type");
           next.delete("minYear");
           next.delete("maxYear");
@@ -291,13 +293,14 @@ const SearchPage: React.FC = () => {
   const titlesQuery = useSearchTitles({ query: trimmedQuery, filters });
   const peopleQuery = useSearchPeople(trimmedQuery.replace(/^@+/, ""));
 
-  const isDiscover = trimmedQuery.length === 0;
+  const isDiscover = trimmedQuery.length === 0 && activeChip !== "news";
+  const showNewsPlaceholder = activeChip === "news";
 
   const openFilterSheet = React.useCallback(() => {
     // Reuse existing filter UI by navigating to legacy SearchPage state.
     // For V2 we keep it simple: open /search?tab=titles&filters=1 (handled by SearchTitlesTab UI)
     // If query is empty, filter has nothing to act on.
-    if (!trimmedQuery) return;
+    if (!trimmedQuery || activeChip === "news") return;
     // Scroll into titles results. (This is a noop but keeps the button meaningful.)
     setChip(activeChip === "people" ? "all" : activeChip);
   }, [activeChip, setChip, trimmedQuery]);
@@ -323,7 +326,7 @@ const SearchPage: React.FC = () => {
       {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-background-light/95 px-4 pb-2 pt-2 backdrop-blur-md dark:bg-background-dark/95">
         <div className="flex flex-col gap-4">
-          <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm ring-1 ring-transparent focus-within:ring-2 focus-within:ring-primary dark:border-transparent dark:bg-surface-dark">
+          <label className="flex h-12 w-full items-center gap-3 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-primary dark:bg-surface-dark dark:ring-transparent">
             <MaterialIcon name="search" className="text-[20px] text-muted-foreground" ariaLabel="Search" />
             <input
               value={query}
@@ -349,7 +352,7 @@ const SearchPage: React.FC = () => {
             <button
               type="button"
               onClick={openFilterSheet}
-              disabled={!trimmedQuery || activeChip === "people"}
+              disabled={!trimmedQuery || activeChip === "people" || activeChip === "news"}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
               aria-label="Filters"
             >
@@ -374,12 +377,19 @@ const SearchPage: React.FC = () => {
               active={activeChip === "people"}
               onClick={() => setChip("people")}
             />
+            <Chip label="News" active={activeChip === "news"} onClick={() => setChip("news")} />
           </div>
         </div>
       </div>
 
       {/* Content */}
-      {isDiscover ? (
+      {showNewsPlaceholder ? (
+        <div className="px-4 pt-8">
+          <div className="rounded-3xl border border-dashed border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
+            Movie news is on the way. Check back soon for fresh industry updates.
+          </div>
+        </div>
+      ) : isDiscover ? (
         <div className="flex flex-col pt-6">
           <SectionHeader title="Friends Are Watching" actionLabel="See All" onAction={seeAllFriends} />
           <div className="grid grid-cols-2 gap-4 px-4">
