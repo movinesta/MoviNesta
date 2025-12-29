@@ -100,9 +100,7 @@ export const getBubbleAppearance = ({
     bubbleColors: isDeleted
       ? "bg-muted text-muted-foreground border border-dashed border-border"
       : baseBubbleColors,
-    bubbleShape: isSelf
-      ? "rounded-2xl rounded-tr-sm"
-      : "rounded-2xl rounded-tl-sm",
+    bubbleShape: isSelf ? "rounded-2xl rounded-tr-sm" : "rounded-2xl rounded-tl-sm",
   };
 };
 

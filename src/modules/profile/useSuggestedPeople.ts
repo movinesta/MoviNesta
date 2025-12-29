@@ -25,7 +25,10 @@ export interface SuggestedPerson {
 
 type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
 type ViewerRatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "title_id" | "rating">;
-type CandidateRatingRow = Pick<Database["public"]["Tables"]["ratings"]["Row"], "user_id" | "title_id" | "rating">;
+type CandidateRatingRow = Pick<
+  Database["public"]["Tables"]["ratings"]["Row"],
+  "user_id" | "title_id" | "rating"
+>;
 
 export const useSuggestedPeople = () => {
   const { user } = useAuth();

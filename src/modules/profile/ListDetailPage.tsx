@@ -7,7 +7,6 @@ import TopBar from "@/components/shared/TopBar";
 const safeShare = async (title: string) => {
   try {
     if (typeof navigator !== "undefined" && "share" in navigator) {
-      // @ts-expect-error - share exists in browsers that support it
       await navigator.share({ title });
       return;
     }

@@ -1,5 +1,5 @@
 // src/modules/profile/useProfile.ts
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
@@ -132,7 +132,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
  * Convenience wrapper for fetching the *current* user's profile +
  * basic stats (for Settings, avatar menus, etc).
  */
-export const useCurrentProfile = () => {
+export const useCurrentProfile = (): UseQueryResult<ProfileSummary | null, Error> => {
   const { user } = useAuth();
 
   return useQuery<ProfileSummary | null, Error>({

@@ -25,19 +25,27 @@ export interface DiaryLibraryEntry {
   rating: number | null;
 }
 
+type LibraryContentType = "movie" | "series" | "anime";
+
 type LibraryRow = {
   id: string;
   title_id: string;
   status: DiaryStatus;
   updated_at: string;
   user_id: string;
-  content_type: TitleType;
+  content_type: LibraryContentType;
 };
 
 type TitleRow = ReturnType<typeof mapMediaItemToSummary>;
 type RatingRow = { title_id: string; rating: number };
 type TitleDiaryRow = { status: DiaryStatus };
 type TitleDiaryRatingRow = { rating: number };
+
+const normalizeLibraryContentType = (type: TitleType): LibraryContentType => {
+  if (type === "movie" || type === "series" || type === "anime") return type;
+  if (type === "episode") return "series";
+  return "movie";
+};
 
 export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: string | null) => {
   const { user } = useAuth();
@@ -235,6 +243,7 @@ export const useDiaryLibraryMutations = () => {
     mutationFn: async ({ titleId, status, type }: UpdateStatusArgs) => {
       if (!userId) throw new Error("Not authenticated");
       if (!type) throw new Error("Content type is required");
+      const contentType = normalizeLibraryContentType(type);
 
       const { error } = await supabase.from("library_entries").upsert(
         {
@@ -242,7 +251,7 @@ export const useDiaryLibraryMutations = () => {
           title_id: titleId,
           status,
           updated_at: new Date().toISOString(),
-          content_type: type,
+          content_type: contentType,
         },
         {
           onConflict: "user_id,title_id",
@@ -269,6 +278,7 @@ export const useDiaryLibraryMutations = () => {
     mutationFn: async ({ titleId, rating, type }: UpdateRatingArgs) => {
       if (!userId) throw new Error("Not authenticated");
       if (!type) throw new Error("Content type is required");
+      const contentType = normalizeLibraryContentType(type);
 
       if (rating == null) {
         const { error } = await supabase
@@ -293,7 +303,7 @@ export const useDiaryLibraryMutations = () => {
           title_id: titleId,
           rating: nextRating,
           updated_at: new Date().toISOString(),
-          content_type: type,
+          content_type: contentType,
         },
         {
           onConflict: "user_id,title_id",

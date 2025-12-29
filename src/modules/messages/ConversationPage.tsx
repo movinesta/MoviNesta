@@ -552,8 +552,7 @@ const ConversationPage: React.FC = () => {
   }
 
   const headerSubtitle =
-    conversation?.subtitle ||
-    (isGroupConversation ? "Group chat" : "Active now");
+    conversation?.subtitle || (isGroupConversation ? "Group chat" : "Active now");
 
   return (
     <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background text-foreground">
@@ -590,7 +589,9 @@ const ConversationPage: React.FC = () => {
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-base font-bold leading-none text-foreground">{conversationTitle}</h1>
+              <h1 className="text-base font-bold leading-none text-foreground">
+                {conversationTitle}
+              </h1>
               <p className="mt-1 text-xs font-medium text-primary">{headerSubtitle}</p>
             </div>
           </div>
@@ -645,7 +646,9 @@ const ConversationPage: React.FC = () => {
               errorContent={
                 isMessagesError ? (
                   <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-200">
-                    <p className="font-medium text-red-100">We couldn&apos;t load this conversation.</p>
+                    <p className="font-medium text-red-100">
+                      We couldn&apos;t load this conversation.
+                    </p>
                     {messagesError instanceof Error && (
                       <p className="mt-1 text-xs text-red-200/70">{messagesError.message}</p>
                     )}

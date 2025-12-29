@@ -107,6 +107,14 @@ export const useSendMessage = (
         throw new Error(error.message);
       }
 
+      if (!data) {
+        throw new Error("Failed to send message.");
+      }
+
+      if ((data as any).conversation_id !== conversationId || (data as any).user_id !== userId) {
+        throw new Error("Unexpected message response.");
+      }
+
       const row: ConversationMessage = {
         id: (data as any).id as string,
         conversationId: (data as any).conversation_id as string,

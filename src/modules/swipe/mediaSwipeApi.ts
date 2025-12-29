@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/supabase";
-import { safeLocalStorageGetItem, safeLocalStorageSetItem, safeSessionStorageGetItem, safeSessionStorageSetItem } from "@/lib/storage";
+import {
+  safeLocalStorageGetItem,
+  safeLocalStorageSetItem,
+  safeSessionStorageGetItem,
+  safeSessionStorageSetItem,
+} from "@/lib/storage";
 
 export type MediaSwipeDeckMode = "for_you" | "friends" | "trending" | "combined";
 
@@ -104,7 +109,6 @@ export type SendMediaSwipeEventInput = {
   payload?: Record<string, unknown> | null;
 };
 
-
 export type SendMediaSwipeBatchEvent = {
   eventType: MediaSwipeEventType | LegacyMediaSwipeEventType;
   dwellMs?: number | null;
@@ -122,7 +126,6 @@ export type SendMediaSwipeEventsBatchInput = {
   source?: string | null;
   events: SendMediaSwipeBatchEvent[];
 };
-
 
 export function uuidv4Fallback(): string {
   // RFC4122-ish UUID v4 (good enough as a client session id)
@@ -301,13 +304,8 @@ export async function fetchMediaSwipeDeck(
   return { deckId, cards };
 }
 
-
 function normalizeEventType(type: any): any {
-  return type === "open"
-    ? "detail_open"
-    : type === "seen"
-      ? "detail_close"
-      : type;
+  return type === "open" ? "detail_open" : type === "seen" ? "detail_close" : type;
 }
 
 export async function sendMediaSwipeEventsBatch(

@@ -59,9 +59,7 @@ const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="truncate text-base font-bold text-foreground">{conversation.title}</h3>
-            <span className="whitespace-nowrap text-xs font-medium text-primary">
-              {timeLabel}
-            </span>
+            <span className="whitespace-nowrap text-xs font-medium text-primary">{timeLabel}</span>
           </div>
           <div className="mt-0.5 flex items-center gap-2">
             <p className="truncate text-sm text-muted-foreground">
@@ -200,12 +198,12 @@ const MessagesPage: React.FC = () => {
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-muted text-xs font-semibold text-foreground">
-                      {participant.name.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-muted text-xs font-semibold text-foreground">
+                    {participant.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
               <span className="max-w-[64px] truncate text-xs font-medium text-foreground">
                 {participant.name}
               </span>

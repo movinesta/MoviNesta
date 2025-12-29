@@ -18,6 +18,7 @@ export interface PeopleSearchResult {
   followersCount: number | null;
   followingCount: number | null;
   isFollowing: boolean;
+  matchPercent?: number | null;
 }
 
 type PublicProfileRow = Database["public"]["Tables"]["profiles_public"]["Row"];
@@ -117,6 +118,7 @@ export const useSearchPeople = (query: string) => {
             followersCount: stats?.followersCount ?? null,
             followingCount: stats?.followingCount ?? null,
             isFollowing: false,
+            matchPercent: null,
           };
         });
       }
@@ -181,6 +183,7 @@ export const useSearchPeople = (query: string) => {
           followersCount: stats?.followersCount ?? null,
           followingCount: stats?.followingCount ?? null,
           isFollowing: followedIds.has(row.id),
+          matchPercent: null,
           relevance: relevance + followerBoost,
         };
       });

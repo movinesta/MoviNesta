@@ -30,7 +30,12 @@ export type SwipeCardData = {
   id: string;
   title: string;
   overview?: string | null;
+  tagline?: string | null;
+  mood?: string | null;
+  vibeTag?: string | null;
   posterUrl?: string | null;
+  tmdbPosterPath?: string | null;
+  tmdbBackdropPath?: string | null;
   backdropUrl?: string | null;
   year?: number | null;
   type?: TitleType;
@@ -55,6 +60,10 @@ export type SwipeCardData = {
   friendProfiles?: FriendProfileLite[];
   friendIds?: string[];
   friendLikesCount?: number;
+  why?: string | null;
+  topFriendName?: string | null;
+  topFriendInitials?: string | null;
+  topFriendReviewSnippet?: string | null;
 
   // deck context
   deckId?: string | null;
@@ -348,13 +357,10 @@ export function useSwipeDeck(
     [trimRawConsumed],
   );
 
-  const refreshCompat = useCallback(
-    async (opts?: { resetSeed?: boolean }) => {
-      await refresh(opts);
-      setCurrentIndex(0);
-    },
-    [refresh],
-  );
+  const refreshCompat = useCallback(async () => {
+    await refresh();
+    setCurrentIndex(0);
+  }, [refresh]);
 
   const swipeCompat = useCallback(
     (payload: SwipeEventPayload) => {

@@ -91,8 +91,7 @@ export function captureException(
     "env" in import.meta &&
     (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
   const nodeEnv =
-    typeof process !== "undefined" &&
-    typeof process.env !== "undefined"
+    typeof process !== "undefined" && typeof process.env !== "undefined"
       ? process.env.NODE_ENV
       : undefined;
   const isDev = viteDev || nodeEnv === "development";

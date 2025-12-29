@@ -52,10 +52,10 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
                   aria-label="Go back"
                 >
-                  <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+                  <ArrowLeft className="h-5 w-5" aria-hidden />
                 </button>
               ) : (
-                <span className="h-9 w-9" aria-hidden="true" />
+                <span className="h-9 w-9" aria-hidden />
               )}
             </div>
 
@@ -78,7 +78,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
                         aria-label={action.label}
                         disabled={action.disabled}
                       >
-                        <Icon className="h-5 w-5" aria-hidden="true" />
+                        <Icon className="h-5 w-5" aria-hidden />
                       </button>
                     );
                   })

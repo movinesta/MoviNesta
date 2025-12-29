@@ -39,26 +39,6 @@ type HomeDeck = {
   cards: MediaSwipeCard[];
 };
 
-function isHttpUrl(value: string) {
-  return value.startsWith("http://") || value.startsWith("https://");
-}
-
-function resolvePosterUrl(ref: unknown, size: "w342" | "w500" = "w500") {
-  if (typeof ref !== "string") return null;
-  const raw = ref.trim();
-  if (!raw) return null;
-  if (isHttpUrl(raw)) return raw;
-  return tmdbImageUrl(raw, size);
-}
-
-function resolveBackdropUrl(ref: unknown, size: "w780" | "w1280" = "w1280") {
-  if (typeof ref !== "string") return null;
-  const raw = ref.trim();
-  if (!raw) return null;
-  if (isHttpUrl(raw)) return raw;
-  return tmdbImageUrl(raw, size);
-}
-
 function formatSubtitleFromCard(card?: MediaSwipeCard | null) {
   const year = card?.releaseYear ? String(card.releaseYear) : null;
   const genres = Array.isArray(card?.genres) ? card?.genres : [];
@@ -102,11 +82,7 @@ function cardToPosterItem(card: MediaSwipeCard | null | undefined): PosterItem |
   };
 }
 
-async function fetchHomeDeck(args: {
-  sessionId: string;
-  mode: MediaSwipeDeckMode;
-  limit: number;
-}) {
+async function fetchHomeDeck(args: { sessionId: string; mode: MediaSwipeDeckMode; limit: number }) {
   const { sessionId, mode, limit } = args;
   const seed = getOrCreateSwipeDeckSeedForMode(sessionId, mode, null);
   return fetchMediaSwipeDeck({ sessionId, mode, limit, seed }) as Promise<HomeDeck>;
@@ -259,7 +235,9 @@ const FeedActionLabel = (item: HomeFeedItem) => {
 const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
   const posterUrl = item.title.posterUrl ?? null;
   const showSnippet =
-    item.kind === "friend-review" || item.kind === "friend-rating" || item.kind === "friend-watched" ? (item as any).reviewSnippet : null;
+    item.kind === "friend-review" || item.kind === "friend-rating" || item.kind === "friend-watched"
+      ? (item as any).reviewSnippet
+      : null;
   const showNote = item.kind === "watchlist-add" ? item.note : null;
   const showReason = item.kind === "recommendation" ? item.reason : null;
 
@@ -280,7 +258,8 @@ const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-foreground">{item.user.displayName}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {FeedActionLabel(item)} <span className="font-semibold text-foreground">{item.title.name}</span>
+              {FeedActionLabel(item)}{" "}
+              <span className="font-semibold text-foreground">{item.title.name}</span>
             </p>
           </div>
           <p className="shrink-0 text-xs text-muted-foreground">{item.relativeTime}</p>
@@ -308,8 +287,12 @@ const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
           </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-bold text-foreground">{item.title.name}</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">{item.title.mediaType ?? "title"}</p>
-            {item.kind === "friend-rating" || item.kind === "friend-review" || item.kind === "friend-watched" ? (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {item.title.mediaType ?? "title"}
+            </p>
+            {item.kind === "friend-rating" ||
+            item.kind === "friend-review" ||
+            item.kind === "friend-watched" ? (
               typeof (item as any).rating === "number" ? (
                 <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-yellow-400">
                   <MaterialIcon name="star" filled className="text-[14px]" ariaLabel="Rating" />
@@ -325,7 +308,10 @@ const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
             type="button"
             className="group inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
           >
-            <MaterialIcon name="thumb_up" className="text-[18px] transition-transform group-hover:scale-110" />
+            <MaterialIcon
+              name="thumb_up"
+              className="text-[18px] transition-transform group-hover:scale-110"
+            />
             <span>Like</span>
           </button>
           <button
@@ -408,12 +394,7 @@ const HomePage: React.FC = () => {
   });
 
   const heroCard = React.useMemo(() => {
-    return (
-      combinedDeck?.cards?.[0] ??
-      forYouDeck?.cards?.[0] ??
-      trendingDeck?.cards?.[0] ??
-      null
-    );
+    return combinedDeck?.cards?.[0] ?? forYouDeck?.cards?.[0] ?? trendingDeck?.cards?.[0] ?? null;
   }, [combinedDeck?.cards, forYouDeck?.cards, trendingDeck?.cards]);
 
   const heroPoster = React.useMemo(() => cardToPosterItem(heroCard), [heroCard]);
@@ -451,7 +432,7 @@ const HomePage: React.FC = () => {
       ? tmdbImageUrl(heroCard.tmdbPosterPath, "w780")
       : null;
     return fromDetails ?? fromDeckBackdrop ?? fromDeckPoster ?? heroPoster?.imageUrl ?? null;
-  }, [heroDetails?.tmdb_backdrop_path, heroCard?.tmdbBackdropPath, heroCard?.tmdbPosterPath, heroPoster?.imageUrl]);
+  }, [heroDetails?.tmdb_backdrop_path, heroCard, heroPoster?.imageUrl]);
 
   const { data: recentWatchedId } = useQuery({
     queryKey: ["home-v2", "recent-watched", userId],
@@ -498,9 +479,7 @@ const HomePage: React.FC = () => {
     ];
 
     return (
-      candidates
-        .map((v) => (typeof v === "string" ? v.trim() : ""))
-        .find((v) => Boolean(v)) ?? null
+      candidates.map((v) => (typeof v === "string" ? v.trim() : "")).find((v) => Boolean(v)) ?? null
     );
   }, [seedItem, heroPoster?.title]);
 
@@ -611,7 +590,10 @@ const HomePage: React.FC = () => {
 
           {isStoriesLoading ? (
             Array.from({ length: 5 }).map((_, idx) => (
-              <div key={`story-skel-${idx}`} className="flex min-w-[72px] flex-col items-center gap-2">
+              <div
+                key={`story-skel-${idx}`}
+                className="flex min-w-[72px] flex-col items-center gap-2"
+              >
                 <div className="h-16 w-16 animate-pulse rounded-full bg-muted" />
                 <div className="h-3 w-16 animate-pulse rounded bg-muted" />
               </div>
@@ -619,11 +601,7 @@ const HomePage: React.FC = () => {
           ) : storyItems.length ? (
             storyItems.map((s) => {
               const label = s.displayName || s.username || s.listName || "Story";
-              const to = s.listId
-                ? `/lists/${s.listId}`
-                : s.username
-                  ? `/u/${s.username}`
-                  : "/me";
+              const to = s.listId ? `/lists/${s.listId}` : s.username ? `/u/${s.username}` : "/me";
 
               return (
                 <button
@@ -663,11 +641,7 @@ const HomePage: React.FC = () => {
         <div className="group relative overflow-hidden rounded-3xl bg-card shadow-lg">
           <div
             className="absolute inset-0 bg-cover bg-center"
-            style={
-              heroBackdropUrl
-                ? { backgroundImage: `url(${heroBackdropUrl})` }
-                : undefined
-            }
+            style={heroBackdropUrl ? { backgroundImage: `url(${heroBackdropUrl})` } : undefined}
             aria-hidden
           />
           {!heroBackdropUrl ? (
@@ -688,7 +662,9 @@ const HomePage: React.FC = () => {
             </div>
 
             <h2 className="mb-2 text-3xl font-bold leading-tight tracking-tight text-white">
-              {userId && !heroPoster?.title && (isCombinedLoading || isForYouLoading || isTrendingLoading) ? (
+              {userId &&
+              !heroPoster?.title &&
+              (isCombinedLoading || isForYouLoading || isTrendingLoading) ? (
                 <span className="block h-10 w-2/3 animate-pulse rounded bg-white/15" />
               ) : heroPoster?.title ? (
                 heroPoster.title
@@ -743,7 +719,9 @@ const HomePage: React.FC = () => {
         <div className="px-4">
           {trendingError ? (
             <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-              {(trendingError as any)?.message ? String((trendingError as any).message) : "Couldn't load trending titles."}
+              {(trendingError as any)?.message
+                ? String((trendingError as any).message)
+                : "Couldn't load trending titles."}
             </div>
           ) : isTrendingLoading ? (
             <div className="aspect-[2/3] w-full animate-pulse rounded-3xl bg-muted" />
@@ -780,7 +758,9 @@ const HomePage: React.FC = () => {
       {/* Friends' Activity */}
 
       <section className="px-4">
-        <h2 className="pb-2 text-xl font-bold tracking-tight text-foreground">Friends&apos; Activity</h2>
+        <h2 className="pb-2 text-xl font-bold tracking-tight text-foreground">
+          Friends&apos; Activity
+        </h2>
 
         {feedError ? (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
@@ -798,7 +778,8 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-            Your friends’ activity will show up here once they start rating, reviewing, or marking titles watched.
+            Your friends’ activity will show up here once they start rating, reviewing, or marking
+            titles watched.
           </div>
         )}
       </section>

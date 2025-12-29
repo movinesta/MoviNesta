@@ -271,34 +271,34 @@ export const ConversationComposerBar: React.FC<Props> = ({
 
       <div className="flex w-full items-center gap-2">
         <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Add emoji"
-            className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Add emoji"
+              className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+            >
+              <Smile className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="start"
+            className="rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur"
           >
-            <Smile className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          side="top"
-          align="start"
-          className="rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur"
-        >
-          <ScrollArea className="max-h-64">
-            <div className="grid grid-cols-9 gap-2">
-              {EMOJI_SET.map((emoji) => (
-                <Button
-                  key={emoji}
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl text-lg transition hover:bg-muted/60"
-                  onClick={() => {
-                    handleEmojiSelect(emoji);
-                    setShowEmojiPicker(false);
+            <ScrollArea className="max-h-64">
+              <div className="grid grid-cols-9 gap-2">
+                {EMOJI_SET.map((emoji) => (
+                  <Button
+                    key={emoji}
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-xl text-lg transition hover:bg-muted/60"
+                    onClick={() => {
+                      handleEmojiSelect(emoji);
+                      setShowEmojiPicker(false);
                     }}
                   >
                     <span>{emoji}</span>

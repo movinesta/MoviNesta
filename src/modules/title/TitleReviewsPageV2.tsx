@@ -54,7 +54,9 @@ type ReactionRow = {
 
 function compactNumber(n: number) {
   try {
-    return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(n);
+    return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(
+      n,
+    );
   } catch {
     return String(n);
   }
@@ -282,14 +284,16 @@ function ReviewComposer({
       }
 
       const rating0_10 = starsToRating0_10(ratingStars);
+      if (rating0_10 == null) {
+        throw new Error("INVALID_RATING");
+      }
       const sessionId = getOrCreateMediaSwipeSessionId();
 
       const tasks: Promise<unknown>[] = [];
 
       tasks.push(
-        supabase
-          .from("reviews")
-          .insert({
+        Promise.resolve(
+          supabase.from("reviews").insert({
             user_id: user.id,
             title_id: titleId,
             content_type: contentType,
@@ -297,17 +301,16 @@ function ReviewComposer({
             headline: headline.trim() || null,
             body: body.trim() || null,
             spoiler,
-          })
-          .then(({ error: e }) => {
-            if (e) throw e;
           }),
+        ).then(({ error: e }) => {
+          if (e) throw e;
+        }),
       );
 
       // Keep ratings table (and recommendation feedback) in sync.
       tasks.push(
-        supabase
-          .from("ratings")
-          .upsert(
+        Promise.resolve(
+          supabase.from("ratings").upsert(
             {
               user_id: user.id,
               title_id: titleId,
@@ -315,10 +318,10 @@ function ReviewComposer({
               rating: rating0_10,
             },
             { onConflict: "user_id,title_id" },
-          )
-          .then(({ error: e }) => {
-            if (e) throw e;
-          }),
+          ),
+        ).then(({ error: e }) => {
+          if (e) throw e;
+        }),
       );
 
       tasks.push(
@@ -450,7 +453,9 @@ export default function TitleReviewsPageV2() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("media_items")
-        .select("id,kind,tmdb_title,tmdb_name,omdb_title,tmdb_release_date,tmdb_first_air_date,tmdb_genres,omdb_genre")
+        .select(
+          "id,kind,tmdb_title,tmdb_name,omdb_title,tmdb_release_date,tmdb_first_air_date,tmdb_genres,omdb_genre",
+        )
         .eq("id", titleId)
         .maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
@@ -470,7 +475,7 @@ export default function TitleReviewsPageV2() {
     },
   });
 
-    const contentType: "movie" | "series" | "anime" = (() => {
+  const contentType: "movie" | "series" | "anime" = (() => {
     const kind = (titleQuery.data as any)?.kind as string | null | undefined;
     if (kind === "anime") return "anime";
     if (kind === "movie") return "movie";
@@ -478,7 +483,7 @@ export default function TitleReviewsPageV2() {
     return "series";
   })();
 
-const titleName = pickTitle(
+  const titleName = pickTitle(
     titleQuery.data?.tmdb_title,
     titleQuery.data?.tmdb_name,
     titleQuery.data?.omdb_title,
@@ -507,7 +512,9 @@ const titleName = pickTitle(
     enabled: canUseId,
     staleTime: 1000 * 60,
     queryFn: async (): Promise<RatingSummary | null> => {
-      const { data, error } = await supabase.rpc("get_title_rating_summary_v1", { p_title_id: titleId });
+      const { data, error } = await supabase.rpc("get_title_rating_summary_v1", {
+        p_title_id: titleId,
+      });
       if (error) {
         console.warn("[TitleReviewsPageV2] rating summary RPC error", error.message);
         return null;
@@ -518,7 +525,8 @@ const titleName = pickTitle(
         title_id: String(row.title_id ?? titleId),
         reviews_count: Number(row.reviews_count ?? 0),
         ratings_count: Number(row.ratings_count ?? 0),
-        average_rating_0_10: row.average_rating_0_10 == null ? null : Number(row.average_rating_0_10),
+        average_rating_0_10:
+          row.average_rating_0_10 == null ? null : Number(row.average_rating_0_10),
         average_rating_0_5: row.average_rating_0_5 == null ? null : Number(row.average_rating_0_5),
         stars_5: Number(row.stars_5 ?? 0),
         stars_4: Number(row.stars_4 ?? 0),
@@ -548,9 +556,13 @@ const titleName = pickTitle(
       if (sort === "recent") {
         q = q.order("created_at", { ascending: false });
       } else if (sort === "top") {
-        q = q.order("rating", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false });
+        q = q
+          .order("rating", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false });
       } else {
-        q = q.order("rating", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
+        q = q
+          .order("rating", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false });
       }
 
       const { data, error, count } = await q.range(from, to);
@@ -607,8 +619,11 @@ const titleName = pickTitle(
 
     for (const p of pages as any[]) {
       for (const r of p.rows as ReviewRow[]) reviews.push(r);
-      for (const [k, v] of (p.profilesById as Map<string, ProfilePublicRow>).entries()) profiles.set(k, v);
-      for (const [k, v] of (p.reactionsByReview as Map<string, { up: number; down: number }>).entries())
+      for (const [k, v] of (p.profilesById as Map<string, ProfilePublicRow>).entries())
+        profiles.set(k, v);
+      for (const [k, v] of (
+        p.reactionsByReview as Map<string, { up: number; down: number }>
+      ).entries())
         reactions.set(k, v);
       totalCount = Math.max(totalCount, Number(p.totalCount ?? 0));
     }
@@ -673,39 +688,55 @@ const titleName = pickTitle(
       <div className="px-4 pt-6">
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex min-w-[100px] flex-col items-center justify-center gap-1">
-            <p className="text-5xl font-black leading-none tracking-tight text-white">{displayAvg}</p>
+            <p className="text-5xl font-black leading-none tracking-tight text-white">
+              {displayAvg}
+            </p>
             <div className="mt-1">
-              {avgStars != null ? <RatingStars rating={avgStars} size={14} /> : <Skeleton className="h-4 w-24" />}
+              {avgStars != null ? (
+                <RatingStars rating={avgStars} size={14} />
+              ) : (
+                <Skeleton className="h-4 w-24" />
+              )}
             </div>
             <p className="mt-2 text-xs text-white/50">
-              {summaryQuery.isLoading ? "Loading…" : displayCount ? `${compactNumber(displayCount)} verified ratings` : "No ratings yet"}
+              {summaryQuery.isLoading
+                ? "Loading…"
+                : displayCount
+                  ? `${compactNumber(displayCount)} verified ratings`
+                  : "No ratings yet"}
             </p>
           </div>
 
           <div className="min-w-[200px] flex-1">
-            {summaryQuery.data ? <StarsHistogram summary={summaryQuery.data} /> : <Skeleton className="h-24 w-full" />}
+            {summaryQuery.data ? (
+              <StarsHistogram summary={summaryQuery.data} />
+            ) : (
+              <Skeleton className="h-24 w-full" />
+            )}
           </div>
         </div>
 
         <div className="mt-6 overflow-x-auto pb-2">
           <div className="flex gap-2 pr-2">
-            {[{ k: "recent", label: "Most Recent" }, { k: "top", label: "Highest Rated" }, { k: "critical", label: "Critical" }].map(
-              (t) => (
-                <button
-                  key={t.k}
-                  type="button"
-                  onClick={() => setSort(t.k as any)}
-                  className={
-                    "flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-xs font-semibold transition " +
-                    (sort === t.k
-                      ? "border-primary bg-primary text-white"
-                      : "border-white/10 bg-white/10 text-white/70 hover:bg-white/20")
-                  }
-                >
-                  {t.label}
-                </button>
-              ),
-            )}
+            {[
+              { k: "recent", label: "Most Recent" },
+              { k: "top", label: "Highest Rated" },
+              { k: "critical", label: "Critical" },
+            ].map((t) => (
+              <button
+                key={t.k}
+                type="button"
+                onClick={() => setSort(t.k as any)}
+                className={
+                  "flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-xs font-semibold transition " +
+                  (sort === t.k
+                    ? "border-primary bg-primary text-white"
+                    : "border-white/10 bg-white/10 text-white/70 hover:bg-white/20")
+                }
+              >
+                {t.label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() => setIncludeSpoilers((prev) => !prev)}
@@ -775,7 +806,13 @@ const titleName = pickTitle(
         </Button>
       </div>
 
-      <ReviewComposer open={composerOpen} onOpenChange={setComposerOpen} titleName={titleName} titleId={titleId} contentType={contentType} />
+      <ReviewComposer
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        titleName={titleName}
+        titleId={titleId}
+        contentType={contentType}
+      />
 
       {/* Small link back to title page (keeps navigation feel) */}
       <div className="sr-only">

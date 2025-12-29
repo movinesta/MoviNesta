@@ -33,6 +33,13 @@ interface CreateDirectConversationResponse {
   code?: string;
 }
 
+type ProfileList = {
+  id: string;
+  name: string;
+  description: string | null;
+  is_public: boolean;
+};
+
 const formatHandle = (username: string | null | undefined) => {
   if (!username) return null;
   return username.startsWith("@") ? username : `@${username}`;
@@ -57,7 +64,6 @@ const formatCount = (value: number) => {
 const safeShare = async (title: string, url: string) => {
   try {
     if (typeof navigator !== "undefined" && "share" in navigator) {
-      // @ts-expect-error - share exists in supported browsers
       await navigator.share({ title, url });
       return;
     }
@@ -123,7 +129,7 @@ function SuggestedPersonCard({
   avatarUrl: string | null;
   matchPercent?: number;
   isFollowing: boolean;
-  onFollow: (userId: string) => void;
+  onFollow: (userId: string, currentlyFollowing: boolean) => void;
   onOpen: (username: string | null) => void;
 }) {
   const subtitle =
@@ -161,7 +167,7 @@ function SuggestedPersonCard({
       </button>
       <Button
         type="button"
-        onClick={() => onFollow(id)}
+        onClick={() => onFollow(id, isFollowing)}
         className={cn(
           "mt-3 h-8 w-full rounded-full text-xs font-bold",
           isFollowing ? "bg-white/10 hover:bg-white/20" : "bg-primary hover:bg-primary/80",
@@ -233,11 +239,11 @@ const ProfilePage: React.FC = () => {
   const { data: suggested = [] } = useSuggestedPeople();
   const suggestedPreview = suggested.slice(0, 10);
 
-  const { data: lists = [], isLoading: listsLoading } = useQuery({
+  const { data: lists = [], isLoading: listsLoading } = useQuery<ProfileList[]>({
     queryKey: ["profile", "lists", profile?.id ?? null, isOwner],
     enabled: Boolean(profile?.id),
     queryFn: async () => {
-      if (!profile?.id) return [] as { id: string; name: string; description: string | null; is_public: boolean }[];
+      if (!profile?.id) return [];
       let query = supabase
         .from("lists")
         .select("id, name, description, is_public, updated_at")
@@ -249,7 +255,7 @@ const ProfilePage: React.FC = () => {
       }
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return (data ?? []) as any;
+      return (data ?? []) as ProfileList[];
     },
   });
 
@@ -462,9 +468,9 @@ const ProfilePage: React.FC = () => {
     },
   });
 
-  const onFollow = async (targetUserId: string) => {
+  const onFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
     if (!profile?.id) return;
-    await toggleFollow.mutateAsync(targetUserId);
+    await toggleFollow.mutateAsync({ targetUserId, currentlyFollowing });
     queryClient.invalidateQueries({ queryKey: ["suggested-people", user?.id ?? null] });
   };
 
@@ -491,12 +497,7 @@ const ProfilePage: React.FC = () => {
           <p className="mt-1 text-xs text-muted-foreground">
             {error?.message ?? "Please try again in a moment."}
           </p>
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-4"
-            onClick={() => navigate(-1)}
-          >
+          <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate(-1)}>
             Go back
           </Button>
         </div>
@@ -612,9 +613,17 @@ const ProfilePage: React.FC = () => {
                     )}
                     disabled={toggleFollow.isPending}
                     onClick={async () => {
-                      await toggleFollow.mutateAsync(profile.id);
+                      await toggleFollow.mutateAsync({
+                        targetUserId: profile.id,
+                        currentlyFollowing: profile.isFollowing,
+                      });
                       await queryClient.invalidateQueries({
-                        queryKey: ["profile", "byUsername", profile.username ?? "", user?.id ?? null],
+                        queryKey: [
+                          "profile",
+                          "byUsername",
+                          profile.username ?? "",
+                          user?.id ?? null,
+                        ],
                       });
                     }}
                   >
@@ -748,7 +757,9 @@ const ProfilePage: React.FC = () => {
                 onClick={() => setTab(t.id)}
                 className={cn(
                   "relative shrink-0 py-4 text-sm transition-colors",
-                  active ? "font-bold text-white" : "font-medium text-muted-foreground hover:text-white",
+                  active
+                    ? "font-bold text-white"
+                    : "font-medium text-muted-foreground hover:text-white",
                 )}
               >
                 {t.label}
@@ -825,40 +836,41 @@ const ProfilePage: React.FC = () => {
 
         {tab === "lists" ? (
           <div className="grid grid-cols-2 gap-3">
-            {listsLoading ? null :
-              lists.map((list) => {
-                const cover = listCovers.get(list.id) ?? null;
-                return (
-                  <button
-                    type="button"
-                    key={list.id}
-                    onClick={() => navigate(`/lists/${list.id}`)}
-                    className="group relative overflow-hidden rounded-2xl border border-white/5 bg-card text-left"
-                  >
-                    {cover ? (
-                      <img
-                        src={cover}
-                        alt={list.name}
-                        className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform duration-300 group-hover:scale-[1.02]"
-                        loading="lazy"
-                      />
-                    ) : null}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
-                    <div className="relative p-4">
-                      <p className="text-sm font-bold text-white">{list.name}</p>
-                      {list.description ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                          {list.description}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {list.is_public ? "Public list" : "Private list"}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+            {listsLoading
+              ? null
+              : lists.map((list) => {
+                  const cover = listCovers.get(list.id) ?? null;
+                  return (
+                    <button
+                      type="button"
+                      key={list.id}
+                      onClick={() => navigate(`/lists/${list.id}`)}
+                      className="group relative overflow-hidden rounded-2xl border border-white/5 bg-card text-left"
+                    >
+                      {cover ? (
+                        <img
+                          src={cover}
+                          alt={list.name}
+                          className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform duration-300 group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      ) : null}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
+                      <div className="relative p-4">
+                        <p className="text-sm font-bold text-white">{list.name}</p>
+                        {list.description ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {list.description}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {list.is_public ? "Public list" : "Private list"}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
 
             {!listsLoading && lists.length === 0 ? (
               <div className="col-span-2 rounded-2xl border border-white/5 bg-card p-5 text-center text-xs text-muted-foreground">
@@ -944,13 +956,20 @@ const ProfilePage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Create a list</DialogTitle>
             <DialogDescription>
-              Start a curated collection you can share later. You can add titles from any title page.
+              Start a curated collection you can share later. You can add titles from any title
+              page.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Name</label>
+              <label
+                htmlFor="create-list-name"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Name
+              </label>
               <Input
+                id="create-list-name"
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 placeholder="e.g. Cozy Sci‑Fi"
@@ -958,8 +977,14 @@ const ProfilePage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Description (optional)</label>
+              <label
+                htmlFor="create-list-description"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Description (optional)
+              </label>
               <Input
+                id="create-list-description"
                 value={newListDescription}
                 onChange={(e) => setNewListDescription(e.target.value)}
                 placeholder="Why this list exists…"

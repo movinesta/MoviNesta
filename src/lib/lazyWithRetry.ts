@@ -1,4 +1,8 @@
-import { safeSessionStorageGetItem, safeSessionStorageRemoveItem, safeSessionStorageSetItem } from "@/lib/storage";
+import {
+  safeSessionStorageGetItem,
+  safeSessionStorageRemoveItem,
+  safeSessionStorageSetItem,
+} from "@/lib/storage";
 import React from "react";
 
 const RETRY_FLAG = "movinesta:lazy-retry";
