@@ -18,7 +18,7 @@ const ConversationListRow: React.FC<{ conversation: ConversationListItem }> = ({
     <li className="py-1">
       <Link
         to={`/messages/${conversation.id}`}
-        className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-slate-100 dark:hover:bg-white/5"
+        className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-white/50 dark:hover:bg-white/5"
       >
         <div className="relative shrink-0">
           {isGroup && participantCount > 1 ? (
@@ -176,7 +176,7 @@ const MessagesPage: React.FC = () => {
           />
         </div>
 
-        <div className="-mx-4 flex space-x-4 overflow-x-auto pb-4 pl-4 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-4 flex space-x-4 overflow-x-auto border-b border-slate-200/50 pb-4 pl-4 pr-4 [scrollbar-width:none] dark:border-white/5 [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
             onClick={handleNewConversation}
