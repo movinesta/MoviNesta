@@ -174,7 +174,12 @@ const NewMessagePage: React.FC = () => {
         </div>
 
         <div className="pt-4">
-          <div className="group/item flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/60">
+          <button
+            type="button"
+            disabled
+            className="group/item flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Create a new group (coming soon)"
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
                 <MaterialIcon name="group_add" className="text-[24px]" />
@@ -182,10 +187,13 @@ const NewMessagePage: React.FC = () => {
               <div>
                 <p className="text-base font-medium">Create a new group</p>
                 <p className="text-sm text-muted-foreground">Start a watch party</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Coming soon
+                </p>
               </div>
             </div>
             <MaterialIcon name="chevron_right" className="text-[24px] text-muted-foreground" />
-          </div>
+          </button>
         </div>
 
         <div className="px-4 pb-2 pt-4">

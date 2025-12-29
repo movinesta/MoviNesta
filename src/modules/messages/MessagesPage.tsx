@@ -100,7 +100,10 @@ const MessagesPage: React.FC = () => {
   );
 
   const storyParticipants = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; avatarUrl: string | null }>();
+    const map = new Map<
+      string,
+      { id: string; name: string; avatarUrl: string | null; conversationId: string }
+    >();
 
     (data ?? []).forEach((conversation) => {
       conversation.participants
@@ -111,6 +114,7 @@ const MessagesPage: React.FC = () => {
               id: participant.id,
               name: participant.displayName,
               avatarUrl: participant.avatarUrl,
+              conversationId: conversation.id,
             });
           }
         });
@@ -189,6 +193,7 @@ const MessagesPage: React.FC = () => {
               key={participant.id}
               type="button"
               className="flex shrink-0 flex-col items-center gap-1"
+              onClick={() => navigate(`/messages/${participant.conversationId}`)}
             >
               <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-primary/50">
                 {participant.avatarUrl ? (
