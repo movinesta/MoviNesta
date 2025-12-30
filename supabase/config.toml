@@ -1,0 +1,20 @@
+[functions.catalog-backfill]
+verify_jwt = false
+
+[functions.catalog-sync]
+verify_jwt = true
+
+[functions.media-swipe-deck]
+verify_jwt = true
+
+[functions.media-swipe-event]
+verify_jwt = true
+
+[functions.media-embed-backfill]
+verify_jwt = false
+
+[functions.media-trending-refresh]
+verify_jwt = false
+
+[functions.media-smart-backfill]
+verify_jwt = false
