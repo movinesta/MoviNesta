@@ -125,7 +125,9 @@ export const reconcileSentMessage = (
 export const upsertMessageRowIntoPages = (
   existing: MessagesInfiniteData | undefined,
   row: MessageRow,
+  options?: { allowAppend?: boolean },
 ): MessagesInfiniteData => {
+  const allowAppend = options?.allowAppend ?? true;
   const incomingMsg = mapMessageRowToConversationMessage(row);
   const clientId = getMessageClientId(incomingMsg.body);
 
@@ -155,9 +157,11 @@ export const upsertMessageRowIntoPages = (
     }
   }
 
-  // 3) Otherwise, append to the newest page.
-  const last = pages[pages.length - 1];
-  last.items = stableSortMessages([...(last.items ?? []), incomingMsg]);
+  // 3) Otherwise, append to the newest page (insert-only behavior).
+  if (allowAppend) {
+    const last = pages[pages.length - 1];
+    last.items = stableSortMessages([...(last.items ?? []), incomingMsg]);
+  }
 
   return { ...base, pages };
 };

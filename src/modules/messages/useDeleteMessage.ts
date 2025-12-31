@@ -7,6 +7,8 @@ import { conversationMessagesQueryKey, conversationsQueryKey } from "./queryKeys
 import { replaceMessageById } from "./conversationMessagesCache";
 import { removeChatMediaFile } from "./chatMediaStorage";
 import { MESSAGE_SELECT } from "./messageSelect";
+import { parseMessageBody } from "./messageText";
+import type { Json } from "@/types/supabase";
 
 /**
  * Soft-delete a message: replaces body with a system payload and clears attachment_url.
@@ -36,11 +38,16 @@ export const useDeleteMessage = (conversationId: string | null) => {
       };
 
       const nextBody = JSON.stringify(bodyPayload);
+      const parsed = parseMessageBody(nextBody);
 
       const { data, error } = await supabase
         .from("messages")
         .update({
           body: nextBody,
+          message_type: "system",
+          text: parsed.text.trim() ? parsed.text : null,
+          client_id: parsed.clientId ?? null,
+          meta: (parsed.meta ?? null) as Json,
           attachment_url: null,
         })
         .eq("id", messageId)

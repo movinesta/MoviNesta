@@ -118,17 +118,13 @@ describe("useSendMessage", () => {
     const { wrapper, client } = createWrapper();
 
     // Make the insert fail.
-    mockSupabase.messageBuilder.single.mockImplementationOnce(async () => ({
-      data: {
-        id: "mock-id",
-        conversation_id: "c1",
-        user_id: "u1",
-        body: JSON.stringify({ text: "hi" }),
-        attachment_url: null,
-        created_at: new Date().toISOString(),
-      },
-      error: null,
-    }));
+    mockSupabase.messageBuilder.single.mockImplementationOnce(
+      async () =>
+        ({
+          data: null,
+          error: { message: "Insert failed" },
+        }) as any,
+    );
 
     const { result } = renderHook(() => useSendMessage("conv-1", { otherUserId: "other" }), {
       wrapper,

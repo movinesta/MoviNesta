@@ -97,7 +97,8 @@ const ConversationListRow: React.FC<{
     fired: boolean;
   }>({ timeoutId: null, fired: false });
 
-  const startLongPress = () => {
+  const startLongPress = (event: React.PointerEvent) => {
+    if (event.pointerType && event.pointerType !== "touch") return;
     longPressRef.current.fired = false;
     if (longPressRef.current.timeoutId != null) {
       window.clearTimeout(longPressRef.current.timeoutId);

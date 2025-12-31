@@ -33,6 +33,37 @@ const getSafeImageExtension = (file: File) => {
   return null;
 };
 
+const validateImageFile = (file: File) => {
+  if (file.type) {
+    if (!file.type.startsWith("image/")) {
+      return { ok: false, error: "Please choose an image file." } as const;
+    }
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+      return {
+        ok: false,
+        error:
+          "Unsupported image format. Please choose a JPG, PNG, WebP, GIF, HEIC/HEIF, or AVIF image.",
+      } as const;
+    }
+  } else {
+    const ext = getSafeImageExtension(file);
+    if (!ext) {
+      return {
+        ok: false,
+        error:
+          "Unsupported image format. Please choose a JPG, PNG, WebP, GIF, HEIC/HEIF, or AVIF image.",
+      } as const;
+    }
+  }
+
+  if (file.size > MAX_IMAGE_BYTES) {
+    return { ok: false, error: "That image is too large (max 10MB). Try a smaller file." } as const;
+  }
+
+  return { ok: true } as const;
+};
+
 const buildAttachmentPath = (conversationId: string, userId: string, ext: string) => {
   const randomId = createClientId(() => String(Date.now()));
   return `message_attachments/${conversationId}/${userId}/${Date.now()}-${randomId}.${ext}`;
@@ -81,6 +112,11 @@ export function useAttachmentUpload(args: {
       if (isBlocked || blockedYou) return;
 
       setUploadError(null);
+      const validation = validateImageFile(file);
+      if (!validation.ok) {
+        setUploadError(validation.error);
+        return;
+      }
       // Create a best-effort cancel token. If the user cancels, we stop updating UI and skip sending.
       const token = (uploadTokenRef.current += 1);
       setIsUploadingImage(true);
@@ -157,34 +193,6 @@ export function useAttachmentUpload(args: {
       if (!file || !conversationId || !userId) return;
       if (isUploadingImage) return;
       if (isBlocked || blockedYou) return;
-
-      // Some browsers can omit file.type for certain formats; in that case, fall back to extension.
-      if (file.type) {
-        if (!file.type.startsWith("image/")) {
-          setUploadError("Please choose an image file.");
-          return;
-        }
-
-        if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
-          setUploadError(
-            "Unsupported image format. Please choose a JPG, PNG, WebP, GIF, HEIC/HEIF, or AVIF image.",
-          );
-          return;
-        }
-      } else {
-        const ext = getSafeImageExtension(file);
-        if (!ext) {
-          setUploadError(
-            "Unsupported image format. Please choose a JPG, PNG, WebP, GIF, HEIC/HEIF, or AVIF image.",
-          );
-          return;
-        }
-      }
-
-      if (file.size > MAX_IMAGE_BYTES) {
-        setUploadError("That image is too large (max 10MB). Try a smaller file.");
-        return;
-      }
 
       await sendImageFile(file);
     },

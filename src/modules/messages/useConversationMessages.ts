@@ -154,7 +154,7 @@ export const useConversationMessages = (
       const mapped = mapMessageRowToConversationMessage(row);
 
       queryClient.setQueryData<InfiniteData<ConversationMessagesPage>>(queryKey, (existing) =>
-        upsertMessageRowIntoPages(existing, row),
+        upsertMessageRowIntoPages(existing, row, { allowAppend: kind === "insert" }),
       );
 
       if (kind === "insert") {
