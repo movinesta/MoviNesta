@@ -305,17 +305,27 @@ export async function fetchMediaSwipeDeck(
     return res.data as any;
   };
 
-  let data = await invoke(body);
+  let data: any;
+  let attempts = 0;
+  let payload: FetchMediaSwipeDeckInput = body;
 
-  // If the server rejects the session id (e.g. legacy format), rotate it once and retry.
+  while (attempts < 2) {
+    data = await invoke(payload);
+    if (data?.ok === false && data?.code === "INVALID_SESSION") {
+      const freshSessionId = resetMediaSwipeSessionId();
+      payload = {
+        ...body,
+        sessionId: freshSessionId,
+        seed: getOrCreateSwipeDeckSeedForMode(freshSessionId, body.mode, body.kindFilter),
+      };
+      attempts += 1;
+      continue;
+    }
+    break;
+  }
+
   if (data?.ok === false && data?.code === "INVALID_SESSION") {
-    const freshSessionId = resetMediaSwipeSessionId();
-    const freshBody: FetchMediaSwipeDeckInput = {
-      ...body,
-      sessionId: freshSessionId,
-      seed: getOrCreateSwipeDeckSeedForMode(freshSessionId, body.mode, body.kindFilter),
-    };
-    data = await invoke(freshBody);
+    throw new Error("Your swipe session expired. Please refresh and try again.");
   }
 
   // Backwards-compatible: older servers returned { deckId, cards } without { ok }.
@@ -323,9 +333,9 @@ export async function fetchMediaSwipeDeck(
     throw new Error(data?.message || data?.code || "media-swipe-deck failed");
   }
 
-  const payload = data?.ok === true ? data : data;
-  const deckId = payload?.deckId;
-  const cards = payload?.cards;
+  const response = data?.ok === true ? data : data;
+  const deckId = response?.deckId;
+  const cards = response?.cards;
 
   if (!deckId || !Array.isArray(cards)) {
     throw new Error("Invalid media-swipe-deck response");

@@ -17,6 +17,7 @@
  */
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { handleCorsPreflight, jsonWithCors } from "../_shared/cors.ts";
 
@@ -114,6 +115,22 @@ function parseOmdbPercent(value: unknown): number | null {
 
 type Mode = "for_you" | "friends" | "trending" | "combined";
 type Kind = "movie" | "series" | "anime";
+
+const RequestSchema = z
+  .object({
+    sessionId: z.string(),
+    mode: z.enum(["for_you", "friends", "trending", "combined"]).optional(),
+    limit: z.number().int().min(1).max(120).optional(),
+    kindFilter: z.enum(["movie", "series", "anime"]).nullable().optional(),
+    seed: z.string().optional(),
+    minImdbRating: z.number().min(0).max(10).optional(),
+    genresAny: z.union([z.array(z.string()), z.string()]).optional(),
+    skipRerank: z.boolean().optional(),
+    forceForYou: z.boolean().optional(),
+    rerank: z.boolean().optional(),
+    rerankQuery: z.string().optional(),
+  })
+  .passthrough();
 
 type RerankRequest = {
   rerank?: boolean;
@@ -542,20 +559,26 @@ serve(async (req) => {
     const { data: auth, error: authErr } = await supabase.auth.getUser();
     if (authErr || !auth?.user) return json(req, 401, { ok: false, code: "UNAUTHORIZED" });
 
-    const body = await req.json().catch(() => null);
-    if (!body) return json(req, 400, { ok: false, code: "BAD_JSON" });
+    const rawBody = await req.json().catch(() => null);
+    if (!rawBody) return json(req, 400, { ok: false, code: "BAD_JSON" });
 
-    const requestedModeRaw = body.mode ?? "for_you";
-    const requestedMode = (typeof requestedModeRaw === "string" ? requestedModeRaw : "for_you") as Mode;
+    const parsed = RequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return json(req, 400, { ok: false, code: "BAD_INPUT", message: "Invalid request body" });
+    }
+    const body = parsed.data;
+
+    const requestedMode = (body.mode ?? "for_you") as Mode;
     const limit = Math.min(Math.max(Number(body.limit ?? 60) || 60, 1), 120);
-    const kindFilterRaw = body.kindFilter ?? null;
-    const kindFilter = (typeof kindFilterRaw === "string" ? kindFilterRaw : null) as Kind | null;
+    const kindFilter = (body.kindFilter ?? null) as Kind | null;
 
     // Optional server-side filters (best-effort; if missing fields we keep items)
-    const minImdbRaw = (body as any).minImdbRating;
-    const minImdbRating = Number.isFinite(Number(minImdbRaw)) ? clamp(Number(minImdbRaw), 0, 10) : null;
+    const minImdbRaw = body.minImdbRating;
+    const minImdbRating = Number.isFinite(Number(minImdbRaw))
+      ? clamp(Number(minImdbRaw), 0, 10)
+      : null;
 
-    const genresAnyRaw = (body as any).genresAny;
+    const genresAnyRaw = body.genresAny;
     let genresAny: string[] | null = null;
     if (Array.isArray(genresAnyRaw)) {
       const cleaned = genresAnyRaw
@@ -583,7 +606,7 @@ serve(async (req) => {
     // deck so the user sees quality content immediately.
     let mode: Mode = requestedMode;
     let seed = explicitSeed || randomUuid();
-    if (requestedMode === "for_you" && !Boolean((body as any)?.forceForYou)) {
+    if (requestedMode === "for_you" && !Boolean(body?.forceForYou)) {
       const nStrong = await countStrongPosSignals(supabase, auth.user.id);
       if (nStrong < 3) {
         mode = "combined";
@@ -637,7 +660,7 @@ serve(async (req) => {
     const settingsClient = svc ?? supabase;
     const cacheClient = supabase;
     const settings = await loadEmbeddingSettings(settingsClient);
-    const skipRerank = Boolean((body as any)?.skipRerank);
+    const skipRerank = Boolean(body?.skipRerank);
     const rerankEnabled = Boolean(settings?.rerank_swipe_enabled) && !skipRerank;
     const rerankTopKMax = clamp(Number(settings?.rerank_top_k ?? 50), 5, 200);
 

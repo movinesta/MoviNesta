@@ -4,6 +4,7 @@
 // Schema source of truth: schema_full_20251224_004751.sql
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import type { Database } from "../../../src/types/supabase.ts";
@@ -37,6 +38,27 @@ type SyncRequest = {
   contentType?: "movie" | "series" | null;
   options?: SyncOptions | null;
 };
+
+const SyncRequestSchema = z.object({
+  external: z
+    .object({
+      tmdbId: z.number().int().positive().nullable().optional(),
+      imdbId: z.string().nullable().optional(),
+      type: z.enum(["movie", "tv", "series"]).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+  tmdbId: z.number().int().positive().nullable().optional(),
+  imdbId: z.string().nullable().optional(),
+  contentType: z.enum(["movie", "series"]).nullable().optional(),
+  options: z
+    .object({
+      syncOmdb: z.boolean().optional(),
+      forceRefresh: z.boolean().optional(),
+    })
+    .nullable()
+    .optional(),
+});
 
 type SyncResponse = {
   ok: true;
@@ -245,7 +267,7 @@ export async function handler(req: Request) {
 
   const { data, errorResponse } = await validateRequest<SyncRequest>(
     req,
-    (body: unknown) => body as SyncRequest,
+    (body: unknown) => SyncRequestSchema.parse(body ?? {}),
     { logPrefix: `[${FN_NAME}]`, requireJson: true },
   );
   if (errorResponse) return errorResponse;

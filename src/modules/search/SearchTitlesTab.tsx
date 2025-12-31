@@ -1,13 +1,14 @@
 // src/modules/search/SearchTitlesTab.tsx
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { BookmarkCheck, BookmarkPlus, Film, Loader2, Star, SlidersHorizontal } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/modules/auth/AuthProvider";
 import { useDiaryLibraryMutations } from "@/modules/diary/useDiaryLibrary";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
+import { isCatalogSyncResponse, type CatalogSyncResponse } from "@/lib/catalogSync";
 import { qk } from "@/lib/queryKeys";
 import { getOrCreateMediaSwipeSessionId, sendMediaSwipeEvent } from "@/modules/swipe/mediaSwipeApi";
 import { supabase } from "../../lib/supabase";
@@ -33,7 +34,10 @@ export const TitleSearchResultRow: React.FC<{
   item: TitleSearchResult;
   query?: string;
   right?: React.ReactNode;
-}> = ({ item, query, right }) => {
+  onSelect?: (item: TitleSearchResult) => void;
+  disabled?: boolean;
+  loading?: boolean;
+}> = ({ item, query, right, onSelect, disabled, loading }) => {
   const metaPieces: string[] = [];
   if (item.year) metaPieces.push(String(item.year));
   if (item.type === "movie") metaPieces.push("Movie");
@@ -55,38 +59,62 @@ export const TitleSearchResultRow: React.FC<{
     "external-only": "bg-card text-muted-foreground border-border",
   };
 
+  const content = (
+    <>
+      {item.posterUrl ? (
+        <img
+          src={item.posterUrl}
+          alt={item.title}
+          className="h-20 w-14 rounded-2xl object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-20 w-14 items-center justify-center rounded-2xl bg-muted">
+          <Film className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-[12px] font-medium text-foreground">
+            <HighlightText text={item.title} query={query} firstOnly className="truncate" />
+          </p>
+          <span
+            className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${sourceStyles[item.source]}`}
+          >
+            {sourceLabel[item.source]}
+          </span>
+        </div>
+        {metaPieces.length > 0 && (
+          <p className="text-xs text-muted-foreground">{metaPieces.join(" • ")}</p>
+        )}
+        {loading ? (
+          <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            Syncing…
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-border bg-background/60 p-2 hover:bg-card/80 focus-within:ring-1 focus-within:ring-primary/50">
-      <Link to={`/title/${item.id}`} className="flex min-w-0 flex-1 gap-3">
-        {item.posterUrl ? (
-          <img
-            src={item.posterUrl}
-            alt={item.title}
-            className="h-20 w-14 rounded-2xl object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-20 w-14 items-center justify-center rounded-2xl bg-muted">
-            <Film className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          </div>
-        )}
-
-        <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-[12px] font-medium text-foreground">
-              <HighlightText text={item.title} query={query} firstOnly className="truncate" />
-            </p>
-            <span
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${sourceStyles[item.source]}`}
-            >
-              {sourceLabel[item.source]}
-            </span>
-          </div>
-          {metaPieces.length > 0 && (
-            <p className="text-xs text-muted-foreground">{metaPieces.join(" • ")}</p>
-          )}
-        </div>
-      </Link>
+      {onSelect ? (
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 gap-3 text-left"
+          onClick={() => onSelect(item)}
+          disabled={disabled}
+          aria-disabled={disabled}
+        >
+          {content}
+        </button>
+      ) : (
+        <Link to={`/title/${item.id}`} className="flex min-w-0 flex-1 gap-3">
+          {content}
+        </Link>
+      )}
 
       {right ? <div className="shrink-0 pr-1">{right}</div> : null}
     </div>
@@ -139,6 +167,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const diaryMutations = useDiaryLibraryMutations();
+  const navigate = useNavigate();
 
   const [resolvedTitleIds, setResolvedTitleIds] = React.useState<Record<string, string>>({});
   const resolvedTitleIdsRef = React.useRef(resolvedTitleIds);
@@ -160,6 +189,7 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({
   const diaryMap = React.useMemo(() => diaryBulk.data ?? new Map(), [diaryBulk.data]);
 
   const [busyRowId, setBusyRowId] = React.useState<string | null>(null);
+  const [syncingRowId, setSyncingRowId] = React.useState<string | null>(null);
 
   const ensureCanonicalId = React.useCallback(
     async (item: TitleSearchResult): Promise<string | null> => {
@@ -171,11 +201,15 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({
 
       if (!item.tmdbId) return null;
 
-      const kind = item.type === "series" ? "series" : "movie";
+      const contentType = item.type === "series" ? "series" : "movie";
 
       try {
-        const res = await callSupabaseFunction<any>("catalog-sync", { kind, tmdbId: item.tmdbId });
-        const nextId = res?.data?.id as string | undefined;
+        const res = await callSupabaseFunction<CatalogSyncResponse>("catalog-sync", {
+          tmdbId: item.tmdbId,
+          contentType,
+        });
+        if (!isCatalogSyncResponse(res)) return null;
+        const nextId = res.media_item_id;
         if (nextId && isUuid(nextId)) {
           setResolvedTitleIds((prev) => (prev[rawId] ? prev : { ...prev, [rawId]: nextId }));
           return nextId;
@@ -244,6 +278,21 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({
   );
 
   const totalResults = results.length;
+
+  const handleSelectTitle = React.useCallback(
+    async (item: TitleSearchResult) => {
+      if (syncingRowId) return;
+      setSyncingRowId(item.id);
+      try {
+        const canonicalId = await ensureCanonicalId(item);
+        if (!canonicalId) return;
+        navigate(`/title/${canonicalId}`);
+      } finally {
+        setSyncingRowId(null);
+      }
+    },
+    [ensureCanonicalId, navigate, syncingRowId],
+  );
 
   const activeFilterLabels: string[] = [];
 
@@ -590,7 +639,16 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({
             </div>
           ) : null;
 
-          return <TitleSearchResultRow item={item} query={trimmedQuery} right={right} />;
+          return (
+            <TitleSearchResultRow
+              item={item}
+              query={trimmedQuery}
+              right={right}
+              onSelect={handleSelectTitle}
+              disabled={Boolean(syncingRowId)}
+              loading={syncingRowId === item.id}
+            />
+          );
         }}
       />
     </div>
