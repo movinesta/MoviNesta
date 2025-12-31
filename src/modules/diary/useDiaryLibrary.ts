@@ -250,175 +250,173 @@ export const useDiaryLibraryMutations = () => {
   const queryClient = useQueryClient();
 
   const updateStatus = useMutation({
-  mutationFn: async ({ titleId, status, type }: UpdateStatusArgs) => {
-    if (!userId) throw new Error("Not authenticated");
-    if (!type) throw new Error("Content type is required");
-    const contentType = normalizeLibraryContentType(type);
+    mutationFn: async ({ titleId, status, type }: UpdateStatusArgs) => {
+      if (!userId) throw new Error("Not authenticated");
+      if (!type) throw new Error("Content type is required");
+      const contentType = normalizeLibraryContentType(type);
 
-    const { error } = await supabase.from("library_entries").upsert(
-      {
-        user_id: userId,
-        title_id: titleId,
-        status,
-        updated_at: new Date().toISOString(),
-        content_type: contentType,
-      },
-      {
-        onConflict: "user_id,title_id",
-      },
-    );
+      const { error } = await supabase.from("library_entries").upsert(
+        {
+          user_id: userId,
+          title_id: titleId,
+          status,
+          updated_at: new Date().toISOString(),
+          content_type: contentType,
+        },
+        {
+          onConflict: "user_id,title_id",
+        },
+      );
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return { titleId, status };
-  },
-  onMutate: async (vars) => {
-    if (!userId) return {};
-
-    await queryClient.cancelQueries({ queryKey: qk.diaryLibrary(userId) });
-
-    const prevLibrary = queryClient.getQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId));
-    const now = new Date().toISOString();
-
-    queryClient.setQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId), (old) => {
-      const list = old ?? [];
-      const existing = list.find((e) => e.titleId === vars.titleId);
-
-      if (existing) {
-        const updated: DiaryLibraryEntry = {
-          ...existing,
-          status: vars.status,
-          updatedAt: now,
-          type: vars.type ?? existing.type,
-        };
-        return [updated, ...list.filter((e) => e.titleId !== vars.titleId)];
+      if (error) {
+        throw new Error(error.message);
       }
 
-      // If it's not in cache, only insert a stub when we have metadata.
-      const hasMeta = Boolean(vars.title || vars.posterUrl);
-      if (!hasMeta) return list;
+      return { titleId, status };
+    },
+    onMutate: async (vars) => {
+      if (!userId) return {};
 
-      const stub: DiaryLibraryEntry = {
-        id: `tmp-${vars.titleId}`,
-        titleId: vars.titleId,
+      await queryClient.cancelQueries({ queryKey: qk.diaryLibrary(userId) });
+
+      const prevLibrary = queryClient.getQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId));
+      const now = new Date().toISOString();
+
+      queryClient.setQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId), (old) => {
+        const list = old ?? [];
+        const existing = list.find((e) => e.titleId === vars.titleId);
+
+        if (existing) {
+          const updated: DiaryLibraryEntry = {
+            ...existing,
+            status: vars.status,
+            updatedAt: now,
+            type: vars.type ?? existing.type,
+          };
+          return [updated, ...list.filter((e) => e.titleId !== vars.titleId)];
+        }
+
+        // If it's not in cache, only insert a stub when we have metadata.
+        const hasMeta = Boolean(vars.title || vars.posterUrl);
+        if (!hasMeta) return list;
+
+        const stub: DiaryLibraryEntry = {
+          id: `tmp-${vars.titleId}`,
+          titleId: vars.titleId,
+          status: vars.status,
+          updatedAt: now,
+          title: vars.title ?? "Untitled",
+          year: vars.year ?? null,
+          type: vars.type ?? null,
+          posterUrl: vars.posterUrl ?? null,
+          rating: null,
+        };
+
+        return [stub, ...list];
+      });
+
+      // Keep the title detail badge in sync if it's cached.
+      queryClient.setQueryData(qk.titleDiary(userId, vars.titleId), (old: any) => ({
         status: vars.status,
-        updatedAt: now,
-        title: vars.title ?? "Untitled",
-        year: vars.year ?? null,
-        type: vars.type ?? null,
-        posterUrl: vars.posterUrl ?? null,
-        rating: null,
-      };
+        rating: old?.rating ?? null,
+      }));
 
-      return [stub, ...list];
-    });
-
-    // Keep the title detail badge in sync if it's cached.
-    queryClient.setQueryData(qk.titleDiary(userId, vars.titleId), (old: any) => ({
-      status: vars.status,
-      rating: old?.rating ?? null,
-    }));
-
-    return { prevLibrary };
-  },
-  onError: (_err, _vars, ctx: any) => {
-    if (userId && ctx?.prevLibrary) {
-      queryClient.setQueryData(qk.diaryLibrary(userId), ctx.prevLibrary);
-    }
-  },
-  onSettled: () => {
-    if (userId) {
-      queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
-      queryClient.invalidateQueries({ queryKey: qk.diaryStats(userId) });
-      queryClient.invalidateQueries({ queryKey: qk.homeForYou(userId) });
-      queryClient.invalidateQueries({ queryKey: qk.titleDiary(userId, undefined) });
-    }
-  },
-});
-
+      return { prevLibrary };
+    },
+    onError: (_err, _vars, ctx: any) => {
+      if (userId && ctx?.prevLibrary) {
+        queryClient.setQueryData(qk.diaryLibrary(userId), ctx.prevLibrary);
+      }
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.diaryStats(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.homeForYou(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.titleDiary(userId, undefined) });
+      }
+    },
+  });
 
   const updateRating = useMutation({
-  mutationFn: async ({ titleId, rating, type }: UpdateRatingArgs) => {
-    if (!userId) throw new Error("Not authenticated");
-    if (!type) throw new Error("Content type is required");
-    const contentType = normalizeLibraryContentType(type);
+    mutationFn: async ({ titleId, rating, type }: UpdateRatingArgs) => {
+      if (!userId) throw new Error("Not authenticated");
+      if (!type) throw new Error("Content type is required");
+      const contentType = normalizeLibraryContentType(type);
 
-    if (rating == null) {
-      const { error } = await supabase
-        .from("ratings")
-        .delete()
-        .eq("user_id", userId)
-        .eq("title_id", titleId);
+      if (rating == null) {
+        const { error } = await supabase
+          .from("ratings")
+          .delete()
+          .eq("user_id", userId)
+          .eq("title_id", titleId);
+
+        if (error) throw new Error(error.message);
+
+        return { titleId, rating: null };
+      }
+
+      const nextRating = starsToRating0_10(rating);
+      if (nextRating == null) {
+        throw new Error("Invalid rating value");
+      }
+
+      const { error } = await supabase.from("ratings").upsert(
+        {
+          user_id: userId,
+          title_id: titleId,
+          rating: nextRating,
+          updated_at: new Date().toISOString(),
+          content_type: contentType,
+        },
+        {
+          onConflict: "user_id,title_id",
+        },
+      );
 
       if (error) throw new Error(error.message);
 
-      return { titleId, rating: null };
-    }
+      return { titleId, rating };
+    },
+    onMutate: async (vars) => {
+      if (!userId) return {};
 
-    const nextRating = starsToRating0_10(rating);
-    if (nextRating == null) {
-      throw new Error("Invalid rating value");
-    }
+      await queryClient.cancelQueries({ queryKey: qk.diaryLibrary(userId) });
 
-    const { error } = await supabase.from("ratings").upsert(
-      {
-        user_id: userId,
-        title_id: titleId,
-        rating: nextRating,
-        updated_at: new Date().toISOString(),
-        content_type: contentType,
-      },
-      {
-        onConflict: "user_id,title_id",
-      },
-    );
+      const prevLibrary = queryClient.getQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId));
 
-    if (error) throw new Error(error.message);
+      queryClient.setQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId), (old) => {
+        const list = old ?? [];
+        const idx = list.findIndex((e) => e.titleId === vars.titleId);
+        if (idx === -1) return list;
 
-    return { titleId, rating };
-  },
-  onMutate: async (vars) => {
-    if (!userId) return {};
+        const updated = { ...list[idx], rating: vars.rating };
+        const next = [...list];
+        next[idx] = updated;
+        return next;
+      });
 
-    await queryClient.cancelQueries({ queryKey: qk.diaryLibrary(userId) });
+      queryClient.setQueryData(qk.titleDiary(userId, vars.titleId), (old: any) => ({
+        status: old?.status ?? null,
+        rating: vars.rating,
+      }));
 
-    const prevLibrary = queryClient.getQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId));
-
-    queryClient.setQueryData<DiaryLibraryEntry[]>(qk.diaryLibrary(userId), (old) => {
-      const list = old ?? [];
-      const idx = list.findIndex((e) => e.titleId === vars.titleId);
-      if (idx === -1) return list;
-
-      const updated = { ...list[idx], rating: vars.rating };
-      const next = [...list];
-      next[idx] = updated;
-      return next;
-    });
-
-    queryClient.setQueryData(qk.titleDiary(userId, vars.titleId), (old: any) => ({
-      status: old?.status ?? null,
-      rating: vars.rating,
-    }));
-
-    return { prevLibrary };
-  },
-  onError: (_err, _vars, ctx: any) => {
-    if (userId && ctx?.prevLibrary) {
-      queryClient.setQueryData(qk.diaryLibrary(userId), ctx.prevLibrary);
-    }
-  },
-  onSettled: () => {
-    if (userId) {
-      queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
-      queryClient.invalidateQueries({ queryKey: qk.diaryStats(userId) });
-      queryClient.invalidateQueries({ queryKey: qk.homeForYou(userId) });
-      queryClient.invalidateQueries({ queryKey: qk.titleDiary(userId, undefined) });
-    }
-  },
-});
-
+      return { prevLibrary };
+    },
+    onError: (_err, _vars, ctx: any) => {
+      if (userId && ctx?.prevLibrary) {
+        queryClient.setQueryData(qk.diaryLibrary(userId), ctx.prevLibrary);
+      }
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.diaryStats(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.homeForYou(userId) });
+        queryClient.invalidateQueries({ queryKey: qk.titleDiary(userId, undefined) });
+      }
+    },
+  });
 
   return {
     updateStatus,

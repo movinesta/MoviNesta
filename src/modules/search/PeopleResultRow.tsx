@@ -174,7 +174,9 @@ export const PeopleResultRow: React.FC<{
         {typeof person.followersCount === "number" && typeof person.followingCount === "number" ? (
           <span>·</span>
         ) : null}
-        {typeof person.followingCount === "number" ? <span>following {person.followingCount}</span> : null}
+        {typeof person.followingCount === "number" ? (
+          <span>following {person.followingCount}</span>
+        ) : null}
       </div>
     );
   };

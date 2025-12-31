@@ -256,6 +256,37 @@ export interface Database {
         Relationships: [
         ];
       };
+      conversation_prefs: {
+        Row: {
+          user_id: string;
+          conversation_id: string;
+          muted: boolean;
+          hidden: boolean;
+          created_at: string;
+          updated_at: string;
+          muted_until: string | null;
+        };
+        Insert: {
+          user_id?: string;
+          conversation_id: string;
+          muted?: boolean;
+          hidden?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          muted_until?: string | null;
+        };
+        Update: {
+          user_id?: string;
+          conversation_id?: string;
+          muted?: boolean;
+          hidden?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          muted_until?: string | null;
+        };
+        Relationships: [
+        ];
+      };
       conversations: {
         Row: {
           id: string;
@@ -1318,6 +1349,7 @@ export interface Database {
           client_id: string | null;
           meta: Json;
           sender_id: string;
+          deleted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1331,6 +1363,7 @@ export interface Database {
           client_id?: string | null;
           meta?: Json;
           sender_id?: string;
+          deleted_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1344,6 +1377,7 @@ export interface Database {
           client_id?: string | null;
           meta?: Json;
           sender_id?: string;
+          deleted_at?: string | null;
         };
         Relationships: [
         ];
@@ -1981,6 +2015,18 @@ export interface Database {
         Returns: Json[];
       };
       get_conversation_summaries_for_user: {
+        Args: {
+          p_user_id: string | null;
+        };
+        Returns: Json[];
+      };
+      get_conversation_summaries_for_user_v2: {
+        Args: {
+          p_user_id: string | null;
+        };
+        Returns: Json[];
+      };
+      get_conversation_summaries_v2: {
         Args: {
           p_user_id: string | null;
         };

@@ -112,7 +112,9 @@ function diaryEntryToPosterItem(entry: DiaryLibraryEntry): PosterItem {
   const subtitleParts: string[] = [];
   if (entry.year) subtitleParts.push(String(entry.year));
   if (entry.type && entry.type !== "other" && entry.type !== "episode") {
-    subtitleParts.push(entry.type === "series" ? "Series" : entry.type === "anime" ? "Anime" : "Movie");
+    subtitleParts.push(
+      entry.type === "series" ? "Series" : entry.type === "anime" ? "Anime" : "Movie",
+    );
   }
   const subtitle = subtitleParts.join(" • ") || "In your diary";
 
@@ -120,7 +122,7 @@ function diaryEntryToPosterItem(entry: DiaryLibraryEntry): PosterItem {
     id: entry.titleId,
     title: entry.title,
     subtitle,
-    rating: entry.rating ?? undefined,
+    rating: entry.rating != null ? String(entry.rating) : undefined,
     imageUrl: entry.posterUrl ?? null,
     kind: entry.type ?? null,
   };
@@ -177,7 +179,6 @@ const IconButton: React.FC<{
     </button>
   );
 };
-
 
 const SectionHeader: React.FC<{
   title: string;
@@ -240,11 +241,7 @@ const PosterTile: React.FC<{
               <span>{item.rating}</span>
             </div>
           ) : null}
-          {menu ? (
-            <div className="absolute right-2 top-2 z-20" onClick={(e) => e.stopPropagation()}>
-              {menu}
-            </div>
-          ) : null}
+          {menu ? <div className="absolute right-2 top-2 z-20">{menu}</div> : null}
         </div>
 
         <div className="min-w-0 pt-1">
@@ -255,7 +252,6 @@ const PosterTile: React.FC<{
     </div>
   );
 };
-
 
 const FeaturedPoster: React.FC<{
   item: PosterItem;
@@ -301,11 +297,7 @@ const FeaturedPoster: React.FC<{
             </div>
           ) : null}
 
-          {menu ? (
-            <div className="absolute right-4 top-4 z-20" onClick={(e) => e.stopPropagation()}>
-              {menu}
-            </div>
-          ) : null}
+          {menu ? <div className="absolute right-4 top-4 z-20">{menu}</div> : null}
 
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <h3 className="text-lg font-bold text-white drop-shadow">{item.title}</h3>
@@ -316,7 +308,6 @@ const FeaturedPoster: React.FC<{
     </div>
   );
 };
-
 
 const PosterQuickMenu: React.FC<{
   item: PosterItem;
@@ -329,6 +320,7 @@ const PosterQuickMenu: React.FC<{
     <DropdownMenuTrigger asChild>
       <button
         type="button"
+        onClick={(event) => event.stopPropagation()}
         className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         aria-label="More actions"
       >
@@ -411,7 +403,12 @@ const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
     <div className="flex gap-4 rounded-3xl border border-border/40 bg-card/70 p-4 shadow-sm">
       <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/40">
         {item.user.avatarUrl ? (
-          <img src={item.user.avatarUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          <img
+            src={item.user.avatarUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div className="grid h-full w-full place-items-center text-[10px] font-semibold text-muted-foreground">
             {item.user.displayName.slice(0, 2).toUpperCase()}
@@ -495,7 +492,6 @@ const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
   );
 };
 
-
 const FriendsActivitySkeleton: React.FC = () => (
   <div className="space-y-3">
     {[0, 1].map((idx) => (
@@ -520,21 +516,21 @@ const HomePage: React.FC = () => {
   useDocumentTitle("Home");
 
   const navigate = useNavigate();
-const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-const { user } = useAuth();
-const userId = user?.id ?? null;
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
-const { data: currentProfile } = useCurrentProfile();
-const { data: stories, isLoading: isStoriesLoading } = useHomeStories();
-const {
-  items: feedItems,
-  isLoading: isFeedLoading,
-  error: feedError,
-  hasMore: feedHasMore,
-  isLoadingMore: isFeedLoadingMore,
-  loadMore: loadMoreFeed,
-} = useHomeFeed();
+  const { data: currentProfile } = useCurrentProfile();
+  const { data: stories, isLoading: isStoriesLoading } = useHomeStories();
+  const {
+    items: feedItems,
+    isLoading: isFeedLoading,
+    error: feedError,
+    hasMore: feedHasMore,
+    isLoadingMore: isFeedLoadingMore,
+    loadMore: loadMoreFeed,
+  } = useHomeFeed();
 
   const { updateStatus } = useDiaryLibraryMutations();
   const { entries: diaryEntries, isLoading: isDiaryLoading } = useDiaryLibrary({
@@ -605,7 +601,11 @@ const {
   const setDiaryStatusForPoster = React.useCallback(
     async (item: PosterItem, status: DiaryStatus) => {
       if (!userId) {
-        pushToast({ title: "Sign in required", description: "Create an account to save titles.", variant: "info" });
+        pushToast({
+          title: "Sign in required",
+          description: "Create an account to save titles.",
+          variant: "info",
+        });
         return;
       }
 
@@ -622,16 +622,31 @@ const {
       const prev = statusByTitleId.get(item.id) ?? null;
 
       try {
-        await updateStatus.mutateAsync({ titleId: item.id, status, type, title: item.title, posterUrl: item.imageUrl ?? null });
+        await updateStatus.mutateAsync({
+          titleId: item.id,
+          status,
+          type,
+          title: item.title,
+          posterUrl: item.imageUrl ?? null,
+        });
 
         pushToast({
           title: "Saved",
-          description: prev ? `Moved to ${statusLabel(status)}.` : `Added to ${statusLabel(status)}.`,
+          description: prev
+            ? `Moved to ${statusLabel(status)}.`
+            : `Added to ${statusLabel(status)}.`,
           variant: "success",
           action: prev
             ? {
                 label: "Undo",
-                onClick: () => updateStatus.mutate({ titleId: item.id, status: prev, type, title: item.title, posterUrl: item.imageUrl ?? null }),
+                onClick: () =>
+                  updateStatus.mutate({
+                    titleId: item.id,
+                    status: prev,
+                    type,
+                    title: item.title,
+                    posterUrl: item.imageUrl ?? null,
+                  }),
               }
             : undefined,
         });
@@ -661,7 +676,6 @@ const {
     },
     [navigate, setDiaryStatusForPoster, statusByTitleId],
   );
-
 
   const sessionId = React.useMemo(() => getOrCreateMediaSwipeSessionId(), []);
 
@@ -825,24 +839,27 @@ const {
     const meId = user?.id ?? null;
     return meId ? all.filter((s) => s.userId !== meId) : all;
   }, [user?.id, stories]);
-const handleRefresh = React.useCallback(() => {
-  if (!userId) return;
+  const handleRefresh = React.useCallback(() => {
+    if (!userId) return;
 
-  pushToast({ title: "Refreshing…", description: "Updating your Home feed.", variant: "info", durationMs: 1200 });
+    pushToast({
+      title: "Refreshing…",
+      description: "Updating your Home feed.",
+      variant: "info",
+      durationMs: 1200,
+    });
 
-  queryClient.invalidateQueries({ queryKey: ["home-v2"] });
-  queryClient.invalidateQueries({ queryKey: ["home", "stories", userId] });
-  queryClient.invalidateQueries({ queryKey: qk.homeFeed(userId) });
-  queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
-}, [queryClient, userId]);
+    queryClient.invalidateQueries({ queryKey: ["home-v2"] });
+    queryClient.invalidateQueries({ queryKey: ["home", "stories", userId] });
+    queryClient.invalidateQueries({ queryKey: qk.homeFeed(userId) });
+    queryClient.invalidateQueries({ queryKey: qk.diaryLibrary(userId) });
+  }, [queryClient, userId]);
 
-const [feedVisibleCount, setFeedVisibleCount] = React.useState(3);
+  const [feedVisibleCount, setFeedVisibleCount] = React.useState(3);
 
-React.useEffect(() => {
-  setFeedVisibleCount(3);
-}, [userId]);
-
-
+  React.useEffect(() => {
+    setFeedVisibleCount(3);
+  }, [userId]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -974,7 +991,12 @@ React.useEffect(() => {
 
                       <span className="absolute bottom-0 right-0 inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-background bg-muted">
                         {s.avatarUrl ? (
-                          <img src={s.avatarUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+                          <img
+                            src={s.avatarUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
                           <span className="grid h-full w-full place-items-center text-[10px] font-semibold text-muted-foreground">
                             {getInitials(s.displayName, s.username)}
@@ -1086,7 +1108,11 @@ React.useEffect(() => {
       {/* Continue Watching */}
       {userId ? (
         <section className="mt-6">
-          <SectionHeader title="Continue Watching" actionLabel="Diary" onAction={() => navigate("/diary")} />
+          <SectionHeader
+            title="Continue Watching"
+            actionLabel="Diary"
+            onAction={() => navigate("/diary")}
+          />
           <div className="no-scrollbar flex gap-4 overflow-x-auto px-4 pb-1">
             {isDiaryLoading ? (
               Array.from({ length: 8 }).map((_, idx) => (
@@ -1108,7 +1134,8 @@ React.useEffect(() => {
               ))
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-                Mark a show or movie as <span className="font-semibold">Watching</span> to see it here.
+                Mark a show or movie as <span className="font-semibold">Watching</span> to see it
+                here.
               </div>
             )}
           </div>
@@ -1118,7 +1145,11 @@ React.useEffect(() => {
       {/* Up Next */}
       {userId ? (
         <section className="mt-6">
-          <SectionHeader title="Up Next" actionLabel="Watchlist" onAction={() => navigate("/diary")} />
+          <SectionHeader
+            title="Up Next"
+            actionLabel="Watchlist"
+            onAction={() => navigate("/diary")}
+          />
           <div className="no-scrollbar flex gap-4 overflow-x-auto px-4 pb-1">
             {isDiaryLoading ? (
               Array.from({ length: 8 }).map((_, idx) => (
@@ -1140,7 +1171,8 @@ React.useEffect(() => {
               ))
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-                Add titles to your <span className="font-semibold">Watchlist</span> to build your queue.
+                Add titles to your <span className="font-semibold">Watchlist</span> to build your
+                queue.
               </div>
             )}
           </div>
@@ -1198,13 +1230,11 @@ React.useEffect(() => {
         <h2 className="pb-2 text-xl font-bold tracking-tight text-foreground">
           Friends&apos; Activity
         </h2>
-
         {feedError ? (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
             {feedError}
           </div>
         ) : null}
-
         {isFeedLoading ? (
           <FriendsActivitySkeleton />
         ) : feedItems.length ? (
@@ -1249,7 +1279,8 @@ React.useEffect(() => {
             Your friends’ activity will show up here once they start rating, reviewing, or marking
             titles watched.
           </div>
-        )}      </section>
+        )}{" "}
+      </section>
 
       {/* Because you watched... */}
       <section>

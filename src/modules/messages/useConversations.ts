@@ -106,9 +106,12 @@ export const fetchConversationSummaries = async (
   // land directly on a conversation before the inbox page runs its one-time migration.
   const localPrefsMap = getConversationPrefsMap(userId);
 
-  const hasRemoteMutedUntil = usedV2 && summaries.some((s) => Object.prototype.hasOwnProperty.call(s, "self_muted_until"));
-  const hasRemoteHidden = usedV2 && summaries.some((s) => Object.prototype.hasOwnProperty.call(s, "self_hidden"));
-  const hasRemoteMuted = usedV2 && summaries.some((s) => Object.prototype.hasOwnProperty.call(s, "self_muted"));
+  const hasRemoteMutedUntil =
+    usedV2 && summaries.some((s) => Object.prototype.hasOwnProperty.call(s, "self_muted_until"));
+  const hasRemoteHidden =
+    usedV2 && summaries.some((s) => Object.prototype.hasOwnProperty.call(s, "self_hidden"));
+  const hasRemoteMuted =
+    usedV2 && summaries.some((s) => Object.prototype.hasOwnProperty.call(s, "self_muted"));
 
   const items = summaries.map((summary) => {
     const participants = Array.isArray(summary.participants)
@@ -209,7 +212,8 @@ export const fetchConversationSummaries = async (
         const pref = localPrefsMap[summary.conversation_id] ?? {};
         const localUntil = ((pref as any).mutedUntil as string | null | undefined) ?? null;
         const untilMs = localUntil ? Date.parse(localUntil) : NaN;
-        const localMuted = Boolean((pref as any).muted) || (Number.isFinite(untilMs) && untilMs > Date.now());
+        const localMuted =
+          Boolean((pref as any).muted) || (Number.isFinite(untilMs) && untilMs > Date.now());
 
         const remoteMuted = hasRemoteMuted ? Boolean((summary as any).self_muted) : false;
 
@@ -267,7 +271,7 @@ export const fetchConversationSummaries = async (
     ...item,
     participants: item.participants.map((p) => ({
       ...p,
-      avatarUrl: p.avatarUrl ? resolved.get(p.avatarUrl) ?? null : null,
+      avatarUrl: p.avatarUrl ? (resolved.get(p.avatarUrl) ?? null) : null,
     })),
   }));
 };

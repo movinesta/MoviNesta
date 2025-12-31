@@ -10,7 +10,10 @@ import { toast } from "@/components/toasts";
 import { supabase } from "@/lib/supabase";
 import { clearReadReceipt, writeReadReceipt } from "./supabaseReceiptWrites";
 import { updateConversationListItemInCache } from "./conversationsCache";
-import { migrateLocalConversationPrefsToRemoteIfNeeded, saveConversationPrefs } from "./conversationPrefs";
+import {
+  migrateLocalConversationPrefsToRemoteIfNeeded,
+  saveConversationPrefs,
+} from "./conversationPrefs";
 import { conversationsQueryKey } from "./queryKeys";
 import { ConversationActionsSheet } from "./components/ConversationActionsSheet";
 import { MuteOptionsSheet, type MutePreset } from "./components/MuteOptionsSheet";
@@ -55,10 +58,16 @@ const MessagesPageSkeleton: React.FC = () => {
                 <div className="h-16 w-16 rounded-full bg-muted animate-pulse" aria-hidden />
                 <div className="flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <div className="h-4 w-44 max-w-[70%] rounded bg-muted animate-pulse" aria-hidden />
+                    <div
+                      className="h-4 w-44 max-w-[70%] rounded bg-muted animate-pulse"
+                      aria-hidden
+                    />
                     <div className="h-3 w-12 rounded bg-muted animate-pulse" aria-hidden />
                   </div>
-                  <div className="mt-2 h-3 w-64 max-w-[85%] rounded bg-muted animate-pulse" aria-hidden />
+                  <div
+                    className="mt-2 h-3 w-64 max-w-[85%] rounded bg-muted animate-pulse"
+                    aria-hidden
+                  />
                 </div>
               </div>
             </li>
@@ -173,7 +182,13 @@ const ConversationListRow: React.FC<{
             <p className="truncate text-sm text-muted-foreground">
               {conversation.lastMessagePreview ?? "Start chatting"}
             </p>
-            {isMuted && <MaterialIcon name="notifications_off" className="text-sm text-muted-foreground" ariaLabel="Muted" />}
+            {isMuted && (
+              <MaterialIcon
+                name="notifications_off"
+                className="text-sm text-muted-foreground"
+                ariaLabel="Muted"
+              />
+            )}
             {conversation.hasUnread && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
           </div>
         </div>
@@ -254,27 +269,25 @@ const MessagesPage: React.FC = () => {
     [data],
   );
 
-  const hiddenCount = useMemo(
-    () => (data ?? []).filter((c) => c.isHidden).length,
-    [data],
-  );
+  const hiddenCount = useMemo(() => (data ?? []).filter((c) => c.isHidden).length, [data]);
 
-  const mutedCount = useMemo(
-    () => (data ?? []).filter((c) => c.isMuted).length,
-    [data],
-  );
+  const mutedCount = useMemo(() => (data ?? []).filter((c) => c.isMuted).length, [data]);
 
   const [actionsOpen, setActionsOpen] = useState(false);
   const [actionsConversationId, setActionsConversationId] = useState<string | null>(null);
   const actionsConversation = useMemo(
-    () => (actionsConversationId ? (data ?? []).find((c) => c.id === actionsConversationId) ?? null : null),
+    () =>
+      actionsConversationId
+        ? ((data ?? []).find((c) => c.id === actionsConversationId) ?? null)
+        : null,
     [actionsConversationId, data],
   );
 
   const [muteOptionsOpen, setMuteOptionsOpen] = useState(false);
   const [muteConversationId, setMuteConversationId] = useState<string | null>(null);
   const muteConversation = useMemo(
-    () => (muteConversationId ? (data ?? []).find((c) => c.id === muteConversationId) ?? null : null),
+    () =>
+      muteConversationId ? ((data ?? []).find((c) => c.id === muteConversationId) ?? null) : null,
     [muteConversationId, data],
   );
 
@@ -370,7 +383,6 @@ const MessagesPage: React.FC = () => {
       toast.error("Couldn't update preferences.");
     });
   };
-
 
   const toggleHidden = (conversation: ConversationListItem) => {
     if (!userId) {

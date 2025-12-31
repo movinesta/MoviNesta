@@ -23,7 +23,6 @@ type Props = {
   onSendText: (text: string) => void;
   onRequestScrollToBottom?: () => void;
 
-
   isUploadingImage: boolean;
   cancelImageUpload: () => void;
 
@@ -132,7 +131,8 @@ export const ConversationComposerBar: React.FC<Props> = ({
   const handleDraftChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const nextRaw = event.target.value;
-      const next = nextRaw.length > MAX_MESSAGE_CHARS ? nextRaw.slice(0, MAX_MESSAGE_CHARS) : nextRaw;
+      const next =
+        nextRaw.length > MAX_MESSAGE_CHARS ? nextRaw.slice(0, MAX_MESSAGE_CHARS) : nextRaw;
       setDraft(next);
       if (showEmojiPicker) setShowEmojiPicker(false);
       noteLocalInputActivity(next.trim().length > 0);
@@ -179,7 +179,16 @@ export const ConversationComposerBar: React.FC<Props> = ({
       onRequestScrollToBottom?.();
       onSendText(text);
     },
-    [disableSend, draft, onSendText, setDraft, stopTyping],
+    [
+      disableSend,
+      draft,
+      isSending,
+      isUploadingImage,
+      onRequestScrollToBottom,
+      onSendText,
+      setDraft,
+      stopTyping,
+    ],
   );
 
   if (!show) return null;
@@ -255,7 +264,9 @@ export const ConversationComposerBar: React.FC<Props> = ({
         >
           <div className="flex items-center gap-2">
             <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
-            <p className="font-semibold">{sendErrorMessage ?? "Couldn\'t send. Please try again."}</p>
+            <p className="font-semibold">
+              {sendErrorMessage ?? "Couldn't send. Please try again."}
+            </p>
           </div>
           {canRetrySend && (
             <Button type="button" size="sm" variant="outline" onClick={onRetrySend}>
@@ -394,13 +405,13 @@ export const ConversationComposerBar: React.FC<Props> = ({
           )}
         </Button>
       </div>
-    
+
       <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
         <span>Enter to send • Shift+Enter for newline</span>
         <span className={draft.length >= MAX_MESSAGE_CHARS ? "text-red-300" : ""}>
           {draft.length}/{MAX_MESSAGE_CHARS}
         </span>
       </div>
-</MessageComposer>
+    </MessageComposer>
   );
 };

@@ -61,9 +61,10 @@ const NewMessagePage: React.FC = () => {
     [suggestedPeople],
   );
 
-  const suggestedIds = useMemo(() => new Set(suggestedContacts.map((p) => p.id)), [
-    suggestedContacts,
-  ]);
+  const suggestedIds = useMemo(
+    () => new Set(suggestedContacts.map((p) => p.id)),
+    [suggestedContacts],
+  );
 
   const allContacts: ContactRow[] = useMemo(() => {
     const base = !normalizedQuery
@@ -112,10 +113,8 @@ const NewMessagePage: React.FC = () => {
     return null;
   }, [selectedIds, user?.id]);
 
-  const canStart = Boolean(user?.id) &&
-    selectedIds.length === 1 &&
-    selectedIds[0] !== user?.id &&
-    !isStarting;
+  const canStart =
+    Boolean(user?.id) && selectedIds.length === 1 && selectedIds[0] !== user?.id && !isStarting;
 
   const handleStartChat = async () => {
     if (!user?.id) {
@@ -167,7 +166,8 @@ const NewMessagePage: React.FC = () => {
     }
   };
 
-  const showSearchEmpty = normalizedQuery.length >= 2 && !isSearchLoading && searchResults.length === 0;
+  const showSearchEmpty =
+    normalizedQuery.length >= 2 && !isSearchLoading && searchResults.length === 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -264,7 +264,7 @@ const NewMessagePage: React.FC = () => {
             <div className="px-4 py-4 text-sm text-muted-foreground">Loading suggestions…</div>
           ) : isSuggestedError ? (
             <div className="px-4 py-4 text-sm text-muted-foreground">
-              Couldn't load suggestions.
+              Couldn&apos;t load suggestions.
             </div>
           ) : suggestedContacts.length === 0 ? (
             <div className="px-4 py-4 text-sm text-muted-foreground">No suggestions yet.</div>
@@ -348,7 +348,8 @@ const NewMessagePage: React.FC = () => {
             <div className="px-4 py-4 text-sm text-muted-foreground">Searching…</div>
           ) : showSearchEmpty ? (
             <div className="px-4 py-4 text-sm text-muted-foreground">
-              No results for <span className="font-semibold text-foreground">{normalizedQuery}</span>
+              No results for{" "}
+              <span className="font-semibold text-foreground">{normalizedQuery}</span>
             </div>
           ) : allContacts.length === 0 ? (
             <div className="px-4 py-4 text-sm text-muted-foreground">No contacts found.</div>

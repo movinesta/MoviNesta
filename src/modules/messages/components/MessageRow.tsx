@@ -251,7 +251,10 @@ export const MessageRow = React.memo(function MessageRow({
           >
             {text && (
               <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-snug">
-                <LinkifiedText text={text} highlight={shouldHighlight ? highlightQuery : undefined} />
+                <LinkifiedText
+                  text={text}
+                  highlight={shouldHighlight ? highlightQuery : undefined}
+                />
               </p>
             )}
 

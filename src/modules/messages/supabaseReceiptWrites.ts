@@ -95,7 +95,6 @@ export const writeReadReceipt = async (row: ReadReceiptWrite): Promise<void> => 
   }
 };
 
-
 /**
  * Clears the read receipt for a conversation (best effort).
  *

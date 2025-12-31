@@ -195,20 +195,19 @@ export const saveConversationPrefs = async (
       remoteHasMutedUntil = "no";
 
       // Persist duration locally so the UX still works on this device.
-      if (prefs.mutedUntil) setConversationPref(userId, conversationId, { mutedUntil: prefs.mutedUntil });
+      if (prefs.mutedUntil)
+        setConversationPref(userId, conversationId, { mutedUntil: prefs.mutedUntil });
 
       // Retry without muted_until.
-      const { error: retryError } = await (supabase as any)
-        .from("conversation_prefs")
-        .upsert(
-          {
-            user_id: userId,
-            conversation_id: conversationId,
-            muted: Boolean(prefs.muted),
-            hidden: Boolean(prefs.hidden),
-          },
-          { onConflict: "user_id,conversation_id" },
-        );
+      const { error: retryError } = await (supabase as any).from("conversation_prefs").upsert(
+        {
+          user_id: userId,
+          conversation_id: conversationId,
+          muted: Boolean(prefs.muted),
+          hidden: Boolean(prefs.hidden),
+        },
+        { onConflict: "user_id,conversation_id" },
+      );
 
       if (!retryError) return { ok: true, usedRemote: true };
       console.error("[conversationPrefs] failed to upsert prefs (retry)", retryError);

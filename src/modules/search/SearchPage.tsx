@@ -23,7 +23,7 @@ import { useSearchTitles, type TitleSearchFilters } from "./useSearchTitles";
 import SearchTitlesTab, { TitleSearchResultRow } from "./SearchTitlesTab";
 import SearchPeopleTab from "./SearchPeopleTab";
 import { PeopleResultRow, type PersonRowData } from "./PeopleResultRow";
-import { defaultSortForQuery, sortTitles, type TitleSortKey } from "./titleSorting";
+import { sortTitles, type TitleSortKey } from "./titleSorting";
 import {
   addRecentSearch,
   clearRecentSearches,
@@ -33,7 +33,6 @@ import {
 } from "./recentSearches";
 import {
   clampYear,
-  hasActiveTitleFilters,
   parseTabFromParams,
   parseSortFromParams,
   parseTitleFiltersFromParams,
@@ -60,7 +59,6 @@ type FriendProfileRow = {
   avatar_url: string | null;
 };
 
-
 const Chip: React.FC<{
   label: string;
   active: boolean;
@@ -76,7 +74,6 @@ const Chip: React.FC<{
     {label}
   </button>
 );
-
 
 const FilterPill: React.FC<{
   label: string;
@@ -253,7 +250,6 @@ const CuratedListCard: React.FC<{
   </Link>
 );
 
-
 function deriveChipFromTab(tab: SearchTabKey, filters: TitleSearchFilters): ChipKey {
   if (tab === "people") return "people";
   if (tab === "titles") {
@@ -304,7 +300,8 @@ const SearchPage: React.FC = () => {
   const sortKey: TitleSortKey = parseSortFromParams(params, trimmedQuery);
 
   const hasSortOverride = Boolean(params.get("sort"));
-  const sortLabel = sortKey === "relevance" ? "Relevance" : sortKey === "newest" ? "Newest" : "Rating";
+  const sortLabel =
+    sortKey === "relevance" ? "Relevance" : sortKey === "newest" ? "Newest" : "Rating";
 
   const [recentSearches, setRecentSearches] = React.useState<RecentSearchEntry[]>(() =>
     typeof window === "undefined" ? [] : getRecentSearches(),
@@ -324,29 +321,28 @@ const SearchPage: React.FC = () => {
   // Extra title filters beyond the chip-selected type (Movies/Series).
   const hasExtraTitleFilters = Boolean(
     typeof filters.minYear === "number" ||
-      typeof filters.maxYear === "number" ||
-      Boolean(filters.originalLanguage) ||
-      Boolean(filters.genreIds?.length),
+    typeof filters.maxYear === "number" ||
+    Boolean(filters.originalLanguage) ||
+    Boolean(filters.genreIds?.length),
   );
 
   const effectiveTab: SearchTabKey = tab;
   const activeChip = deriveChipFromTab(effectiveTab, filters);
 
+  // Ensure the Titles view always has an explicit type (Movies/Series) so the chip bar stays consistent.
+  React.useEffect(() => {
+    if (effectiveTab !== "titles") return;
+    if (filters.type === "movie" || filters.type === "series") return;
 
-// Ensure the Titles view always has an explicit type (Movies/Series) so the chip bar stays consistent.
-React.useEffect(() => {
-  if (effectiveTab !== "titles") return;
-  if (filters.type === "movie" || filters.type === "series") return;
-
-  setParams(
-    (prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("type", "movie");
-      return next;
-    },
-    { replace: true },
-  );
-}, [effectiveTab, filters.type, setParams]);
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("type", "movie");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [effectiveTab, filters.type, setParams]);
 
   // Keep the URL in sync with the debounced query (replace history to avoid back button spam).
   React.useEffect(() => {
@@ -470,7 +466,6 @@ React.useEffect(() => {
     setDraftMaxYear(typeof filters.maxYear === "number" ? String(filters.maxYear) : "");
     setDraftLang(filters.originalLanguage ?? "");
     setDraftGenreIds(filters.genreIds ?? []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen, filters.minYear, filters.maxYear, filters.originalLanguage, genreSig]);
 
   const applyFilters = React.useCallback(() => {
@@ -502,9 +497,7 @@ React.useEffect(() => {
         const existingType = next.get("type");
 
         if (existingType !== "movie" && existingType !== "series") {
-
           next.set("type", "movie");
-
         }
         if (typeof minYear === "number") next.set("minYear", String(minYear));
         else next.delete("minYear");
@@ -537,9 +530,7 @@ React.useEffect(() => {
         const existingType = next.get("type");
 
         if (existingType !== "movie" && existingType !== "series") {
-
           next.set("type", "movie");
-
         }
         next.delete("minYear");
         next.delete("maxYear");
@@ -615,7 +606,8 @@ React.useEffect(() => {
   }, [setParams]);
 
   const cycleSort = React.useCallback(() => {
-    const order: TitleSortKey[] = trimmedQuery.length > 0 ? ["relevance", "newest", "rating"] : ["newest", "rating"];
+    const order: TitleSortKey[] =
+      trimmedQuery.length > 0 ? ["relevance", "newest", "rating"] : ["newest", "rating"];
     const idx = order.indexOf(sortKey);
     const next = idx >= 0 ? order[(idx + 1) % order.length] : order[0];
     setSort(next);
@@ -701,9 +693,7 @@ React.useEffect(() => {
     filters: shouldSearchTitles ? filters : undefined,
   });
 
-  const peopleQuery = useSearchPeople(
-    shouldSearchPeople ? trimmedQuery.replace(/^@+/, "") : "",
-  );
+  const peopleQuery = useSearchPeople(shouldSearchPeople ? trimmedQuery.replace(/^@+/, "") : "");
 
   const titlesPreviewItems = React.useMemo(() => {
     const pages = titlesQuery.data?.pages ?? [];
@@ -772,105 +762,110 @@ React.useEffect(() => {
       {/* Top spacer (keeps content from hugging the very top under native safe areas) */}
       <div className="h-12 w-full" />
 
-	      {/* Title filters */}
-	      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-	        <DialogContent className="max-w-lg">
-	          <DialogHeader>
-	            <DialogTitle>Filters</DialogTitle>
-	          </DialogHeader>
-		          <div className="space-y-5">
-		            <div className="space-y-2">
-	              <p className="text-sm font-semibold">Year range</p>
-	              <div className="grid grid-cols-2 gap-2">
-	                <Input
-	                  value={draftMinYear}
-	                  onChange={(e) =>
-	                    setDraftMinYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
-	                  }
-	                  placeholder="From"
-	                  inputMode="numeric"
-	                />
-	                <Input
-	                  value={draftMaxYear}
-	                  onChange={(e) =>
-	                    setDraftMaxYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
-	                  }
-	                  placeholder="To"
-	                  inputMode="numeric"
-	                />
-	              </div>
-	            </div>
+      {/* Title filters */}
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Filters</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Year range</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={draftMinYear}
+                  onChange={(e) =>
+                    setDraftMinYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
+                  }
+                  placeholder="From"
+                  inputMode="numeric"
+                />
+                <Input
+                  value={draftMaxYear}
+                  onChange={(e) =>
+                    setDraftMaxYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
+                  }
+                  placeholder="To"
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
 
-	            <div className="space-y-2">
-	              <p className="text-sm font-semibold">Language</p>
-	              <div className="flex flex-wrap items-center gap-2">
-	                {["en", "ar", "ja", "ko"].map((code) => {
-	                  const isActive = draftLang.toLowerCase() === code;
-	                  return (
-	                    <Button
-	                      key={code}
-	                      type="button"
-	                      size="sm"
-	                      variant={isActive ? "default" : "outline"}
-	                      className="rounded-full"
-	                      onClick={() => setDraftLang(code)}
-	                    >
-	                      {code.toUpperCase()}
-	                    </Button>
-	                  );
-	                })}
-	                <Input
-	                  value={draftLang}
-	                  onChange={(e) => setDraftLang(e.target.value.replace(/\s/g, "").slice(0, 8))}
-	                  placeholder="e.g. fr"
-	                  className="h-9 w-28"
-	                />
-	              </div>
-	              <p className="text-xs text-muted-foreground">Use ISO-639-1 codes (en, ar...).</p>
-	            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Language</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {["en", "ar", "ja", "ko"].map((code) => {
+                  const isActive = draftLang.toLowerCase() === code;
+                  return (
+                    <Button
+                      key={code}
+                      type="button"
+                      size="sm"
+                      variant={isActive ? "default" : "outline"}
+                      className="rounded-full"
+                      onClick={() => setDraftLang(code)}
+                    >
+                      {code.toUpperCase()}
+                    </Button>
+                  );
+                })}
+                <Input
+                  value={draftLang}
+                  onChange={(e) => setDraftLang(e.target.value.replace(/\s/g, "").slice(0, 8))}
+                  placeholder="e.g. fr"
+                  className="h-9 w-28"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Use ISO-639-1 codes (en, ar...).</p>
+            </div>
 
-	            <div className="space-y-2">
-	              <p className="text-sm font-semibold">Genres</p>
-	              <div className="flex flex-wrap gap-2">
-	                {discoverGenres.map((genre) => {
-	                    const isActive = draftGenreIds.includes(genre.tmdbGenreId);
-	                    return (
-	                      <Button
-	                        key={genre.tmdbGenreId}
-	                        type="button"
-	                        size="sm"
-	                        variant={isActive ? "default" : "outline"}
-	                        className="rounded-full"
-	                        onClick={() =>
-	                          setDraftGenreIds((prev) =>
-	                            prev.includes(genre.tmdbGenreId)
-	                              ? prev.filter((id) => id !== genre.tmdbGenreId)
-	                              : [...prev, genre.tmdbGenreId],
-	                          )
-	                        }
-	                      >
-	                        {genre.label}
-	                      </Button>
-	                    );
-	                })}
-	              </div>
-	            </div>
-	          </div>
-	          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-	            <Button type="button" variant="outline" onClick={resetFilters} className="rounded-full">
-	              Reset
-	            </Button>
-	            <div className="flex w-full justify-end gap-2 sm:w-auto">
-	              <Button type="button" variant="outline" onClick={() => setFiltersOpen(false)} className="rounded-full">
-	                Cancel
-	              </Button>
-	              <Button type="button" onClick={applyFilters} className="rounded-full">
-	                Apply
-	              </Button>
-	            </div>
-	          </DialogFooter>
-	        </DialogContent>
-	      </Dialog>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Genres</p>
+              <div className="flex flex-wrap gap-2">
+                {discoverGenres.map((genre) => {
+                  const isActive = draftGenreIds.includes(genre.tmdbGenreId);
+                  return (
+                    <Button
+                      key={genre.tmdbGenreId}
+                      type="button"
+                      size="sm"
+                      variant={isActive ? "default" : "outline"}
+                      className="rounded-full"
+                      onClick={() =>
+                        setDraftGenreIds((prev) =>
+                          prev.includes(genre.tmdbGenreId)
+                            ? prev.filter((id) => id !== genre.tmdbGenreId)
+                            : [...prev, genre.tmdbGenreId],
+                        )
+                      }
+                    >
+                      {genre.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button type="button" variant="outline" onClick={resetFilters} className="rounded-full">
+              Reset
+            </Button>
+            <div className="flex w-full justify-end gap-2 sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFiltersOpen(false)}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={applyFilters} className="rounded-full">
+                Apply
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
@@ -881,23 +876,23 @@ React.useEffect(() => {
               className="text-[20px] text-muted-foreground"
               ariaLabel="Search"
             />
-	            <input
-                  ref={searchInputRef}
-                  value={queryInput}
-	              onChange={(e) => setQueryInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    clearQuery();
-                    (e.currentTarget as HTMLInputElement).blur();
-                    return;
-                  }
-                  if (e.key === "Enter") {
-                    commitRecentSearch(queryInput);
-                    (e.currentTarget as HTMLInputElement).blur();
-                  }
-                }}
-                onBlur={() => commitRecentSearch(queryInput)}
+            <input
+              ref={searchInputRef}
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  clearQuery();
+                  (e.currentTarget as HTMLInputElement).blur();
+                  return;
+                }
+                if (e.key === "Enter") {
+                  commitRecentSearch(queryInput);
+                  (e.currentTarget as HTMLInputElement).blur();
+                }
+              }}
+              onBlur={() => commitRecentSearch(queryInput)}
               placeholder="Search movies, shows, people..."
               className="h-full flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
               autoCapitalize="none"
@@ -905,7 +900,7 @@ React.useEffect(() => {
               spellCheck={false}
             />
 
-	            {queryInput ? (
+            {queryInput ? (
               <button
                 type="button"
                 onClick={clearQuery}
@@ -916,30 +911,42 @@ React.useEffect(() => {
               </button>
             ) : null}
 
-	            <button
+            <button
               type="button"
               onClick={openFilterSheet}
-	              disabled={effectiveTab === "people"}
+              disabled={effectiveTab === "people"}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
               aria-label="Filters"
             >
-	              <span className="relative inline-flex">
-	                <SlidersHorizontal className="h-4 w-4" />
-	                {hasExtraTitleFilters ? (
-	                  <span
-	                    className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary"
-	                    aria-hidden="true"
-	                  />
-	                ) : null}
-	              </span>
+              <span className="relative inline-flex">
+                <SlidersHorizontal className="h-4 w-4" />
+                {hasExtraTitleFilters ? (
+                  <span
+                    className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </span>
             </button>
           </label>
 
           <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Chip label="All" active={activeChip === "all"} onClick={() => setChip("all")} />
-            <Chip label="Movies" active={activeChip === "movies"} onClick={() => setChip("movies")} />
-            <Chip label="Series" active={activeChip === "series"} onClick={() => setChip("series")} />
-            <Chip label="People" active={activeChip === "people"} onClick={() => setChip("people")} />
+            <Chip
+              label="Movies"
+              active={activeChip === "movies"}
+              onClick={() => setChip("movies")}
+            />
+            <Chip
+              label="Series"
+              active={activeChip === "series"}
+              onClick={() => setChip("series")}
+            />
+            <Chip
+              label="People"
+              active={activeChip === "people"}
+              onClick={() => setChip("people")}
+            />
           </div>
 
           {showQuickPills ? (
@@ -953,15 +960,27 @@ React.useEffect(() => {
               ) : null}
 
               {yearPillLabel ? (
-                <FilterPill label={yearPillLabel} onClick={openFilterSheet} onClear={clearYearFilters} />
+                <FilterPill
+                  label={yearPillLabel}
+                  onClick={openFilterSheet}
+                  onClear={clearYearFilters}
+                />
               ) : null}
 
               {langPillLabel ? (
-                <FilterPill label={langPillLabel} onClick={openFilterSheet} onClear={clearLanguageFilter} />
+                <FilterPill
+                  label={langPillLabel}
+                  onClick={openFilterSheet}
+                  onClear={clearLanguageFilter}
+                />
               ) : null}
 
               {genresPillLabel ? (
-                <FilterPill label={genresPillLabel} onClick={openFilterSheet} onClear={clearGenreFilters} />
+                <FilterPill
+                  label={genresPillLabel}
+                  onClick={openFilterSheet}
+                  onClear={clearGenreFilters}
+                />
               ) : null}
 
               {hasExtraTitleFilters ? (
@@ -969,7 +988,6 @@ React.useEffect(() => {
               ) : null}
             </div>
           ) : null}
-
         </div>
       </div>
 
@@ -978,7 +996,11 @@ React.useEffect(() => {
         <div className="flex flex-col pt-6">
           {recentSearches.length ? (
             <div className="flex flex-col pb-8">
-              <SectionHeader title="Recent searches" actionLabel="Clear" onAction={clearRecentSearches} />
+              <SectionHeader
+                title="Recent searches"
+                actionLabel="Clear"
+                onAction={clearRecentSearches}
+              />
               <div className="flex flex-wrap gap-2 px-4">
                 {recentSearches.map((entry) => (
                   <div
@@ -1052,7 +1074,9 @@ React.useEffect(() => {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-                {user?.id ? "No suggestions right now." : "Sign in to get personalized people suggestions."}
+                {user?.id
+                  ? "No suggestions right now."
+                  : "Sign in to get personalized people suggestions."}
               </div>
             )}
           </div>
@@ -1085,7 +1109,7 @@ React.useEffect(() => {
           <div className="flex flex-col pt-8">
             <SectionHeader title="Trending Now" actionLabel="See All" onAction={seeAllTrending} />
             <div className="flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-	                            {trendingNow.isLoading ? (
+              {trendingNow.isLoading ? (
                 Array.from({ length: 6 }).map((_, idx) => (
                   <div key={idx} className="w-36 shrink-0">
                     <div className="aspect-[2/3] w-full animate-pulse rounded-[20px] bg-muted" />
@@ -1096,7 +1120,9 @@ React.useEffect(() => {
                 <div className="w-full shrink-0 rounded-3xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-foreground">Trending is temporarily unavailable.</p>
+                      <p className="font-semibold text-foreground">
+                        Trending is temporarily unavailable.
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {(trendingNow.error as any)?.message ?? "Please try again."}
                       </p>
@@ -1123,20 +1149,20 @@ React.useEffect(() => {
                 <div className="w-full shrink-0 rounded-3xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
-						{user?.id
-							? "No trending titles right now."
-							: "No trending titles right now. (Sign in to personalize your feed.)"}
+                      {user?.id
+                        ? "No trending titles right now."
+                        : "No trending titles right now. (Sign in to personalize your feed.)"}
                     </p>
-						<Button
-							type="button"
-							variant="secondary"
-							size="sm"
-							className="h-8 rounded-full"
-							onClick={() => trendingNow.refetch()}
-							disabled={trendingNow.isFetching}
-						>
-							Refresh
-						</Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 rounded-full"
+                      onClick={() => trendingNow.refetch()}
+                      disabled={trendingNow.isFetching}
+                    >
+                      Refresh
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1178,17 +1204,17 @@ React.useEffect(() => {
                   key={g.key}
                   type="button"
                   onClick={() => {
-	                    setParams(
-	                      (prev) => {
-                      const next = new URLSearchParams(prev);
-                      next.set("tab", "titles");
-	                      next.delete("genre");
-	                      next.delete("genres");
-	                      next.set("genres", String(g.tmdbGenreId));
-                      return next;
-	                      },
-	                      { replace: false },
-	                    );
+                    setParams(
+                      (prev) => {
+                        const next = new URLSearchParams(prev);
+                        next.set("tab", "titles");
+                        next.delete("genre");
+                        next.delete("genres");
+                        next.set("genres", String(g.tmdbGenreId));
+                        return next;
+                      },
+                      { replace: false },
+                    );
                   }}
                   className="flex h-20 items-center justify-center rounded-3xl border border-border bg-card/70 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-card"
                 >
@@ -1201,7 +1227,7 @@ React.useEffect(() => {
       ) : (
         <div className="px-4 pt-4">
           {/* Search results */}
-	          {effectiveTab === "people" ? (
+          {effectiveTab === "people" ? (
             trimmedQuery.length === 0 ? (
               <div className="space-y-6">
                 <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
@@ -1253,7 +1279,9 @@ React.useEffect(() => {
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-                      {user?.id ? "No suggestions right now." : "Sign in to get personalized people suggestions."}
+                      {user?.id
+                        ? "No suggestions right now."
+                        : "Sign in to get personalized people suggestions."}
                     </div>
                   )}
                 </div>
@@ -1261,279 +1289,287 @@ React.useEffect(() => {
             ) : (
               <SearchPeopleTab query={trimmedQuery} />
             )
-	        ) : effectiveTab === "all" ? (
-	          trimmedQuery.length > 0 && trimmedQuery.length < 2 ? (
-	            <div className="space-y-3">
-	              <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                Keep typing to search — enter at least{" "}
-	                <span className="font-semibold text-foreground">2 characters</span>.
-	              </div>
-	              <div className="rounded-2xl border border-border bg-background/60 p-4 text-xs text-muted-foreground">
-	                Tip: Use the filters button to browse without typing (genres, year, language).
-	              </div>
-	            </div>
-	          ) : (
-	            <div className="space-y-8">
-	              {/* Movies */}
-	              <div>
-	                <div className="mb-2 flex items-center justify-between">
-	                  <div className="flex items-center gap-2">
-	                    <p className="text-sm font-semibold text-foreground">
-	                      Movies{moviePreviewItems.length ? ` (${moviePreviewItems.length})` : ""}
-	                    </p>
-	                    {titlesQuery.isFetching && !titlesQuery.isLoading ? (
-	                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
-	                    ) : null}
-	                  </div>
-	                  <Button
-	                    variant="ghost"
-	                    size="sm"
-	                    onClick={() => setChip("movies")}
-	                    className="h-8 rounded-full"
-	                  >
-	                    See all
-	                  </Button>
-	                </div>
-	                {titlesQuery.isLoading ? (
-	                  <div className="space-y-2">
-	                    {Array.from({ length: 4 }).map((_, i) => (
-	                      <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />
-	                    ))}
-	                  </div>
-	                ) : titlesQuery.isError ? (
-	                  <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                    <div className="flex items-start justify-between gap-3">
-	                      <div>
-	                        <p className="font-semibold text-foreground">Couldn&#39;t load movies</p>
-	                        <p className="mt-1 text-xs text-muted-foreground">
-	                          {(titlesQuery.error as any)?.message ?? "Please try again."}
-	                        </p>
-	                      </div>
-	                      <Button
-	                        variant="secondary"
-	                        size="sm"
-	                        className="h-8 rounded-full"
-	                        onClick={() => titlesQuery.refetch()}
-	                      >
-	                        Retry
-	                      </Button>
-	                    </div>
-	                  </div>
-	                ) : moviePreviewItems.length ? (
-	                  <div className="space-y-2">
-	                    {moviePreviewItems.slice(0, 6).map((r) => (
-	                      <TitleSearchResultRow key={r.id} item={r} query={trimmedQuery} />
-	                    ))}
-	                    {moviePreviewItems.length > 6 ? (
-	                      <Button
-	                        variant="secondary"
-	                        className="w-full rounded-2xl"
-	                        onClick={() => setChip("movies")}
-	                      >
-	                        View more movies
-	                      </Button>
-	                    ) : null}
-	                  </div>
-	                ) : (
-	                  <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                    <p className="font-semibold text-foreground">No matching movies.</p>
-	                    <p className="mt-1 text-xs text-muted-foreground">
-	                      Try a different spelling, or use filters to browse by genre, year, or language.
-	                    </p>
-	                    <div className="mt-3 flex flex-wrap gap-2">
-	                      <Button
-	                        variant="secondary"
-	                        size="sm"
-	                        className="h-8 rounded-full"
-	                        onClick={openFilterSheet}
-	                      >
-	                        Open filters
-	                      </Button>
-	                      {trimmedQuery.startsWith("@") ? (
-	                        <Button
-	                          variant="outline"
-	                          size="sm"
-	                          className="h-8 rounded-full"
-	                          onClick={() => setChip("people")}
-	                        >
-	                          Search people
-	                        </Button>
-	                      ) : null}
-	                    </div>
-	                  </div>
-	                )}
-	              </div>
+          ) : effectiveTab === "all" ? (
+            trimmedQuery.length > 0 && trimmedQuery.length < 2 ? (
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                  Keep typing to search — enter at least{" "}
+                  <span className="font-semibold text-foreground">2 characters</span>.
+                </div>
+                <div className="rounded-2xl border border-border bg-background/60 p-4 text-xs text-muted-foreground">
+                  Tip: Use the filters button to browse without typing (genres, year, language).
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Movies */}
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        Movies{moviePreviewItems.length ? ` (${moviePreviewItems.length})` : ""}
+                      </p>
+                      {titlesQuery.isFetching && !titlesQuery.isLoading ? (
+                        <Loader2
+                          className="h-4 w-4 animate-spin text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setChip("movies")}
+                      className="h-8 rounded-full"
+                    >
+                      See all
+                    </Button>
+                  </div>
+                  {titlesQuery.isLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />
+                      ))}
+                    </div>
+                  ) : titlesQuery.isError ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-foreground">Couldn&#39;t load movies</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {(titlesQuery.error as any)?.message ?? "Please try again."}
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={() => titlesQuery.refetch()}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  ) : moviePreviewItems.length ? (
+                    <div className="space-y-2">
+                      {moviePreviewItems.slice(0, 6).map((r) => (
+                        <TitleSearchResultRow key={r.id} item={r} query={trimmedQuery} />
+                      ))}
+                      {moviePreviewItems.length > 6 ? (
+                        <Button
+                          variant="secondary"
+                          className="w-full rounded-2xl"
+                          onClick={() => setChip("movies")}
+                        >
+                          View more movies
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                      <p className="font-semibold text-foreground">No matching movies.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Try a different spelling, or use filters to browse by genre, year, or
+                        language.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={openFilterSheet}
+                        >
+                          Open filters
+                        </Button>
+                        {trimmedQuery.startsWith("@") ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-full"
+                            onClick={() => setChip("people")}
+                          >
+                            Search people
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-	              {/* Series */}
-	              <div>
-	                <div className="mb-2 flex items-center justify-between">
-	                  <div className="flex items-center gap-2">
-	                    <p className="text-sm font-semibold text-foreground">
-	                      Series{seriesPreviewItems.length ? ` (${seriesPreviewItems.length})` : ""}
-	                    </p>
-	                    {titlesQuery.isFetching && !titlesQuery.isLoading ? (
-	                      <Loader2
-	                        className="h-4 w-4 animate-spin text-muted-foreground"
-	                        aria-hidden="true"
-	                      />
-	                    ) : null}
-	                  </div>
-	                  <Button
-	                    variant="ghost"
-	                    size="sm"
-	                    onClick={() => setChip("series")}
-	                    className="h-8 rounded-full"
-	                  >
-	                    See all
-	                  </Button>
-	                </div>
-	                {titlesQuery.isLoading ? (
-	                  <div className="space-y-2">
-	                    {Array.from({ length: 4 }).map((_, i) => (
-	                      <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />
-	                    ))}
-	                  </div>
-	                ) : titlesQuery.isError ? (
-	                  <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                    <div className="flex items-start justify-between gap-3">
-	                      <div>
-	                        <p className="font-semibold text-foreground">Couldn&#39;t load series</p>
-	                        <p className="mt-1 text-xs text-muted-foreground">
-	                          {(titlesQuery.error as any)?.message ?? "Please try again."}
-	                        </p>
-	                      </div>
-	                      <Button
-	                        variant="secondary"
-	                        size="sm"
-	                        className="h-8 rounded-full"
-	                        onClick={() => titlesQuery.refetch()}
-	                      >
-	                        Retry
-	                      </Button>
-	                    </div>
-	                  </div>
-	                ) : seriesPreviewItems.length ? (
-	                  <div className="space-y-2">
-	                    {seriesPreviewItems.slice(0, 6).map((r) => (
-	                      <TitleSearchResultRow key={r.id} item={r} query={trimmedQuery} />
-	                    ))}
-	                    {seriesPreviewItems.length > 6 ? (
-	                      <Button
-	                        variant="secondary"
-	                        className="w-full rounded-2xl"
-	                        onClick={() => setChip("series")}
-	                      >
-	                        View more series
-	                      </Button>
-	                    ) : null}
-	                  </div>
-	                ) : (
-	                  <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                    <p className="font-semibold text-foreground">No matching series.</p>
-	                    <p className="mt-1 text-xs text-muted-foreground">
-	                      Try a different spelling, or use filters to browse by genre, year, or language.
-	                    </p>
-	                    <div className="mt-3 flex flex-wrap gap-2">
-	                      <Button
-	                        variant="secondary"
-	                        size="sm"
-	                        className="h-8 rounded-full"
-	                        onClick={openFilterSheet}
-	                      >
-	                        Open filters
-	                      </Button>
-	                    </div>
-	                  </div>
-	                )}
-	              </div>
+                {/* Series */}
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        Series{seriesPreviewItems.length ? ` (${seriesPreviewItems.length})` : ""}
+                      </p>
+                      {titlesQuery.isFetching && !titlesQuery.isLoading ? (
+                        <Loader2
+                          className="h-4 w-4 animate-spin text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setChip("series")}
+                      className="h-8 rounded-full"
+                    >
+                      See all
+                    </Button>
+                  </div>
+                  {titlesQuery.isLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />
+                      ))}
+                    </div>
+                  ) : titlesQuery.isError ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-foreground">Couldn&#39;t load series</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {(titlesQuery.error as any)?.message ?? "Please try again."}
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={() => titlesQuery.refetch()}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  ) : seriesPreviewItems.length ? (
+                    <div className="space-y-2">
+                      {seriesPreviewItems.slice(0, 6).map((r) => (
+                        <TitleSearchResultRow key={r.id} item={r} query={trimmedQuery} />
+                      ))}
+                      {seriesPreviewItems.length > 6 ? (
+                        <Button
+                          variant="secondary"
+                          className="w-full rounded-2xl"
+                          onClick={() => setChip("series")}
+                        >
+                          View more series
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                      <p className="font-semibold text-foreground">No matching series.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Try a different spelling, or use filters to browse by genre, year, or
+                        language.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={openFilterSheet}
+                        >
+                          Open filters
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-	              {/* People */}
-	              <div>
-	                <div className="mb-2 flex items-center justify-between">
-	                  <div className="flex items-center gap-2">
-	                    <p className="text-sm font-semibold text-foreground">
-	                      People{peopleQuery.data?.length ? ` (${peopleQuery.data.length})` : ""}
-	                    </p>
-	                    {peopleQuery.isFetching && !peopleQuery.isLoading ? (
-	                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
-	                    ) : null}
-	                  </div>
-	                  <Button
-	                    variant="ghost"
-	                    size="sm"
-	                    onClick={() => setChip("people")}
-	                    className="h-8 rounded-full"
-	                  >
-	                    See all
-	                  </Button>
-	                </div>
-	                {peopleQuery.isLoading ? (
-	                  <div className="space-y-2">
-	                    {Array.from({ length: 4 }).map((_, i) => (
-	                      <div key={i} className="h-14 animate-pulse rounded-2xl bg-muted" />
-	                    ))}
-	                  </div>
-	                ) : peopleQuery.isError ? (
-	                  <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                    <div className="flex items-start justify-between gap-3">
-	                      <div>
-	                        <p className="font-semibold text-foreground">Couldn&#39;t load people</p>
-	                        <p className="mt-1 text-xs text-muted-foreground">
-	                          {(peopleQuery.error as any)?.message ?? "Please try again."}
-	                        </p>
-	                      </div>
-	                      <Button
-	                        variant="secondary"
-	                        size="sm"
-	                        className="h-8 rounded-full"
-	                        onClick={() => peopleQuery.refetch()}
-	                      >
-	                        Retry
-	                      </Button>
-	                    </div>
-	                  </div>
-	                ) : peopleQuery.data?.length ? (
-	                  <div className="space-y-2">
-	                    {peopleQuery.data.slice(0, 6).map((p) => {
-	                      const row: PersonRowData = {
-	                        id: p.id,
-	                        username: p.username,
-	                        displayName: p.displayName,
-	                        avatarUrl: p.avatarUrl,
-	                        bio: p.bio,
-	                        followersCount: p.followersCount ?? null,
-	                        followingCount: p.followingCount ?? null,
-	                        isFollowing: p.isFollowing,
-	                        matchPercent: p.matchPercent ?? null,
-	                      };
-	                      return (
-	                        <PeopleResultRow
-	                          key={p.id}
-	                          person={row}
-	                          variant="compact"
-	                          showFollow
-	                          showMessage
-	                          highlightQuery={trimmedQuery.replace(/^@+/, "")}
-	                        />
-	                      );
-	                    })}
-	                  </div>
-	                ) : (
-	                  <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-	                    No matching people.
-	                  </div>
-	                )}
-	              </div>
-	            </div>
-	          )
+                {/* People */}
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        People{peopleQuery.data?.length ? ` (${peopleQuery.data.length})` : ""}
+                      </p>
+                      {peopleQuery.isFetching && !peopleQuery.isLoading ? (
+                        <Loader2
+                          className="h-4 w-4 animate-spin text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setChip("people")}
+                      className="h-8 rounded-full"
+                    >
+                      See all
+                    </Button>
+                  </div>
+                  {peopleQuery.isLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-14 animate-pulse rounded-2xl bg-muted" />
+                      ))}
+                    </div>
+                  ) : peopleQuery.isError ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-foreground">Couldn&#39;t load people</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {(peopleQuery.error as any)?.message ?? "Please try again."}
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={() => peopleQuery.refetch()}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  ) : peopleQuery.data?.length ? (
+                    <div className="space-y-2">
+                      {peopleQuery.data.slice(0, 6).map((p) => {
+                        const row: PersonRowData = {
+                          id: p.id,
+                          username: p.username,
+                          displayName: p.displayName,
+                          avatarUrl: p.avatarUrl,
+                          bio: p.bio,
+                          followersCount: p.followersCount ?? null,
+                          followingCount: p.followingCount ?? null,
+                          isFollowing: p.isFollowing,
+                          matchPercent: p.matchPercent ?? null,
+                        };
+                        return (
+                          <PeopleResultRow
+                            key={p.id}
+                            person={row}
+                            variant="compact"
+                            showFollow
+                            showMessage
+                            highlightQuery={trimmedQuery.replace(/^@+/, "")}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                      No matching people.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
           ) : (
-	            <SearchTitlesTab
-                query={trimmedQuery}
-                filters={filters}
-                sortKey={sortKey}
-                onChangeSort={setSort}
-                onResetFilters={resetFilters}
-              />
+            <SearchTitlesTab
+              query={trimmedQuery}
+              filters={filters}
+              sortKey={sortKey}
+              onChangeSort={setSort}
+              onResetFilters={resetFilters}
+            />
           )}
         </div>
       )}

@@ -93,7 +93,6 @@ export const useToggleFollow = () => {
         },
       );
 
-      
       // Patch cached suggested people results.
       queryClient.setQueriesData<SuggestedPerson[]>(
         { queryKey: ["suggested-people"] },
@@ -109,7 +108,7 @@ export const useToggleFollow = () => {
           });
         },
       );
-// Make any profile queries refetch so counts + state stay fresh.
+      // Make any profile queries refetch so counts + state stay fresh.
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
   });

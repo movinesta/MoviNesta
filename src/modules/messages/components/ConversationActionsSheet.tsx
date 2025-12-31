@@ -39,7 +39,9 @@ const Row: React.FC<{
     </span>
     <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-semibold">{title}</span>
-      {description ? <span className="block truncate text-xs text-muted-foreground">{description}</span> : null}
+      {description ? (
+        <span className="block truncate text-xs text-muted-foreground">{description}</span>
+      ) : null}
     </span>
   </button>
 );
@@ -75,9 +77,7 @@ export const ConversationActionsSheet: React.FC<Props> = ({
             <DialogTitle className="text-center text-base text-foreground">
               {conversation?.title ?? "Conversation"}
             </DialogTitle>
-            <p className="mt-1 text-center text-xs text-muted-foreground">
-              Quick actions
-            </p>
+            <p className="mt-1 text-center text-xs text-muted-foreground">Quick actions</p>
           </div>
           <button
             type="button"

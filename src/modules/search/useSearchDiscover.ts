@@ -101,148 +101,152 @@ export function useSearchTrendingNow(limit = 10) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
 
-const fetchFallbackFromLibrary = async (): Promise<DiscoverPoster[]> => {
-  // Fallback feed that doesn't rely on the swipe-deck Edge Function.
-  //
-  // Priority:
-  // 1) Use server-computed trending scores (72h) if available.
-  // 2) Fall back to TMDb popularity stored on media_items.
-  //
-  // This keeps “Trending Now” from looking empty for new accounts or when the Edge Function is unavailable.
+  const fetchFallbackFromLibrary = async (): Promise<DiscoverPoster[]> => {
+    // Fallback feed that doesn't rely on the swipe-deck Edge Function.
+    //
+    // Priority:
+    // 1) Use server-computed trending scores (72h) if available.
+    // 2) Fall back to TMDb popularity stored on media_items.
+    //
+    // This keeps “Trending Now” from looking empty for new accounts or when the Edge Function is unavailable.
 
-  // NOTE: Column list is intentionally aligned with mapMediaItemToSummary().
-  const columns = `
-    id,
-    kind,
-    tmdb_id,
-    tmdb_title,
-    tmdb_name,
-    tmdb_original_title,
-    tmdb_original_name,
-    tmdb_release_date,
-    tmdb_first_air_date,
-    tmdb_poster_path,
-    tmdb_backdrop_path,
-    tmdb_original_language,
-    tmdb_genre_ids,
-    tmdb_vote_average,
-    tmdb_vote_count,
-    tmdb_popularity,
-    omdb_title,
-    omdb_year,
-    omdb_language,
-    omdb_imdb_id,
-    omdb_imdb_rating,
-    omdb_rating_rotten_tomatoes,
-    omdb_poster,
-    omdb_rated
-  `;
+    // NOTE: Column list is intentionally aligned with mapMediaItemToSummary().
+    const columns = `
+      id,
+      kind,
+      tmdb_id,
+      tmdb_title,
+      tmdb_name,
+      tmdb_original_title,
+      tmdb_original_name,
+      tmdb_release_date,
+      tmdb_first_air_date,
+      tmdb_poster_path,
+      tmdb_backdrop_path,
+      tmdb_original_language,
+      tmdb_genre_ids,
+      tmdb_vote_average,
+      tmdb_vote_count,
+      tmdb_popularity,
+      omdb_title,
+      omdb_year,
+      omdb_language,
+      omdb_imdb_id,
+      omdb_imdb_rating,
+      omdb_rating_rotten_tomatoes,
+      omdb_poster,
+      omdb_rated
+    `;
 
-  const coerceUuid = (value: any): string | null => {
-    if (!value) return null;
-    const s = String(value).trim();
-    return s ? s : null;
+    const coerceUuid = (value: any): string | null => {
+      if (!value) return null;
+      const s = String(value).trim();
+      return s ? s : null;
+    };
+
+    // 1) Try the server-computed trending view first.
+    try {
+      const { data: trendRows, error: trendErr } = await (supabase as any)
+        .from("media_item_trending_72h")
+        .select("media_item_id, trend_score")
+        .order("trend_score", { ascending: false })
+        .limit(Math.max(10, Math.min(limit * 6, 80)));
+
+      if (!trendErr && Array.isArray(trendRows) && trendRows.length) {
+        const scoreById = new Map<string, number>();
+        const ids: string[] = [];
+        for (const row of trendRows as any[]) {
+          const id = coerceUuid((row as any)?.media_item_id);
+          if (!id) continue;
+          const score = Number((row as any)?.trend_score ?? 0);
+          if (!scoreById.has(id)) ids.push(id);
+          scoreById.set(id, Number.isFinite(score) ? score : 0);
+          if (ids.length >= Math.max(10, Math.min(limit * 4, 40))) break;
+        }
+
+        if (ids.length) {
+          const { data, error } = await supabase
+            .from("media_items")
+            .select(columns)
+            .in("id", ids)
+            .in("kind", ["movie", "series"])
+            .limit(ids.length);
+
+          if (!error && Array.isArray(data) && data.length) {
+            const rows = data as any[];
+            const posters = rows
+              .map((row) => {
+                const summary = mapMediaItemToSummary(row as any);
+                if (!summary?.id || !summary?.title) return null;
+                return {
+                  id: summary.id,
+                  title: summary.title,
+                  imageUrl: summary.posterUrl ?? summary.backdropUrl ?? null,
+                  ratingLabel: formatImdbAsLabel(summary.imdbRating ?? null),
+                  subtitle: null,
+                  friendAvatarUrls: [],
+                  friendExtraCount: 0,
+                  _score: scoreById.get(summary.id) ?? 0,
+                } as DiscoverPoster & { _score: number };
+              })
+              .filter((poster): poster is DiscoverPoster & { _score: number } => poster !== null);
+
+            posters.sort((a, b) => b._score - a._score);
+            return posters.slice(0, Math.max(1, Math.min(limit, 24))).map((poster) => {
+              const { _score, ...rest } = poster;
+              void _score;
+              return rest;
+            });
+          }
+
+          if (error) {
+            console.warn("[search.discover] trending view -> media_items lookup failed", error);
+          }
+        }
+      }
+
+      if (trendErr) {
+        console.warn("[search.discover] trending view unavailable", trendErr);
+      }
+    } catch (err) {
+      console.warn("[search.discover] trending view fallback threw", err);
+    }
+
+    // 2) Popularity fallback from library (may be blocked by RLS for anon; return [] in that case).
+    const { data, error } = await supabase
+      .from("media_items")
+      .select(columns)
+      .in("kind", ["movie", "series"])
+      .order("tmdb_popularity", { ascending: false, nullsFirst: false })
+      .order("tmdb_vote_count", { ascending: false, nullsFirst: false })
+      .order("tmdb_vote_average", { ascending: false, nullsFirst: false })
+      .order("tmdb_release_date", { ascending: false, nullsFirst: false })
+      .order("tmdb_first_air_date", { ascending: false, nullsFirst: false })
+      .limit(Math.max(1, Math.min(limit, 24)));
+
+    if (error) {
+      console.warn("[search.discover] popularity fallback trending query failed", error);
+      return [];
+    }
+
+    const rows = (Array.isArray(data) ? data : []) as any[];
+    return rows
+      .map((row) => {
+        const summary = mapMediaItemToSummary(row as any);
+        if (!summary?.id || !summary?.title) return null;
+        const poster: DiscoverPoster = {
+          id: summary.id,
+          title: summary.title,
+          imageUrl: summary.posterUrl ?? summary.backdropUrl ?? null,
+          ratingLabel: formatImdbAsLabel(summary.imdbRating ?? null),
+          subtitle: null,
+          friendAvatarUrls: [],
+          friendExtraCount: 0,
+        };
+        return poster;
+      })
+      .filter((v): v is DiscoverPoster => v !== null);
   };
-
-  // 1) Try the server-computed trending view first.
-  try {
-    const { data: trendRows, error: trendErr } = await supabase
-      .from("media_item_trending_72h")
-      .select("media_item_id, trend_score")
-      .order("trend_score", { ascending: false })
-      .limit(Math.max(10, Math.min(limit * 6, 80)));
-
-    if (!trendErr && Array.isArray(trendRows) && trendRows.length) {
-      const scoreById = new Map<string, number>();
-      const ids: string[] = [];
-      for (const row of trendRows as any[]) {
-        const id = coerceUuid((row as any)?.media_item_id);
-        if (!id) continue;
-        const score = Number((row as any)?.trend_score ?? 0);
-        if (!scoreById.has(id)) ids.push(id);
-        scoreById.set(id, Number.isFinite(score) ? score : 0);
-        if (ids.length >= Math.max(10, Math.min(limit * 4, 40))) break;
-      }
-
-      if (ids.length) {
-        const { data, error } = await supabase
-          .from("media_items")
-          .select(columns)
-          .in("id", ids)
-          .in("kind", ["movie", "series"])
-          .limit(ids.length);
-
-        if (!error && Array.isArray(data) && data.length) {
-          const rows = data as any[];
-          const posters = rows
-            .map((row) => {
-              const summary = mapMediaItemToSummary(row as any);
-              if (!summary?.id || !summary?.title) return null;
-              return {
-                id: summary.id,
-                title: summary.title,
-                imageUrl: summary.posterUrl ?? summary.backdropUrl ?? null,
-                ratingLabel: formatImdbAsLabel(summary.imdbRating ?? null),
-                subtitle: null,
-                friendAvatarUrls: [],
-                friendExtraCount: 0,
-                _score: scoreById.get(summary.id) ?? 0,
-              } as DiscoverPoster & { _score: number };
-            })
-            .filter(Boolean) as (DiscoverPoster & { _score: number })[];
-
-          posters.sort((a, b) => b._score - a._score);
-          return posters.slice(0, Math.max(1, Math.min(limit, 24))).map(({ _score, ...p }) => p);
-        }
-
-        if (error) {
-          console.warn("[search.discover] trending view -> media_items lookup failed", error);
-        }
-      }
-    }
-
-    if (trendErr) {
-      console.warn("[search.discover] trending view unavailable", trendErr);
-    }
-  } catch (err) {
-    console.warn("[search.discover] trending view fallback threw", err);
-  }
-
-  // 2) Popularity fallback from library (may be blocked by RLS for anon; return [] in that case).
-  const { data, error } = await supabase
-    .from("media_items")
-    .select(columns)
-    .in("kind", ["movie", "series"])
-    .order("tmdb_popularity", { ascending: false, nullsFirst: false })
-    .order("tmdb_vote_count", { ascending: false, nullsFirst: false })
-    .order("tmdb_vote_average", { ascending: false, nullsFirst: false })
-    .order("tmdb_release_date", { ascending: false, nullsFirst: false })
-    .order("tmdb_first_air_date", { ascending: false, nullsFirst: false })
-    .limit(Math.max(1, Math.min(limit, 24)));
-
-  if (error) {
-    console.warn("[search.discover] popularity fallback trending query failed", error);
-    return [];
-  }
-
-  const rows = (Array.isArray(data) ? data : []) as any[];
-  return rows
-    .map((row) => {
-      const summary = mapMediaItemToSummary(row as any);
-      if (!summary?.id || !summary?.title) return null;
-      return {
-        id: summary.id,
-        title: summary.title,
-        imageUrl: summary.posterUrl ?? summary.backdropUrl ?? null,
-        ratingLabel: formatImdbAsLabel(summary.imdbRating ?? null),
-        subtitle: null,
-        friendAvatarUrls: [],
-        friendExtraCount: 0,
-      } satisfies DiscoverPoster;
-    })
-    .filter((v): v is DiscoverPoster => Boolean(v));
-};
-;
 
   return useQuery({
     queryKey: ["search", "discover", "trending", userId ?? "anon", limit],

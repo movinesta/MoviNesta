@@ -11,8 +11,13 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
   const trimmedQuery = query.trim();
   const normalizedQuery = trimmedQuery.replace(/^@+/, "");
   const effectiveQuery = normalizedQuery || trimmedQuery;
+  const showMinimumQueryHint = normalizedQuery.length > 0 && normalizedQuery.length < 2;
 
-  if (normalizedQuery && normalizedQuery.length < 2) {
+  const { data, isLoading, isFetching, isError, error } = useSearchPeople(normalizedQuery);
+
+  const results = data ?? [];
+
+  if (showMinimumQueryHint) {
     return (
       <div className="space-y-2">
         <p className="text-[12px] text-muted-foreground">
@@ -20,15 +25,12 @@ const SearchPeopleTab: React.FC<SearchPeopleTabProps> = ({ query }) => {
           <span className="font-semibold text-foreground">2 characters</span>.
         </p>
         <p className="text-xs text-muted-foreground">
-          Tip: You can type <span className="font-semibold text-foreground">@</span> to search usernames.
+          Tip: You can type <span className="font-semibold text-foreground">@</span> to search
+          usernames.
         </p>
       </div>
     );
   }
-
-  const { data, isLoading, isFetching, isError, error } = useSearchPeople(normalizedQuery);
-
-  const results = data ?? [];
 
   if (!normalizedQuery) {
     return (

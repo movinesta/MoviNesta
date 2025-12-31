@@ -25,9 +25,13 @@ const makeConversation = (selfId: string, otherIds: string[]): ConversationListI
   lastMessagePreview: null,
   lastMessageAt: null,
   lastMessageAtLabel: null,
+  lastMessageId: null,
   hasUnread: false,
   lastMessageIsFromSelf: true,
   lastMessageSeenByOthers: false,
+  isMuted: false,
+  mutedUntil: null,
+  isHidden: false,
 });
 
 const makeMessage = (senderId: string, createdAt: string): ConversationMessage => ({

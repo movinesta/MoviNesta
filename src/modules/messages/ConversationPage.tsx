@@ -43,7 +43,6 @@ import { MuteOptionsSheet, type MutePreset } from "./components/MuteOptionsSheet
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import { useConversationSearch } from "./useConversationSearch";
 import { MaterialIcon } from "@/components/ui/material-icon";
-import { formatTimeAgo } from "./formatTimeAgo";
 import { toast } from "@/components/toasts";
 import { saveConversationPrefs } from "./conversationPrefs";
 import { useQueryClient } from "@tanstack/react-query";
@@ -97,17 +96,19 @@ const ConversationPage: React.FC = () => {
 
     toast.show("Unmuted notifications.");
 
-    saveConversationPrefs(currentUserId, conversationId, { muted: false, hidden, mutedUntil: null }).then(
-      ({ ok }) => {
-        if (ok) return;
-        updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
-          ...c,
-          isMuted: prevMuted,
-          mutedUntil: prevUntil,
-        }));
-        toast.error("Couldn't update preferences.");
-      },
-    );
+    saveConversationPrefs(currentUserId, conversationId, {
+      muted: false,
+      hidden,
+      mutedUntil: null,
+    }).then(({ ok }) => {
+      if (ok) return;
+      updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
+        ...c,
+        isMuted: prevMuted,
+        mutedUntil: prevUntil,
+      }));
+      toast.error("Couldn't update preferences.");
+    });
   }, [conversationId, currentUserId, conversation, queryClient]);
 
   const applyMutePreset = useCallback(
@@ -141,17 +142,19 @@ const ConversationPage: React.FC = () => {
 
       toast.show(`Muted notifications for ${preset.label}.`);
 
-      saveConversationPrefs(currentUserId, conversationId, { muted: nextMuted, hidden, mutedUntil: nextUntil }).then(
-        ({ ok }) => {
-          if (ok) return;
-          updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
-            ...c,
-            isMuted: prevMuted,
-            mutedUntil: prevUntil,
-          }));
-          toast.error("Couldn't update preferences.");
-        },
-      );
+      saveConversationPrefs(currentUserId, conversationId, {
+        muted: nextMuted,
+        hidden,
+        mutedUntil: nextUntil,
+      }).then(({ ok }) => {
+        if (ok) return;
+        updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
+          ...c,
+          isMuted: prevMuted,
+          mutedUntil: prevUntil,
+        }));
+        toast.error("Couldn't update preferences.");
+      });
     },
     [conversationId, currentUserId, conversation, queryClient],
   );
@@ -170,7 +173,6 @@ const ConversationPage: React.FC = () => {
 
   const {
     data: messages,
-    dataUpdatedAt: messagesDataUpdatedAt,
     isLoading: isMessagesLoading,
     isError: isMessagesError,
     error: messagesError,
@@ -310,6 +312,7 @@ const ConversationPage: React.FC = () => {
     cancelImageUpload,
     clearUploadError,
     handleImageSelected,
+    sendImageFile,
     openFilePicker: handleCameraClick,
   } = useAttachmentUpload({
     conversationId,
@@ -370,9 +373,7 @@ const ConversationPage: React.FC = () => {
   // the last message visible above the fixed composer. Without a threshold, users
   // can *look* at the latest message but still be considered "not at bottom",
   // which breaks auto-scroll on new messages.
-  const atBottomThreshold = showComposer
-    ? Math.max(120, Math.max(composerHeight, 0) + 24)
-    : 80;
+  const atBottomThreshold = showComposer ? Math.max(120, Math.max(composerHeight, 0) + 24) : 80;
 
   const selfDisplayName = useMemo(() => {
     return conversation?.participants.find((p) => p.isSelf)?.displayName ?? "You";
@@ -574,7 +575,7 @@ const ConversationPage: React.FC = () => {
       virtuosoRef.current?.scrollToIndex({
         index: firstItemIndex + uiIndex,
         align: "center",
-        behavior: behaviorOverride ?? scrollBehavior,
+        behavior: scrollBehavior,
       });
     },
     [firstItemIndex, scrollBehavior],
@@ -595,16 +596,16 @@ const ConversationPage: React.FC = () => {
     search.close();
   }, [conversationId, search.close]);
 
-  const openSearch = useCallback(() => {
+  const openSearch = () => {
     closeMessageActions();
     setShowEmojiPicker(false);
     search.setIsOpen(true);
     queueMicrotask(() => searchInputRef.current?.focus());
-  }, [closeMessageActions, search.setIsOpen, setShowEmojiPicker]);
+  };
 
-  const closeSearch = useCallback(() => {
+  const closeSearch = () => {
     search.close();
-  }, [search.close]);
+  };
 
   useEffect(() => {
     const handleGlobalEscape = (event: KeyboardEvent) => {
@@ -630,49 +631,55 @@ const ConversationPage: React.FC = () => {
     searchDidJumpRef.current = false;
   }, [search.query]);
 
-  const handleJumpToLatest = useCallback((behaviorOverride?: ScrollBehavior) => {
-    const lastIndex = visibleMessages.length - 1;
-    if (lastIndex < 0) return;
+  const handleJumpToLatest = useCallback(
+    (behaviorOverride?: "auto" | "smooth") => {
+      const lastIndex = visibleMessages.length - 1;
+      if (lastIndex < 0) return;
 
-    const lastMessageId = visibleMessages[lastIndex]?.message.id ?? null;
-    if (lastMessageId) {
-      lastSeenLastMessageIdRef.current = lastMessageId;
-    }
+      const lastMessageId = visibleMessages[lastIndex]?.message.id ?? null;
+      if (lastMessageId) {
+        lastSeenLastMessageIdRef.current = lastMessageId;
+      }
 
-    setPendingNewCount(0);
+      setPendingNewCount(0);
 
-    virtuosoRef.current?.scrollToIndex({
-      index: firstItemIndex + lastIndex,
-      align: "end",
-      behavior: behaviorOverride ?? scrollBehavior,
-    });
+      virtuosoRef.current?.scrollToIndex({
+        index: firstItemIndex + lastIndex,
+        align: "end",
+        behavior: behaviorOverride ?? scrollBehavior,
+      });
 
-    // After a brief delay (to allow the scroll), return focus to the composer so
-    // keyboard users can resume typing immediately.
-    window.setTimeout(
-      () => {
-        textareaRef.current?.focus();
-      },
-      prefersReducedMotion ? 0 : 200,
-    );
-  }, [firstItemIndex, scrollBehavior, prefersReducedMotion, visibleMessages]);
+      // After a brief delay (to allow the scroll), return focus to the composer so
+      // keyboard users can resume typing immediately.
+      window.setTimeout(
+        () => {
+          textareaRef.current?.focus();
+        },
+        prefersReducedMotion ? 0 : 200,
+      );
+    },
+    [firstItemIndex, scrollBehavior, prefersReducedMotion, visibleMessages],
+  );
 
-  const handleJumpToUnread = useCallback((behaviorOverride?: ScrollBehavior) => {
-    if (firstUnreadIndex == null) return;
+  const handleJumpToUnread = useCallback(
+    (behaviorOverride?: "auto" | "smooth") => {
+      if (firstUnreadIndex == null) return;
 
-    virtuosoRef.current?.scrollToIndex({
-      index: firstItemIndex + firstUnreadIndex,
-      align: "start",
-      behavior: behaviorOverride ?? scrollBehavior,
-    });
+      virtuosoRef.current?.scrollToIndex({
+        index: firstItemIndex + firstUnreadIndex,
+        align: "start",
+        behavior: behaviorOverride ?? scrollBehavior,
+      });
 
-    window.setTimeout(
-      () => {
-        textareaRef.current?.focus();
-      },
-      prefersReducedMotion ? 0 : 150,
-    );
-  }, [firstItemIndex, firstUnreadIndex, scrollBehavior, prefersReducedMotion]);
+      window.setTimeout(
+        () => {
+          textareaRef.current?.focus();
+        },
+        prefersReducedMotion ? 0 : 150,
+      );
+    },
+    [firstItemIndex, firstUnreadIndex, scrollBehavior, prefersReducedMotion],
+  );
 
   const handleSendText = useCallback(
     (text: string) => {
@@ -726,6 +733,22 @@ const ConversationPage: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleJumpToLatest, handleJumpToUnread, openSearch]);
 
+  const headerSubtitle = useMemo(() => {
+    if (blockedYou) return "You are blocked";
+    if (isBlocked) return "You blocked them";
+
+    if (remoteTypingUsers.length > 0) {
+      if (isGroupConversation) {
+        if (remoteTypingUsers.length === 1) return `${remoteTypingUsers[0]} is typing…`;
+        if (remoteTypingUsers.length === 2)
+          return `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`;
+        return "Several people are typing…";
+      }
+      return "Typing…";
+    }
+
+    return conversation?.subtitle || (isGroupConversation ? "Group chat" : "Direct message");
+  }, [blockedYou, isBlocked, remoteTypingUsers, isGroupConversation, conversation?.subtitle]);
   if (!conversationId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -746,22 +769,6 @@ const ConversationPage: React.FC = () => {
       </div>
     );
   }
-  const headerSubtitle = useMemo(() => {
-    if (blockedYou) return "You are blocked";
-    if (isBlocked) return "You blocked them";
-
-    if (remoteTypingUsers.length > 0) {
-      if (isGroupConversation) {
-        if (remoteTypingUsers.length === 1) return `${remoteTypingUsers[0]} is typing…`;
-        if (remoteTypingUsers.length === 2)
-          return `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`;
-        return "Several people are typing…";
-      }
-      return "Typing…";
-    }
-
-    return conversation?.subtitle || (isGroupConversation ? "Group chat" : "Direct message");
-  }, [blockedYou, isBlocked, remoteTypingUsers, isGroupConversation, conversation?.subtitle]);
 
   return (
     <div className="conversation-page relative flex min-h-screen w-full flex-col items-stretch bg-background text-foreground">
@@ -1112,11 +1119,11 @@ const ConversationPage: React.FC = () => {
             noteLocalInputActivity={noteLocalInputActivity}
             stopTyping={stopTyping}
             onSendText={handleSendText}
-          onRequestScrollToBottom={handleJumpToLatest}
+            onRequestScrollToBottom={handleJumpToLatest}
             isUploadingImage={isUploadingImage}
             cancelImageUpload={cancelImageUpload}
             sendError={Boolean(sendError)}
-          sendErrorMessage={sendError}
+            sendErrorMessage={sendError}
             canRetrySend={Boolean(lastFailedPayload)}
             onRetrySend={handleRetrySend}
             uploadError={uploadError}
@@ -1126,10 +1133,10 @@ const ConversationPage: React.FC = () => {
             openCameraPicker={handleCameraClick}
             fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
             onImageSelected={(event) => {
-            handleJumpToLatest("auto");
-            handleImageSelected(event);
-          }}
-          onImageFile={(file) => sendImageFile(file)}
+              handleJumpToLatest("auto");
+              handleImageSelected(event);
+            }}
+            onImageFile={(file) => sendImageFile(file)}
             isSending={sendMessage.isPending}
             disableSend={Boolean(isBlocked || blockedYou)}
           />
@@ -1226,7 +1233,6 @@ const ConversationPage: React.FC = () => {
           onBlockToggle={handleBlockToggle}
         />
       )}
-
 
       {conversationId && (
         <MuteOptionsSheet

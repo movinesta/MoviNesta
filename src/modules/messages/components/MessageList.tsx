@@ -149,6 +149,25 @@ export function MessageList<T>({
     );
   }
 
+  const Scroller = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+    (props, ref) => (
+      <div
+        {...props}
+        ref={(node) => {
+          scrollerElRef.current = node;
+          if (typeof ref === "function") ref(node);
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        }}
+        onScroll={(event) => {
+          // eslint-disable-next-line react/prop-types
+          props.onScroll?.(event as any);
+          computeAtBottom();
+        }}
+      />
+    ),
+  );
+  Scroller.displayName = "MessageListScroller";
+
   return (
     <div
       className="relative flex min-h-0 flex-1 overflow-hidden"
@@ -174,22 +193,7 @@ export function MessageList<T>({
         }
         itemContent={(index, item) => itemContent(index - baseIndex, item)}
         components={{
-          Scroller: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-            (props, ref) => (
-              <div
-                {...props}
-                ref={(node) => {
-                  scrollerElRef.current = node;
-                  if (typeof ref === "function") ref(node);
-                  else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-                }}
-                onScroll={(event) => {
-                  props.onScroll?.(event as any);
-                  computeAtBottom();
-                }}
-              />
-            ),
-          ),
+          Scroller,
           Header: () => (header ? <div className="pt-2">{header}</div> : null),
           Footer: () => (
             <div

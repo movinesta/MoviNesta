@@ -11,8 +11,18 @@ export type MutePreset =
 
 const PRESETS: MutePreset[] = [
   { kind: "duration", minutes: 60, label: "1 hour", description: "Mute notifications for 1 hour" },
-  { kind: "duration", minutes: 8 * 60, label: "8 hours", description: "Mute notifications for 8 hours" },
-  { kind: "duration", minutes: 24 * 60, label: "24 hours", description: "Mute notifications for 24 hours" },
+  {
+    kind: "duration",
+    minutes: 8 * 60,
+    label: "8 hours",
+    description: "Mute notifications for 8 hours",
+  },
+  {
+    kind: "duration",
+    minutes: 24 * 60,
+    label: "24 hours",
+    description: "Mute notifications for 24 hours",
+  },
   {
     kind: "indefinite",
     label: "Until I turn it back on",

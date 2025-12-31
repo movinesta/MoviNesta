@@ -119,9 +119,7 @@ export const useConversationMessageActions = ({
       }
 
       // Keep open when interacting with the active message bubble/actions.
-      const withinActive = target.closest(
-        `[data-message-action-scope="${activeActionMessageId}"]`,
-      );
+      const withinActive = target.closest(`[data-message-action-scope="${activeActionMessageId}"]`);
       if (withinActive) return;
 
       setActiveActionMessageId(null);

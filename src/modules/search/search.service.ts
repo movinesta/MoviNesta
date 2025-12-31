@@ -227,15 +227,14 @@ export const searchTitles = async (params: {
     console.warn("[search.service] Supabase search failed, falling back to TMDb", err);
   }
 
-
-// Search UI only exposes Movies and Series. When the type filter is "all" (combined view),
-// hide other internal kinds like anime/episode/other.
-const restrictToMovieSeries = !filters?.type || filters.type === "all";
-if (restrictToMovieSeries) {
-  supabaseResults = supabaseResults.filter(
-    (item) => item.type == null || item.type === "movie" || item.type === "series",
-  );
-}
+  // Search UI only exposes Movies and Series. When the type filter is "all" (combined view),
+  // hide other internal kinds like anime/episode/other.
+  const restrictToMovieSeries = !filters?.type || filters.type === "all";
+  if (restrictToMovieSeries) {
+    supabaseResults = supabaseResults.filter(
+      (item) => item.type == null || item.type === "movie" || item.type === "series",
+    );
+  }
 
   // Browse mode: empty query should never hit external providers.
   // If no active filters are set, return empty so the V2 discover feed can handle the empty state.

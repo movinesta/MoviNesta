@@ -17,9 +17,11 @@ export const HighlightText: React.FC<{
   firstOnly?: boolean;
 }> = ({ text, query, className, highlightClassName, firstOnly = false }) => {
   const q = (query ?? "").trim();
-  if (!q) return <span className={className}>{text}</span>;
 
   const parts = React.useMemo(() => {
+    if (!q) {
+      return [{ chunk: text, hit: false }];
+    }
     const escaped = escapeRegExp(q);
     const re = new RegExp(escaped, "ig");
     const out: Array<{ chunk: string; hit: boolean }> = [];
@@ -28,7 +30,6 @@ export const HighlightText: React.FC<{
     let match: RegExpExecArray | null;
     let hitCount = 0;
 
-    // eslint-disable-next-line no-cond-assign
     while ((match = re.exec(text)) !== null) {
       if (match.index > lastIndex) {
         out.push({ chunk: text.slice(lastIndex, match.index), hit: false });
@@ -51,8 +52,7 @@ export const HighlightText: React.FC<{
   }, [q, text, firstOnly]);
 
   const hl =
-    highlightClassName ??
-    "rounded bg-primary/20 px-0.5 text-foreground ring-1 ring-primary/20";
+    highlightClassName ?? "rounded bg-primary/20 px-0.5 text-foreground ring-1 ring-primary/20";
 
   return (
     <span className={className}>
