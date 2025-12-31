@@ -182,7 +182,7 @@ export function jsonError(
 
   if (!Number.isFinite(status)) status = 500;
 
-  const body: Record<string, unknown> = { ok: false, error: message };
+  const body: Record<string, unknown> = { ok: false, error: message, message };
   if (code) body.code = code;
   if (extra) Object.assign(body, extra);
 

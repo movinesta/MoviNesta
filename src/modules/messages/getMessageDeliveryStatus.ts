@@ -61,9 +61,9 @@ export function createMessageDeliveryStatusResolver(args: {
     if (r.lastReadMessageId) {
       const msgMs = messageMsForId(r.lastReadMessageId);
       if (msgMs != null) markerMs = msgMs;
-    }
-
-    if (markerMs == null && r.lastReadAt) {
+      // If the referenced message isn't loaded, avoid falling back to last_read_at.
+      if (msgMs == null) markerMs = null;
+    } else if (r.lastReadAt) {
       const ms = new Date(r.lastReadAt).getTime();
       if (!Number.isNaN(ms)) markerMs = ms;
     }

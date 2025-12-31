@@ -15,6 +15,8 @@ import { tmdbImageUrl } from "@/lib/tmdb";
 import { useAuth } from "@/modules/auth/AuthProvider";
 import { useDiaryLibraryMutations, useTitleDiaryEntry } from "@/modules/diary/useDiaryLibrary";
 import { getOrCreateMediaSwipeSessionId, sendMediaSwipeEvent } from "@/modules/swipe/mediaSwipeApi";
+import { isCatalogSyncResponse, type CatalogSyncResponse } from "@/lib/catalogSync";
+import { isUuid, resolveVirtualTitleId } from "./virtualTitleId";
 import type { TitleType } from "@/types/supabase-helpers";
 
 type TitleV2Row = Pick<
@@ -333,26 +335,22 @@ export default function TitleDetailPageV2() {
         setCanonicalId(null);
         return;
       }
-      if (/^[0-9a-fA-F-]{36}$/.test(rawId)) {
+      if (isUuid(rawId)) {
         setCanonicalId(rawId);
         return;
       }
 
-      // Virtual IDs: tmdb-123 (movie) or tv-123 (series)
-      if (!rawId.startsWith("tmdb-") && !rawId.startsWith("tv-")) {
-        setCanonicalId(null);
-        return;
+      let nextId: string | null = null;
+      try {
+        nextId = await resolveVirtualTitleId(rawId, async (payload) => {
+          const res = await callSupabaseFunction<CatalogSyncResponse>("catalog-sync", payload);
+          if (!isCatalogSyncResponse(res)) return null;
+          return res;
+        });
+      } catch (err) {
+        console.warn("[TitleDetailPageV2] catalog-sync failed", err);
       }
 
-      const tmdbId = Number(rawId.replace(/^tmdb-/, "").replace(/^tv-/, ""));
-      const kind = rawId.startsWith("tv-") ? "series" : "movie";
-
-      const res = await callSupabaseFunction<{ ok: boolean; data?: { id?: string } }>(
-        "catalog-sync",
-        { kind, tmdbId },
-      );
-
-      const nextId = res?.data?.id ?? null;
       if (!cancelled) {
         setCanonicalId(nextId);
         if (nextId) {
@@ -368,7 +366,7 @@ export default function TitleDetailPageV2() {
     };
   }, [navigate, rawId]);
 
-  const titleId = canonicalId ?? (rawId && /^[0-9a-fA-F-]{36}$/.test(rawId) ? rawId : null);
+  const titleId = canonicalId ?? (isUuid(rawId) ? rawId : null);
 
   const titleQuery = useQuery({
     queryKey: qk.titleDetail(titleId),

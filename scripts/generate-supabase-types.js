@@ -18,7 +18,8 @@ const path = require("path");
  * - src/types/supabase.ts
  *
  * Notes:
- * - Views/Functions/CompositeTypes are left as never (same as before).
+ * - Views are parsed from CREATE VIEW blocks; columns are typed as unknown.
+ * - Functions/CompositeTypes are left as never (same as before).
  * - Column types are mapped with a pragmatic Postgres->TS mapping.
  * - Insert optional fields are inferred from DEFAULT/IDENTITY/SERIAL/GENERATED or nullable.
  */
@@ -138,6 +139,38 @@ function extractPublicTables(rawSql) {
   }
 
   return { tableNames: unique, tableBodies };
+}
+
+function extractPublicViews(rawSql) {
+  const viewColumnsByName = new Map();
+  const viewNames = [];
+
+  const re =
+    /CREATE VIEW\s+public\.([a-zA-Z0-9_]+)[\s\S]*?AS\s+SELECT\s+([\s\S]*?)\s+FROM\s/gi;
+
+  let m;
+  while ((m = re.exec(rawSql)) !== null) {
+    const [, viewName, selectList] = m;
+    const columns = splitTopLevelCommaList(selectList)
+      .map((part) => {
+        const trimmed = part.trim();
+        if (!trimmed) return null;
+
+        const asMatch = trimmed.match(/\s+AS\s+("?[A-Za-z_][A-Za-z0-9_]*"?)$/i);
+        if (asMatch) return stripQuotes(asMatch[1]);
+
+        const plainMatch = trimmed.match(/([A-Za-z_][A-Za-z0-9_]*)$/);
+        if (plainMatch) return plainMatch[1];
+        return null;
+      })
+      .filter(Boolean);
+
+    viewNames.push(viewName);
+    viewColumnsByName.set(viewName, Array.from(new Set(columns)));
+  }
+
+  const uniqueNames = Array.from(new Set(viewNames));
+  return { viewNames: uniqueNames, viewColumnsByName };
 }
 
 function splitTopLevelCommaList(raw) {
@@ -499,6 +532,7 @@ function parseTableColumns(tableBody, enumValues) {
 
   const enumValues = extractPublicEnums(rawSchemaSql);
   const { tableNames, tableBodies } = extractPublicTables(rawSchemaSql);
+  const { viewNames, viewColumnsByName } = extractPublicViews(rawSchemaSql);
 
   const functionDefs = extractPublicFunctions(rawSchemaSql);
 
@@ -583,7 +617,31 @@ function parseTableColumns(tableBody, enumValues) {
 
   lines.push("    };");
   lines.push("    Views: {");
-  lines.push("      [_ in never]: never;");
+  if (!viewNames.length) {
+    lines.push("      [_ in never]: never;");
+  } else {
+    for (const viewName of viewNames) {
+      const cols = viewColumnsByName.get(viewName) || [];
+      lines.push(`      ${formatKey(viewName)}: {`);
+      lines.push("        Row: {");
+      if (cols.length) {
+        for (const col of cols) {
+          lines.push(`          ${formatKey(col)}: unknown;`);
+        }
+      } else {
+        lines.push("          [key: string]: unknown;");
+      }
+      lines.push("        };");
+      lines.push("        Insert: {");
+      lines.push("          [key: string]: never;");
+      lines.push("        };");
+      lines.push("        Update: {");
+      lines.push("          [key: string]: never;");
+      lines.push("        };");
+      lines.push("        Relationships: [];");
+      lines.push("      };");
+    }
+  }
   lines.push("    };");
   lines.push("    Functions: {");
   if (functionDefs.size === 0) {
