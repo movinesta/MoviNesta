@@ -5,7 +5,8 @@ import path from "path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const base = env.VITE_BASE_URL?.trim() || "/";
+  const base =
+    env.VITE_BASE_URL?.trim() || (mode === "production" ? "/MoviNesta/" : "/");
 
   return {
     base,
