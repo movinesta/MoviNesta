@@ -291,7 +291,7 @@ function ImageViewerDialog({
           <div
             className="absolute inset-0 flex items-center justify-center"
             onWheel={(event) => {
-              // allow natural page scroll when not zoomed
+              if (scale <= 1) return;
               event.preventDefault();
               const delta = -event.deltaY;
               const next = clamp(Number((scale + delta * 0.002).toFixed(2)), 1, 4);

@@ -21,6 +21,7 @@ interface UseConversationMessageActionsArgs {
   isBlocked: boolean;
   blockedYou: boolean;
   composerTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  messageIds?: string[];
 }
 
 /**
@@ -39,6 +40,7 @@ export const useConversationMessageActions = ({
   isBlocked,
   blockedYou,
   composerTextareaRef,
+  messageIds,
 }: UseConversationMessageActionsArgs) => {
   const [activeActionMessageId, setActiveActionMessageId] = useState<string | null>(null);
   const [hiddenMessageIds, setHiddenMessageIds] = useState<Record<string, true>>({});
@@ -101,6 +103,24 @@ export const useConversationMessageActions = ({
       // ignore persistence errors (quota, privacy mode, etc.)
     }
   }, [conversationId, currentUserId, hiddenMessageIds]);
+
+  useEffect(() => {
+    if (!messageIds) return;
+    if (messageIds.length === 0) return;
+    const allowed = new Set(messageIds);
+    setHiddenMessageIds((prev) => {
+      let changed = false;
+      const next: Record<string, true> = {};
+      for (const id of Object.keys(prev)) {
+        if (allowed.has(id)) {
+          next[id] = true;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [messageIds]);
 
   const closeMessageActions = useCallback(() => {
     setActiveActionMessageId(null);

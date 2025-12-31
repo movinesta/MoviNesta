@@ -113,7 +113,7 @@ export const MessageRow = React.memo(function MessageRow({
   const createdTime = formatMessageTime(message.createdAt);
 
   const name = sender?.displayName ?? (isSelf ? "You" : "Someone");
-  const text = isDeletedMessage ? "This message was deleted" : parseMessageText(message.body);
+  const text = parseMessageText(message.body);
 
   const highlightQuery = (searchQuery ?? "").trim();
   const shouldHighlight = Boolean(highlightQuery && isSearchMatch && !isDeletedMessage);

@@ -186,23 +186,20 @@ const ConversationPage: React.FC = () => {
   // If Postgres realtime isn't delivering change events (common when replication isn't enabled),
   // we still want delivery receipts (and inbox previews) to work when messages arrive via polling.
   // This effect runs handleInsertedMessage for messages appended since the last run.
-  const lastProcessedMessageIdRef = useRef<string | null>(null);
+  const lastProcessedMessageIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!conversationId || !messages || messages.length === 0) return;
 
-    const lastProcessedId = lastProcessedMessageIdRef.current;
-    let startIndex = 0;
+    const previousIds = lastProcessedMessageIdsRef.current;
+    const nextIds = new Set(messages.map((m) => m.id));
 
-    if (lastProcessedId) {
-      const idx = messages.findIndex((m) => m.id === lastProcessedId);
-      startIndex = idx >= 0 ? idx + 1 : 0;
+    for (const message of messages) {
+      if (!previousIds.has(message.id)) {
+        handleInsertedMessage(message);
+      }
     }
 
-    for (let i = startIndex; i < messages.length; i++) {
-      handleInsertedMessage(messages[i]);
-    }
-
-    lastProcessedMessageIdRef.current = messages[messages.length - 1].id;
+    lastProcessedMessageIdsRef.current = nextIds;
   }, [conversationId, messages, handleInsertedMessage]);
 
   const { draft, setDraft } = useConversationDraft({
@@ -431,6 +428,7 @@ const ConversationPage: React.FC = () => {
     isBlocked,
     blockedYou,
     composerTextareaRef: textareaRef,
+    messageIds: messages?.map((message) => message.id) ?? [],
   });
 
   // Only show "seen" indicator on the very last *visible* outgoing message (not on every message).
