@@ -44,7 +44,8 @@ export const computeRelevanceScore = (
   // Exact/prefix/contains weighting.
   if (t === q) score += 1000;
   else if (t.startsWith(q)) score += 850;
-  else if (t.includes(` ${q} `)) score += 780; // whole-word-ish
+  else if (t.includes(` ${q} `))
+    score += 780; // whole-word-ish
   else if (t.includes(q)) score += 650;
 
   // Token overlap boosts.
@@ -82,8 +83,11 @@ export const computeRelevanceScore = (
   return score;
 };
 
-const ratingValue = (item: Pick<TitleSearchResult, "imdbRating" | "rtTomatoMeter">): number | null => {
-  if (typeof item.imdbRating === "number" && Number.isFinite(item.imdbRating)) return item.imdbRating;
+const ratingValue = (
+  item: Pick<TitleSearchResult, "imdbRating" | "rtTomatoMeter">,
+): number | null => {
+  if (typeof item.imdbRating === "number" && Number.isFinite(item.imdbRating))
+    return item.imdbRating;
   if (typeof item.rtTomatoMeter === "number" && Number.isFinite(item.rtTomatoMeter))
     return item.rtTomatoMeter / 10;
   return null;

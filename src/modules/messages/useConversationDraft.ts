@@ -18,7 +18,6 @@ export const useConversationDraft = (params: {
     debounceMs = 250,
   } = params;
 
-
   // `hydrate` is often passed as an inline callback from parent components.
   // Treat it as a ref so we don't re-hydrate the draft on every render (which would
   // override user typing).

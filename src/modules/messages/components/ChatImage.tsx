@@ -203,6 +203,7 @@ function ImageViewerDialog({
 }) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   const draggingRef = useRef(false);
   const lastPointRef = useRef({ x: 0, y: 0 });
   const lastOffsetRef = useRef({ x: 0, y: 0 });
@@ -303,6 +304,7 @@ function ImageViewerDialog({
             onPointerDown={(event) => {
               if (scale <= 1) return;
               draggingRef.current = true;
+              setIsDragging(true);
               lastPointRef.current = { x: event.clientX, y: event.clientY };
               lastOffsetRef.current = offset;
               (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
@@ -315,9 +317,11 @@ function ImageViewerDialog({
             }}
             onPointerUp={() => {
               draggingRef.current = false;
+              setIsDragging(false);
             }}
             onPointerCancel={() => {
               draggingRef.current = false;
+              setIsDragging(false);
             }}
           >
             <img
@@ -328,7 +332,7 @@ function ImageViewerDialog({
               style={{
                 transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
                 transformOrigin: "center",
-                transition: draggingRef.current ? "none" : "transform 120ms ease-out",
+                transition: isDragging ? "none" : "transform 120ms ease-out",
                 cursor: scale > 1 ? "grab" : "zoom-in",
               }}
             />

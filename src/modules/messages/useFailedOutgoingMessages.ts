@@ -96,7 +96,7 @@ export function useFailedOutgoingMessages(args: {
 
   const onSendFailed = useCallback(
     (tempId: string, payload: FailedMessagePayload, error: Error) => {
-      setSendError(error.message || "Couldn\'t send. Please try again.");
+      setSendError(error.message || "Couldn't send. Please try again.");
       if (payload.text.trim()) setDraft(payload.text);
       setLastFailedPayload(payload);
       setLastFailedTempId(tempId);

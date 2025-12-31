@@ -440,7 +440,6 @@ export default function TitleReviewsPageV2() {
   const params = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
 
-
   const titleId = String(params.titleId ?? "");
   const canUseId = /^[0-9a-fA-F-]{36}$/.test(titleId);
 

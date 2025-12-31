@@ -9,7 +9,7 @@ export function useConversationLayoutState({
   initialHeaderHeight?: number;
   initialComposerHeight?: number;
 }) {
-  const headerRef = useRef<HTMLElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(initialHeaderHeight);
   const [composerHeight, setComposerHeight] = useState<number>(initialComposerHeight);
   const [isAtBottom, setIsAtBottom] = useState(true);

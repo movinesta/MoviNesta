@@ -27,7 +27,7 @@ interface SearchTitlesTabProps {
   sortKey?: TitleSortKey;
   onChangeSort?: (next: TitleSortKey) => void;
   onResetFilters?: () => void;
-  }
+}
 
 export const TitleSearchResultRow: React.FC<{
   item: TitleSearchResult;
@@ -100,23 +100,17 @@ const isUuid = (value: unknown): value is string => {
   );
 };
 
-const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, sortKey, onChangeSort, onResetFilters }) => {
+const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({
+  query,
+  filters,
+  sortKey,
+  onChangeSort,
+  onResetFilters,
+}) => {
   const trimmedQuery = query.trim();
   const hasFilters = hasActiveTitleFilters(filters);
   const isBrowseMode = !trimmedQuery && hasFilters;
-
-  if (trimmedQuery && trimmedQuery.length < 2 && !isBrowseMode) {
-    return (
-      <div className="space-y-2">
-        <p className="text-[12px] text-muted-foreground">
-          Keep typing to search titles — enter at least <span className="font-semibold text-foreground">2 characters</span>.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Tip: You can also browse without typing by using filters (genres, year, language).
-        </p>
-      </div>
-    );
-  }
+  const showMinimumQueryHint = trimmedQuery.length > 0 && trimmedQuery.length < 2 && !isBrowseMode;
 
   const {
     data,
@@ -127,11 +121,10 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, sortK
     hasNextPage,
     isFetching,
     isFetchingNextPage,
-  } =
-    useSearchTitles({
-      query: trimmedQuery,
-      filters,
-    });
+  } = useSearchTitles({
+    query: trimmedQuery,
+    filters,
+  });
 
   const effectiveSort: TitleSortKey = sortKey ?? defaultSortForQuery(trimmedQuery);
 
@@ -142,7 +135,6 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, sortK
       sortTitles({ items: page.results ?? [], query: trimmedQuery, sortKey: effectiveSort }),
     );
   }, [data, effectiveSort, trimmedQuery]);
-
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -169,30 +161,33 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, sortK
 
   const [busyRowId, setBusyRowId] = React.useState<string | null>(null);
 
-  const ensureCanonicalId = React.useCallback(async (item: TitleSearchResult): Promise<string | null> => {
-    const rawId = item.id;
-    if (isUuid(rawId)) return rawId;
+  const ensureCanonicalId = React.useCallback(
+    async (item: TitleSearchResult): Promise<string | null> => {
+      const rawId = item.id;
+      if (isUuid(rawId)) return rawId;
 
-    const cached = resolvedTitleIdsRef.current[rawId];
-    if (cached && isUuid(cached)) return cached;
+      const cached = resolvedTitleIdsRef.current[rawId];
+      if (cached && isUuid(cached)) return cached;
 
-    if (!item.tmdbId) return null;
+      if (!item.tmdbId) return null;
 
-    const kind = item.type === "series" ? "series" : "movie";
+      const kind = item.type === "series" ? "series" : "movie";
 
-    try {
-      const res = await callSupabaseFunction<any>("catalog-sync", { kind, tmdbId: item.tmdbId });
-      const nextId = res?.data?.id as string | undefined;
-      if (nextId && isUuid(nextId)) {
-        setResolvedTitleIds((prev) => (prev[rawId] ? prev : { ...prev, [rawId]: nextId }));
-        return nextId;
+      try {
+        const res = await callSupabaseFunction<any>("catalog-sync", { kind, tmdbId: item.tmdbId });
+        const nextId = res?.data?.id as string | undefined;
+        if (nextId && isUuid(nextId)) {
+          setResolvedTitleIds((prev) => (prev[rawId] ? prev : { ...prev, [rawId]: nextId }));
+          return nextId;
+        }
+      } catch (err) {
+        console.warn("[SearchTitlesTab] catalog-sync failed", err);
       }
-    } catch (err) {
-      console.warn("[SearchTitlesTab] catalog-sync failed", err);
-    }
 
-    return null;
-  }, []);
+      return null;
+    },
+    [],
+  );
 
   const toggleWatchlist = React.useCallback(
     async (item: TitleSearchResult) => {
@@ -214,7 +209,6 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, sortK
           source: "search",
           eventType: "watchlist",
           inWatchlist: !inWatchlist,
-          isBatched: false,
         });
 
         if (inWatchlist) {
@@ -253,14 +247,14 @@ const SearchTitlesTab: React.FC<SearchTitlesTabProps> = ({ query, filters, sortK
 
   const activeFilterLabels: string[] = [];
 
-if (filters.type && filters.type !== "all") {
-  const labelByType: Record<string, string> = {
-    movie: "Movies",
-    series: "Series",
-  };
+  if (filters.type && filters.type !== "all") {
+    const labelByType: Record<string, string> = {
+      movie: "Movies",
+      series: "Series",
+    };
 
-  activeFilterLabels.push(labelByType[filters.type] ?? "Titles");
-}
+    activeFilterLabels.push(labelByType[filters.type] ?? "Titles");
+  }
   if (typeof filters.minYear === "number") {
     activeFilterLabels.push(`From ${filters.minYear}`);
   }
@@ -327,6 +321,20 @@ if (filters.type && filters.type !== "all") {
 
     void syncBatch();
   }, [results]);
+
+  if (showMinimumQueryHint) {
+    return (
+      <div className="space-y-2">
+        <p className="text-[12px] text-muted-foreground">
+          Keep typing to search titles — enter at least{" "}
+          <span className="font-semibold text-foreground">2 characters</span>.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Tip: You can also browse without typing by using filters (genres, year, language).
+        </p>
+      </div>
+    );
+  }
 
   if (!trimmedQuery && !isBrowseMode) {
     return (
@@ -448,27 +456,28 @@ if (filters.type && filters.type !== "all") {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{totalResults}</span> result
-            {totalResults === 1 ? "" : "s"}{" "}
-            {trimmedQuery ? "across your catalog and external sources for " : "in your catalog for "}
+          Showing <span className="font-semibold text-foreground">{totalResults}</span> result
+          {totalResults === 1 ? "" : "s"}{" "}
+          {trimmedQuery ? "across your catalog and external sources for " : "in your catalog for "}
           {trimmedQuery ? (
             <span className="font-semibold text-foreground">{trimmedQuery}</span>
           ) : (
             <span className="font-semibold text-foreground">your filters</span>
-          )}.
+          )}
+          .
         </p>
-          {onResetFilters ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto rounded-full border-border px-2 py-1 text-muted-foreground hover:border-border hover:text-foreground"
-              onClick={onResetFilters}
-            >
-              <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
-              <span>Reset filters</span>
-            </Button>
-          ) : null}
+        {onResetFilters ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-auto rounded-full border-border px-2 py-1 text-muted-foreground hover:border-border hover:text-foreground"
+            onClick={onResetFilters}
+          >
+            <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
+            <span>Reset filters</span>
+          </Button>
+        ) : null}
       </div>
 
       {isFetching && !isFetchingNextPage ? (
@@ -545,7 +554,7 @@ if (filters.type && filters.type !== "all") {
             ) : null,
         }}
         itemContent={(_index, item) => {
-          const resolvedId = isUuid(item.id) ? item.id : resolvedTitleIds[item.id] ?? null;
+          const resolvedId = isUuid(item.id) ? item.id : (resolvedTitleIds[item.id] ?? null);
           const diary = resolvedId ? diaryMap.get(resolvedId) : null;
           const inWatchlist = diary?.status === "want_to_watch";
           const canSave = Boolean(user) && (isUuid(item.id) || Boolean(item.tmdbId));

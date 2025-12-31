@@ -46,10 +46,7 @@ export const useSuggestedPeople = () => {
 
       // Who does the viewer already follow?
       const { data: followsData, error: followsError } = viewerId
-        ? await supabase
-            .from("follows")
-            .select("followed_id")
-            .eq("follower_id", viewerId)
+        ? await supabase.from("follows").select("followed_id").eq("follower_id", viewerId)
         : { data: [], error: null };
 
       if (followsError) {
@@ -65,12 +62,14 @@ export const useSuggestedPeople = () => {
       ]);
 
       // Grab the viewer's top-rated titles so we can rank suggestions by taste similarity.
-      const { data: viewerRatings, error: viewerRatingsError } = await supabase
-        .from("ratings")
-        .select("title_id, rating")
-        .eq("user_id", viewerId)
-        .order("rating", { ascending: false })
-        .limit(40);
+      const { data: viewerRatings, error: viewerRatingsError } = viewerId
+        ? await supabase
+            .from("ratings")
+            .select("title_id, rating")
+            .eq("user_id", viewerId)
+            .order("rating", { ascending: false })
+            .limit(40)
+        : { data: [], error: null };
 
       if (viewerRatingsError) {
         console.warn(

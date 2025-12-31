@@ -13,7 +13,11 @@ export const formatSupabaseError = (error: unknown): string => {
 
   const message =
     maybe.message ??
-    (error instanceof Error ? error.message : typeof error === "object" ? JSON.stringify(error) : String(error));
+    (error instanceof Error
+      ? error.message
+      : typeof error === "object"
+        ? JSON.stringify(error)
+        : String(error));
 
   const code = maybe.code ? ` (${maybe.code})` : "";
   const details = (maybe as any).details ? ` — ${(maybe as any).details}` : "";

@@ -62,10 +62,7 @@ function renderHighlightedText(text: string, highlight: string | undefined) {
 
   return splitWithHighlight(text, h).map((part, idx) =>
     part.match ? (
-      <mark
-        key={`${idx}-${part.text}`}
-        className="rounded bg-primary/20 px-0.5 text-foreground"
-      >
+      <mark key={`${idx}-${part.text}`} className="rounded bg-primary/20 px-0.5 text-foreground">
         {part.text}
       </mark>
     ) : (

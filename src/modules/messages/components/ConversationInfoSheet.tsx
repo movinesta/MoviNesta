@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldX, Copy as CopyIcon, BellOff, User } from "lucide-react";
 
@@ -33,7 +33,9 @@ const ParticipantRow: React.FC<{ participant: ConversationParticipant; onClick?:
   participant,
   onClick,
 }) => {
-  const initial = (participant.displayName ?? participant.username ?? "?").slice(0, 1).toUpperCase();
+  const initial = (participant.displayName ?? participant.username ?? "?")
+    .slice(0, 1)
+    .toUpperCase();
   return (
     <button
       type="button"
@@ -83,20 +85,38 @@ export const ConversationInfoSheet: React.FC<Props> = ({
 }) => {
   const navigate = useNavigate();
 
-  const participants = useMemo(() => conversation?.participants ?? [], [conversation?.participants]);
+  const participants = useMemo(
+    () => conversation?.participants ?? [],
+    [conversation?.participants],
+  );
 
   const canViewOtherProfile =
     !isGroupConversation && Boolean(otherParticipant?.username) && !otherParticipant?.isSelf;
 
-  const mutedUntilLabel = useMemo(() => {
+  const [mutedUntilLabel, setMutedUntilLabel] = useState<string | null>(null);
+
+  useEffect(() => {
     const until = conversation?.mutedUntil;
-    if (!isMuted || !until) return null;
+    if (!isMuted || !until) {
+      setMutedUntilLabel(null);
+      return;
+    }
     const ms = Date.parse(until);
-    if (!Number.isFinite(ms) || ms <= Date.now()) return null;
+    if (!Number.isFinite(ms) || ms <= Date.now()) {
+      setMutedUntilLabel(null);
+      return;
+    }
     try {
-      return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      setMutedUntilLabel(
+        new Date(ms).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
     } catch {
-      return null;
+      setMutedUntilLabel(null);
     }
   }, [conversation?.mutedUntil, isMuted]);
 
@@ -124,9 +144,7 @@ export const ConversationInfoSheet: React.FC<Props> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="top-auto bottom-0 translate-y-0 left-1/2 w-full max-w-3xl rounded-b-none sm:rounded-2xl sm:bottom-6 sm:rounded-b-2xl sm:translate-y-0"
-      >
+      <DialogContent className="top-auto bottom-0 translate-y-0 left-1/2 w-full max-w-3xl rounded-b-none sm:rounded-2xl sm:bottom-6 sm:rounded-b-2xl sm:translate-y-0">
         <div className="flex items-start justify-between gap-4">
           <div>
             <DialogTitle className="text-base">Conversation info</DialogTitle>
@@ -180,7 +198,9 @@ export const ConversationInfoSheet: React.FC<Props> = ({
             {isMuted ? "Unmute notifications" : "Mute notifications"}
           </Button>
           {mutedUntilLabel ? (
-            <p className="-mt-1 px-1 text-xs text-muted-foreground">Muted until {mutedUntilLabel}</p>
+            <p className="-mt-1 px-1 text-xs text-muted-foreground">
+              Muted until {mutedUntilLabel}
+            </p>
           ) : null}
         </div>
 
@@ -238,7 +258,9 @@ export const ConversationInfoSheet: React.FC<Props> = ({
               <ParticipantRow
                 key={p.id}
                 participant={p}
-                onClick={p.username && p.id !== currentUserId ? () => handleOpenProfile(p) : undefined}
+                onClick={
+                  p.username && p.id !== currentUserId ? () => handleOpenProfile(p) : undefined
+                }
               />
             ))}
           </div>
