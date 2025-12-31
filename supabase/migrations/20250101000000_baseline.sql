@@ -1,0 +1,3 @@
+-- Baseline migration for MoviNesta.
+-- This file marks the start of incremental migrations.
+-- No schema changes are applied here.

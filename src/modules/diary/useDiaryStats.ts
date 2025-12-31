@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type DiaryStats, EMPTY_STATS } from "./diaryStatsReducer";
-import { supabase } from "../../lib/supabase";
+import { rpc } from "@/lib/rpc";
 import { qk } from "../../lib/queryKeys";
 import { useAuth } from "../auth/AuthProvider";
 import { rating0_10ToStars } from "@/lib/ratings";
@@ -72,7 +72,7 @@ const toDiaryStats = (row?: DiaryStatsRow | null): DiaryStats => {
 };
 
 export const fetchDiaryStats = async (userId: string): Promise<DiaryStats> => {
-  const { data, error } = await (supabase.rpc as any)("get_diary_stats", {
+  const { data, error } = await rpc("get_diary_stats", {
     p_user_id: userId,
   });
 

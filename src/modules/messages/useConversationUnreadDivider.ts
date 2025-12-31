@@ -60,5 +60,9 @@ export const useConversationUnreadDivider = ({
     return next;
   }, [initialHasUnread, initialLastReadMessageId, visibleMessages]);
 
-  return { firstUnreadIndex };
+  return {
+    firstUnreadIndex,
+    lastReadMessageId: initialLastReadMessageId ?? null,
+    hasUnread: Boolean(initialHasUnread),
+  };
 };

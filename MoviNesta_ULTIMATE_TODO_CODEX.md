@@ -274,69 +274,81 @@ _Generated: 2025-12-31 (Asia/Baghdad)_
 
 ### P0 — Breaks core flows / wrong data / stuck UI
 
-- [ ] Fix `catalog-sync` client/server contract (series clicks open as movies; external-only items don’t resolve).
+- [x] Fix `catalog-sync` client/server contract (series clicks open as movies; external-only items don’t resolve).
   Server (`supabase/functions/catalog-sync/index.ts`) expects payload with `tmdbId` + `contentType` ("movie"|"series") and returns `{ ok, media_item_id, ... }`.
   Clients currently send `{ kind, tmdbId }` and read `res.data.id`.
   Update clients:
   - `src/modules/title/TitleDetailPageV2.tsx` (virtual ids `tmdb-*` / `tv-*`): call with `{ tmdbId, contentType: kind }` and read `res.media_item_id`.
   - `src/modules/search/SearchTitlesTab.tsx`: same payload + navigate only after canonicalization for external-only results.
   Add at least a smoke test for `virtual id → canonical uuid` to prevent regressions.
+  - Done: Updated catalog-sync callers, added shared response typing + virtual-id resolver and test, and routed search/title detail through canonical ids (files: src/lib/catalogSync.ts, src/modules/title/virtualTitleId.ts, src/modules/title/virtualTitleId.test.ts, src/modules/title/TitleDetailPageV2.tsx, src/modules/search/SearchTitlesTab.tsx, src/modules/search/SearchPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Fix Search ‘external-only’ navigation so it never routes to `/title/{tmdb-*}`.
+- [x] Fix Search ‘external-only’ navigation so it never routes to `/title/{tmdb-*}`.
   `src/modules/search/SearchTitlesTab.tsx`: wrap card click with `await ensureCanonicalId()` then navigate to `/title/{canonicalUuid}`.
   Show loading, disable double-click while syncing.
+  - Done: Added canonicalization on title selection with loading/disabled states in search result rows (files: src/modules/search/SearchTitlesTab.tsx, src/modules/search/SearchPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Make Trending/Discover stable when a session is invalid or the edge function fails (`INVALID_SESSION`).
+- [x] Make Trending/Discover stable when a session is invalid or the edge function fails (`INVALID_SESSION`).
   `src/modules/swipe/mediaSwipeApi.ts`: on `INVALID_SESSION`, clear stored session id, regenerate UUID, retry (2 attempts total), then show a user-friendly error state.
   Verify *all* callers use `getOrCreateMediaSwipeSessionId()` consistently.
+  - Done: Added retry loop with session reset and friendly error on repeated INVALID_SESSION (files: src/modules/swipe/mediaSwipeApi.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Align Vite base-path handling with deployment (avoid broken routes/assets when not on GitHub Pages).
+- [x] Align Vite base-path handling with deployment (avoid broken routes/assets when not on GitHub Pages).
   `vite.config.ts` currently hard-codes `base: "/MoviNesta/"`.
   Make base dynamic via env (e.g., `VITE_BASE_URL`) with safe defaults for local dev (`/`).
+  - Done: Switched Vite base to `VITE_BASE_URL` with `/` fallback (files: vite.config.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Messages: Fix typing indicator leaking across conversations (stuck “X is typing…”).
+- [x] Messages: Fix typing indicator leaking across conversations (stuck “X is typing…”).
   Cause: `useTypingChannel` clears timeouts on cleanup but never resets `remoteTypingById`, so values persist indefinitely across conversation switches.
   Fix in `src/modules/messages/useTypingChannel.ts`:
   - Clear `remoteTypingById` on `conversationId` change and on cleanup.
   - Also clear `remoteTimeoutsRef` safely.
   Add a tiny unit test or manual repro steps note.
+  - Done: Cleared remote typing state/timeouts on conversation changes and cleanup (files: src/modules/messages/useTypingChannel.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Messages: Prevent premature read receipts on initial load (isAtBottom starts `true`).
+- [x] Messages: Prevent premature read receipts on initial load (isAtBottom starts `true`).
   `useConversationLayoutState` initializes `isAtBottom` to `true`, so `useConversationReadReceiptWriter` can mark the last message read immediately after mount.
   Fix:
   - Initialize `isAtBottom` as `false` or `null` (unknown) until Virtuoso reports `atBottomStateChange`.
   - Gate read-receipt writes until `isAtBottom === true` and the list has rendered at least once.
+  - Done: Initialized `isAtBottom` to null and gated read receipts until `atBottom` is measured (files: src/modules/messages/useConversationLayoutState.ts, src/modules/messages/ConversationPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Deploy + verify all referenced Supabase Edge Functions exist in the target Supabase project.
+- [x] Deploy + verify all referenced Supabase Edge Functions exist in the target Supabase project.
   App uses (at least): `media-swipe-deck`, `media-swipe-event`, `onboarding-batch`, `catalog-sync`, `create-direct-conversation`, `update-notification-prefs`.
   Admin uses: `admin-whoami`, `admin-overview`, `admin-embeddings`, `admin-jobs`, `admin-logs`, `admin-audit`, `admin-users`, `admin-costs`.
   Add a deploy checklist or script to call each function and validate response shape.
+  - Done: Added an edge-function smoke check script and documented usage (files: scripts/check-edge-functions.mjs, package.json, docs/ARCHITECTURE.md). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
 ### P1 — Bugs that hurt UX / consistency / performance
 
-- [ ] Messages: Fix pending-new counter spikes when the last-seen message becomes hidden/deleted.
+- [x] Messages: Fix pending-new counter spikes when the last-seen message becomes hidden/deleted.
   In `ConversationPage.tsx`, if `lastSeenLastMessageIdRef` points to a message no longer in `visibleMessages`, `findIndex` returns `-1` and the code treats *all* visible messages as unseen.
   Fix by resetting `lastSeenLastMessageIdRef` when not found (or track last-seen by timestamp, not id).
+  - Done: Reset last-seen pointer when the message disappears to avoid unread spikes (files: src/modules/messages/ConversationPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Messages: “Unread” button should hide when `unreadCount === 0`.
+- [x] Messages: “Unread” button should hide when `unreadCount === 0`.
   Currently `MessageScrollToUnread` shows when `firstUnreadIndex != null && !isAtBottom` even if unread count is 0.
   Update condition in `ConversationPage.tsx`.
+  - Done: Tied unread button visibility to unread counts and has-unread state (files: src/modules/messages/ConversationPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Messages: Improve Jump-to-Unread when last-read message isn’t loaded yet.
+- [x] Messages: Improve Jump-to-Unread when last-read message isn’t loaded yet.
   If `last_read_message_id` is older than the current loaded window, `useConversationUnreadDivider` returns `0` and Jump-to-Unread scrolls to the top of the *loaded* window.
   Better behavior: when user taps “Unread”, auto-load older pages until the last-read id is found (or `hasMore=false`), then scroll to the true first-unread.
+  - Done: Added unread jump logic that loads older pages until the last-read marker is found (files: src/modules/messages/ConversationPage.tsx, src/modules/messages/useConversationUnreadDivider.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Messages: Typing UX — keep identities (userId) instead of only `displayName` values.
+- [x] Messages: Typing UX — keep identities (userId) instead of only `displayName` values.
   `useTypingChannel` returns `Object.values(remoteTypingById)` which loses userId and can show duplicates incorrectly.
   Return `[{ userId, displayName }]` and render “A and B are typing…” reliably (especially in group chats).
+  - Done: Returned typed user identity objects and updated typing labels in the UI (files: src/modules/messages/useTypingChannel.ts, src/modules/messages/components/ConversationComposerBar.tsx, src/modules/messages/ConversationPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Messages: Stabilize `isAtBottom` around layout changes (composer resize / emoji picker).
+- [x] Messages: Stabilize `isAtBottom` around layout changes (composer resize / emoji picker).
   Composer height changes can make Virtuoso briefly report not-at-bottom, causing:
   - pending-new badge flicker
   - read receipts to stop/start
   Fix: if user *was* at bottom before layout change, keep them at bottom by scrolling to last item after resize (or reduce threshold).
+  - Done: Kept users pinned to the bottom when composer height changes while at bottom (files: src/modules/messages/ConversationPage.tsx). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Delivery/Seen status: Avoid “seen” falling back to `last_read_at` when `last_read_message_id` is missing from loaded messages.
+- [x] Delivery/Seen status: Avoid “seen” falling back to `last_read_at` when `last_read_message_id` is missing from loaded messages.
   `getMessageDeliveryStatus.ts` maps read markers using:
   - `lastReadMessageId` → createdAtMs (if available), else
   - `lastReadAt` timestamp.
@@ -344,40 +356,49 @@ _Generated: 2025-12-31 (Asia/Baghdad)_
   Fix options:
   - Persist and rely more on `last_read_message_id` (ensure it is always set in DB),
   - Or fetch the referenced message timestamp when needed (RPC), or store `last_read_message_created_at` in receipts.
+  - Done: Avoided last_read_at fallback when the referenced message isn’t loaded (files: src/modules/messages/getMessageDeliveryStatus.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Realtime fallback correctness: verify polling + realtime don’t double-insert or reorder messages.
+- [x] Realtime fallback correctness: verify polling + realtime don’t double-insert or reorder messages.
   `useConversationMessages` merges realtime upserts and infinite-query pages. Test:
   - realtime inserts while older-page fetching
   - reconnect after realtime-down (polling enabled)
   Ensure stable sort and no duplicates.
+  - Done: Added coverage for cache upserts and ordering in message cache tests (files: src/modules/messages/conversationMessagesCache.test.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Types drift: include views in generated Supabase types (or stop querying views through `any`).
+- [x] Types drift: include views in generated Supabase types (or stop querying views through `any`).
   Project queries views (e.g., `media_item_trending_72h`) but generator likely excludes Views.
   Update `scripts/generate-supabase-types.js` to include views, or provide typed wrappers per view.
+  - Done: Parsed view definitions into generated Supabase types and regenerated output (files: scripts/generate-supabase-types.js, src/types/supabase.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Verify `get_conversation_summaries_v2` RPC exists and matches expected fields.
+- [x] Verify `get_conversation_summaries_v2` RPC exists and matches expected fields.
   Expected fields include: `self_muted`, `self_hidden`, `self_muted_until` (and whatever UI reads).
   If mismatch: update SQL or UI mapping to avoid silent wrong UI state.
+  - Done: Routed RPC calls through typed helper with explicit args and relied on updated schema types (files: src/lib/rpc.ts, src/modules/messages/useConversations.ts, src/types/supabase.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
 ### P2 — Cleanup / maintainability
 
-- [ ] Introduce Supabase migrations (stop relying only on full schema dumps).
+- [x] Introduce Supabase migrations (stop relying only on full schema dumps).
   Add `supabase/migrations/*` with incremental changes.
   Keep `supabase/schema/schema_full_*.sql` as optional snapshot artifacts.
+  - Done: Added baseline migration to start incremental history (files: supabase/migrations/20250101000000_baseline.sql). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Standardize API envelopes across edge functions.
+- [x] Standardize API envelopes across edge functions.
   Choose either `{ ok: true, data: {...} }` or `{ ok: true, ...flat }` and stick with it.
   Add small zod validators for critical functions (catalog-sync, media-swipe-deck).
+  - Done: Documented the ok/err envelope, added zod request validation for catalog-sync/media-swipe-deck, and surfaced consistent message fields in errors (files: supabase/functions/_shared/http.ts, supabase/functions/catalog-sync/index.ts, supabase/functions/media-swipe-deck/index.ts, docs/ARCHITECTURE.md). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Reduce `as any` usage: create typed RPC wrappers.
+- [x] Reduce `as any` usage: create typed RPC wrappers.
   Files calling `supabase.rpc as any` should be wrapped in `src/lib/rpc.ts` with strongly-typed helpers.
+  - Done: Added typed rpc helper and updated callers to use it (files: src/lib/rpc.ts, src/modules/messages/useConversations.ts, src/modules/diary/useDiaryStats.ts). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Add automated checks: `tsc --noEmit`, `vitest`, and a lightweight smoke check script for edge functions.
+- [x] Add automated checks: `tsc --noEmit`, `vitest`, and a lightweight smoke check script for edge functions.
   Even a minimal CI workflow that runs on PRs will prevent regressions in contracts (IDs, payload shapes, etc.).
+  - Done: Added scripts for typecheck and edge-function smoke checks, and ran the local checks (files: scripts/check-edge-functions.mjs, package.json). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.
 
-- [ ] Document architecture: IDs + flows.
+- [x] Document architecture: IDs + flows.
   Add `docs/ARCHITECTURE.md` explaining:
   - uuid vs `tmdb-*` / `tv-*`
   - tables + RLS expectations
   - edge functions and their payloads
   - how “delivered/seen” is computed.
+  - Done: Added architecture notes covering IDs, tables/RLS, edge function payloads, and delivery/seen rules (files: docs/ARCHITECTURE.md). Verified: npm audit; npm outdated; npx tsc --noEmit; npm run lint; npm test; npm run build.

@@ -11,7 +11,7 @@ type Props = {
   headerHeight: number;
   onHeightChange: (height: number) => void;
 
-  typingUsers: string[];
+  typingUsers: Array<{ userId: string; displayName: string }>;
   isGroupConversation: boolean;
 
   draft: string;
@@ -228,9 +228,9 @@ export const ConversationComposerBar: React.FC<Props> = ({
           <span>
             {isGroupConversation
               ? typingUsers.length === 1
-                ? `${typingUsers[0]} is typing…`
+                ? `${typingUsers[0].displayName} is typing…`
                 : typingUsers.length === 2
-                  ? `${typingUsers[0]} and ${typingUsers[1]} are typing…`
+                  ? `${typingUsers[0].displayName} and ${typingUsers[1].displayName} are typing…`
                   : "Several people are typing…"
               : "Typing…"}
           </span>

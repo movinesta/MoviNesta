@@ -1881,7 +1881,115 @@ export interface Database {
       };
     };
     Views: {
-      [_ in never]: never;
+      active_embedding_profile: {
+        Row: {
+          provider: unknown;
+          model: unknown;
+          dimensions: unknown;
+          task: unknown;
+        };
+        Insert: {
+          [key: string]: never;
+        };
+        Update: {
+          [key: string]: never;
+        };
+        Relationships: [];
+      };
+      media_catalog: {
+        Row: {
+          media_item_id: unknown;
+          kind: unknown;
+          title: unknown;
+          overview: unknown;
+          poster_ref: unknown;
+          backdrop_ref: unknown;
+          year: unknown;
+        };
+        Insert: {
+          [key: string]: never;
+        };
+        Update: {
+          [key: string]: never;
+        };
+        Relationships: [];
+      };
+      media_embeddings_active: {
+        Row: {
+          media_item_id: unknown;
+          embedding: unknown;
+          model: unknown;
+          task: unknown;
+          updated_at: unknown;
+          provider: unknown;
+          dimensions: unknown;
+        };
+        Insert: {
+          [key: string]: never;
+        };
+        Update: {
+          [key: string]: never;
+        };
+        Relationships: [];
+      };
+      media_item_trending_72h: {
+        Row: {
+          media_item_id: unknown;
+          likes: unknown;
+          skips: unknown;
+          dislikes: unknown;
+          impressions: unknown;
+          dwell_events: unknown;
+          dwell_ms_sum: unknown;
+          unique_users: unknown;
+          updated_at: unknown;
+          trend_score: unknown;
+        };
+        Insert: {
+          [key: string]: never;
+        };
+        Update: {
+          [key: string]: never;
+        };
+        Relationships: [];
+      };
+      media_session_vectors_active: {
+        Row: {
+          user_id: unknown;
+          session_id: unknown;
+          taste: unknown;
+          updated_at: unknown;
+          provider: unknown;
+          model: unknown;
+          dimensions: unknown;
+          task: unknown;
+        };
+        Insert: {
+          [key: string]: never;
+        };
+        Update: {
+          [key: string]: never;
+        };
+        Relationships: [];
+      };
+      media_user_vectors_active: {
+        Row: {
+          user_id: unknown;
+          taste: unknown;
+          updated_at: unknown;
+          provider: unknown;
+          model: unknown;
+          dimensions: unknown;
+          task: unknown;
+        };
+        Insert: {
+          [key: string]: never;
+        };
+        Update: {
+          [key: string]: never;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       _mv_merge_policies: {
