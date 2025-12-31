@@ -6,13 +6,13 @@ import { conversationsQueryKey } from "./queryKeys";
  * simple; a future realtime channel can replace the polling layer when ready.
  */
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { getMessagePreview } from "./messageText";
 import { formatTimeAgo } from "./formatTimeAgo";
 import { safeTime } from "./time";
 import { resolveAvatarUrl } from "@/modules/profile/resolveAvatarUrl";
 import { getConversationPrefsMap } from "./conversationPrefs";
+import { rpc } from "@/lib/rpc";
 
 type ConversationSummaryRow = {
   conversation_id: string;
@@ -85,19 +85,21 @@ export const fetchConversationSummaries = async (
   let usedV2 = true;
 
   {
-    const { data, error } = await (supabase.rpc as any)("get_conversation_summaries_v2");
+    const { data, error } = await rpc("get_conversation_summaries_v2", {
+      p_user_id: userId,
+    });
     if (error) {
       usedV2 = false;
-      const { data: v1Data, error: v1Error } = await (supabase.rpc as any)(
-        "get_conversation_summaries",
-      );
+      const { data: v1Data, error: v1Error } = await rpc("get_conversation_summaries", {
+        p_user_id: userId,
+      });
       if (v1Error) {
         console.error("[useConversations] Failed to load conversation summaries", v1Error);
         throw new Error(v1Error.message);
       }
-      summaries = v1Data ?? [];
+      summaries = (v1Data ?? []) as unknown as ConversationSummaryRow[];
     } else {
-      summaries = data ?? [];
+      summaries = (data ?? []) as unknown as ConversationSummaryRow[];
     }
   }
 

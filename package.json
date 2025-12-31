@@ -12,6 +12,8 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "format": "prettier \"src/**/*.{ts,tsx,css,md}\" --write",
     "test": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "check:edge-functions": "node scripts/check-edge-functions.mjs",
     "generate:supabase-types": "node scripts/generate-supabase-types.js"
   },
   "dependencies": {

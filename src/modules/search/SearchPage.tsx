@@ -19,7 +19,11 @@ import { MaterialIcon } from "@/components/ui/material-icon";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 import { useSearchPeople } from "./useSearchPeople";
-import { useSearchTitles, type TitleSearchFilters } from "./useSearchTitles";
+import {
+  useSearchTitles,
+  type TitleSearchFilters,
+  type TitleSearchResult,
+} from "./useSearchTitles";
 import SearchTitlesTab, { TitleSearchResultRow } from "./SearchTitlesTab";
 import SearchPeopleTab from "./SearchPeopleTab";
 import { PeopleResultRow, type PersonRowData } from "./PeopleResultRow";
@@ -42,6 +46,8 @@ import {
 import FriendAvatarStack from "../swipe/FriendAvatarStack";
 import { useAuth } from "../auth/AuthProvider";
 import { useSuggestedPeople } from "../profile/useSuggestedPeople";
+import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
+import { isCatalogSyncResponse, type CatalogSyncResponse } from "@/lib/catalogSync";
 import {
   useDiscoverGenres,
   useSearchCuratedLists,
@@ -57,6 +63,13 @@ type FriendProfileRow = {
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+};
+
+const isUuid = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+    value,
+  );
 };
 
 const Chip: React.FC<{
@@ -306,6 +319,7 @@ const SearchPage: React.FC = () => {
   const [recentSearches, setRecentSearches] = React.useState<RecentSearchEntry[]>(() =>
     typeof window === "undefined" ? [] : getRecentSearches(),
   );
+  const [syncingTitleId, setSyncingTitleId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -318,6 +332,39 @@ const SearchPage: React.FC = () => {
       window.removeEventListener("storage", refresh);
     };
   }, []);
+
+  const ensureCanonicalId = React.useCallback(async (item: TitleSearchResult) => {
+    if (isUuid(item.id)) return item.id;
+    if (!item.tmdbId) return null;
+    const contentType = item.type === "series" ? "series" : "movie";
+
+    try {
+      const res = await callSupabaseFunction<CatalogSyncResponse>("catalog-sync", {
+        tmdbId: item.tmdbId,
+        contentType,
+      });
+      if (!isCatalogSyncResponse(res)) return null;
+      return isUuid(res.media_item_id) ? res.media_item_id : null;
+    } catch (err) {
+      console.warn("[SearchPage] catalog-sync failed", err);
+      return null;
+    }
+  }, []);
+
+  const handleSelectTitle = React.useCallback(
+    async (item: TitleSearchResult) => {
+      if (syncingTitleId) return;
+      setSyncingTitleId(item.id);
+      try {
+        const canonicalId = await ensureCanonicalId(item);
+        if (!canonicalId) return;
+        navigate(`/title/${canonicalId}`);
+      } finally {
+        setSyncingTitleId(null);
+      }
+    },
+    [ensureCanonicalId, navigate, syncingTitleId],
+  );
   // Extra title filters beyond the chip-selected type (Movies/Series).
   const hasExtraTitleFilters = Boolean(
     typeof filters.minYear === "number" ||
@@ -1353,7 +1400,14 @@ const SearchPage: React.FC = () => {
                   ) : moviePreviewItems.length ? (
                     <div className="space-y-2">
                       {moviePreviewItems.slice(0, 6).map((r) => (
-                        <TitleSearchResultRow key={r.id} item={r} query={trimmedQuery} />
+                        <TitleSearchResultRow
+                          key={r.id}
+                          item={r}
+                          query={trimmedQuery}
+                          onSelect={handleSelectTitle}
+                          disabled={Boolean(syncingTitleId)}
+                          loading={syncingTitleId === r.id}
+                        />
                       ))}
                       {moviePreviewItems.length > 6 ? (
                         <Button
@@ -1447,7 +1501,14 @@ const SearchPage: React.FC = () => {
                   ) : seriesPreviewItems.length ? (
                     <div className="space-y-2">
                       {seriesPreviewItems.slice(0, 6).map((r) => (
-                        <TitleSearchResultRow key={r.id} item={r} query={trimmedQuery} />
+                        <TitleSearchResultRow
+                          key={r.id}
+                          item={r}
+                          query={trimmedQuery}
+                          onSelect={handleSelectTitle}
+                          disabled={Boolean(syncingTitleId)}
+                          loading={syncingTitleId === r.id}
+                        />
                       ))}
                       {seriesPreviewItems.length > 6 ? (
                         <Button

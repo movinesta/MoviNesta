@@ -12,7 +12,7 @@ export function useConversationLayoutState({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(initialHeaderHeight);
   const [composerHeight, setComposerHeight] = useState<number>(initialComposerHeight);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState<boolean | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleComposerHeightChange = useCallback(

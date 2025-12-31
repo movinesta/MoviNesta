@@ -104,9 +104,17 @@ export const useTypingChannel = (params: {
     [broadcastTyping, conversationId, displayName, stopTyping, userId],
   );
 
+  const clearRemoteTypingState = useCallback(() => {
+    setRemoteTypingById({});
+    remoteTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    remoteTimeoutsRef.current.clear();
+  }, []);
+
   // Subscribe
   useEffect(() => {
     if (!conversationId) return undefined;
+
+    clearRemoteTypingState();
 
     const channel = supabase.channel(`supabase_realtime_typing:conversation:${conversationId}`, {
       config: {
@@ -177,8 +185,7 @@ export const useTypingChannel = (params: {
       window.removeEventListener("pagehide", handleBeforeUnload);
       window.removeEventListener("blur", handleBeforeUnload);
 
-      remoteTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      remoteTimeoutsRef.current.clear();
+      clearRemoteTypingState();
 
       void stopTyping();
 
@@ -187,9 +194,16 @@ export const useTypingChannel = (params: {
         channelRef.current = null;
       }
     };
-  }, [conversationId, stopTyping, userId]);
+  }, [conversationId, stopTyping, userId, clearRemoteTypingState]);
 
-  const remoteTypingUsers = useMemo(() => Object.values(remoteTypingById), [remoteTypingById]);
+  const remoteTypingUsers = useMemo(
+    () =>
+      Object.entries(remoteTypingById).map(([id, name]) => ({
+        userId: id,
+        displayName: name,
+      })),
+    [remoteTypingById],
+  );
 
   return {
     remoteTypingUsers,

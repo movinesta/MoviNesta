@@ -361,6 +361,7 @@ const ConversationPage: React.FC = () => {
     showEmojiPicker,
     setShowEmojiPicker,
   } = useConversationLayoutState({ showComposer });
+  const [hasMeasuredAtBottom, setHasMeasuredAtBottom] = useState(false);
 
   const messageListBottomPadding = showComposer
     ? `calc(${Math.max(composerHeight, 0)}px + 20px)`
@@ -371,6 +372,14 @@ const ConversationPage: React.FC = () => {
   // can *look* at the latest message but still be considered "not at bottom",
   // which breaks auto-scroll on new messages.
   const atBottomThreshold = showComposer ? Math.max(120, Math.max(composerHeight, 0) + 24) : 80;
+
+  const handleAtBottomChange = useCallback(
+    (atBottom: boolean) => {
+      setIsAtBottom(atBottom);
+      setHasMeasuredAtBottom(true);
+    },
+    [setIsAtBottom],
+  );
 
   const selfDisplayName = useMemo(() => {
     return conversation?.participants.find((p) => p.isSelf)?.displayName ?? "You";
@@ -387,7 +396,7 @@ const ConversationPage: React.FC = () => {
   useConversationReadReceiptWriter({
     conversationId,
     userId: user?.id ?? null,
-    isAtBottom,
+    isAtBottom: isAtBottom === true && hasMeasuredAtBottom,
     messages,
   });
 
@@ -402,6 +411,7 @@ const ConversationPage: React.FC = () => {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
   const lastSeenLastMessageIdRef = useRef<string | null>(null);
+  const isJumpingToUnreadRef = useRef(false);
   const [pendingNewCount, setPendingNewCount] = useState(0);
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -464,7 +474,7 @@ const ConversationPage: React.FC = () => {
     lastOwnMessageId,
   });
 
-  const { firstUnreadIndex } = useConversationUnreadDivider({
+  const { firstUnreadIndex, lastReadMessageId, hasUnread } = useConversationUnreadDivider({
     conversationId,
     userId: user?.id ?? null,
     conversation,
@@ -473,20 +483,30 @@ const ConversationPage: React.FC = () => {
   });
 
   const unreadFromOthersCount = useMemo(() => {
-    if (firstUnreadIndex == null) return 0;
+    if (firstUnreadIndex == null) return hasUnread ? 1 : 0;
     return visibleMessages
       .slice(firstUnreadIndex)
       .filter((item) => !item.isSelf && !item.meta.deleted).length;
-  }, [firstUnreadIndex, visibleMessages]);
+  }, [firstUnreadIndex, hasUnread, visibleMessages]);
 
   const hasVisibleMessages = visibleMessages.length > 0;
+  const visibleMessagesRef = useRef(visibleMessages);
+  const hasMoreMessagesRef = useRef(hasMoreMessages);
+
+  useEffect(() => {
+    visibleMessagesRef.current = visibleMessages;
+  }, [visibleMessages]);
+
+  useEffect(() => {
+    hasMoreMessagesRef.current = hasMoreMessages;
+  }, [hasMoreMessages]);
 
   useEffect(() => {
     const lastMessageId = visibleMessages.length
       ? (visibleMessages[visibleMessages.length - 1]?.message.id ?? null)
       : null;
 
-    if (isAtBottom) {
+    if (isAtBottom === true) {
       lastSeenLastMessageIdRef.current = lastMessageId;
       setPendingNewCount(0);
       return;
@@ -500,6 +520,11 @@ const ConversationPage: React.FC = () => {
     const lastSeenIndex = lastSeen
       ? visibleMessages.findIndex((m) => m.message.id === lastSeen)
       : -1;
+    if (lastSeen && lastSeenIndex < 0) {
+      lastSeenLastMessageIdRef.current = lastMessageId;
+      setPendingNewCount(0);
+      return;
+    }
 
     const unseen = visibleMessages.slice(Math.max(0, lastSeenIndex + 1));
     const newCount = unseen.filter((item) => !item.isSelf).length;
@@ -659,24 +684,75 @@ const ConversationPage: React.FC = () => {
     [firstItemIndex, scrollBehavior, prefersReducedMotion, visibleMessages],
   );
 
-  const handleJumpToUnread = useCallback(
-    (behaviorOverride?: "auto" | "smooth") => {
-      if (firstUnreadIndex == null) return;
-
-      virtuosoRef.current?.scrollToIndex({
-        index: firstItemIndex + firstUnreadIndex,
-        align: "start",
-        behavior: behaviorOverride ?? scrollBehavior,
-      });
-
-      window.setTimeout(
-        () => {
-          textareaRef.current?.focus();
-        },
-        prefersReducedMotion ? 0 : 150,
-      );
+  const handleComposerResize = useCallback(
+    (height: number) => {
+      handleComposerHeightChange(height);
+      if (isAtBottom === true) {
+        requestAnimationFrame(() => {
+          const lastIndex = visibleMessages.length - 1;
+          if (lastIndex < 0) return;
+          virtuosoRef.current?.scrollToIndex({
+            index: firstItemIndex + lastIndex,
+            align: "end",
+            behavior: "auto",
+          });
+        });
+      }
     },
-    [firstItemIndex, firstUnreadIndex, scrollBehavior, prefersReducedMotion],
+    [firstItemIndex, handleComposerHeightChange, isAtBottom, visibleMessages.length],
+  );
+
+  const handleJumpToUnread = useCallback(
+    async (behaviorOverride?: "auto" | "smooth") => {
+      if (!hasUnread) return;
+      if (isJumpingToUnreadRef.current) return;
+      isJumpingToUnreadRef.current = true;
+
+      try {
+        let targetIndex = firstUnreadIndex;
+
+        if (targetIndex == null && lastReadMessageId) {
+          let attempts = 0;
+          while (hasMoreMessagesRef.current && attempts < 8) {
+            const foundIndex = visibleMessagesRef.current.findIndex(
+              (m) => m.message.id === lastReadMessageId,
+            );
+            if (foundIndex >= 0) {
+              targetIndex = foundIndex + 1;
+              break;
+            }
+            await loadOlder();
+            attempts += 1;
+          }
+        }
+
+        if (targetIndex == null) return;
+
+        virtuosoRef.current?.scrollToIndex({
+          index: firstItemIndex + targetIndex,
+          align: "start",
+          behavior: behaviorOverride ?? scrollBehavior,
+        });
+
+        window.setTimeout(
+          () => {
+            textareaRef.current?.focus();
+          },
+          prefersReducedMotion ? 0 : 150,
+        );
+      } finally {
+        isJumpingToUnreadRef.current = false;
+      }
+    },
+    [
+      firstItemIndex,
+      firstUnreadIndex,
+      hasUnread,
+      lastReadMessageId,
+      loadOlder,
+      prefersReducedMotion,
+      scrollBehavior,
+    ],
   );
 
   const handleSendText = useCallback(
@@ -731,22 +807,28 @@ const ConversationPage: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleJumpToLatest, handleJumpToUnread, openSearch]);
 
+  const typingNames = useMemo(
+    () => remoteTypingUsers.map((user) => user.displayName).filter(Boolean),
+    [remoteTypingUsers],
+  );
+
   const headerSubtitle = useMemo(() => {
     if (blockedYou) return "You are blocked";
     if (isBlocked) return "You blocked them";
 
-    if (remoteTypingUsers.length > 0) {
+    if (typingNames.length > 0) {
       if (isGroupConversation) {
-        if (remoteTypingUsers.length === 1) return `${remoteTypingUsers[0]} is typing…`;
-        if (remoteTypingUsers.length === 2)
-          return `${remoteTypingUsers[0]} and ${remoteTypingUsers[1]} are typing…`;
+        if (typingNames.length === 1) return `${typingNames[0]} is typing…`;
+        if (typingNames.length === 2) {
+          return `${typingNames[0]} and ${typingNames[1]} are typing…`;
+        }
         return "Several people are typing…";
       }
       return "Typing…";
     }
 
     return conversation?.subtitle || (isGroupConversation ? "Group chat" : "Direct message");
-  }, [blockedYou, isBlocked, remoteTypingUsers, isGroupConversation, conversation?.subtitle]);
+  }, [blockedYou, isBlocked, typingNames, isGroupConversation, conversation?.subtitle]);
   if (!conversationId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -1020,12 +1102,12 @@ const ConversationPage: React.FC = () => {
                 ) : null
               }
               bottomPadding={messageListBottomPadding}
-              followOutput={isAtBottom ? (prefersReducedMotion ? true : "smooth") : false}
+              followOutput={isAtBottom === true ? (prefersReducedMotion ? true : "smooth") : false}
               autoScrollOnNewLastItem
               autoScrollBehavior={scrollBehavior}
-              autoScrollEnabled={isAtBottom}
+              autoScrollEnabled={isAtBottom === true}
               atBottomThreshold={atBottomThreshold}
-              onAtBottomChange={setIsAtBottom}
+              onAtBottomChange={handleAtBottomChange}
               onStartReached={() => {
                 if (hasMoreMessages && !isLoadingOlderMessages) {
                   void loadOlder();
@@ -1086,14 +1168,14 @@ const ConversationPage: React.FC = () => {
             />
 
             <MessageScrollToUnread
-              show={Boolean(firstUnreadIndex != null && !isAtBottom)}
+              show={Boolean(hasUnread && unreadFromOthersCount > 0 && isAtBottom !== true)}
               unreadCount={unreadFromOthersCount}
               onClick={handleJumpToUnread}
               shortcutHint="Alt+U"
             />
 
             <MessageScrollToLatest
-              show={!isAtBottom && pendingNewCount > 0}
+              show={isAtBottom !== true && pendingNewCount > 0}
               pendingCount={pendingNewCount}
               onClick={handleJumpToLatest}
               shortcutHint={
@@ -1108,7 +1190,7 @@ const ConversationPage: React.FC = () => {
           <ConversationComposerBar
             show={showComposer}
             headerHeight={headerHeight}
-            onHeightChange={handleComposerHeightChange}
+            onHeightChange={handleComposerResize}
             typingUsers={remoteTypingUsers}
             isGroupConversation={isGroupConversation}
             draft={draft}
