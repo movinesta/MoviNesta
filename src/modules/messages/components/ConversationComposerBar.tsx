@@ -99,8 +99,6 @@ export const ConversationComposerBar: React.FC<Props> = ({
   show,
   headerHeight,
   onHeightChange,
-  typingUsers,
-  isGroupConversation,
   draft,
   setDraft,
   textareaRef,
@@ -177,14 +175,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
       stopTyping();
       onSendText(text);
     },
-    [
-      disableSend,
-      draft,
-      isUploadingImage,
-      onSendText,
-      setDraft,
-      stopTyping,
-    ],
+    [disableSend, draft, isUploadingImage, onSendText, setDraft, stopTyping],
   );
 
   if (!show) return null;
@@ -383,7 +374,6 @@ export const ConversationComposerBar: React.FC<Props> = ({
           )}
         </Button>
       </div>
-
     </MessageComposer>
   );
 };

@@ -110,7 +110,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-  }, [user?.id]);
+  }, [user]);
 
   const trackNow = React.useCallback(async () => {
     const ch = channelRef.current;
@@ -137,7 +137,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
 
     // Persist last_seen_at periodically.
     touchDbLastSeen();
-  }, [touchDbLastSeen, user?.id]);
+  }, [touchDbLastSeen, user]);
 
   React.useEffect(() => {
     if (!user?.id) {

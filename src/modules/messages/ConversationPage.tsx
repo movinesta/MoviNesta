@@ -252,7 +252,6 @@ const ConversationPage: React.FC = () => {
     return null;
   }, [conversation]);
 
-
   const otherPresenceStatus = useMemo(() => {
     if (isGroupConversation) return null;
     if (!otherParticipant?.id) return null;
@@ -310,7 +309,6 @@ const ConversationPage: React.FC = () => {
     },
     [conversationId, currentUserId, navigate, queryClient],
   );
-
 
   const conversationTitle =
     conversation?.title ??
@@ -571,10 +569,15 @@ const ConversationPage: React.FC = () => {
   // Perf: delivery receipts can be very large in active conversations. We only need receipts
   // for the message(s) that can actually display delivery status. Today, that's the last
   // visible outgoing message.
-  const lastOwnMessageIds = useMemo(() => (lastOwnMessageId ? [lastOwnMessageId] : []), [lastOwnMessageId]);
+  const lastOwnMessageIds = useMemo(
+    () => (lastOwnMessageId ? [lastOwnMessageId] : []),
+    [lastOwnMessageId],
+  );
 
-  const { data: deliveryReceipts } = useConversationDeliveryReceipts(conversationId, lastOwnMessageIds);
-
+  const { data: deliveryReceipts } = useConversationDeliveryReceipts(
+    conversationId,
+    lastOwnMessageIds,
+  );
 
   const editMessageMutation = useEditMessage(conversationId);
   const deleteMessageMutation = useDeleteMessage(conversationId);
@@ -592,7 +595,12 @@ const ConversationPage: React.FC = () => {
     lastOwnMessageId,
   });
 
-  const { firstUnreadIndex, lastReadMessageId, hasUnread, isReady: unreadReady } = useConversationUnreadDivider({
+  const {
+    firstUnreadIndex,
+    lastReadMessageId,
+    hasUnread,
+    isReady: unreadReady,
+  } = useConversationUnreadDivider({
     conversationId,
     userId: user?.id ?? null,
     conversation,
@@ -617,9 +625,8 @@ const ConversationPage: React.FC = () => {
 
     if (startIndex == null) return 0;
 
-    return visibleMessages
-      .slice(startIndex)
-      .filter((item) => !item.isSelf && !item.meta.deleted).length;
+    return visibleMessages.slice(startIndex).filter((item) => !item.isSelf && !item.meta.deleted)
+      .length;
   }, [firstUnreadIndex, hasUnread, lastReadMessageId, unreadReady, visibleMessages]);
 
   const hasVisibleMessages = visibleMessages.length > 0;
@@ -651,10 +658,7 @@ const ConversationPage: React.FC = () => {
   );
 
   const scrollToMessageId = useCallback(
-    (
-      messageId: string,
-      opts?: { align?: ScrollLogicalPosition; behavior?: "auto" | "smooth" },
-    ) => {
+    (messageId: string, opts?: { align?: ScrollLogicalPosition; behavior?: "auto" | "smooth" }) => {
       const node = messageNodeByIdRef.current.get(messageId);
       if (!node) return false;
 
@@ -677,7 +681,6 @@ const ConversationPage: React.FC = () => {
   useEffect(() => {
     visibleMessagesRef.current = visibleMessages;
   }, [visibleMessages]);
-
 
   // NOTE: Do not force-scroll when messages are appended.
   // Virtuoso's `followOutput` handles "stay pinned to bottom" when the user is at bottom.
@@ -1053,7 +1056,6 @@ const ConversationPage: React.FC = () => {
     ],
   );
 
-  
   const handleSendText = useCallback(
     (text: string) => {
       if (!text.trim()) return;
@@ -1078,7 +1080,6 @@ const ConversationPage: React.FC = () => {
     },
     [attemptSend, clearFailedBannerState, setIsAtBottom],
   );
-
 
   useEffect(() => {
     lastSeenLastMessageIdRef.current = null;
@@ -1174,14 +1175,24 @@ const ConversationPage: React.FC = () => {
         out.unshift({
           id: otherParticipant.id,
           displayName:
-            otherParticipant.displayName ?? otherParticipant.username ?? conversationTitle ?? "Assistant",
+            otherParticipant.displayName ??
+            otherParticipant.username ??
+            conversationTitle ??
+            "Assistant",
           avatarUrl: otherParticipant.avatarUrl ?? null,
         });
       }
     }
 
     return out;
-  }, [assistantIsTyping, conversation?.participants, conversationTitle, isAssistantThread, otherParticipant, remoteTypingUsers]);
+  }, [
+    assistantIsTyping,
+    conversation?.participants,
+    conversationTitle,
+    isAssistantThread,
+    otherParticipant,
+    remoteTypingUsers,
+  ]);
   if (!conversationId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -1501,35 +1512,35 @@ const ConversationPage: React.FC = () => {
                 return (
                   <div ref={registerNode} data-message-id={message.id}>
                     <MessageRow
-                    message={message}
-                    meta={meta}
-                    sender={sender}
-                    isSelf={isSelf}
-                    deliveryStatus={deliveryStatus}
-                    showDeliveryStatus={showDeliveryStatus}
-                    reactions={reactions}
-                    index={index}
-                    previousMessage={previous}
-                    nextMessage={next}
-                    firstUnreadIndex={firstUnreadIndex}
-                    activeActionMessageId={activeActionMessageId}
-                    longPressTriggeredRef={longPressTriggeredRef}
-                    onOpenMessageActions={openMessageActions}
-                    onCloseMessageActions={closeMessageActions}
-                    onOpenEditDialog={openEditDialog}
-                    onOpenDeleteDialog={openDeleteDialog}
-                    onToggleReaction={handleToggleReaction}
-                    onRetryMessage={handleRetryMessage}
-                    onDiscardFailedMessage={handleDiscardFailedMessage}
-                    onAssistantAction={handleAssistantAction}
-                    onBubbleTouchStart={handleBubbleTouchStart}
-                    onBubbleTouchEndOrCancel={handleBubbleTouchEndOrCancel}
-                    searchQuery={searchQueryActive ? search.query : undefined}
-                    isSearchMatch={searchQueryActive ? search.isMatch(message.id) : false}
-                    isActiveSearchMatch={
-                      searchQueryActive ? search.activeMessageId === message.id : false
-                    }
-                  />
+                      message={message}
+                      meta={meta}
+                      sender={sender}
+                      isSelf={isSelf}
+                      deliveryStatus={deliveryStatus}
+                      showDeliveryStatus={showDeliveryStatus}
+                      reactions={reactions}
+                      index={index}
+                      previousMessage={previous}
+                      nextMessage={next}
+                      firstUnreadIndex={firstUnreadIndex}
+                      activeActionMessageId={activeActionMessageId}
+                      longPressTriggeredRef={longPressTriggeredRef}
+                      onOpenMessageActions={openMessageActions}
+                      onCloseMessageActions={closeMessageActions}
+                      onOpenEditDialog={openEditDialog}
+                      onOpenDeleteDialog={openDeleteDialog}
+                      onToggleReaction={handleToggleReaction}
+                      onRetryMessage={handleRetryMessage}
+                      onDiscardFailedMessage={handleDiscardFailedMessage}
+                      onAssistantAction={handleAssistantAction}
+                      onBubbleTouchStart={handleBubbleTouchStart}
+                      onBubbleTouchEndOrCancel={handleBubbleTouchEndOrCancel}
+                      searchQuery={searchQueryActive ? search.query : undefined}
+                      isSearchMatch={searchQueryActive ? search.isMatch(message.id) : false}
+                      isActiveSearchMatch={
+                        searchQueryActive ? search.activeMessageId === message.id : false
+                      }
+                    />
                   </div>
                 );
               }}

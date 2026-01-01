@@ -65,6 +65,7 @@ export function MessageList<T>(props: MessageListProps<T>) {
       if (typeof scrollerRef === "function") {
         scrollerRef(node);
       } else {
+        // eslint-disable-next-line react-hooks/immutability -- refs are intended to be mutable.
         scrollerRef.current = node;
       }
     },
@@ -131,13 +132,10 @@ export function MessageList<T>(props: MessageListProps<T>) {
       });
     });
     // We purposely follow changes in list length only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">{loadingContent}</div>
-    );
+    return <div className="flex h-full w-full items-center justify-center">{loadingContent}</div>;
   }
 
   if (errorContent) {

@@ -97,11 +97,10 @@ const ConversationListRow: React.FC<{
   const isGroup = conversation.isGroup;
   const participantCount = participants.length;
 
-  const primaryIsOnline = useMemo(() => {
-    if (isGroup) return false;
-    if (!primaryParticipant?.id) return false;
-    return getPresenceStatus(primaryParticipant.id) === "online";
-  }, [getPresenceStatus, isGroup, primaryParticipant?.id]);
+  const primaryIsOnline =
+    !isGroup && primaryParticipant?.id
+      ? getPresenceStatus(primaryParticipant.id) === "online"
+      : false;
 
   const longPressRef = useRef<{
     timeoutId: number | null;
@@ -607,7 +606,6 @@ const MessagesPage: React.FC = () => {
         </div>
 
         <div className="-mt-1 mb-3 flex items-center gap-2">
-
           {hiddenCount > 0 && (
             <button
               type="button"
