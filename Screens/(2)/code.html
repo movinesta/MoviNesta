@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Movie Details</title>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7f13ec",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    .thin-divider {
+        @apply w-full h-px bg-white/5 dark:bg-white/5;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased selection:bg-primary/30">
+<div class="relative min-h-screen w-full flex flex-col overflow-x-hidden">
+<div class="absolute top-0 left-0 w-full h-[65vh] z-0">
+<div class="w-full h-full bg-center bg-cover bg-no-repeat" data-alt="Cinematic movie scene with dark moody lighting and a spaceship" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBYvt3RK03JnGW9k0SrGaz824UwtuIIdRP6B579XfWnmE2A1rE360L1oo-AjHTfL8ldqsOVeWymYPrEutt-zEvwIBy0lQiE01i-Atorxmm21ahHgEQDXpUsAS_JZw1bMCvF0Hw7CrKf-7VLJymbkB_IDhr60Y-CwfpdOqbZGbf4AkfScFrSdBAHwAEDxYNxR5E08bGOaIamutJbbwBIs4SXVl0pDXfb9BZHsaQY-hIHevJTfVOhiHY0bYLz320aKaXL1g4NPogs7mU");'>
+</div>
+<div class="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-background-dark"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/60 to-transparent"></div>
+</div>
+<div class="fixed top-0 w-full z-50 p-4 pt-12 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
+<button class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex gap-3">
+<button class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-colors">
+<span class="material-symbols-outlined">favorite</span>
+</button>
+<button class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<main class="relative z-10 mt-[45vh] px-4 pb-20">
+<div class="flex flex-col items-center text-center mb-6">
+<div class="mb-4 relative group">
+<div class="absolute -inset-1 rounded-full bg-primary blur opacity-40 group-hover:opacity-60 transition duration-200"></div>
+<div class="relative flex items-center justify-center size-16 rounded-full bg-[#2a1f36] border-2 border-primary">
+<span class="text-lg font-bold text-white">4.8</span>
+</div>
+</div>
+<h1 class="text-white text-4xl font-bold leading-tight tracking-tight mb-2">Interstellar</h1>
+<div class="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm text-gray-300 font-medium mb-6">
+<span>2014</span>
+<span class="size-1 rounded-full bg-gray-500 self-center"></span>
+<span>2h 49m</span>
+<span class="size-1 rounded-full bg-gray-500 self-center"></span>
+<span>PG-13</span>
+</div>
+<div class="flex gap-2 flex-wrap justify-center mb-8">
+<div class="flex h-8 items-center justify-center rounded-full bg-white/10 border border-white/5 px-4 backdrop-blur-sm">
+<p class="text-white text-xs font-medium uppercase tracking-wide">Sci-Fi</p>
+</div>
+<div class="flex h-8 items-center justify-center rounded-full bg-white/10 border border-white/5 px-4 backdrop-blur-sm">
+<p class="text-white text-xs font-medium uppercase tracking-wide">Adventure</p>
+</div>
+<div class="flex h-8 items-center justify-center rounded-full bg-white/10 border border-white/5 px-4 backdrop-blur-sm">
+<p class="text-white text-xs font-medium uppercase tracking-wide">Drama</p>
+</div>
+</div>
+<div class="w-full max-w-sm flex gap-3">
+<button class="flex-1 h-14 bg-primary hover:bg-primary/90 active:scale-95 transition-all rounded-full flex items-center justify-center gap-2 text-white font-bold text-base shadow-lg shadow-primary/25">
+<span class="material-symbols-outlined fill-current">play_circle</span>
+                        Play Trailer
+                    </button>
+<button class="size-14 bg-[#302839] hover:bg-[#3d3349] active:scale-95 transition-all rounded-full flex items-center justify-center text-white">
+<span class="material-symbols-outlined">bookmark_add</span>
+</button>
+<button class="size-14 bg-[#302839] hover:bg-[#3d3349] active:scale-95 transition-all rounded-full flex items-center justify-center text-white">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</div>
+<div class="mb-8 pt-4">
+<h3 class="text-lg font-bold text-white mb-3 px-1">Storyline</h3>
+<p class="text-gray-300 text-base leading-relaxed px-1 leading-normal">
+                    Earth's future has been riddled by disasters, famines, and droughts. There is only one way to ensure mankind's survival: Interstellar travel. A newly discovered wormhole in the far reaches of our solar system allows a team of astronauts to go where no man has gone before.
+                </p>
+</div>
+<div class="thin-divider -mx-4 mb-8"></div>
+<div class="mb-8">
+<div class="flex justify-between items-end mb-4 px-1">
+<h3 class="text-lg font-bold text-white">Cast &amp; Crew</h3>
+<button class="text-primary text-sm font-semibold">See all</button>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-4 snap-x no-scrollbar -mx-4 px-4">
+<div class="flex flex-col items-center gap-2 shrink-0 snap-start">
+<div class="size-20 rounded-full overflow-hidden bg-gray-700">
+<img alt="Portrait of Matthew McConaughey" class="w-full h-full object-cover" data-alt="Matthew McConaughey headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCX4jl7Ukjbr27a5-VCVZwG0Sv4ZKHqBPenR5_uSYWwKeHiMl7NWDKgw5Sc-caFSANQ4Ls9CmjF3c56cnrw0Vjvb_6BoKatyVUuezsflNwzpMgzcYTT2JQ0n-UvgzoZvhiHgpAfeT_84EhfuD3Dorjl_bwC5KlO0GToP7DEP_kJ8Rk4v3hFyD0115v6W4ORMtjA7-QH8RB67DD-r5QQtx8QeXQjvfSp_iPkAB49jWpBzFDerP9dmBknqsT9gN9VD2FtxFhHKnReIGA"/>
+</div>
+<div class="text-center">
+<p class="text-white text-xs font-semibold">Matthew M.</p>
+<p class="text-gray-400 text-[10px]">Cooper</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 shrink-0 snap-start">
+<div class="size-20 rounded-full overflow-hidden bg-gray-700">
+<img alt="Portrait of Anne Hathaway" class="w-full h-full object-cover" data-alt="Anne Hathaway headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUXQmkOVk3gC7RHFoS-5sqnMjrxm5fYbUkaqXmz5qhWByE466CG5RrO6UsUMV9EGZYiyD2McuIX_vwGT0slrU28qEPHcAh0g0YpunHNmF-l9SKX7jQm2GCP8TbJXcFEP5akPf7e3TfFiOmyomnHe_YtAP4aM2JGyTODidQQCj394xLBpkH3xdBXN1_qWTUAuDPnpipqZmQ3y1ffDQmYk0iEoZYCIZSxFZp_mFkdBy2u8jv2OupMHguNp5Pv8wykqzapdeAccqU-Gw"/>
+</div>
+<div class="text-center">
+<p class="text-white text-xs font-semibold">Anne H.</p>
+<p class="text-gray-400 text-[10px]">Brand</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 shrink-0 snap-start">
+<div class="size-20 rounded-full overflow-hidden bg-gray-700">
+<img alt="Portrait of Jessica Chastain" class="w-full h-full object-cover" data-alt="Jessica Chastain headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACijkJBC9cUdIaxmUiu350T3W5ObfbpcPIOt1qLciCiakOS75L88w4LgYMOtlFrNP5_gf-oKc1a4TuvYFUGr3iZWJi0QOIPQ_cP9yGHSuB6kSdBTh2zhOrbkagsFovd5svlJfAsQjYNKWwWYVwsrTb0k9SHFobHBl0ViLRDlrbrTbWqRC-MuHEQ3-RZcT-tdTscth8RO7Uxh7kofxjCXEuXX8zbpiq7VRmZMpILu9WOIdPctcIkdUT837Ctk1_x1skXSmx0sfUNx8"/>
+</div>
+<div class="text-center">
+<p class="text-white text-xs font-semibold">Jessica C.</p>
+<p class="text-gray-400 text-[10px]">Murph</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 shrink-0 snap-start">
+<div class="size-20 rounded-full overflow-hidden bg-gray-700">
+<img alt="Portrait of Michael Caine" class="w-full h-full object-cover" data-alt="Michael Caine headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsUzaZ8o0YU3TJ2AGsUf5LWZ3FtYS_bASIZ4kzzZ2kZlgdsrw_6WxwJOFGEp40NkaOOwT22LLHFfA_XnblJNaC_n_-9rOeOGIHbVOYXWZEmxt144IfJMkFeL4eMoOyyyZ2yovXhuqTM45-SiBzw8cphHYFljl4YJTp5_wFj1v3IRwoxAbw2qBwrkMmoGRQAcllMd0AnD3utIbZwtp4XfarKgglxMflXEjvHMDH0pwgsVbQYlmP0lNVwqYRbrwNluIApw64bmUdas0"/>
+</div>
+<div class="text-center">
+<p class="text-white text-xs font-semibold">Michael C.</p>
+<p class="text-gray-400 text-[10px]">Prof. Brand</p>
+</div>
+</div>
+</div>
+</div>
+<div class="thin-divider -mx-4 mb-8"></div>
+<div class="bg-[#211a29] -mx-4 px-4 py-8 rounded-t-3xl mt-4">
+<h3 class="text-lg font-bold text-white mb-6">Ratings &amp; Reviews</h3>
+<div class="flex flex-wrap gap-6 mb-8">
+<div class="flex flex-col justify-center gap-1">
+<p class="text-white text-5xl font-black leading-none tracking-tight">4.8</p>
+<div class="flex gap-0.5 text-primary">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star_half</span>
+</div>
+<p class="text-gray-400 text-xs mt-1">1.2k verified reviews</p>
+</div>
+<div class="flex-1 grid grid-cols-[12px_1fr_30px] items-center gap-x-3 gap-y-2">
+<p class="text-white text-xs font-medium">5</p>
+<div class="flex h-1.5 flex-1 overflow-hidden rounded-full bg-[#3d3349]">
+<div class="rounded-full bg-primary" style="width: 80%;"></div>
+</div>
+<p class="text-gray-400 text-xs text-right">80%</p>
+<p class="text-white text-xs font-medium">4</p>
+<div class="flex h-1.5 flex-1 overflow-hidden rounded-full bg-[#3d3349]">
+<div class="rounded-full bg-primary/80" style="width: 12%;"></div>
+</div>
+<p class="text-gray-400 text-xs text-right">12%</p>
+<p class="text-white text-xs font-medium">3</p>
+<div class="flex h-1.5 flex-1 overflow-hidden rounded-full bg-[#3d3349]">
+<div class="rounded-full bg-primary/60" style="width: 5%;"></div>
+</div>
+<p class="text-gray-400 text-xs text-right">5%</p>
+<p class="text-white text-xs font-medium">2</p>
+<div class="flex h-1.5 flex-1 overflow-hidden rounded-full bg-[#3d3349]">
+<div class="rounded-full bg-primary/40" style="width: 2%;"></div>
+</div>
+<p class="text-gray-400 text-xs text-right">2%</p>
+<p class="text-white text-xs font-medium">1</p>
+<div class="flex h-1.5 flex-1 overflow-hidden rounded-full bg-[#3d3349]">
+<div class="rounded-full bg-primary/20" style="width: 1%;"></div>
+</div>
+<p class="text-gray-400 text-xs text-right">1%</p>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<div class="p-4 rounded-2xl bg-[#302839] hover:bg-[#382f42] transition-colors">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                                    JD
+                                </div>
+<div>
+<p class="text-white text-sm font-bold">John Doe</p>
+<p class="text-gray-500 text-xs">Oct 24, 2023</p>
+</div>
+</div>
+<div class="flex items-center gap-1 bg-[#211a29] px-2 py-1 rounded-lg">
+<span class="material-symbols-outlined text-yellow-500 text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-white text-xs font-bold">5.0</span>
+</div>
+</div>
+<p class="text-gray-300 text-sm leading-normal leading-relaxed">
+                            A masterpiece of visual storytelling. The score by Hans Zimmer is absolutely haunting.
+                        </p>
+</div>
+<div class="p-4 rounded-2xl bg-[#302839] hover:bg-[#382f42] transition-colors">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full overflow-hidden">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="Woman avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQXmUc9LQecPwdCeUy5AQL1auDNhP266NnEt9tVBpvOX6-burrSDabONcNXUOtHx2qmKCirfeygbRqTC6VYJc7X2bExHlwYQ6JFl4rkmAC5AUmfQxn0e9hoey2lnRHJT8sj8UnB_1jM1odGnu-ds3zJECCy9r71CNjNKlxnORjYZSrsBSJdlCetprlA-UWQD-vyCuDYpz3YBSG2KuQWd-zW4syZk8bK1d6Sbv4HcfSWu38tSl4difGmiBB90m9SYiihsQlhtRdymA"/>
+</div>
+<div>
+<p class="text-white text-sm font-bold">Sarah Smith</p>
+<p class="text-gray-500 text-xs">Sep 12, 2023</p>
+</div>
+</div>
+<div class="flex items-center gap-1 bg-[#211a29] px-2 py-1 rounded-lg">
+<span class="material-symbols-outlined text-yellow-500 text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-white text-xs font-bold">4.5</span>
+</div>
+</div>
+<p class="text-gray-300 text-sm leading-normal leading-relaxed">
+                            Complex narrative but emotionally rewarding. Definitely needs a rewatch to understand all the physics!
+                        </p>
+</div>
+</div>
+<button class="w-full mt-6 py-4 text-center text-primary font-bold text-sm hover:text-primary/80 transition-colors">
+                    Read all 1.2k reviews
+                </button>
+</div>
+</main>
+<div class="fixed bottom-0 left-0 w-full h-12 bg-gradient-to-t from-background-dark to-transparent pointer-events-none z-20"></div>
+</div>
+</body></html>

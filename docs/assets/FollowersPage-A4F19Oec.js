@@ -1,0 +1,1 @@
+import{j as o}from"./index-DHFRnTo7.js";import{C as r}from"./ConnectionsPage-BuNLUjKs.js";import"./index-Ou-srJcE.js";import"./TopBar-CUlPtX08.js";import"./arrow-left-ByB34Gn9.js";import"./useToggleFollow-BefR3CD_.js";import"./user-plus-B5CFOHiE.js";const n=()=>o.jsx(r,{mode:"followers"});export{n as default};

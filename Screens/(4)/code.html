@@ -1,0 +1,104 @@
+<html class="dark" lang="en"><head><meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign In - Community Enthusiast Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7f13ec",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                        "surface-dark": "#2d1e36", // Derived from #362348 but slightly tweaked for harmony
+                        "surface-input": "#362348",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden antialiased selection:bg-primary/30">
+<div class="relative flex min-h-screen w-full flex-col max-w-md mx-auto">
+<div class="flex items-center p-4 pb-2 justify-between sticky top-0 z-10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+<button class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<div class="text-sm font-medium opacity-0">Sign In</div>
+<div class="size-12"></div>
+</div>
+<div class="flex-1 flex flex-col px-6 pb-8">
+<h1 class="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight text-center pb-2 pt-2">
+                Welcome Back!
+            </h1>
+<p class="text-[#ad92c9] text-sm font-normal leading-normal pb-6 text-center">
+                Glad to see you again at the fan hub!
+            </p>
+<form class="flex flex-col gap-2 w-full" onsubmit="event.preventDefault();">
+<div class="relative flex items-center group">
+<span class="absolute left-5 z-10 text-[#ad92c9] material-symbols-outlined group-focus-within:text-primary transition-colors">alternate_email</span>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-full text-slate-900 dark:text-white placeholder:text-[#ad92c9] border-none bg-white dark:bg-surface-input focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-[#432c5a] h-12 pl-14 pr-4 text-base font-normal leading-normal transition-all shadow-sm" placeholder="Email or Username" type="text"/>
+</div>
+<div class="relative flex items-center group">
+<span class="absolute left-5 z-10 text-[#ad92c9] material-symbols-outlined group-focus-within:text-primary transition-colors">lock</span>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-full text-slate-900 dark:text-white placeholder:text-[#ad92c9] border-none bg-white dark:bg-surface-input focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-[#432c5a] h-12 pl-14 pr-12 text-base font-normal leading-normal transition-all shadow-sm" placeholder="Password" type="password"/>
+<button class="absolute right-4 z-10 text-[#ad92c9] hover:text-white transition-colors flex items-center" type="button">
+<span class="material-symbols-outlined">visibility_off</span>
+</button>
+</div>
+<a class="text-[#ad92c9] text-xs font-medium text-right mt-1 hover:text-primary transition-colors" href="#">Forgot Password?</a>
+<button class="mt-8 w-full bg-primary hover:bg-primary/90 text-white font-bold h-14 rounded-full shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" type="submit">
+                    Sign In
+                    <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</form>
+<div class="relative flex py-8 items-center">
+<div class="flex-grow border-t border-slate-300 dark:border-[#362348]"></div>
+<span class="flex-shrink mx-4 text-[#ad92c9] text-xs font-medium uppercase tracking-wider">Or sign in with</span>
+<div class="flex-grow border-t border-slate-300 dark:border-[#362348]"></div>
+</div>
+<div class="flex justify-center gap-4">
+<button class="size-16 rounded-full bg-white dark:bg-surface-input border border-slate-200 dark:border-transparent flex items-center justify-center hover:bg-slate-50 dark:hover:bg-[#432c5a] transition-colors shadow-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<svg class="w-9 h-9 relative z-10" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M43.6191 20.0076H24.2862V27.9174H35.4984C34.4601 30.7303 32.7099 32.9691 30.229 34.4055L30.1983 34.619L36.313 39.4623L36.6568 39.4996C40.6622 35.8459 43.1558 30.6713 43.6191 20.0076Z" fill="#4285F4"></path>
+<path d="M24.2862 44C30.4079 44 35.6322 41.9368 39.6738 38.3075L30.229 34.4055C27.6047 36.1423 24.3297 37.218 24.2862 37.218C18.4552 37.218 13.4357 33.3283 11.5976 28.187L11.2372 28.211L4.85695 33.197L4.74751 33.3136C8.80775 41.6508 15.9324 44 24.2862 44Z" fill="#34A853"></path>
+<path d="M11.5975 28.187C11.1394 26.8532 10.899 25.4379 10.899 24C10.899 22.5621 11.1394 21.1468 11.5975 19.813L11.5833 19.664L4.90823 14.733L4.74750 14.808C3.1207 18.0674 2.22754 21.9079 2.22754 26C2.22754 30.0921 3.1207 33.9326 4.74750 37.192L11.5975 28.187Z" fill="#FBBC04"></path>
+<path d="M24.2862 10.7788C27.5684 10.7788 29.8706 12.0006 31.4392 13.4795L39.8662 5.617C35.6111 2.05942 30.4079 0 24.2862 0C15.9324 0 8.80775 2.34919 4.74751 10.6864L11.5975 19.664C13.4357 14.5227 18.4552 10.7788 24.2862 10.7788Z" fill="#EA4335"></path>
+</svg>
+</button>
+<button class="size-16 rounded-full bg-white dark:bg-surface-input border border-slate-200 dark:border-transparent flex items-center justify-center hover:bg-slate-50 dark:hover:bg-[#432c5a] transition-colors shadow-sm relative overflow-hidden group">
+<svg class="w-9 h-9 relative z-10 dark:text-white" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M17.4745 16.5164C18.9912 15.1118 20 13.1783 20 11C20 6.02944 15.9706 2 11 2C6.02944 2 2 6.02944 2 11C2 15.9706 6.02944 20 11 20C12.8715 20 14.6053 19.4542 16.0353 18.5283C16.1042 19.1601 16.5815 20.0906 17 21L17.4745 16.5164ZM11 18C7.13401 18 4 14.866 4 11C4 7.13401 7.13401 4 11 4C14.866 4 18 7.13401 18 11C18 12.9157 17.1685 14.6543 15.826 15.826L11 18Z" fill="currentColor"></path>
+</svg>
+</button>
+<button class="size-16 rounded-full bg-white dark:bg-surface-input border border-slate-200 dark:border-transparent flex items-center justify-center hover:bg-slate-50 dark:hover:bg-[#432c5a] transition-colors shadow-sm relative overflow-hidden group">
+<svg class="w-9 h-9 relative z-10 text-[#0866FF]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+</svg>
+</button>
+</div>
+<div class="flex flex-col items-center gap-4 mt-auto pt-8">
+<p class="text-[#ad92c9] text-sm font-medium">
+                Don't have an account?
+                <a class="text-primary hover:underline transition-colors font-semibold" href="#">Sign Up</a>
+</p>
+</div>
+</div>
+</div></body></html>
