@@ -1,0 +1,1706 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Loader2, ShieldX } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
+import { usePresence } from "../presence/PresenceProvider";
+import type { ConversationListItem, ConversationParticipant } from "./useConversations";
+import { useConversations } from "./useConversations";
+import { useBlockStatus } from "./useBlockStatus";
+import type {
+  ConversationMessage,
+  MessageDeliveryReceipt,
+  ConversationReadReceipt,
+} from "./messageModel";
+import { useConversationMessages } from "./useConversationMessages";
+import { useConversationUiMessages } from "./useConversationUiMessages";
+import { useLastVisibleOwnMessageId } from "./useLastVisibleOwnMessageId";
+import { useConversationReactions } from "./useConversationReactions";
+import {
+  useConversationDeliveryReceipts,
+  useConversationReadReceipts,
+} from "./useConversationReceipts";
+import { useTypingChannel } from "./useTypingChannel";
+import { useConversationDraft } from "./useConversationDraft";
+import { useAttachmentUpload } from "./useAttachmentUpload";
+import { useConversationLayoutState } from "./useConversationLayoutState";
+import { useConversationMessageActions } from "./useConversationMessageActions";
+import { useConversationReadReceiptWriter } from "./useConversationReadReceiptWriter";
+import { useSendMessage } from "./useSendMessage";
+import { useEditMessage } from "./useEditMessage";
+import { useDeleteMessage } from "./useDeleteMessage";
+import { useFailedOutgoingMessages } from "./useFailedOutgoingMessages";
+import { useConversationInsertedMessageEffects } from "./useConversationInsertedMessageEffects";
+import { useConversationUnreadDivider } from "./useConversationUnreadDivider";
+import { MessageList } from "./components/MessageList";
+import { MessageRow } from "./components/MessageRow";
+import { MessageScrollToLatest } from "./components/MessageScrollToLatest";
+import { MessageScrollToUnread } from "./components/MessageScrollToUnread";
+import { TypingIndicatorInstagram, type TypingUser } from "./components/TypingIndicatorInstagram";
+import { ConversationComposerBar } from "./components/ConversationComposerBar";
+import { EditMessageDialog } from "./components/EditMessageDialog";
+import { DeleteMessageDialog } from "./components/DeleteMessageDialog";
+import { ConversationInfoSheet } from "./components/ConversationInfoSheet";
+import { MuteOptionsSheet, type MutePreset } from "./components/MuteOptionsSheet";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
+import { useConversationSearch } from "./useConversationSearch";
+import { useUserLastActive } from "./useUserLastActive";
+import { formatTimeAgo } from "./formatTimeAgo";
+import { MaterialIcon } from "@/components/ui/material-icon";
+import { toast } from "@/components/toasts";
+import { saveConversationPrefs } from "./conversationPrefs";
+import { useQueryClient } from "@tanstack/react-query";
+import { updateConversationListItemInCache } from "./conversationsCache";
+import { conversationMessagesQueryKey, conversationsQueryKey } from "./queryKeys";
+import { createRandomTempId } from "./idUtils";
+import { createClientId } from "./clientId";
+import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+
+// Re-export for modules that import message hooks from this file (e.g. SwipePage.tsx).
+// Note: This is intentionally a named export alongside the default export.
+export { useSendMessage };
+
+const ASSISTANT_USERNAME = "movinesta";
+const ASSISTANT_FALLBACK_USER_ID = "31661b41-efc0-4f29-ba72-1a3e48cb1c80";
+
+const ConversationPage: React.FC = () => {
+  const { conversationId: conversationIdParam } = useParams<{
+    conversationId: string;
+  }>();
+  const conversationId = conversationIdParam ?? null;
+
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: conversations, isLoading: isConversationsLoading } = useConversations();
+
+  const currentUserId = user?.id ?? null;
+  const conversation: ConversationListItem | null = useMemo(() => {
+    if (!conversationId || !conversations) return null;
+    return conversations.find((c) => c.id === conversationId) ?? null;
+  }, [conversationId, conversations]);
+
+  const isMuted = conversation?.isMuted ?? false;
+
+  const [muteOptionsOpen, setMuteOptionsOpen] = useState(false);
+
+  const unmuteConversation = useCallback(() => {
+    if (!conversationId) return;
+    if (!currentUserId) {
+      toast.error("Please sign in to manage messages.");
+      return;
+    }
+
+    const prevMuted = conversation?.isMuted ?? false;
+    const prevUntil = conversation?.mutedUntil ?? null;
+    const hidden = conversation?.isHidden ?? false;
+
+    updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
+      ...c,
+      isMuted: false,
+      mutedUntil: null,
+    }));
+
+    toast.show("Unmuted notifications.");
+
+    saveConversationPrefs(currentUserId, conversationId, {
+      muted: false,
+      hidden,
+      mutedUntil: null,
+    }).then(({ ok }) => {
+      if (ok) return;
+      updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
+        ...c,
+        isMuted: prevMuted,
+        mutedUntil: prevUntil,
+      }));
+      toast.error("Couldn't update preferences.");
+    });
+  }, [conversationId, currentUserId, conversation, queryClient]);
+
+  const applyMutePreset = useCallback(
+    (preset: MutePreset) => {
+      if (!conversationId) return;
+      if (!currentUserId) {
+        toast.error("Please sign in to manage messages.");
+        return;
+      }
+
+      const prevMuted = conversation?.isMuted ?? false;
+      const prevUntil = conversation?.mutedUntil ?? null;
+      const hidden = conversation?.isHidden ?? false;
+
+      let nextMuted = false;
+      let nextUntil: string | null = null;
+
+      if (preset.kind === "indefinite") {
+        nextMuted = true;
+        nextUntil = null;
+      } else {
+        nextMuted = false;
+        nextUntil = new Date(Date.now() + preset.minutes * 60_000).toISOString();
+      }
+
+      updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
+        ...c,
+        isMuted: true,
+        mutedUntil: nextUntil,
+      }));
+
+      toast.show(`Muted notifications for ${preset.label}.`);
+
+      saveConversationPrefs(currentUserId, conversationId, {
+        muted: nextMuted,
+        hidden,
+        mutedUntil: nextUntil,
+      }).then(({ ok }) => {
+        if (ok) return;
+        updateConversationListItemInCache(queryClient, currentUserId, conversationId, (c) => ({
+          ...c,
+          isMuted: prevMuted,
+          mutedUntil: prevUntil,
+        }));
+        toast.error("Couldn't update preferences.");
+      });
+    },
+    [conversationId, currentUserId, conversation, queryClient],
+  );
+
+  const handleMuteClick = useCallback(() => {
+    if (isMuted) {
+      unmuteConversation();
+      return;
+    }
+    setMuteOptionsOpen(true);
+  }, [isMuted, unmuteConversation]);
+
+  const handleInsertedMessage = useConversationInsertedMessageEffects({
+    currentUserId: user?.id ?? null,
+  });
+
+  const {
+    data: messages,
+    isLoading: isMessagesLoading,
+    isError: isMessagesError,
+    error: messagesError,
+    loadOlder,
+    hasMore: hasMoreMessages,
+    isLoadingOlder: isLoadingOlderMessages,
+    pollWhenRealtimeDown,
+  } = useConversationMessages(conversationId, { onInsert: handleInsertedMessage });
+
+  // If Postgres realtime isn't delivering change events (common when replication isn't enabled),
+  // we still want delivery receipts (and inbox previews) to work when messages arrive via polling.
+  // This effect runs handleInsertedMessage for messages appended since the last run.
+  const lastProcessedMessageIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!conversationId || !messages || messages.length === 0) return;
+
+    const previousIds = lastProcessedMessageIdsRef.current;
+    const nextIds = new Set(messages.map((m) => m.id));
+
+    for (const message of messages) {
+      if (!previousIds.has(message.id)) {
+        handleInsertedMessage(message);
+      }
+    }
+
+    lastProcessedMessageIdsRef.current = nextIds;
+  }, [conversationId, messages, handleInsertedMessage]);
+
+  const { draft, setDraft } = useConversationDraft({
+    conversationId,
+    hydrate: () => {
+      // Resize after hydration.
+      queueMicrotask(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+      });
+    },
+  });
+
+  const {
+    sendError,
+    lastFailedPayload,
+    failedMessages,
+    clearBannerState: clearFailedBannerState,
+    onSendFailed,
+    onSendRecovered,
+    consumeLastFailedForRetry,
+    consumeFailedMessageForRetry,
+    discardFailedMessage,
+  } = useFailedOutgoingMessages({
+    conversationId,
+    setDraft: (next) => setDraft(next),
+    messages,
+  });
+
+  const isGroupConversation = conversation?.isGroup ?? false;
+
+  const { getStatus: getPresenceStatus } = usePresence();
+
+  const otherParticipant: ConversationParticipant | null = useMemo(() => {
+    if (!conversation) return null;
+    const others = conversation.participants.filter((p) => !p.isSelf);
+    if (others.length > 0) return others[0];
+    if (conversation.participants.length === 1) {
+      return conversation.participants[0];
+    }
+    return null;
+  }, [conversation]);
+
+  const otherPresenceStatus = useMemo(() => {
+    if (isGroupConversation) return null;
+    if (!otherParticipant?.id) return null;
+    return getPresenceStatus(otherParticipant.id);
+  }, [getPresenceStatus, isGroupConversation, otherParticipant?.id]);
+
+  // For "Last active" when the other user is offline.
+  const otherLastActive = useUserLastActive(
+    !isGroupConversation ? (otherParticipant?.id ?? null) : null,
+  );
+  const otherLastActiveLabel = useMemo(() => {
+    const iso = otherLastActive.data ?? null;
+    const label = formatTimeAgo(iso);
+    if (!label) return null;
+    if (label === "Just now") return "now";
+    return label;
+  }, [otherLastActive.data]);
+
+  const isAssistantThread = useMemo(() => {
+    const p = otherParticipant;
+    if (!p) return false;
+    return p.id === ASSISTANT_FALLBACK_USER_ID || p.username?.toLowerCase() === ASSISTANT_USERNAME;
+  }, [otherParticipant]);
+
+  const [assistantIsTyping, setAssistantIsTyping] = useState(false);
+
+  const handleAssistantAction = useCallback(
+    async (messageId: string, actionId: string) => {
+      if (!conversationId) return;
+      try {
+        const { data, error } = await supabase.functions.invoke("assistant-message-action", {
+          body: { conversationId, messageId, actionId },
+        });
+
+        if (error) throw new Error(error.message || "Action failed");
+        if (!data?.ok) throw new Error((data as any)?.error || "Action failed");
+
+        const toastMsg = (data as any)?.toast as string | undefined;
+        if (toastMsg) toast.success(toastMsg);
+
+        const navigateTo = (data as any)?.navigateTo as string | undefined;
+        if (navigateTo) navigate(navigateTo);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast.error(msg || "Action failed");
+      } finally {
+        // Refresh so we pick up any assistant follow-up messages or updated state.
+        if (conversationId) {
+          queryClient.invalidateQueries({ queryKey: conversationMessagesQueryKey(conversationId) });
+        }
+        if (currentUserId) {
+          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(currentUserId) });
+        }
+      }
+    },
+    [conversationId, currentUserId, navigate, queryClient],
+  );
+
+  const conversationTitle =
+    conversation?.title ??
+    otherParticipant?.displayName ??
+    otherParticipant?.username ??
+    "Conversation";
+
+  const sendMessage = useSendMessage(conversationId, {
+    onFailed: onSendFailed,
+    onRecovered: onSendRecovered,
+    otherUserId: !isGroupConversation ? (otherParticipant?.id ?? null) : null,
+  });
+
+  type SendAttemptPayload = {
+    text: string;
+    attachmentPath: string | null;
+    clientId?: string;
+  };
+
+  const attemptSend = useCallback(
+    (payload: SendAttemptPayload, opts?: { tempId?: string }) => {
+      // Clear global error banner before re-attempting.
+      clearFailedBannerState();
+
+      sendMessage.mutate(
+        {
+          text: payload.text,
+          attachmentPath: payload.attachmentPath,
+          clientId: payload.clientId,
+          tempId: opts?.tempId,
+        },
+        {
+          onSuccess: async (sentMessage) => {
+            clearFailedBannerState();
+
+            // If this is the assistant DM, ask the edge function to generate a reply.
+            if (
+              isAssistantThread &&
+              conversationId &&
+              currentUserId &&
+              payload.text.trim().length > 0
+            ) {
+              try {
+                setAssistantIsTyping(true);
+                const { data, error } = await supabase.functions.invoke("assistant-chat-reply", {
+                  body: {
+                    conversationId,
+                    userMessageId: sentMessage.id,
+                  },
+                });
+
+                if (error) {
+                  console.error("assistant-chat-reply failed", error);
+                } else if (!data?.ok) {
+                  console.warn("assistant-chat-reply not ok", data);
+                }
+              } catch (e) {
+                console.error("assistant-chat-reply threw", e);
+              } finally {
+                setAssistantIsTyping(false);
+                // Ensure UI refresh picks up the assistant reply.
+                queryClient.invalidateQueries({
+                  queryKey: conversationMessagesQueryKey(conversationId),
+                });
+                queryClient.invalidateQueries({
+                  queryKey: conversationsQueryKey(currentUserId),
+                });
+              }
+            }
+          },
+        },
+      );
+    },
+    [
+      clearFailedBannerState,
+      conversationId,
+      currentUserId,
+      isAssistantThread,
+      queryClient,
+      sendMessage,
+    ],
+  );
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchDidJumpRef = useRef(false);
+
+  const participantsById = useMemo(() => {
+    const map = new Map<string, ConversationParticipant>();
+    if (!conversation) return map;
+    for (const participant of conversation.participants) {
+      map.set(participant.id, participant);
+    }
+    return map;
+  }, [conversation]);
+
+  const { youBlocked, blockedYou, isBlocked, block, unblock } = useBlockStatus(
+    !isGroupConversation ? (otherParticipant?.id ?? null) : null,
+  );
+
+  // currentUserId defined near the top.
+
+  const {
+    fileInputRef,
+    isUploadingImage,
+    uploadError,
+    cancelImageUpload,
+    clearUploadError,
+    handleImageSelected,
+    sendImageFile,
+    openFilePicker: handleCameraClick,
+  } = useAttachmentUpload({
+    conversationId,
+    userId: currentUserId,
+    isBlocked,
+    blockedYou,
+    attemptSend,
+  });
+
+  const showComposer = !isBlocked && !blockedYou;
+
+  const canToggleBlock = Boolean(otherParticipant) && !isGroupConversation;
+  const blockPending = block.isPending || unblock.isPending;
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  const handleBlockToggle = useCallback(() => {
+    if (!canToggleBlock) return;
+    if (youBlocked) {
+      unblock.mutate();
+      return;
+    }
+    if (!blockedYou) {
+      block.mutate();
+    }
+  }, [block, blockedYou, canToggleBlock, unblock, youBlocked]);
+
+  const blockAction = canToggleBlock
+    ? {
+        icon: ShieldX,
+        label: youBlocked ? "Unblock" : blockedYou ? "Blocked" : "Block",
+        onClick: () => {
+          if (youBlocked) {
+            unblock.mutate();
+          } else if (!blockedYou) {
+            block.mutate();
+          }
+        },
+        disabled: blockPending || isConversationsLoading || (blockedYou && !youBlocked),
+      }
+    : null;
+
+  const {
+    headerRef,
+    headerHeight,
+    composerHeight,
+    isAtBottom,
+    setIsAtBottom,
+    handleComposerHeightChange,
+    showEmojiPicker,
+    setShowEmojiPicker,
+  } = useConversationLayoutState({ showComposer });
+  const [hasMeasuredAtBottom, setHasMeasuredAtBottom] = useState(false);
+
+  // Reserve space so the last message stays visible above the fixed composer.
+  // We apply this as bottom padding on the scroll container.
+  const reservedBottomPx = showComposer ? Math.max(composerHeight, 0) + 24 : 40;
+  const messageListBottomPadding = `${reservedBottomPx}px`;
+
+  // Consider the user "at bottom" (pinned) when within the reserved spacer, plus a
+  // small slack for layout jitter.
+  const pinnedThresholdPx = Math.max(80, reservedBottomPx + 32);
+
+  const selfDisplayName = useMemo(() => {
+    return conversation?.participants.find((p) => p.isSelf)?.displayName ?? "You";
+  }, [conversation]);
+
+  const { remoteTypingUsers, noteLocalInputActivity, stopTyping } = useTypingChannel({
+    conversationId,
+    userId: user?.id ?? null,
+    displayName: selfDisplayName,
+  });
+
+  const { data: readReceipts } = useConversationReadReceipts(conversationId);
+
+  useConversationReadReceiptWriter({
+    conversationId,
+    userId: user?.id ?? null,
+    isAtBottom: isAtBottom === true && hasMeasuredAtBottom,
+    messages,
+  });
+
+  const { reactionsByMessageId, toggleReaction } = useConversationReactions(conversationId);
+
+  const handleToggleReaction = useCallback(
+    (messageId: string, emoji: string) => {
+      toggleReaction.mutate({ messageId, emoji });
+    },
+    [toggleReaction],
+  );
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const lastSeenLastMessageIdRef = useRef<string | null>(null);
+
+  const pendingScrollToMessageIdRef = useRef<string | null>(null);
+  const didInitialScrollRef = useRef(false);
+  const isJumpingToUnreadRef = useRef(false);
+  const [pendingNewCount, setPendingNewCount] = useState(0);
+  const scrollerElRef = useRef<HTMLDivElement | null>(null);
+  const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
+  const messageNodeByIdRef = useRef(new Map<string, HTMLDivElement>());
+  const scrollerRef = useCallback((node: HTMLDivElement | null) => {
+    scrollerElRef.current = node;
+    setScrollerEl(node);
+  }, []);
+  const isProgrammaticScrollRef = useRef(false);
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
+  const isPinnedToBottomRef = useRef(true);
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  useEffect(() => {
+    isPinnedToBottomRef.current = isPinnedToBottom;
+  }, [isPinnedToBottom]);
+
+  const {
+    activeActionMessageId,
+    openMessageActions,
+    closeMessageActions,
+    hiddenMessageIds,
+    hideMessageForMe,
+    deleteDialog,
+    openDeleteDialog,
+    closeDeleteDialog,
+    editingMessage,
+    openEditDialog,
+    updateEditingText,
+    closeEditDialog,
+    editTextareaRef,
+    editError,
+    setEditError,
+  } = useConversationMessageActions({
+    conversationId,
+    currentUserId,
+    showComposer,
+    isBlocked,
+    blockedYou,
+    composerTextareaRef: textareaRef,
+  });
+
+  // Only show "seen" indicator on the very last *visible* outgoing message (not on every message).
+  // If the user hides their most recent outgoing message "for me", we prefer showing status on the
+  // last visible outgoing message instead.
+  const lastOwnMessageId = useLastVisibleOwnMessageId({
+    messages,
+    currentUserId,
+    hiddenMessageIds,
+  });
+
+  // Perf: delivery receipts can be very large in active conversations. We only need receipts
+  // for the message(s) that can actually display delivery status. Today, that's the last
+  // visible outgoing message.
+  const lastOwnMessageIds = useMemo(
+    () => (lastOwnMessageId ? [lastOwnMessageId] : []),
+    [lastOwnMessageId],
+  );
+
+  const { data: deliveryReceipts } = useConversationDeliveryReceipts(
+    conversationId,
+    lastOwnMessageIds,
+  );
+
+  const editMessageMutation = useEditMessage(conversationId);
+  const deleteMessageMutation = useDeleteMessage(conversationId);
+
+  const { visibleMessages } = useConversationUiMessages({
+    messages,
+    conversation,
+    currentUserId,
+    participantsById,
+    reactionsByMessageId,
+    hiddenMessageIds,
+    deliveryReceipts: (deliveryReceipts ?? []) as unknown as MessageDeliveryReceipt[],
+    readReceipts: (readReceipts ?? []) as unknown as ConversationReadReceipt[],
+    failedMessages,
+    lastOwnMessageId,
+  });
+
+  const {
+    firstUnreadIndex,
+    lastReadMessageId,
+    hasUnread,
+    isReady: unreadReady,
+  } = useConversationUnreadDivider({
+    conversationId,
+    userId: user?.id ?? null,
+    conversation,
+    readReceipts,
+    visibleMessages,
+  });
+
+  const unreadFromOthersCount = useMemo(() => {
+    if (!unreadReady) return 0;
+    if (!hasUnread) return 0;
+
+    let startIndex = firstUnreadIndex;
+
+    // If we couldn't compute the first unread index from the visible window, fall back to
+    // using the last read message (if we have it) to estimate where "unread" starts.
+    if (startIndex == null) {
+      if (typeof lastReadMessageId === "string" && lastReadMessageId) {
+        const found = visibleMessages.findIndex((m) => m.message.id === lastReadMessageId);
+        startIndex = found >= 0 ? found + 1 : null;
+      }
+    }
+
+    if (startIndex == null) return 0;
+
+    return visibleMessages.slice(startIndex).filter((item) => !item.isSelf && !item.meta.deleted)
+      .length;
+  }, [firstUnreadIndex, hasUnread, lastReadMessageId, unreadReady, visibleMessages]);
+
+  const hasVisibleMessages = visibleMessages.length > 0;
+  const visibleMessagesRef = useRef(visibleMessages);
+  const hasMoreMessagesRef = useRef(hasMoreMessages);
+
+  const scrollBehavior: "auto" | "smooth" = prefersReducedMotion ? "auto" : "smooth";
+
+  // Single, non-jittery scroll helper.
+  // We intentionally avoid multi-retry loops because they fight Virtuoso's built-in `followOutput`
+  // and cause "jumpy" behavior when new items arrive.
+  const scrollToBottom = useCallback(
+    (behaviorOverride?: "auto" | "smooth") => {
+      const el = scrollerElRef.current;
+      if (!el) return;
+
+      isProgrammaticScrollRef.current = true;
+      requestAnimationFrame(() => {
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: (behaviorOverride ?? scrollBehavior) as ScrollBehavior,
+        });
+        requestAnimationFrame(() => {
+          isProgrammaticScrollRef.current = false;
+        });
+      });
+    },
+    [scrollBehavior],
+  );
+
+  const scrollToMessageId = useCallback(
+    (messageId: string, opts?: { align?: ScrollLogicalPosition; behavior?: "auto" | "smooth" }) => {
+      const node = messageNodeByIdRef.current.get(messageId);
+      if (!node) return false;
+
+      isProgrammaticScrollRef.current = true;
+      requestAnimationFrame(() => {
+        node.scrollIntoView({
+          block: opts?.align ?? "end",
+          behavior: (opts?.behavior ?? scrollBehavior) as ScrollBehavior,
+        });
+        requestAnimationFrame(() => {
+          isProgrammaticScrollRef.current = false;
+        });
+      });
+
+      return true;
+    },
+    [scrollBehavior],
+  );
+
+  useEffect(() => {
+    visibleMessagesRef.current = visibleMessages;
+  }, [visibleMessages]);
+
+  // NOTE: Do not force-scroll when messages are appended.
+  // Virtuoso's `followOutput` handles "stay pinned to bottom" when the user is at bottom.
+
+  useEffect(() => {
+    hasMoreMessagesRef.current = hasMoreMessages;
+  }, [hasMoreMessages]);
+
+  const prependRestoreRef = useRef<{
+    active: boolean;
+    prevScrollHeight: number;
+    prevScrollTop: number;
+    prevCount: number;
+  } | null>(null);
+
+  const beginPrependRestore = useCallback(() => {
+    const el = scrollerElRef.current;
+    if (!el) return;
+    prependRestoreRef.current = {
+      active: true,
+      prevScrollHeight: el.scrollHeight,
+      prevScrollTop: el.scrollTop,
+      prevCount: visibleMessagesRef.current.length,
+    };
+  }, []);
+
+  // Preserve scroll position when older messages are prepended.
+  React.useLayoutEffect(() => {
+    const state = prependRestoreRef.current;
+    const el = scrollerElRef.current;
+    if (!state?.active || !el) return;
+    if (visibleMessages.length <= state.prevCount) return;
+
+    const nextHeight = el.scrollHeight;
+    const delta = nextHeight - state.prevScrollHeight;
+    el.scrollTop = state.prevScrollTop + delta;
+
+    prependRestoreRef.current = null;
+  }, [visibleMessages.length]);
+
+  // One-time initial positioning: the message list should open at the latest message
+  // (instead of starting at the top) so new messages are immediately visible and
+  // auto-scroll can lock in correctly.
+  useEffect(() => {
+    didInitialScrollRef.current = false;
+    lastSeenLastMessageIdRef.current = null;
+    setPendingNewCount(0);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (didInitialScrollRef.current) return;
+    if (!hasVisibleMessages) return;
+
+    const lastIndex = visibleMessages.length - 1;
+    if (lastIndex < 0) return;
+
+    // Mark as positioned now to avoid duplicate scheduling while waiting for the frame.
+    didInitialScrollRef.current = true;
+
+    // Wait a frame for Virtuoso to mount/measure before scrolling.
+    requestAnimationFrame(() => {
+      scrollToBottom("auto");
+
+      // Treat the initial positioning as "measured at bottom" so followOutput can work immediately.
+      // Otherwise, incoming realtime messages won't auto-follow until the user manually scrolls.
+      setHasMeasuredAtBottom(true);
+      setIsAtBottom(true);
+      setIsPinnedToBottom(true);
+
+      lastSeenLastMessageIdRef.current = visibleMessages[lastIndex]?.message.id ?? null;
+      setPendingNewCount(0);
+    });
+  }, [conversationId, hasVisibleMessages, scrollToBottom, setIsAtBottom, visibleMessages]);
+  // After sending a message, scroll to the optimistic temp message once it appears.
+  // This avoids racing the cache update and eliminates "scroll didn't happen" flakiness.
+  useEffect(() => {
+    const targetId = pendingScrollToMessageIdRef.current;
+    if (!targetId) return;
+
+    const inList = visibleMessages.some((m) => m.message.id === targetId);
+    if (!inList) {
+      pendingScrollToMessageIdRef.current = null;
+      return;
+    }
+
+    const didScroll = scrollToMessageId(targetId, { align: "end", behavior: "auto" });
+    if (didScroll) {
+      pendingScrollToMessageIdRef.current = null;
+    }
+  }, [scrollToMessageId, visibleMessages]);
+
+  // Auto-follow new messages only when the user is already pinned near the bottom.
+  const lastVisibleMessageId =
+    visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1]!.message.id : null;
+
+  useEffect(() => {
+    if (!lastVisibleMessageId) return;
+    if (!didInitialScrollRef.current) return;
+    if (!isPinnedToBottomRef.current) return;
+    if (prependRestoreRef.current?.active) return;
+    // If we just sent a message, the pending scroll handler will handle it.
+    if (pendingScrollToMessageIdRef.current) return;
+
+    scrollToBottom(scrollBehavior);
+  }, [lastVisibleMessageId, scrollBehavior, scrollToBottom]);
+
+  // Keep a reliable "pinned to bottom" signal based on the actual scroll container.
+  // Virtuoso's internal atBottom can be thrown off by a fixed composer + reserved padding.
+  useEffect(() => {
+    if (!scrollerEl) return;
+
+    const computePinned = () => {
+      const dist = scrollerEl.scrollHeight - scrollerEl.scrollTop - scrollerEl.clientHeight;
+      const pinned = dist <= pinnedThresholdPx;
+      setIsPinnedToBottom((prev) => (prev === pinned ? prev : pinned));
+      setIsAtBottom((prev) => (prev === pinned ? prev : pinned));
+      setHasMeasuredAtBottom(true);
+    };
+
+    computePinned();
+
+    const onScroll = () => {
+      computePinned();
+      if (!isProgrammaticScrollRef.current) {
+        didInitialScrollRef.current = true;
+        isJumpingToUnreadRef.current = false;
+      }
+    };
+
+    scrollerEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollerEl.removeEventListener("scroll", onScroll);
+  }, [scrollerEl, pinnedThresholdPx, setIsAtBottom]);
+
+  useEffect(() => {
+    const lastMessageId = visibleMessages.length
+      ? (visibleMessages[visibleMessages.length - 1]?.message.id ?? null)
+      : null;
+
+    if (isAtBottom === true) {
+      lastSeenLastMessageIdRef.current = lastMessageId;
+      setPendingNewCount(0);
+      return;
+    }
+
+    if (!lastMessageId) return;
+
+    const lastSeen = lastSeenLastMessageIdRef.current;
+    if (lastSeen === lastMessageId) return;
+
+    const lastSeenIndex = lastSeen
+      ? visibleMessages.findIndex((m) => m.message.id === lastSeen)
+      : -1;
+    if (lastSeen && lastSeenIndex < 0) {
+      lastSeenLastMessageIdRef.current = lastMessageId;
+      setPendingNewCount(0);
+      return;
+    }
+
+    const unseen = visibleMessages.slice(Math.max(0, lastSeenIndex + 1));
+    const newCount = unseen.filter((item) => !item.isSelf).length;
+
+    if (newCount <= 0) return;
+
+    setPendingNewCount(newCount);
+  }, [isAtBottom, visibleMessages]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimeoutRef.current != null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Escape handling is declared later (after search is created), so it can close
+  // message actions, emoji picker, and conversation search consistently.
+
+  // NOTE: handleSendText is declared later (after handleJumpToLatest) to avoid
+  // temporal dead-zone issues from referencing handleJumpToLatest before it's initialized.
+
+  const handleRetrySend = () => {
+    const retry = consumeLastFailedForRetry();
+    if (!retry) return;
+    attemptSend(retry.payload, { tempId: retry.tempId ?? undefined });
+  };
+
+  // Long-tap handling: delay opening actions, and make sure click after long-press
+  // does NOT instantly close the menu (fixes "appear then vanish" glitch).
+  const handleBubbleTouchStart = (message: ConversationMessage) => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+    }
+    longPressTriggeredRef.current = false;
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openMessageActions(message);
+    }, 500);
+  };
+
+  const handleBubbleTouchEndOrCancel = () => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const handleRetryMessage = useCallback(
+    (message: ConversationMessage) => {
+      const payload = consumeFailedMessageForRetry(message.id);
+      if (!payload) return;
+      attemptSend(payload, { tempId: message.id });
+    },
+    [attemptSend, consumeFailedMessageForRetry],
+  );
+
+  const handleDiscardFailedMessage = useCallback(
+    (message: ConversationMessage) => {
+      void discardFailedMessage(message.id);
+    },
+    [discardFailedMessage],
+  );
+
+  const scrollToUiIndex = useCallback(
+    (uiIndex: number) => {
+      if (uiIndex < 0) return;
+      const id = visibleMessagesRef.current[uiIndex]?.message.id ?? null;
+      if (!id) return;
+      scrollToMessageId(id, { align: "center" });
+    },
+    [scrollToMessageId],
+  );
+
+  const search = useConversationSearch({
+    items: visibleMessages,
+    onJumpToItemIndex: (uiIndex) => {
+      searchDidJumpRef.current = true;
+      scrollToUiIndex(uiIndex);
+    },
+  });
+
+  const searchQueryActive = search.query.trim().length >= 2;
+
+  useEffect(() => {
+    // Reset search state when switching conversations.
+    search.close();
+  }, [conversationId, search.close]);
+
+  const openSearch = () => {
+    closeMessageActions();
+    setShowEmojiPicker(false);
+    search.setIsOpen(true);
+    queueMicrotask(() => searchInputRef.current?.focus());
+  };
+
+  const closeSearch = () => {
+    search.close();
+  };
+
+  useEffect(() => {
+    const handleGlobalEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      // Prefer closing conversation search first.
+      if (search.isOpen) {
+        event.preventDefault();
+        closeSearch();
+        return;
+      }
+
+      closeMessageActions();
+      setShowEmojiPicker(false);
+    };
+
+    window.addEventListener("keydown", handleGlobalEscape);
+    return () => window.removeEventListener("keydown", handleGlobalEscape);
+  }, [closeMessageActions, closeSearch, search.isOpen, setShowEmojiPicker]);
+
+  useEffect(() => {
+    // Reset "did jump" when the query changes so Enter jumps to the first match again.
+    searchDidJumpRef.current = false;
+  }, [search.query]);
+
+  const handleJumpToLatest = useCallback(
+    (behaviorOverride?: "auto" | "smooth") => {
+      const lastIndex = visibleMessages.length - 1;
+      if (lastIndex < 0) return;
+
+      const lastMessageId = visibleMessages[lastIndex]?.message.id ?? null;
+      if (lastMessageId) {
+        lastSeenLastMessageIdRef.current = lastMessageId;
+      }
+
+      setPendingNewCount(0);
+
+      // Scroll to bottom. Virtuoso + followOutput handle the rest.
+      scrollToBottom(behaviorOverride ?? scrollBehavior);
+
+      // After a brief delay (to allow the scroll), return focus to the composer so
+      // keyboard users can resume typing immediately.
+      window.setTimeout(
+        () => {
+          textareaRef.current?.focus();
+        },
+        prefersReducedMotion ? 0 : 200,
+      );
+    },
+    [scrollBehavior, prefersReducedMotion, visibleMessages, scrollToBottom],
+  );
+
+  const handleComposerResize = useCallback(
+    (height: number) => {
+      handleComposerHeightChange(height);
+      if (isAtBottom === true) {
+        scrollToBottom("auto");
+      }
+    },
+    [handleComposerHeightChange, isAtBottom, scrollToBottom],
+  );
+
+  const handleJumpToUnread = useCallback(
+    async (behaviorOverride?: "auto" | "smooth") => {
+      if (!hasUnread) return;
+      if (isJumpingToUnreadRef.current) return;
+      isJumpingToUnreadRef.current = true;
+
+      try {
+        let targetIndex = firstUnreadIndex;
+
+        if (targetIndex == null && typeof lastReadMessageId === "string" && lastReadMessageId) {
+          let attempts = 0;
+          while (hasMoreMessagesRef.current && attempts < 8) {
+            const foundIndex = visibleMessagesRef.current.findIndex(
+              (m) => m.message.id === lastReadMessageId,
+            );
+            if (foundIndex >= 0) {
+              targetIndex = foundIndex + 1;
+              break;
+            }
+            await loadOlder();
+            attempts += 1;
+          }
+        }
+
+        if (targetIndex == null) return;
+
+        const targetId = visibleMessagesRef.current[targetIndex]?.message.id ?? null;
+
+        if (targetId) {
+          scrollToMessageId(targetId, {
+            align: "start",
+            behavior: behaviorOverride ?? scrollBehavior,
+          });
+        }
+
+        window.setTimeout(
+          () => {
+            textareaRef.current?.focus();
+          },
+          prefersReducedMotion ? 0 : 150,
+        );
+      } finally {
+        isJumpingToUnreadRef.current = false;
+      }
+    },
+    [
+      firstUnreadIndex,
+      hasUnread,
+      unreadReady,
+      lastReadMessageId,
+      loadOlder,
+      prefersReducedMotion,
+      scrollBehavior,
+    ],
+  );
+
+  const handleSendText = useCallback(
+    (text: string) => {
+      if (!text.trim()) return;
+      clearFailedBannerState();
+
+      // Once the user interacts (send), never allow an "initial scroll" effect to reposition them.
+      didInitialScrollRef.current = true;
+      isJumpingToUnreadRef.current = false;
+
+      const tempId = createRandomTempId();
+      const clientId = createClientId();
+
+      // Treat sending as an explicit intent to be pinned to the latest.
+      setIsPinnedToBottom(true);
+      setIsAtBottom(true);
+      setHasMeasuredAtBottom(true);
+
+      // Scroll to the optimistic temp message as soon as it appears.
+      pendingScrollToMessageIdRef.current = tempId;
+
+      attemptSend({ text: text.trim(), attachmentPath: null, clientId }, { tempId });
+    },
+    [attemptSend, clearFailedBannerState, setIsAtBottom],
+  );
+
+  useEffect(() => {
+    lastSeenLastMessageIdRef.current = null;
+    setPendingNewCount(0);
+  }, [conversationId]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Search within conversation: Ctrl/Cmd+F
+      if (event.key.toLowerCase() === "f" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        openSearch();
+        return;
+      }
+
+      // Jump to latest: End, Meta+ArrowDown, or Ctrl+End
+      if (
+        event.key === "End" ||
+        (event.key === "ArrowDown" && (event.metaKey || event.ctrlKey)) ||
+        (event.key === "End" && (event.metaKey || event.ctrlKey))
+      ) {
+        event.preventDefault();
+        handleJumpToLatest();
+        return;
+      }
+
+      // Jump to first unread: Alt+U
+      if (event.key.toLowerCase() === "u" && event.altKey) {
+        event.preventDefault();
+        handleJumpToUnread();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleJumpToLatest, handleJumpToUnread, openSearch]);
+
+  const headerSubtitle = useMemo(() => {
+    if (blockedYou) return "You are blocked";
+    if (isBlocked) return "You blocked them";
+
+    // Instagram-style: show typing state under the name.
+    if (remoteTypingUsers.length > 0) {
+      if (isGroupConversation) {
+        if (remoteTypingUsers.length === 1) {
+          const t = remoteTypingUsers[0];
+          return `${t.displayName ?? "Someone"} typing…`;
+        }
+        return `${remoteTypingUsers.length} typing…`;
+      }
+      return "Typing…";
+    }
+
+    if (!isGroupConversation && otherPresenceStatus) {
+      if (otherPresenceStatus === "online") return "Online";
+      if (otherPresenceStatus === "away") return "Active recently";
+    }
+
+    if (!isGroupConversation && otherLastActiveLabel) {
+      return otherLastActiveLabel === "now" ? "Online" : `Active ${otherLastActiveLabel}`;
+    }
+
+    return conversation?.subtitle || (isGroupConversation ? "Group chat" : "Direct message");
+  }, [
+    blockedYou,
+    isBlocked,
+    isGroupConversation,
+    otherPresenceStatus,
+    otherLastActiveLabel,
+    conversation?.subtitle,
+    remoteTypingUsers,
+  ]);
+
+  const typingIndicatorUsers: TypingUser[] = useMemo(() => {
+    const participants = conversation?.participants ?? [];
+    const byId = new Map(participants.map((p) => [p.id, p] as const));
+    const out: TypingUser[] = [];
+
+    for (const t of remoteTypingUsers) {
+      const p = byId.get(t.userId);
+      const displayName = p?.displayName ?? t.displayName ?? "Someone";
+      out.push({
+        id: t.userId,
+        displayName,
+        avatarUrl: p?.avatarUrl ?? null,
+      });
+    }
+
+    // Assistant DMs: show the assistant typing bubble while the edge function is running.
+    if (assistantIsTyping && isAssistantThread && otherParticipant?.id) {
+      const already = out.some((u) => u.id === otherParticipant.id);
+      if (!already) {
+        out.unshift({
+          id: otherParticipant.id,
+          displayName:
+            otherParticipant.displayName ??
+            otherParticipant.username ??
+            conversationTitle ??
+            "Assistant",
+          avatarUrl: otherParticipant.avatarUrl ?? null,
+        });
+      }
+    }
+
+    return out;
+  }, [
+    assistantIsTyping,
+    conversation?.participants,
+    conversationTitle,
+    isAssistantThread,
+    otherParticipant,
+    remoteTypingUsers,
+  ]);
+  if (!conversationId) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="max-w-md rounded-xl border border-border bg-card px-5 py-6 text-center text-sm text-foreground">
+          <h1 className="text-base font-heading font-semibold">Conversation not found</h1>
+          <p className="mt-2 text-xs text-muted-foreground">
+            This page is meant to be opened from your messages list.
+          </p>
+          <p className="mt-4">
+            <Link
+              to="/messages"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground"
+            >
+              Back to messages
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="conversation-page relative flex h-[100dvh] w-full flex-col items-stretch overflow-hidden bg-background text-foreground">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
+        <div
+          ref={headerRef}
+          className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md"
+        >
+          <header className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                aria-label="Go back"
+              >
+                <MaterialIcon name="arrow_back" />
+              </button>
+              <div className="relative">
+                <div className="h-10 w-10 overflow-hidden rounded-full bg-muted">
+                  {otherParticipant?.avatarUrl ? (
+                    <img
+                      src={otherParticipant.avatarUrl}
+                      alt={otherParticipant.displayName ?? "Conversation"}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-foreground/80">
+                      {(otherParticipant?.displayName ?? conversationTitle)
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                {!isGroupConversation &&
+                  (otherPresenceStatus === "online" || otherLastActiveLabel === "now") && (
+                    <span
+                      className={cn(
+                        "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background",
+                        "bg-green-500",
+                      )}
+                      title="Online"
+                    />
+                  )}
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-base font-bold leading-none text-foreground">
+                  {conversationTitle}
+                </h1>
+                <p className="mt-1 text-xs font-medium text-primary">{headerSubtitle}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                aria-label="Search in conversation"
+                onClick={() => {
+                  if (search.isOpen) closeSearch();
+                  else openSearch();
+                }}
+              >
+                <MaterialIcon name="search" />
+              </button>
+              <button
+                type="button"
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                aria-label="Video call"
+                onClick={() => toast.show("Video calls are coming soon.")}
+              >
+                <MaterialIcon name="videocam" />
+              </button>
+              <button
+                type="button"
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                aria-label="Conversation info"
+                onClick={() => setInfoOpen(true)}
+              >
+                <MaterialIcon name="info" />
+              </button>
+              {blockAction ? (
+                <button
+                  type="button"
+                  onClick={blockAction.onClick}
+                  className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                  aria-label={blockAction.label}
+                >
+                  <ShieldX className="h-4 w-4" aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+          </header>
+
+          {search.isOpen && (
+            <div className="px-4 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <MaterialIcon name="search" className="text-muted-foreground" />
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    value={search.query}
+                    onChange={(e) => search.setQuery(e.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (!searchQueryActive || search.matchCount === 0) return;
+
+                        if (event.shiftKey) {
+                          searchDidJumpRef.current = true;
+                          search.jumpPrev();
+                          return;
+                        }
+
+                        if (!searchDidJumpRef.current) {
+                          search.jumpToFirst();
+                          searchDidJumpRef.current = true;
+                          return;
+                        }
+
+                        search.jumpNext();
+                      }
+
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        closeSearch();
+                      }
+                    }}
+                    placeholder="Search messages..."
+                    className="block w-full rounded-full border border-input bg-background py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {search.query.trim() && (
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground transition hover:text-foreground"
+                      aria-label="Clear search"
+                      onClick={() => {
+                        search.clear();
+                        queueMicrotask(() => searchInputRef.current?.focus());
+                      }}
+                    >
+                      <MaterialIcon name="close" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
+                    aria-label="Previous match"
+                    disabled={!searchQueryActive || search.matchCount === 0}
+                    onClick={() => {
+                      searchDidJumpRef.current = true;
+                      search.jumpPrev();
+                    }}
+                  >
+                    <MaterialIcon name="keyboard_arrow_up" />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
+                    aria-label="Next match"
+                    disabled={!searchQueryActive || search.matchCount === 0}
+                    onClick={() => {
+                      searchDidJumpRef.current = true;
+                      search.jumpNext();
+                    }}
+                  >
+                    <MaterialIcon name="keyboard_arrow_down" />
+                  </button>
+
+                  <div className="min-w-[56px] text-right text-xs font-medium text-muted-foreground">
+                    {searchQueryActive ? `${search.activeMatchNumber}/${search.matchCount}` : "0/0"}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                    aria-label="Close search"
+                    onClick={closeSearch}
+                  >
+                    <MaterialIcon name="close" />
+                  </button>
+                </div>
+              </div>
+
+              {searchQueryActive && search.matchCount === 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">No matches found.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Body + input */}
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+            {pollWhenRealtimeDown && (
+              <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-4">
+                <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50/95 px-3 py-1 text-[12px] text-amber-800 shadow-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <span>Live updates slowed — polling for changes</span>
+                </div>
+              </div>
+            )}
+            <MessageList
+              items={visibleMessages}
+              isLoading={isMessagesLoading && !hasVisibleMessages}
+              loadingContent={
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  <span>Loading messages…</span>
+                </div>
+              }
+              errorContent={
+                isMessagesError ? (
+                  <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-200">
+                    <p className="font-medium text-red-100">
+                      We couldn&apos;t load this conversation.
+                    </p>
+                    {messagesError instanceof Error && (
+                      <p className="mt-1 text-xs text-red-200/70">{messagesError.message}</p>
+                    )}
+                  </div>
+                ) : undefined
+              }
+              emptyContent={
+                !hasVisibleMessages ? (
+                  <div className="text-center text-[12px] text-muted-foreground">
+                    <p className="font-medium text-foreground">
+                      {isGroupConversation ? "No messages in this group yet." : "No messages yet."}
+                    </p>
+                    <p className="mt-1">
+                      {isGroupConversation
+                        ? "Be the first to start the conversation."
+                        : "Say hi to start the conversation."}
+                    </p>
+                  </div>
+                ) : undefined
+              }
+              footer={
+                <>
+                  <TypingIndicatorInstagram users={typingIndicatorUsers} />
+                  <div className="h-1" aria-hidden />
+                </>
+              }
+              header={
+                hasMoreMessages ? (
+                  <div className="flex items-center justify-center pb-2 text-xs text-muted-foreground">
+                    {isLoadingOlderMessages ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        Loading older messages…
+                      </span>
+                    ) : (
+                      <span>Scroll up to load older messages</span>
+                    )}
+                  </div>
+                ) : null
+              }
+              bottomPadding={messageListBottomPadding}
+              scrollerRef={scrollerRef}
+              onStartReached={() => {
+                if (hasMoreMessages && !isLoadingOlderMessages) {
+                  beginPrependRestore();
+                  void loadOlder();
+                }
+              }}
+              computeItemKey={(_, item) => item.message.id}
+              itemContent={(index, uiMessage) => {
+                const {
+                  message,
+                  meta,
+                  sender,
+                  isSelf,
+                  deliveryStatus,
+                  reactions,
+                  showDeliveryStatus,
+                } = uiMessage;
+
+                const previous = index > 0 ? (visibleMessages[index - 1]?.message ?? null) : null;
+                const next =
+                  index < visibleMessages.length - 1
+                    ? (visibleMessages[index + 1]?.message ?? null)
+                    : null;
+
+                const registerNode = (node: HTMLDivElement | null) => {
+                  const map = messageNodeByIdRef.current;
+                  if (node) map.set(message.id, node);
+                  else map.delete(message.id);
+                };
+
+                return (
+                  <div ref={registerNode} data-message-id={message.id}>
+                    <MessageRow
+                      message={message}
+                      meta={meta}
+                      sender={sender}
+                      isSelf={isSelf}
+                      deliveryStatus={deliveryStatus}
+                      showDeliveryStatus={showDeliveryStatus}
+                      reactions={reactions}
+                      index={index}
+                      previousMessage={previous}
+                      nextMessage={next}
+                      firstUnreadIndex={firstUnreadIndex}
+                      activeActionMessageId={activeActionMessageId}
+                      longPressTriggeredRef={longPressTriggeredRef}
+                      onOpenMessageActions={openMessageActions}
+                      onCloseMessageActions={closeMessageActions}
+                      onOpenEditDialog={openEditDialog}
+                      onOpenDeleteDialog={openDeleteDialog}
+                      onToggleReaction={handleToggleReaction}
+                      onRetryMessage={handleRetryMessage}
+                      onDiscardFailedMessage={handleDiscardFailedMessage}
+                      onAssistantAction={handleAssistantAction}
+                      onBubbleTouchStart={handleBubbleTouchStart}
+                      onBubbleTouchEndOrCancel={handleBubbleTouchEndOrCancel}
+                      searchQuery={searchQueryActive ? search.query : undefined}
+                      isSearchMatch={searchQueryActive ? search.isMatch(message.id) : false}
+                      isActiveSearchMatch={
+                        searchQueryActive ? search.activeMessageId === message.id : false
+                      }
+                    />
+                  </div>
+                );
+              }}
+            />
+
+            <MessageScrollToUnread
+              show={Boolean(hasUnread && unreadFromOthersCount > 0 && isAtBottom !== true)}
+              unreadCount={unreadFromOthersCount}
+              onClick={handleJumpToUnread}
+              shortcutHint="Alt+U"
+            />
+
+            <MessageScrollToLatest
+              show={isAtBottom !== true && pendingNewCount > 0}
+              pendingCount={pendingNewCount}
+              onClick={handleJumpToLatest}
+              shortcutHint={
+                typeof navigator !== "undefined" && navigator.platform?.includes("Mac")
+                  ? "⌘+↓"
+                  : "End"
+              }
+            />
+          </div>
+
+          {/* Input */}
+          <ConversationComposerBar
+            show={showComposer}
+            headerHeight={headerHeight}
+            onHeightChange={handleComposerResize}
+            typingUsers={remoteTypingUsers}
+            isGroupConversation={isGroupConversation}
+            draft={draft}
+            setDraft={setDraft}
+            textareaRef={textareaRef}
+            noteLocalInputActivity={noteLocalInputActivity}
+            stopTyping={stopTyping}
+            onSendText={handleSendText}
+            onRequestScrollToBottom={handleJumpToLatest}
+            isUploadingImage={isUploadingImage}
+            cancelImageUpload={cancelImageUpload}
+            sendError={Boolean(sendError)}
+            sendErrorMessage={sendError}
+            canRetrySend={Boolean(lastFailedPayload)}
+            onRetrySend={handleRetrySend}
+            uploadError={uploadError}
+            clearUploadError={clearUploadError}
+            showEmojiPicker={showEmojiPicker}
+            setShowEmojiPicker={setShowEmojiPicker}
+            openCameraPicker={handleCameraClick}
+            fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+            onImageSelected={(event) => {
+              handleImageSelected(event);
+            }}
+            onImageFile={(file) => sendImageFile(file)}
+            disableSend={Boolean(isBlocked || blockedYou)}
+          />
+
+          {blockedYou && (
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-border bg-background/95 px-4 py-3 text-center text-xs text-muted-foreground">
+              <p>You can&apos;t send messages because this user has blocked you.</p>
+            </div>
+          )}
+
+          {isBlocked && !blockedYou && (
+            <div className="sticky bottom-0 z-10 flex-shrink-0 border-t border-border bg-background/95 px-4 py-3 text-center text-xs text-muted-foreground">
+              <p>You&apos;ve blocked this user. Unblock them to continue the conversation.</p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <EditMessageDialog
+        open={Boolean(editingMessage)}
+        editingMessage={editingMessage}
+        onOpenChange={(open) => {
+          if (!open) closeEditDialog();
+        }}
+        onCancel={closeEditDialog}
+        onTextChange={updateEditingText}
+        textareaRef={editTextareaRef as React.RefObject<HTMLTextAreaElement>}
+        error={editError}
+        isSaving={editMessageMutation.isPending}
+        onSave={() => {
+          if (!editingMessage) return;
+          const text = editingMessage.text.trim();
+          if (!text) return;
+
+          setEditError(null);
+          editMessageMutation.mutate(
+            {
+              messageId: editingMessage.messageId,
+              text,
+              currentBody: editingMessage.body,
+              attachmentUrl: editingMessage.attachmentUrl,
+            },
+            {
+              onSuccess: () => {
+                closeEditDialog();
+              },
+              onError: () => {
+                setEditError("Couldn't save changes. Please try again.");
+              },
+            },
+          );
+        }}
+      />
+
+      <DeleteMessageDialog
+        open={Boolean(deleteDialog)}
+        deleteDialog={deleteDialog}
+        onOpenChange={(open) => {
+          if (!open) closeDeleteDialog();
+        }}
+        onHideForMe={() => {
+          if (!deleteDialog) return;
+          hideMessageForMe(deleteDialog.messageId);
+          closeDeleteDialog();
+        }}
+        onDeleteForEveryone={() => {
+          if (!deleteDialog) return;
+          deleteMessageMutation.mutate(
+            { messageId: deleteDialog.messageId, attachmentUrl: deleteDialog.attachmentUrl },
+            {
+              onSettled: () => {
+                closeDeleteDialog();
+              },
+            },
+          );
+        }}
+        isDeleting={deleteMessageMutation.isPending}
+      />
+
+      {conversationId && (
+        <ConversationInfoSheet
+          open={infoOpen}
+          onOpenChange={setInfoOpen}
+          conversation={conversation}
+          currentUserId={currentUserId}
+          conversationId={conversationId}
+          isMuted={isMuted}
+          onToggleMute={handleMuteClick}
+          otherParticipant={otherParticipant}
+          isGroupConversation={isGroupConversation}
+          youBlocked={youBlocked}
+          blockedYou={blockedYou}
+          blockPending={blockPending}
+          onBlockToggle={handleBlockToggle}
+        />
+      )}
+
+      {conversationId && (
+        <MuteOptionsSheet
+          open={muteOptionsOpen}
+          onOpenChange={setMuteOptionsOpen}
+          conversationTitle={conversationTitle}
+          onSelect={(preset) => applyMutePreset(preset)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default ConversationPage;

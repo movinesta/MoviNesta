@@ -1,0 +1,1 @@
+import{ah as i}from"./index-DHFRnTo7.js";const d=(r,o,u,a)=>{if(!o||!Array.isArray(r))return r;const e=r,t=e.findIndex(f=>f.id===o);if(t<0)return r;const c=e[t],s=u(c);if(!s||s===c)return r;const n=[...e];return a?.moveToTop&&t>0?(n.splice(t,1),n.unshift(s),n):(n[t]=s,n)},y=(r,o,u,a,e)=>{r.setQueriesData({queryKey:i(o)},t=>d(t,u,a,e))};export{y as u};
