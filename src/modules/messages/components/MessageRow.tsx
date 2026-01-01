@@ -48,6 +48,7 @@ export interface MessageRowProps {
   onToggleReaction: (messageId: string, emoji: string) => void;
   onRetryMessage: (message: ConversationMessage) => void;
   onDiscardFailedMessage: (message: ConversationMessage) => void;
+  onAssistantAction?: (messageId: string, actionId: string) => void | Promise<void>;
 
   onBubbleTouchStart: (message: ConversationMessage) => void;
   onBubbleTouchEndOrCancel: () => void;
@@ -81,6 +82,7 @@ export const MessageRow = React.memo(function MessageRow({
   onToggleReaction,
   onRetryMessage,
   onDiscardFailedMessage,
+  onAssistantAction,
   onBubbleTouchStart,
   onBubbleTouchEndOrCancel,
   searchQuery,
@@ -111,8 +113,6 @@ export const MessageRow = React.memo(function MessageRow({
   const isDeletedMessage = meta.deleted === true;
   const editedAt = meta.editedAt;
   const deletedAt = meta.deletedAt;
-  const createdTime = formatMessageTime(message.createdAt);
-
   const name = sender?.displayName ?? (isSelf ? "You" : "Someone");
   const text = parseMessageText(message.body);
 
@@ -358,7 +358,6 @@ export const MessageRow = React.memo(function MessageRow({
           </div>
         )}
 
-
         {!isSelf && (message as any)?.meta?.ai?.ui ? (
           <div className="pl-7 pr-1">
             <AssistantMessageUI
@@ -417,7 +416,9 @@ export const MessageRow = React.memo(function MessageRow({
               <>
                 <CheckCheck className="h-3 w-3" aria-hidden />
                 <span>
-                  {deliveryStatus.seenAt ? `Seen ${formatMessageTime(deliveryStatus.seenAt)}` : "Seen"}
+                  {deliveryStatus.seenAt
+                    ? `Seen ${formatMessageTime(deliveryStatus.seenAt)}`
+                    : "Seen"}
                 </span>
               </>
             )}

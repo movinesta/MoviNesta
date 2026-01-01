@@ -46,7 +46,10 @@ export default function AssistantMessageUI({
   onAction: (actionId: string) => Promise<void> | void;
 }) {
   const payload = useMemo(() => coerceUiPayload(ui), [ui]);
-  const actionList = useMemo(() => (Array.isArray(actions) ? (actions as AssistantAction[]) : []), [actions]);
+  const actionList = useMemo(
+    () => (Array.isArray(actions) ? (actions as AssistantAction[]) : []),
+    [actions],
+  );
   const actionsById = useMemo(() => {
     const map = new Map<string, AssistantAction>();
     for (const a of actionList) {
@@ -79,7 +82,9 @@ export default function AssistantMessageUI({
       )}
 
       {cards.map((card) => {
-        const actionIds = (Array.isArray(card.actionIds) ? card.actionIds : []).filter(isNonEmptyString);
+        const actionIds = (Array.isArray(card.actionIds) ? card.actionIds : []).filter(
+          isNonEmptyString,
+        );
 
         return (
           <div key={card.id} className="rounded-2xl border border-border/60 bg-card/60 p-3">
@@ -102,7 +107,9 @@ export default function AssistantMessageUI({
                       {card.title ?? ""}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {[card.kind, card.year ? String(card.year) : null].filter(Boolean).join(" • ")}
+                      {[card.kind, card.year ? String(card.year) : null]
+                        .filter(Boolean)
+                        .join(" • ")}
                     </div>
                   </div>
                 </div>

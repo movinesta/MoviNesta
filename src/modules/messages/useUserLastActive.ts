@@ -29,7 +29,11 @@ export function useUserLastActive(userId: string | null) {
         const msg = (first.error.message ?? "").toLowerCase();
 
         // If the column doesn't exist yet, retry with updated_at only.
-        if (msg.includes("last_seen_at") || msg.includes("does not exist") || msg.includes("column")) {
+        if (
+          msg.includes("last_seen_at") ||
+          msg.includes("does not exist") ||
+          msg.includes("column")
+        ) {
           const fallback = await supabase
             .from("profiles_public")
             .select("id,updated_at")

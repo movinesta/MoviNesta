@@ -102,7 +102,6 @@ export const useConversationMessageActions = ({
     }
   }, [conversationId, currentUserId, hiddenMessageIds]);
 
-
   const closeMessageActions = useCallback(() => {
     setActiveActionMessageId(null);
   }, []);

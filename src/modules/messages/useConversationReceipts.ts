@@ -21,7 +21,10 @@ import { createConversationScopedUpsertIntoListHandler } from "./realtimeListUpd
 
 export const useConversationReadReceipts = (conversationId: string | null) => {
   const queryClient = useQueryClient();
-  const queryKey = useMemo(() => conversationReadReceiptsQueryKey(conversationId), [conversationId]);
+  const queryKey = useMemo(
+    () => conversationReadReceiptsQueryKey(conversationId),
+    [conversationId],
+  );
   const { pollWhenRealtimeDown, onRealtimeStatus, refetchOptions } =
     useRealtimeQueryFallbackOptions(conversationId);
 
@@ -91,7 +94,10 @@ export const useConversationDeliveryReceipts = (
     return normalizeIdList(messageIds, { excludeTemp: true, sort: true });
   }, [messageIds]);
 
-  const queryKey = useMemo(() => messageDeliveryReceiptsQueryKey(conversationId, normalizedMessageIds), [conversationId, normalizedMessageIds]);
+  const queryKey = useMemo(
+    () => messageDeliveryReceiptsQueryKey(conversationId, normalizedMessageIds),
+    [conversationId, normalizedMessageIds],
+  );
   const { pollWhenRealtimeDown, onRealtimeStatus, refetchOptions } =
     useRealtimeQueryFallbackOptions(conversationId);
 
