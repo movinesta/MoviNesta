@@ -28,6 +28,46 @@ type AssistantAction = {
   payload?: unknown;
 };
 
+type NormalizedAction =
+  | { kind: "tool"; tool: string; args: Record<string, unknown> }
+  | { kind: "navigate"; to: string }
+  | { kind: "dismiss" };
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function normalizeAction(action: AssistantAction): NormalizedAction | null {
+  const type = String(action.type ?? "").trim();
+  const payload = action.payload ?? null;
+
+  if (!type) return null;
+  if (type === "dismiss") return { kind: "dismiss" };
+
+  if (type === "navigate") {
+    const to = typeof (payload as any)?.to === "string" ? String((payload as any).to).trim() : "";
+    if (!to) return null;
+    return { kind: "navigate", to };
+  }
+
+  if (type === "button") {
+    const raw = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
+    const tool = raw
+      ? [raw.tool, raw.type, raw.actionType].find(isNonEmptyString)
+      : "";
+    const args =
+      raw && typeof raw.args === "object" && raw.args !== null
+        ? (raw.args as Record<string, unknown>)
+        : raw && typeof raw.payload === "object" && raw.payload !== null
+          ? (raw.payload as Record<string, unknown>)
+          : {};
+    if (!tool) return null;
+    return { kind: "tool", tool: String(tool).trim(), args };
+  }
+
+  return { kind: "tool", tool: type, args: (payload as any) ?? {} };
+}
+
 export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
@@ -109,15 +149,36 @@ export async function handler(req: Request) {
       return jsonError("Action not found", 404, "ACTION_NOT_FOUND", req);
     }
 
-    const tool = String((action as any).type ?? "").trim();
-    if (!tool) {
+    const normalized = normalizeAction(action);
+    if (!normalized) {
       return jsonError("Invalid action", 400, "INVALID_ACTION", req);
     }
 
+    if (normalized.kind === "dismiss") {
+      return jsonResponse({ ok: true, toast: "Dismissed." }, 200, undefined, req);
+    }
+
+    if (normalized.kind === "navigate") {
+      return jsonResponse(
+        {
+          ok: true,
+          toast: "Opening…",
+          navigateTo: normalized.to,
+        },
+        200,
+        undefined,
+        req,
+      );
+    }
+
+    const tool = normalized.tool;
     // Execute tool as the current user.
     let result: unknown = null;
     try {
-      const r = await executeAssistantTool(supabaseAuth, userId, { tool: tool as any, args: (action as any).payload ?? {} });
+      const r = await executeAssistantTool(supabaseAuth, userId, {
+        tool: tool as any,
+        args: normalized.args ?? {},
+      });
       if (!r?.ok) throw new Error((r as any)?.error || "Tool failed");
       result = (r as any).result;
     } catch (err) {
