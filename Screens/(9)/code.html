@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Messages</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7f13ec",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display h-screen flex flex-col overflow-hidden antialiased selection:bg-primary selection:text-white">
+<header class="px-4 pt-6 pb-2 shrink-0 z-10 bg-background-light dark:bg-background-dark sticky top-0">
+<div class="flex items-center justify-between mb-4 mt-2">
+<h1 class="text-3xl font-bold tracking-tight">Messages</h1>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-xl">edit_square</span>
+</button>
+</div>
+<div class="relative w-full mb-4">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 border-none rounded-full bg-white dark:bg-[#302839] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm" placeholder="Search friends or titles..." type="text"/>
+</div>
+<div class="flex space-x-4 overflow-x-auto hide-scrollbar pb-4 -mx-4 px-4 border-b border-slate-200/50 dark:border-white/5">
+<button class="flex flex-col items-center gap-1 shrink-0 group">
+<div class="relative w-16 h-16 rounded-full flex items-center justify-center border-2 border-dashed border-primary/50 group-hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-3xl text-primary group-hover:text-primary/70">add</span>
+</div>
+<span class="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-primary transition-colors">You</span>
+</button>
+<div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+<div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-primary/50 bg-gradient-to-tr from-yellow-400 to-pink-500 overflow-hidden">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a smiling woman with glasses" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA1is9pV-1zJsWLIsmm7xCl91eNZvMp_Xi64S-jJ9-wjwx60gBa9iO8teMKoYMUX0CGmzs0QI8Vw5NTwp_tuXbW_3eFq5LtdtU2z_nGNJVYSwYi48698PM8p0pPpezD8-VGZKSR9O1RdGljbt350Cv8wx5ZjNI-DPRQtX12_7jvU4YmuH6zKB9oX4EGWEgu71vsayhzwmlPR9eX-5UBwgD9GOgSn_AqoIQteHz2hM3fJ0uRN5G8yLTQbyIN__7XtqI4X02_9P5mrj4");'>
+</div>
+<div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
+</div>
+<span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Sarah</span>
+</div>
+<div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+<div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a man in a suit" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAWHKs30UQXWzPKIsJrdxVQAaYB1hyyQZBfSbt3RJwftuJKm0gJvkLLEqWZcMqC-gEUOb1ezS2d-iARTgOKTPhWQZ2Jn-G9H8sOMGUcDLBz5xCx9_UzM4Q6fa6TyFNN50ihj89nLjXvASD6IbOcnadYj4XSdNVgNemtRJRSMI2MEwSGg8nRTMMhdCJ9EjYhnh-LCk6CR6MCKlvKxq0pQHtzoiqPmwFNP6OzxsQ817sw3uBFXTzQi3muP4e4huVNibjhS3IkrsRcRe4");'>
+</div>
+</div>
+<span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Mike</span>
+</div>
+<div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+<div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-primary/50 bg-gradient-to-tr from-yellow-400 to-pink-500 overflow-hidden">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a professional woman" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA3A5NtN4_d8bmjuuesYr9CvWdiD8YKkaN_I5zlItsjSStEb7Lv-xk_J-RJNevfLx5-o7jxX9l1htLm-SP-gyws_4__a-CAGFmwl5G_61bNuoAX3nSBO1t8o-aP93DMw6SjryC3tZ-fdlUVaiv4sv4qxkwS7RPWMlgoOMyahMGk0z4DM7z1sksBdoL2RLPC7I5Adzfs51S8eMA7cmG17iC6BmMssVZg8usxYNX-Azyo1RqCJE5KXcLjNWmnADgF_Mrb2ZwWryq5EUI");'>
+</div>
+<div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
+</div>
+<span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Jessica</span>
+</div>
+<div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+<div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a confident man" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAvVZZNVq80oymB7He6G-dmsYtIxxdIY6Zb4Zgy0bzN05iUzA24Y-u9hsJSKRoPYlkIdeKhM-Dl_cBPw1baSuUm0YQdmTXA6jtD7al8JgeBwaC7ot7wna_foD5bewBmDJFjI1_bxbvZVijT7sYd9JLGdvE-_z7sG0YTQeR5le5-c3T4JRN85qhgwbkpW8yXxMcHGvXFUzzw7xVkrPiZyosPx-Nun4EoVwPqwU3bQwvd7tvEcWJVvfDRDaOLPji6qtAkcJ01pXTBhWE");'>
+</div>
+</div>
+<span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Harvey</span>
+</div>
+<div class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+<div class="relative w-16 h-16 rounded-full p-0.5 border-2 border-primary/50 bg-gradient-to-tr from-yellow-400 to-pink-500 overflow-hidden">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-full w-full border-2 border-background-light dark:border-background-dark" data-alt="Portrait of a woman with red hair" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBeSceTi6tYjKaadrktO1Fnp11NZyRzU6s1cLf-MQISwPdUiPWpA94vNt_5rjWV-xmlP2L5qOAbfeyto07jr07nQ_t27cjChE-95jEpDNGEL6NSajPhYhKSpBqEO-q54e2jeTkaO45A00XOywmhP5re7rZvAP0mc72WvMFBQUiNeq1bcYc6thCdpsY9YhxRw0NNojQ6XcXF2ir0AjUMyc-V12onX2y3ALAY3Gy2nLuvVsSNqIM2XD_5Fnr2ApgmeCENKI6Y2zz__gY");'>
+</div>
+<div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
+</div>
+<span class="text-xs font-medium text-slate-900 dark:text-white truncate max-w-[64px]">Donna</span>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto hide-scrollbar px-4 pb-32 pt-2 space-y-2">
+<div class="text-xs font-semibold text-slate-500 uppercase tracking-wider py-2">Recent Chats</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer relative">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16 border-2 border-primary/50" data-alt="Portrait of a smiling woman with glasses" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA1is9pV-1zJsWLIsmm7xCl91eNZvMp_Xi64S-jJ9-wjwx60gBa9iO8teMKoYMUX0CGmzs0QI8Vw5NTwp_tuXbW_3eFq5LtdtU2z_nGNJVYSwYi48698PM8p0pPpezD8-VGZKSR9O1RdGljbt350Cv8wx5ZjNI-DPRQtX12_7jvU4YmuH6zKB9oX4EGWEgu71vsayhzwmlPR9eX-5UBwgD9GOgSn_AqoIQteHz2hM3fJ0uRN5G8yLTQbyIN__7XtqI4X02_9P5mrj4");'>
+</div>
+<div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-background-light dark:border-background-dark rounded-full"></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Sarah Jenkins</h3>
+<span class="text-xs font-medium text-primary whitespace-nowrap">10:42 AM</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">Did you see the twist in the finale?</p>
+<div class="w-2.5 h-2.5 bg-primary rounded-full shrink-0"></div>
+</div>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
+<div class="relative shrink-0">
+<div class="grid grid-cols-2 gap-0.5 rounded-full h-16 w-16 overflow-hidden border-2 border-transparent group-hover:border-slate-200 dark:group-hover:border-slate-700 transition-colors bg-slate-200 dark:bg-slate-700">
+<div class="bg-cover bg-center" data-alt="Abstract gradient orange" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuASgS2l6AHyBGe2NVGSXylBMDWMMCEsz0p4qy5Q_1VI69mO7Nhx3BuOBBpvz7JWD5VLFcEgrTSXmh1hJDRA8TRupfJA74vwDPBrslFBtJzaeX6DKCmuLJNjA-tstbXLCLJ6F8ne2O71CRpKAAIoFwfg0whgjHmyIMpOIIiujg14xMCilLwXDDbgvlKocDOxadQpoJ2ca1dbg3EgXx8ti3fwqDTim7_txX5Mnh0p9e6ILJ2AbSoQ49lpzG6wEkAUd6TIVT4JtTGthp8");'></div>
+<div class="bg-cover bg-center" data-alt="Abstract gradient blue" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBBFsG7w3E6oOaiBm5FKs56UFbFD5lp3WaL2JePiGa5XfMLnqPXt-QqQDf6jo6LwUBU7vNqMtt1u9_7MOQra4X29C8UFEFzTq_beJpp2ZZXEjiYzDUEODZIGV117kPzv2iNVWG7CGL8k-9O3l0BHQjpZkcy7w31fxErfxV_aPbVDks_tIHLGWHIEmcncbFg5AhU98BnmhJ3I7al7ZOPJcZzniGQ70URm0_8lZGjmXR84HEN6Bqy2Y0sraNX5ZEjmA5PbQKBLSVwYEk");'></div>
+<div class="bg-cover bg-center" data-alt="Abstract gradient green" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDhOvHJgF4pn7W-BddCfOZ6HwUiDvgjFeLUuq6UwsVb3EUBUkMQfFTSur44Uv41OcPL1H_5sMkG-iXgNi77E4QnziPr0keSmHV6vdEVEsKl1xXZNUS5jMeOivUAjJLu6nOuwbsH5JLNhkPikchb_0NYfmlaEDcF-o0D9EQui4zosSsrl4VZ35vilBuCPpx9ajynp8aKwbbrWG0IpRIMSbJiun4rmZ_s99Q9u1A03GeMyMF07nKjGmGLi8pROBL27vmDqvTRJ-umKes");'></div>
+<div class="bg-cover bg-center" data-alt="Abstract gradient purple" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDHwyuxUQSRuUzJOi40ONc9gFbxqYrl6Og4lnMc8tbemUuYlhD6IIiZQ2N5vB_odoE7IxQcQEtIR3ArQpoP_Hwf3xtrM1xmfSnQvJRrqujLPR0PaLjeOjHoScfBKcs04i6u0ByR5BotrloEl6sArHV5B49fk3hae5skwjszWY8NV--sPdSF-cbKCzxM71XlRtUqOAwEmRmdVhSRMRS6jcpmo2_cvsKfLnCGxoOH84R7nuvNC35V_j6Ud_BI71BEPsHXd99NK5Q9ZSo");'></div>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Movie Buffs Group</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Yesterday</span>
+</div>
+<div class="flex items-center gap-2 mt-0.5">
+<div class="shrink-0 w-8 h-8 rounded bg-cover bg-center border border-slate-200 dark:border-slate-700" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDNI8lSJUCbqsz0821pIc4utDrhifAEKK7z6SDUl5qBKAh2EyhUBP2greaK54bu2U3F4yFx98KqF8pmgkgVWwMnU4hfGXWHpMu1t95WvRrcLGd7BO97HEUR-QkHiKuzcYPcdL4cKFO9hAP6uIRIB57jhRuwmKkjZ-yeUob8jb1sku1MVV0LfGA0P5_86GE8Edfkcfupri7-onyhrw0jxtesJiwKdE9JZej9HVMNXx80aXqg2V-tt1pL57191mzi0yyXFJaFAKejCYk");' title="Dune: Part Two"></div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">Let's watch Dune Part 2 this weekend.</p>
+</div>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16" data-alt="Portrait of a man in a suit" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAWHKs30UQXWzPKIsJrdxVQAaYB1hyyQZBfSbt3RJwftuJKm0gJvkLLEqWZcMqC-gEUOb1ezS2d-iARTgOKTPhWQZ2Jn-G9H8sOMGUcDLBz5xCx9_UzM4Q6fa6TyFNN50ihj89nLjXvASD6IbOcnadYj4XSdNVgNemtRJRSMI2MEwSGg8nRTMMhdCJ9EjYhnh-LCk6CR6MCKlvKxq0pQHtzoiqPmwFNP6OzxsQ817sw3uBFXTzQi3muP4e4huVNibjhS3IkrsRcRe4");'>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Mike Ross</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Tue</span>
+</div>
+<div class="flex items-center gap-2 mt-0.5">
+<div class="shrink-0 w-8 h-8 rounded bg-cover bg-center border border-slate-200 dark:border-slate-700" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA_ynu4qFTV5wyoJTmAQtouMjiLXOnrJw2JBV7mefAsFu4OtpAr0b6eOlB08s9nU1egeyTKUPy9ffC45WM589rxCkC1TSG8QFYewiI5W3-cgcXTLmW_hHkeJ7P9PMn8w6NeWITPmjz2-QivU_2s_BPmf7uRwM0hKOgJiWqVu1FPoIih96YMll5tHtXmaORflUBmfYV4HH4E4bRLNTBozBIcwkZir7ybGZjYMSmdC0hXr5a2glehoKQ7wqMEb-yjpKu34pgDjx67K_k");' title="Inception"></div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">The cinematography was insane!</p>
+</div>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16" data-alt="Portrait of a professional woman" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA3A5NtN4_d8bmjuuesYr9CvWdiD8YKkaN_I5zlItsjSStEb7Lv-xk_J-RJNevfLx5-o7jxX9l1htLm-SP-gyws_4__a-CAGFmwl5G_61bNuoAX3nSBO1t8o-aP93DMw6SjryC3tZ-fdlUVaiv4sv4qxkwS7RPWMlgoOMyahMGk0z4DM7z1sksBdoL2RLPC7I5Adzfs51S8eMA7cmG17iC6BmMssVZg8usxYNX-Azyo1RqCJE5KXcLjNWmnADgF_Mrb2ZwWryq5EUI");'>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Jessica Pearson</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Sun</span>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate mt-0.5">Thanks for the recommendation.</p>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16" data-alt="Portrait of a confident man" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAvVZZNVq80oymB7He6G-dmsYtIxxdIY6Zb4Zgy0bzN05iUzA24Y-u9hsJSKRoPYlkIdeKhM-Dl_cBPw1baSuUm0YQdmTXA6jtD7al8JgeBwaC7ot7wna_foD5bewBmDJFjI1_bxbvZVijT7sYd9JLGdvE-_z7sG0YTQeR5le5-c3T4JRN85qhgwbkpW8yXxMcHGvXFUzzw7xVkrPiZyosPx-Nun4EoVwPqwU3bQwvd7tvEcWJVvfDRDaOLPji6qtAkcJ01pXTBhWE");'>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Harvey Specter</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Sep 12</span>
+</div>
+<div class="flex items-center gap-2 mt-0.5">
+<div class="shrink-0 w-8 h-8 rounded bg-cover bg-center border border-slate-200 dark:border-slate-700" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD82izK-x2tedhvC1Q82zkju3XolCT8MuO_h9lO7sIsDAQCKh6_zZImleIoszk-c9BvxKPQpzZ-mH5JKejTN2MaGRFyW1q_kNywk60FzbRNbPKf8X0DBgwJ27EbM1nYC_tKkvNjiPT39-ikuJLm85mgNl_R6EAghOd9tJCEX7rC3lk9EIpFmWvDSs4Fq10Nom6X0c-QoHPBvgyktzS6wVa0d-vBr4ICtRbED5gPQnoDNYZjBxkqvdgSVS8Gtm5y-pX2kP_9hrX4Aos");' title="The Shawshank Redemption"></div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">We need to discuss The Shawshank Redemption.</p>
+</div>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full h-16 w-16" data-alt="Portrait of a woman with red hair" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBeSceTi6tYjKaadrktO1Fnp11NZyRzU6s1cLf-MQISwPdUiPWpA94vNt_5rjWV-xmlP2L5qOAbfeyto07jr07nQ_t27cjChE-95jEpDNGEL6NSajPhYhKSpBqEO-q54e2jeTkaO45A00XOywmhP5re7rZvAP0mc72WvMFBQUiNeq1bcYc6thCdpsY9YhxRw0NNojQ6XcXF2ir0AjUMyc-V12onX2y3ALAY3Gy2nLuvVsSNqIM2XD_5Fnr2ApgmeCENKI6Y2zz__gY");'>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<h3 class="text-base font-bold text-slate-900 dark:text-white truncate">Donna Paulsen</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Sep 10</span>
+</div>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[16px] text-pink-500">favorite</span>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">I knew you would love it!</p>
+</div>
+</div>
+</div>
+<div class="h-10"></div>
+</main>
+<div class="fixed bottom-24 right-5 z-20">
+<button class="flex items-center justify-center w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/40 hover:scale-105 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+<nav class="fixed bottom-0 w-full z-30 bg-white/80 dark:bg-[#191022]/80 backdrop-blur-md border-t border-slate-200 dark:border-white/5 pb-5 pt-3">
+<div class="flex justify-around items-center">
+<button class="flex flex-col items-center gap-1 w-16 group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">movie</span>
+<span class="text-[10px] font-medium text-slate-400 group-hover:text-primary transition-colors">Discover</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">bookmark</span>
+<span class="text-[10px] font-medium text-slate-400 group-hover:text-primary transition-colors">Watchlist</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 relative">
+<div class="absolute -top-1 right-3 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white dark:border-[#191022]"></div>
+<span class="material-symbols-outlined text-primary fill-current">chat_bubble</span>
+<span class="text-[10px] font-medium text-primary">Messages</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">person</span>
+<span class="text-[10px] font-medium text-slate-400 group-hover:text-primary transition-colors">Profile</span>
+</button>
+</div>
+</nav>
+</body></html>

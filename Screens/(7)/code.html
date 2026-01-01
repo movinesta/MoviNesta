@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Social Proof Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&amp;family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7f13ec",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                        "surface-dark": "#302839",
+                        "text-secondary": "#ab9db9"
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        // Soften all interactive elements (buttons, search bar)
+                        "DEFAULT": "1.25rem", // increased from 1rem to 1.25rem (20px)
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>.hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased selection:bg-primary selection:text-white">
+<div class="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden pb-24">
+<div class="h-12 w-full"></div>
+<div class="px-4 pb-2 pt-2 sticky top-0 z-30 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md transition-all duration-300">
+<div class="flex flex-col gap-4">
+<label class="group flex items-center h-12 w-full rounded-2xl bg-white dark:bg-surface-dark px-4 shadow-sm ring-1 ring-slate-200 dark:ring-transparent focus-within:ring-2 focus-within:ring-primary transition-all">
+<span class="material-symbols-outlined text-slate-400 dark:text-text-secondary">search</span>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-base placeholder:text-slate-400 dark:placeholder:text-text-secondary text-slate-900 dark:text-white px-3 font-normal" placeholder="Search movies, shows, people..." type="text"/>
+<button class="flex items-center justify-center text-slate-400 dark:text-text-secondary hover:text-primary transition-colors">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</label>
+<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
+<button class="flex h-9 shrink-0 items-center justify-center rounded-2xl bg-primary px-5 transition-transform active:scale-95">
+<p class="text-white text-sm font-medium">All</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center rounded-2xl bg-slate-200 dark:bg-surface-dark px-5 transition-transform active:scale-95">
+<p class="text-slate-700 dark:text-white text-sm font-medium">Movies</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center rounded-2xl bg-slate-200 dark:bg-surface-dark px-5 transition-transform active:scale-95">
+<p class="text-slate-700 dark:text-white text-sm font-medium">Series</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center rounded-2xl bg-slate-200 dark:bg-surface-dark px-5 transition-transform active:scale-95">
+<p class="text-slate-700 dark:text-white text-sm font-medium">People</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center rounded-2xl bg-slate-200 dark:bg-surface-dark px-5 transition-transform active:scale-95">
+<p class="text-slate-700 dark:text-white text-sm font-medium">News</p>
+</button>
+</div>
+</div>
+</div>
+<div class="flex flex-col pt-6">
+<div class="flex items-center justify-between px-4 pb-4">
+<h2 class="text-xl md:text-2xl font-semibold leading-tight tracking-tight font-body">Friends Are Watching</h2>
+<button class="text-sm font-medium text-primary hover:text-primary/80">See All</button>
+</div>
+<div class="grid grid-cols-2 gap-4 px-4">
+<div class="flex flex-col gap-2 group cursor-pointer relative">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Futuristic desert landscape movie poster with orange tones" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCfZZ5IbUHRFel6J0_S7jj8Ip6Re8762mC3DSFkq3MBou1jEFuArEPgWZ8jFQh24gpvzo0mngIMS5pDdz91owRqm8V1evjjaOaj_Jb6N_62wQ8FW3jVwryQllUjubqHpMQo1k8l6Cm7r2uhaFHyftbfrk1nCd7GXvZn0AzoTpKb4-HR25i9THQY6WL1loZQ06_y8Ii7s7LJVLogqb33pIINpkWcddIHfLSADfiDyYX6xayStw3834Go-XA-7RsImR6yfpZJWmvUgZI");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">8.4</span>
+</div>
+<div class="absolute bottom-2 left-2 flex -space-x-2">
+<img alt="Friend's profile picture" class="w-8 h-8 rounded-full border-2 border-background-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6sQUfb_z-QI2PowEAyBM3F71bcRgTd8ZlTkBjqTM_t5T77xFr2oqzHXQJetYoc5lne858U977_vwkGpYg-NyYM2xu5pKq2hlWt6EmoiejiksEsA389PSixa60UXZBmIWJwXma2Sd-OUEI7CONNe27gNxFoivxWQWAVymhmR8D4Eum0azez0z9a4TpCIAwGmaREKeVTS-7KR5wR3zzyTi_Mg0QlHc55YFXUemHVx4QD1madfSzVULI8i9ixuegxMQjKfUPLHpbCjE"/>
+<img alt="Friend's profile picture" class="w-8 h-8 rounded-full border-2 border-background-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFYKU3GXvf7jFdwP0G16dFeeJ_tb9SxLY8bLDoBBMTxtMw_RJD3kX9oNEjWlf3MCocBUfUsrLz-zX_iklGZ3rZAur-tmj5qrWe-4SY34CBc60OEQh97Kt6DA1d3Dr3kUyvnlUp2vO7nqNQXi75Q2H7-akuifJtcq6y0whb2kSvX7mzz8zhc2Mz7ncxZrg2U5m7-hgI_mbPcAr9eomxjuoCMsQcCfPNww-UCPedf6Q4AYdsC4Ffx9nf2cCVHqRWCR17S3kx7dJ08Lk"/>
+<div class="w-8 h-8 rounded-full border-2 border-background-dark bg-background-dark flex items-center justify-center text-xs font-semibold text-white/70">+3</div>
+</div>
+</div>
+<div class="pt-1">
+<p class="text-base font-medium leading-tight truncate">Dune: Part Two</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+<span>23k views this week</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 group cursor-pointer relative">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Dramatic chef in kitchen environment poster" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDRZUu67k7y9n1fi3SGJQW-wzw1J9shCsqWRAy-9Rcc-nH79-l9rsB9d9fnFiOl4yswfuslAQZ_CA8qq-7Bfw_aaaPQjgikVp9izi30y5SJMzPv5Bj3agGAcwuFB3vFAwt_9m27uN-mlr0SWDktQpLRXJiS1UPlee9khyYBhQD4-c04hKd6n2UfmmQwHJ1FCg5NRFNcYfkVbT-unDMZ0z4qi11sqM7NDTyRx6CW-lfZChXam6ez2hbHrAEkXOgBgEkZh5RN389MBvw");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">9.1</span>
+</div>
+<div class="absolute bottom-2 left-2 flex -space-x-2">
+<img alt="Friend's profile picture" class="w-8 h-8 rounded-full border-2 border-background-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdzdQJ9YO8eFga3dLBbeZXiFYlKqbEyGyJtgN_Fa1sNev5qLGI8wGMwFa5qixK-rVSES4nu8pKJ2zN8bF324gBP-ZIfZaehUoY8AGziur5YqMQYqTuux6obbJKJLWXEAEVCGN07haci32HfaZAtKFAxshRZzJu-V2vnfF_MvtuXwPh_5CA5HlLu5WLD_GJ2u2SbQYapi13dN9hzcB2tSOajXhRyUVqtzMbSuUAWli9yjFkb0jELT7wL5cbnhbUW4pZCpZbpVyIfLY"/>
+<img alt="Friend's profile picture" class="w-8 h-8 rounded-full border-2 border-background-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7-zhDOBmjAHTxGqeArHp62aIE-Y6i6tZbGkoj6sFP3c1ICFw3cqGOBPWlBwac3CJIGoThMg1jvL4UscA54kcWAp_PerTzZ7ZObFIdb00YeKzCyqim4rzTgZYZX9JCIowTVjHssjfbDysyEPe7I98qHj2apRik-sMeoRw5J4KvlMLC708Ni6n4ML0s5HjsZXnrWJyrZQAa5AKlIDaJQsZkVgIAxhJIzifEL1YIFTs8SAYAAaJ3rXFYTlxQCCUpECK1F7Q7UJX32lE"/>
+</div>
+</div>
+<div class="pt-1">
+<p class="text-base font-medium leading-tight truncate">The Bear</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">group_add</span>
+<span>7 friends added to watchlist</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 group cursor-pointer relative">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Business men in suits walking in city poster" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCJwKtLoxjZtLVjO3JEC9HOLelORKSa2YComSl0TDZGtTorlymc1PtDuUR6AQUvKtx2pGOlPYf5BpWxx6xbW8X5-aC8X61cp4o3g84WoBi9EvBkLOgJZm9r87ChAzbs4EssvbeKyZIRKksCMDjKLvPz0srUXOJEZShsvvKCKSj0_WP0eyddfTW-CfCX89ZxTdYn4M4Zk8S0_oaqBDxP4GQNXaMAOpacOBlsBneEbjby6Ipa6cQrTVct_xQzRKLlSHnKE160SkOlNqc");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">8.8</span>
+</div>
+<div class="absolute bottom-2 left-2 flex -space-x-2">
+<img alt="Friend's profile picture" class="w-8 h-8 rounded-full border-2 border-background-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6sQUfb_z-QI2PowEAyBM3F71bcRgTd8ZlTkBjqTM_t5T77xFr2oqzHXQJetYoc5lne858U977_vwkGpYg-NyYM2xu5pKq2hlWt6EmoiejiksEsA389PSixa60UXZBmIWJwXma2Sd-OUEI7CONNe27gNxFoivxWQWAVymhmR8D4Eum0azez0z9a4TpCIAwGmaREKeVTS-7KR5wR3zzyTi_Mg0QlHc55YFXUemHVx4QD1madfSzVULI8i9ixuegxMQjKfUPLHpbCjE"/>
+<div class="w-8 h-8 rounded-full border-2 border-background-dark bg-background-dark flex items-center justify-center text-xs font-semibold text-white/70">+5</div>
+</div>
+</div>
+<div class="pt-1">
+<p class="text-base font-medium leading-tight truncate">Succession</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+<span>15k views this week</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 group cursor-pointer relative">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Dark superhero mask silhouette poster" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBNdmxdG-ZGuXsAz56EC_npEtFqQAMytWzjo7sioQX_okk1lCH2plKXoXcRCf978ncW5S9BFYyIPPAbQWvc8qUu5XVfAgOR32nPrXrMdcXM-rbc0hlOW2-7H68Bh6wVP4tU1Z9A-WPatutzajShdogf2I1VJPlYbsnaNgjZu11RVKQctM8mh10K1YBwZWQ8pGUWNsXpWRo4eba1bm4k-mhHqPYwEMiEcNl4-H389I8b30qG3zQxfkAAiojRtaV8Rw1h6QJzqOaT_Q8");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">7.9</span>
+</div>
+<div class="absolute bottom-2 left-2 flex -space-x-2">
+<img alt="Friend's profile picture" class="w-8 h-8 rounded-full border-2 border-background-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFYKU3GXvf7jFdwP0G16dFeeJ_tb9SxLY8bLDoBBMTxtMw_RJD3kX9oNEjWlf3MCocBUfUsrLz-zX_iklGZ3rZAur-tmj5qrWe-4SY34CBc60OEQh97Kt6DA1d3Dr3kUyvnlUp2vO7nqNQXi75Q2H7-akuifJtcq6y0whb2kSvX7mzz8zhc2Mz7ncxZrg2U5m7-hgI_mbPcAr9eomxjuoCMsQcCfPNww-UCPedf6Q4AYdsC4Ffx9nf2cCVHqRWCR17S3kx7dJ08Lk"/>
+</div>
+</div>
+<div class="pt-1">
+<p class="text-base font-medium leading-tight truncate">The Batman</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">group_add</span>
+<span>4 friends added to watchlist</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col pt-8">
+<div class="flex items-center justify-between px-4 pb-4">
+<h2 class="text-xl md:text-2xl font-semibold leading-tight tracking-tight font-body">Trending Now</h2>
+<button class="text-sm font-medium text-primary hover:text-primary/80">See All</button>
+</div>
+<div class="flex overflow-x-auto hide-scrollbar pl-4 pr-4 gap-4">
+<div class="flex flex-col gap-3 min-w-[150px] w-[150px] group cursor-pointer">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Futuristic desert landscape movie poster with orange tones" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCfZZ5IbUHRFel6J0_S7jj8Ip6Re8762mC3DSFkq3MBou1jEFuArEPgWZ8jFQh24gpvzo0mngIMS5pDdz91owRqm8V1evjjaOaj_Jb6N_62wQ8FW3jVwryQllUjubqHpMQo1k8l6Cm7r2uhaFHyftbfrk1nCd7GXvZn0AzoTpKb4-HR25i9THQY6WL1loZQ06_y8Ii7s7LJVLogqb33pIINpkWcddIHfLSADfiDyYX6xayStw3834Go-XA-7RsImR6yfpZJWmvUgZI");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">8.4</span>
+</div>
+</div>
+<div>
+<p class="text-base font-medium leading-tight truncate">Dune: Part Two</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+<span>23k views this week</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-3 min-w-[150px] w-[150px] group cursor-pointer">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Dramatic chef in kitchen environment poster" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDRZUu67k7y9n1fi3SGJQW-wzw1J9shCsqWRAy-9Rcc-nH79-l9rsB9d9fnFiOl4yswfuslAQZ_CA8qq-7Bfw_aaaPQjgikVp9izi30y5SJMzPv5Bj3agGAcwuFB3vFAwt_9m27uN-mlr0SWDktQpLRXJiS1UPlee9khyYBhQD4-c04hKd6n2UfmmQwHJ1FCg5NRFNcYfkVbT-unDMZ0z4qi11sqM7NDTyRx6CW-lfZChXam6ez2hbHrAEkXOgBgEkZh5RN389MBvw");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">9.1</span>
+</div>
+</div>
+<div>
+<p class="text-base font-medium leading-tight truncate">The Bear</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">group_add</span>
+<span>7 friends added to watchlist</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-3 min-w-[150px] w-[150px] group cursor-pointer">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Business men in suits walking in city poster" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCJwKtLoxjZtLVjO3JEC9HOLelORKSa2YComSl0TDZGtTorlymc1PtDuUR6AQUvKtx2pGOlPYf5BpWxx6xbW8X5-aC8X61cp4o3g84WoBi9EvBkLOgJZm9r87ChAzbs4EssvbeKyZIRKksCMDjKLvPz0srUXOJEZShsvvKCKSj0_WP0eyddfTW-CfCX89ZxTdYn4M4Zk8S0_oaqBDxP4GQNXaMAOpacOBlsBneEbjby6Ipa6cQrTVct_xQzRKLlSHnKE160SkOlNqc");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">8.8</span>
+</div>
+</div>
+<div>
+<p class="text-base font-medium leading-tight truncate">Succession</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+<span>15k views this week</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-3 min-w-[150px] w-[150px] group cursor-pointer">
+<div class="relative w-full aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Dark superhero mask silhouette poster" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBNdmxdG-ZGuXsAz56EC_npEtFqQAMytWzjo7sioQX_okk1lCH2plKXoXcRCf978ncW5S9BFYyIPPAbQWvc8qUu5XVfAgOR32nPrXrMdcXM-rbc0hlOW2-7H68Bh6wVP4tU1Z9A-WPatutzajShdogf2I1VJPlYbsnaNgjZu11RVKQctM8mh10K1YBwZWQ8pGUWNsXpWRo4eba1bm4k-mhHqPYwEMiEcNl4-H389I8b30qG3zQxfkAAiojRtaV8Rw1h6QJzqOaT_Q8");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/30 via-transparent to-transparent"></div>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-yellow-400 text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-white">7.9</span>
+</div>
+</div>
+<div>
+<p class="text-base font-medium leading-tight truncate">The Batman</p>
+<div class="flex items-center gap-1 mt-1 text-text-secondary text-xs font-semibold">
+<span class="material-symbols-outlined text-[14px]">group_add</span>
+<span>4 friends added to watchlist</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col pt-8">
+<div class="px-4 pb-4">
+<h2 class="text-xl md:text-2xl font-semibold leading-tight tracking-tight font-body">Curated by Experts &amp; Friends</h2>
+</div>
+<div class="flex overflow-x-auto hide-scrollbar pl-4 pr-4 gap-4">
+<div class="relative min-w-[280px] h-[160px] rounded-[24px] overflow-hidden group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Collage of superhero costumes and comic book art" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCcbLDWD5i6BFGqmVC2rl4XLJsdUKvJAxb117MsL0nUr2MK7wf8ESSphwzLYftZ38spXPovVB0zuOhlMXjzt2EBKH6oECngVe5CMCuc4KJTLi1gu_va6eRPrf62WmmI80r59rU3SEMoPNrwIBzYziDO-qf9bdbZDUcHLlHgkJMqQGQlDezNPmFHTBGSu9KFLh7BgsJVjlPDyndn2iC12NxWy2NI3LdlqV1OhqY2mY8hDgvc6i1wmyZE4BPqZ7O2AmL9jnRfCZfVA0A");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark/90 via-background-dark/40 to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="text-white text-lg font-bold">Superhero Saga</h3>
+<p class="text-gray-300 text-sm flex items-center gap-2">
+<img alt="Expert profile" class="w-6 h-6 rounded-full border border-white/50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCawtM5DiTWRK8AnQ4vV0Acr7442VLpTEBRYt6SyF80DwFm0Sbaqana5OG4Qx9cZh7xSRIvYWbO93S99MHWScl-PAr2bTTWEbuuK2dU0c1BiQdDSmDxJYvHDZwLqlfEsf2k9FVd8bQr-Ebaq4mctbMVjptOw_Sd00ip5rvm-WkTqQPCarUVRrsYSYNvmDgyjAbIh97fsncAQ7up93ahOn-znS36fiXfqXlfdsgQWqDxJwrPR6zSM_Q6FSdFi31qZWGC1sqSDHbrjpc"/>
+<span class="font-medium">by MovieCriticPro</span>
+</p>
+</div>
+</div>
+<div class="relative min-w-[280px] h-[160px] rounded-[24px] overflow-hidden group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Abstract golden statue trophy concept art" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAu8lgqH2R3PdElKTvk4TUAaWOscak0CLFPiN1FQ7FheHPQ9O7M3P947oWdtHjqWNbetmzL56-EnZwYCrWZ-2IrLxVtDlM8zuQIppDQqXVqI05LsWeF5SCL5qwg0qo7td3KlAvRkYI0H8OxwL7JTXkVgIGoT3hbasn7M_ApSW284jIxSVVXzUZrcNw37tVUtRwKEGpJNHCKIcHe0pVLj6ndjFxkkkn1nYoyv-QiRQeNEkbC16RGGEcLlb6chmTEB3U_VI9-MYlc9Lc");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark/90 via-background-dark/40 to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="text-white text-lg font-bold">Must-Watch Indie Gems</h3>
+<p class="text-gray-300 text-sm flex items-center gap-2">
+<img alt="Friend profile" class="w-6 h-6 rounded-full border border-white/50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrM4w7d7nOjo39oIdNj5SBaynZJwUw6565f1p1rTq9Uu14oPlYGiTKc-Ltc11jnVkeUmrhQ2104ecGQsyhdVFWkTR54jeArknroOieNNpu33WQJUGgQ0pOAcX3CCCg1-W4N8A-XEFcDZepc3pjC8QbK9RvMCe2kC8d2E8CHJplda_MgckRDO_bJv-sPCyaPBoEG0_A2GcDJF2OQNHhjQ6lJzYU5K2Ja-eOJc6LoEQ596o4FLGlGdKFIlKEhUKpcXc8WzZkYR-tl_c"/>
+<span class="font-medium">by Jessica M.</span>
+</p>
+</div>
+</div>
+<div class="relative min-w-[280px] h-[160px] rounded-[24px] overflow-hidden group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Retro neon sign saying cinema" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWSIEe3eBr2OXpGveqNbe3QHY0P4vMKsXi0K3DH0MoVLna4lEyKNVUYXS4ftNR6Jx3jvXhBylgoMQ4NMGb7NB15k6kiGflZykLEeIXdKLj0Kc7bsRYhl9FZclDAN0SQVkRoTwqHJYGWcDfuiuhYcUEPUJ961bKlfyP-k1lIViY89l-rKV5GGPcnxYZB6H3X8T8ppFmOU9JwVDw3_ixDAyz1C-rB6UtuFR6SOq75sGb-f4JTNCtRiLocT4XeR86ekp1Q7VGeYGPXhU");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark/90 via-background-dark/40 to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="text-white text-lg font-bold">Epic Fantasy Worlds</h3>
+<p class="text-gray-300 text-sm flex items-center gap-2">
+<img alt="Expert profile" class="w-6 h-6 rounded-full border border-white/50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCt2eAZf40XDTU6LLoOnFXIZfe6jl4tSUgMRwKpLY1cE0OkKWujZ4X7Whrv5ahP_tqz-mp8cqN7xQXlVAmOAd-z3fK2YxVZpfwb9oB0fl1C5WHi7R6ldCoUbvMosymhy5RhrRkPF1-8-2F5KhIdwgNZ5Kic0etQJP2WtZwgVDuyLpSx_a_12RDP-aT8UIZjvN7mlx2_nrTB71h957b_OvUySkyQF8xoKwyQ9-I8lV9qtg20hAvtGyqK5vkcRatabWUaWUjOD8I84ek"/>
+<span class="font-medium">by FantasyFilmFan</span>
+</p>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col pt-8">
+<div class="px-4 pb-4">
+<h2 class="text-xl md:text-2xl font-semibold leading-tight tracking-tight font-body">Browse by Category</h2>
+</div>
+<div class="grid grid-cols-2 gap-3 px-4">
+<div class="relative h-24 rounded-2xl overflow-hidden cursor-pointer group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="High speed car chase explosion abstract" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAee-yB74dS_G4OkiiKIXSVo_zWNwrAuZpFfMbcwMjXUb-fc-Dr0tjJNJmeea2p_VFILwHMJv7Pl8mRKliUuYjgSIA32k3FDsl4UCijmdGPRCmt8S_HQzLCZkl9yJlC1WfFrftsEfy_97aSJW5W1SiiOsPmtJ-jmYoh1IF8FH_fKR5dZDUUSOyvlVZTr5I2gh6z5VnxDooDQAxhOjo6zlYgoZuv2wibv_nxk7cFwI7PY_oQuQmpJ2w3eUlQxY9NPGOyTb81_CeLFM4");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-primary/40 dark:bg-primary/60 mix-blend-multiply"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-white font-bold text-lg tracking-wide drop-shadow-md">Action</span>
+</div>
+</div>
+<div class="relative h-24 rounded-2xl overflow-hidden cursor-pointer group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Dramatic silhouette of person looking at mountains" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDIhZ9STauNSJc1IMKQACjbN-9K0okn-Nd7Mu5E7m8HtyBoB5KeSITyyMJvNUDDQfOFhA2Ev8w_eaLNqVckAsKN22HIGUowNMLGMP0ew-hVyZ4h86EoUN3AoK2SY8gKml_-8bCW6qOhB4kVLCjm-ZN_pGcL0r6RWW0hjLEVKjZvjZd0qoSDHrSIZ3iXQO_Zcb8ZvWgptx7yp9aUgIoeBG1nQ9MyodMdrt6gk83PpscQlhDtrUKBsKD2RYWy3X_JkhrsCGXIVl871yM");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-blue-900/40 dark:bg-blue-900/60 mix-blend-multiply"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-white font-bold text-lg tracking-wide drop-shadow-md">Drama</span>
+</div>
+</div>
+<div class="relative h-24 rounded-2xl overflow-hidden cursor-pointer group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Creepy dark forest with fog" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCgkgeS2HBaBJnSipL8ES16f5nVljG3PdWuokLmlqpKyM-FgCNnLh47qGn9wRT65R6lT2mKAHPvKumAk6T_fhrmqULsT-KsDP7vOu_spIhc4UBPK07G5r6FNkKqsR_85cKbz-Cp0krJJRgPS_D5MfHv5EqP3rDfMBfuRg42YrKZ_iIaFY_OBF4T9VElG4y0cX-iRA2r7DBku8cdXnRLa1brsQd7rTNkyQrHkaYtG3N3lms8OAqojkAOM6gYaSycFYjjSRnjXDYUTtY");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-red-900/40 dark:bg-red-900/60 mix-blend-multiply"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-white font-bold text-lg tracking-wide drop-shadow-md">Horror</span>
+</div>
+</div>
+<div class="relative h-24 rounded-2xl overflow-hidden cursor-pointer group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Futuristic neon city lights cyberpunk" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuATJhePVCIvWaIdLx3gStAzgAS5kv70rGU2lyPXH77he2uh3SJz7W6nIw8vTBsACq_qGI7Vj3KXUlCMA5xQjYn8DbrW3Uj2nHAShnwYTDUeI-u7UQ3lBIzueIgSLwGpbddeV6Fpkb4vIaqFEahAw0M3NJ-f3f4GlxO0JtDwksx9dMB9Ttg6D5RTL695q0gUulsFJ90aAo5dzVAikvTtGOHKt8pmMuBDW_BvH4O2f7wdCvSYj5d5hAlnmMBDyAO3jDhm5eGwXdujl68");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-purple-900/40 dark:bg-purple-900/60 mix-blend-multiply"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-white font-bold text-lg tracking-wide drop-shadow-md">Sci-Fi</span>
+</div>
+</div>
+<div class="relative h-24 rounded-2xl overflow-hidden cursor-pointer group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Colorful laughing face abstract art" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBiAxiDwwYZka2tKKAR_bVRgvUJCqquOzsowfu73JBAtNqwPkbGH_FOhVOnSQg_DU2m0inGHkAXCnTfXMMyfpF51geYZsAFP8JFYVWxQBrAhGrQpReWiom6fHdXwU66QvV6-TNfXNG-H6nhVASs6oVH4L25gCjhUPlSjpx9xCJ-PfRjqowvakUSp0a_w_DslZ3KbaqgR-QPY4HhZA4_5eyjYfDROy8bTYxkoYQrhM9Sf-SM1uX09j5KvI86cxLEaQ8HKIbOXJZuW5U");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-yellow-600/40 dark:bg-yellow-600/60 mix-blend-multiply"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-white font-bold text-lg tracking-wide drop-shadow-md">Comedy</span>
+</div>
+</div>
+<div class="relative h-24 rounded-2xl overflow-hidden cursor-pointer group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Documentary style camera lens close up" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA_6hi20hWmnmMCbaxE2nwgZ0LDuE3D7Jvv5AeDmUU4Hwl4zGt9LU5t0DWbR0pk7fLt6YzUaBwXZm5UIP0vyvuNrBBgmysIQu7VgtFo1Upbh5RPlL-g2aDuAv5919yQVa0jKwBrKzAw4sGM9ikH32g5WbvKF5VLIdEjMDZLYTE_R1_TZhjYGoiboDnuuNK1_HmiNrZTjXOXr2orRf51eXWdNqtX6cqhulDHbLmUMwWxvdGN2dLTntgqqwOUuPPNqnT8Oa0RMSs3sSk");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-orange-900/40 via-transparent to-transparent"></div>
+<div class="absolute inset-0 bg-teal-900/40 dark:bg-teal-900/60 mix-blend-multiply"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-white font-bold text-lg tracking-wide drop-shadow-md">Docu</span>
+</div>
+</div>
+</div>
+</div>
+<div class="h-8"></div>
+</div>
+<div class="fixed bottom-0 left-0 right-0 h-[84px] bg-background-dark/95 backdrop-blur-lg border-t border-white/5 flex justify-around items-start pt-4 z-50">
+<button class="flex flex-col items-center gap-1 w-16 group">
+<span class="material-symbols-outlined text-text-secondary text-2xl group-hover:text-white transition-colors">home</span>
+<span class="text-[10px] font-medium text-text-secondary group-hover:text-white transition-colors">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 group">
+<div class="bg-primary/20 rounded-full px-4 py-1 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">search</span>
+</div>
+<span class="text-[10px] font-medium text-primary">Search</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 group">
+<span class="material-symbols-outlined text-text-secondary text-2xl group-hover:text-white transition-colors">forum</span>
+<span class="text-[10px] font-medium text-text-secondary group-hover:text-white transition-colors">Social</span>
+</button>
+<button class="flex flex-col items-center gap-1 w-16 group">
+<span class="material-symbols-outlined text-text-secondary text-2xl group-hover:text-white transition-colors">person</span>
+<span class="text-[10px] font-medium text-text-secondary group-hover:text-white transition-colors">Profile</span>
+</button>
+</div>
+</body></html>

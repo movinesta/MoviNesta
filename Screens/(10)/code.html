@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>New Message / Group Chat</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              // Updated palette for a darker, cinematic feel with glowing accents
+              "primary": "#E74646", // A vibrant red for action/emphasis
+              "background-light": "#1C1C2C", // Dark charcoal/navy for the main background (original was lighter)
+              "background-dark": "#12121A", // Even darker for true dark mode, or deep space
+              "surface-light": "#28283C", // Darker surfaces for cards/inputs (original was white)
+              "surface-dark": "#1F1F2F", // Slightly lighter than background-dark for inputs/cards
+              "text-light": "#E0E0E0", // Lighter text on dark backgrounds
+              "text-dark": "#A0A0B0", // Slightly dimmer text for secondary info
+              "accent-glow": "#E74646", // Use primary for subtle glow effects
+            },
+            fontFamily: {
+              "display": ["Spline Sans", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.75rem", "lg": "1.5rem", "xl": "2.5rem", "full": "9999px"}, // Slightly rounded for a softer, modern look
+            boxShadow: {
+                "glow-sm": "0 0 5px var(--tw-shadow-color)",
+                "glow-md": "0 0 10px var(--tw-shadow-color)",
+                "glow-lg": "0 0 20px var(--tw-shadow-color)",
+            }
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+    body {
+      min-height: max(884px, 100dvh);
+    }.scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;scrollbar-width: none;}.glow-effect {
+        transition: box-shadow 0.3s ease-in-out;
+        box-shadow: 0 0 0px var(--accent-glow);
+    }
+    .glow-effect:hover {
+        --tw-shadow-color: theme('colors.accent-glow');
+        box-shadow: theme('boxShadow.glow-sm');
+    }.form-input-glow:focus {
+        --tw-shadow-color: theme('colors.accent-glow');
+        box-shadow: theme('boxShadow.glow-sm');
+    }.peer-checked:checked + .glow-checkbox-indicator {
+        --tw-shadow-color: theme('colors.primary');
+        box-shadow: theme('boxShadow.glow-sm');
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-text-light antialiased selection:bg-primary selection:text-white">
+<div class="relative flex h-full min-h-screen w-full max-w-md mx-auto flex-col overflow-x-hidden border-x border-slate-700 shadow-2xl shadow-black/50">
+<div class="sticky top-0 z-50 flex items-center bg-background-dark/90 backdrop-blur-md p-4 pb-2 justify-between border-b border-slate-700">
+<button class="text-text-light flex size-10 shrink-0 items-center justify-center hover:bg-surface-dark rounded-full transition-colors glow-effect">
+<span class="material-symbols-outlined" style="font-size: 24px;">close</span>
+</button>
+<h2 class="text-text-light text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">New Message</h2>
+<button class="flex px-4 py-2 items-center justify-center rounded-full bg-primary/20 hover:bg-primary/30 transition-colors glow-effect">
+<p class="text-primary font-bold text-sm leading-normal tracking-[0.015em] shrink-0">Chat</p>
+</button>
+</div>
+<div class="px-4 py-3 bg-background-dark">
+<label class="flex flex-col h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-md shadow-black/20">
+<div class="text-text-dark flex border-none bg-surface-dark items-center justify-center pl-4 rounded-l-xl border-r-0 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 24px;">search</span>
+</div>
+<input class="form-input form-input-glow flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl rounded-l-none text-text-light focus:outline-0 focus:ring-0 border-none bg-surface-dark focus:border-none h-full placeholder:text-text-dark px-4 pl-2 text-base font-normal leading-normal transition-colors" placeholder="Search friends or username" value=""/>
+</div>
+</label>
+</div>
+<div class="hidden flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide">
+<div class="flex items-center gap-2 bg-surface-dark/60 pr-3 pl-1 py-1 rounded-full border border-primary/20 shrink-0 shadow-sm shadow-black/20">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-6 w-6" data-alt="Portrait of Jessica M" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDO-HtQriAivqa1nfyoysbPbB3TQC6OP8zsrYZzzk3W8HALxOX_jBRej1BVr6FPYTvqDLFXge4OusV4FplfpRin-Vvl3Z6KDKZVqO9f6dqWrOCZFGaLD-mf40_pf2kRNbfgfMhEcfTMuibQsD1hv1HJfj_-eXrOATftbLwc2b5GnQZIxGELlp9YTOsU6TJs5winC-rqKki4bVNmqc7TNY4RAqCAVTheESBG91orl5YsVtm-wh2hHQtggF-Enpbyo_LaYlCfEJcWL20");'></div>
+<span class="text-xs font-medium text-text-light">Jessica M.</span>
+<span class="material-symbols-outlined text-text-dark hover:text-red-500 cursor-pointer" style="font-size: 16px;">close</span>
+</div>
+</div>
+<div class="group/item flex items-center gap-4 px-4 py-3 min-h-16 justify-between cursor-pointer hover:bg-surface-dark transition-colors glow-effect">
+<div class="flex items-center gap-4">
+<div class="text-primary flex items-center justify-center rounded-full bg-primary/20 shrink-0 size-12 group-hover/item:bg-primary group-hover/item:text-white transition-all duration-300 shadow-md shadow-black/20">
+<span class="material-symbols-outlined" style="font-size: 24px;">group_add</span>
+</div>
+<div>
+<p class="text-text-light text-base font-medium leading-normal flex-1 truncate">Create a new group</p>
+<p class="text-text-dark text-sm font-normal">Start a watch party</p>
+</div>
+</div>
+<div class="shrink-0 text-text-dark">
+<span class="material-symbols-outlined" style="font-size: 24px;">chevron_right</span>
+</div>
+</div>
+<div class="pt-4 pb-2 px-4 flex items-center justify-between">
+<h3 class="text-text-light text-sm font-bold uppercase tracking-wider opacity-70">Suggested</h3>
+</div>
+<div class="flex flex-col">
+<label class="group/user cursor-pointer flex items-center gap-4 px-4 py-3 min-h-16 justify-between hover:bg-surface-dark transition-colors border-b border-slate-800 last:border-0 glow-effect">
+<div class="flex items-center gap-4 flex-1 overflow-hidden">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shadow-md shadow-black/20" data-alt="User avatar of Jessica M" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuARrIn1HDAadFtWMOH9HznA1dIxjUI0RjDhSaA0UMGHNYXpZFUwLnaQl2KZRpNztRExGZKA6VKMkyW6SDkucJFlefbKHTZu9TbY77tPuFNotau8V8vwuMFwih-o7PIbcdALBZaNxfSqRyIbWNNpkcjH8_TsjLofVFriSKcqLq9VI4CZu2ngOlzoqJeaEyhkeT8LduxrqzUowxvOMhXJBFs4lNArFHlbVQL2gHjeC3Bqzzkbl-rwDgRUjivQ8nam1GjB5whC9Ds5cCw");'></div>
+<div class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background-dark shadow-sm shadow-black/20"></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<p class="text-text-light text-base font-medium leading-normal truncate">Jessica M.</p>
+<span class="text-sm font-semibold text-green-400">85% Match</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<div class="relative aspect-poster bg-cover rounded-md h-12 w-8 shrink-0 shadow-md shadow-black/20" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD-0vTFMcNimm4FA0vCAobSV1voiqrf5mFT7La6Vpobt9lUe_KSwvOwnpa2N2jz75WL4PSaPpnlt_KCZeFvBJxR8zQrU6zvqns7BFN_sQSYfI7z0pQNqK-EuQubbXxhPz1AXGnpscdzIbd1r3bWkn8Xwriig4TRPNfw5qgrxjW8qSDnZ_kQJopYfoeEOlEd1uyzm_Ew3PqxFF6Bydl8w3vyn56wGYRk_DxK5YWRunf5sL8m5WzgkhRcUhyl7kdxZXL9_Ntb0r0Eaj8");'>
+<div class="absolute -top-1 -right-1 flex items-center justify-center size-5 rounded-full bg-primary text-white text-xs font-bold shadow-sm shadow-black/20">
+<span class="material-symbols-outlined" style="font-size: 14px; fill: 1;">grade</span>
+</div>
+</div>
+<p class="text-text-dark text-sm font-normal truncate">Watching <span class="text-primary italic">Dune: Part Two</span></p>
+</div>
+</div>
+</div>
+<div class="shrink-0 pl-4">
+<div class="flex size-7 items-center justify-center relative">
+<input checked="" class="peer h-6 w-6 rounded-full border-2 border-slate-500 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer appearance-none" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none text-white opacity-0 peer-checked:opacity-100 transition-opacity glow-checkbox-indicator" style="font-size: 16px; font-weight: 700;">check</span>
+</div>
+</div>
+</label>
+<label class="group/user cursor-pointer flex items-center gap-4 px-4 py-3 min-h-16 justify-between hover:bg-surface-dark transition-colors border-b border-slate-800 last:border-0 glow-effect">
+<div class="flex items-center gap-4 flex-1 overflow-hidden">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shadow-md shadow-black/20" data-alt="User avatar of David K" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA3Ddqa-8Olu5mpChgB3L24CJ4HQzWOIaMnp2YOxzqdtm42yvjELAJPu6LwBJ_NiD7WIfZLWb980_Eiv47wGSNU1V5I0123ae7utxdV-fVr67uQNllBKrPk_JAt9sGgtHW_PBO7zynJDlh4uHF7VumJAu0aHWUaz42NwinC6RiQbEIgL8q7fLEKyU0dzH7Eu7Qe8-2XFvNU3Y__Rn5ohy7XiDnKa0C_DoObZTdXqytC3TvImphZE2JEbuSCGVQbOaKGeiY3TTVgt38");'></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<p class="text-text-light text-base font-medium leading-normal truncate">David K.</p>
+<span class="text-sm font-semibold text-blue-400">45% Match</span>
+</div>
+<p class="text-text-dark text-sm font-normal truncate mt-1">Last seen 2h ago</p>
+</div>
+</div>
+<div class="shrink-0 pl-4">
+<div class="flex size-7 items-center justify-center relative">
+<input class="peer h-6 w-6 rounded-full border-2 border-slate-500 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer appearance-none" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none text-white opacity-0 peer-checked:opacity-100 transition-opacity glow-checkbox-indicator" style="font-size: 16px; font-weight: 700;">check</span>
+</div>
+</div>
+</label>
+<label class="group/user cursor-pointer flex items-center gap-4 px-4 py-3 min-h-16 justify-between hover:bg-surface-dark transition-colors border-b border-slate-800 last:border-0 glow-effect">
+<div class="flex items-center gap-4 flex-1 overflow-hidden">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shadow-md shadow-black/20" data-alt="User avatar of Sarah L" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAEwYeY6i-hRYBTLt0cfzjJuctYMFbl6Pbl0Wuuq0ASn1P4U3YhtvBjMfWjiiJzPpMsrW_-8JXFuSmkYce0_1IV12wokzmuf9eKpzByHVoF1Dt88mGOl0PDXtOlONf3A2s5Tc3mSt2JagG1kWLcYQhvtoIW0uHH2lVAu_Zx8t3H_ChTY6O-NkZQ1zjSr1IEec29gqpwpt7IG6QwoEMrY9ur8hLR0xzb6IATHque4j_tQfRzwFEXVciQNEHxkdEi3OVotFaomEQ2sGg");'></div>
+<div class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background-dark shadow-sm shadow-black/20"></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<p class="text-text-light text-base font-medium leading-normal truncate">Sarah L.</p>
+<span class="text-sm font-semibold text-green-400">70% Match</span>
+</div>
+<p class="text-text-dark text-sm font-normal truncate mt-1">Online</p>
+</div>
+</div>
+<div class="shrink-0 pl-4">
+<div class="flex size-7 items-center justify-center relative">
+<input class="peer h-6 w-6 rounded-full border-2 border-slate-500 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer appearance-none" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none text-white opacity-0 peer-checked:opacity-100 transition-opacity glow-checkbox-indicator" style="font-size: 16px; font-weight: 700;">check</span>
+</div>
+</div>
+</label>
+</div>
+<div class="pt-6 pb-2 px-4 flex items-center justify-between">
+<h3 class="text-text-light text-sm font-bold uppercase tracking-wider opacity-70">All Contacts</h3>
+</div>
+<div class="flex flex-col pb-20">
+<label class="group/user cursor-pointer flex items-center gap-4 px-4 py-3 min-h-16 justify-between hover:bg-surface-dark transition-colors border-b border-slate-800 last:border-0 glow-effect">
+<div class="flex items-center gap-4 flex-1 overflow-hidden">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shadow-md shadow-black/20" data-alt="User avatar of Alex R" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDHWj8F1DokEzVzrMJ6sNEei8HCwnbYsBhT-ZzmrEX1mB68j50PhM_7RSxEfH9gO5Cqs27e4KpeNvyr3dTP-DEBghNPV2BwTDWeTFstruLYdEBlbzudO3vesQgahCmme9GcvhGTUqU52VQn10bZxJFjdYpEwu1Bd5Z694O89RL2s3IE_d1NRtJ8aGHx31THMaf0TbJuFoHOIiSDIbtETmSysqw72AlpGWflR9H7AuOSEZpIXEt18EbaYjleVEpcyVKr-ns7dStOMSM");'></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<p class="text-text-light text-base font-medium leading-normal truncate">Alex R.</p>
+<span class="text-sm font-semibold text-green-400">92% Match</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<div class="relative aspect-poster bg-cover rounded-md h-12 w-8 shrink-0 shadow-md shadow-black/20" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBavAyvjo6RG3TrNXoestOZH5kS3KhTYGE6uLVr3AD-dIBrvmzFWpa78NMfVgv807V5iIGqcjoT86jEajnLt53yVSrXr00vXWsKXoasZkU4dw81b957W02CnqZZ3YMny0HWZQZMB1vPqtuGFuv624ZxFLrhMAiRRAYatnwReC5H5PkPrPkOwcbQ1VW96s4PZvMzR7SHKZeZC0TOKNJGnQiGBrmSW2ZE25hyNj40Lc7bt6qWQeATVK4_-DDN6pQZl7Q4-UlEWukWdlI");'>
+<div class="absolute -top-1 -right-1 flex items-center justify-center size-5 rounded-full bg-primary text-white text-xs font-bold shadow-sm shadow-black/20">
+<span class="material-symbols-outlined" style="font-size: 14px; fill: 1;">star</span>
+</div>
+</div>
+<p class="text-text-dark text-sm font-normal truncate">Rated <span class="text-primary italic">Inception</span> 5 stars</p>
+</div>
+</div>
+</div>
+<div class="shrink-0 pl-4">
+<div class="flex size-7 items-center justify-center relative">
+<input class="peer h-6 w-6 rounded-full border-2 border-slate-500 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer appearance-none" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none text-white opacity-0 peer-checked:opacity-100 transition-opacity glow-checkbox-indicator" style="font-size: 16px; font-weight: 700;">check</span>
+</div>
+</div>
+</label>
+<label class="group/user cursor-pointer flex items-center gap-4 px-4 py-3 min-h-16 justify-between hover:bg-surface-dark transition-colors border-b border-slate-800 last:border-0 glow-effect">
+<div class="flex items-center gap-4 flex-1 overflow-hidden">
+<div class="relative">
+<div class="flex items-center justify-center rounded-full h-12 w-12 bg-indigo-700 text-white font-bold text-lg shadow-md shadow-black/20">
+                            MJ
+                         </div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<p class="text-text-light text-base font-medium leading-normal truncate">Michael Jordan</p>
+<span class="text-sm font-semibold text-orange-400">10% Match</span>
+</div>
+<p class="text-text-dark text-sm font-normal truncate mt-1">Just joined</p>
+</div>
+</div>
+<div class="shrink-0 pl-4">
+<div class="flex size-7 items-center justify-center relative">
+<input class="peer h-6 w-6 rounded-full border-2 border-slate-500 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer appearance-none" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none text-white opacity-0 peer-checked:opacity-100 transition-opacity glow-checkbox-indicator" style="font-size: 16px; font-weight: 700;">check</span>
+</div>
+</div>
+</label>
+<label class="group/user cursor-pointer flex items-center gap-4 px-4 py-3 min-h-16 justify-between hover:bg-surface-dark transition-colors border-b border-slate-800 last:border-0 glow-effect">
+<div class="flex items-center gap-4 flex-1 overflow-hidden">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shadow-md shadow-black/20" data-alt="User avatar of Emily B" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDerO4tCzAhc16WCV2lAlAoNYZGEW7VyFfJjBsXEhgv44KmxVwc38yAXXZ4DMACSDC3By-5XN_6a0NMzVyabsDN_Bvh6CCK0TkyE0D_zo6bXG1Ku2MxYsIyyqXcoFlRGukcLNyRxkk_dhRLUOIjNj-jda8IWuZkH0l7L0wbp015wGUB7bU-NoOFgCCxIkCPcB6Tg6IJg7KDZpIQBiNkegn_IWb2sCQ6bkPgVfqoq7ral62H9MxAkBpd81JOJiCItwG0aGI83SiuKLE");'></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<p class="text-text-light text-base font-medium leading-normal truncate">Emily B.</p>
+<span class="text-sm font-semibold text-green-400">78% Match</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<div class="relative aspect-poster bg-cover rounded-md h-12 w-8 shrink-0 shadow-md shadow-black/20" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCMm_Z_GjP-jj6rmT2XiB8o8yb6emShoAtcgB8NTSrpttqjg7PmyqFZ81pMBZgdMVuWTy-8yGaC1cyhdQc62JDizV7zS6F-n0o0gcMSygKM1S8q8EqUK1Y13aNc1r41l9yN6t5GNIdRQ84cVqbfQwSzghVyXyxeY2RNz4IQYb2f4ysgFqWh-Ip37p6uFrndQJvbxFZCAy-WvtEJ8TVuhPpW0pJpzyzFb1vhsQYysTh1tLhpGb-9uZWU6ZXsgY3sB4OKNKNLzngc194");'>
+<div class="absolute -top-1 -right-1 flex items-center justify-center size-5 rounded-full bg-green-500 text-white text-xs font-bold shadow-sm shadow-black/20">
+<span class="material-symbols-outlined" style="font-size: 14px; fill: 1;">emoji_events</span>
+</div>
+</div>
+<p class="text-text-dark text-sm font-normal truncate">Recently watched <span class="text-primary italic">The Bear</span></p>
+</div>
+</div>
+</div>
+<div class="shrink-0 pl-4">
+<div class="flex size-7 items-center justify-center relative">
+<input class="peer h-6 w-6 rounded-full border-2 border-slate-500 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer appearance-none" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none text-white opacity-0 peer-checked:opacity-100 transition-opacity glow-checkbox-indicator" style="font-size: 16px; font-weight: 700;">check</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+
+</body></html>
