@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,11 @@ export const AssistantHintChip: React.FC<Props> = ({ surface, context, className
   const prefsQuery = useAssistantPrefs();
   const prefs = prefsQuery.data ?? { enabled: true, proactivityLevel: 1 as const };
   const quietUntil = getAssistantQuietUntil();
-  const isQuiet = Date.now() < quietUntil;
+  const [isQuiet, setIsQuiet] = useState(false);
+
+  useEffect(() => {
+    setIsQuiet(Date.now() < quietUntil);
+  }, [quietUntil]);
 
   const shouldFetch = Boolean(userId) && prefs.enabled && !isQuiet;
 
@@ -142,8 +146,7 @@ export const AssistantHintChip: React.FC<Props> = ({ surface, context, className
         <PopoverTrigger asChild>
           <button type="button" className="focus:outline-none">
             <Chip
-              size="md"
-              variant={suggestions.length ? "secondary" : "default"}
+              variant={suggestions.length ? "accent" : "default"}
               className={cn(
                 "shadow-sm relative",
                 (isFetching || actionMutation.isPending) && "opacity-80",
@@ -162,12 +165,7 @@ export const AssistantHintChip: React.FC<Props> = ({ surface, context, className
         <PopoverContent align="end" className="w-[340px] p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-semibold">Assistant</div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpen(false)}
-              className="h-7 px-2"
-            >
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} className="h-7 px-2">
               Close
             </Button>
           </div>
@@ -177,7 +175,9 @@ export const AssistantHintChip: React.FC<Props> = ({ surface, context, className
               <div className="text-xs font-semibold leading-snug">{activeGoal.title}</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 Progress {activeGoal.progressCount}/{activeGoal.targetCount}
-                {activeGoal.endAt ? ` • ends ${new Date(activeGoal.endAt).toLocaleDateString()}` : ""}
+                {activeGoal.endAt
+                  ? ` • ends ${new Date(activeGoal.endAt).toLocaleDateString()}`
+                  : ""}
               </div>
             </div>
           )}
@@ -196,7 +196,9 @@ export const AssistantHintChip: React.FC<Props> = ({ surface, context, className
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="text-sm font-semibold leading-snug">{s.title}</div>
-                        <div className="text-xs text-muted-foreground mt-1 leading-snug">{s.body}</div>
+                        <div className="text-xs text-muted-foreground mt-1 leading-snug">
+                          {s.body}
+                        </div>
                       </div>
                       <Button
                         variant="ghost"

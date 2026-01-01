@@ -36,11 +36,13 @@ export function useAssistantSuggestions(
   const contextKey = useMemo(() => {
     // Keep in sync with Edge's context_key strategy.
     const stable: Record<string, unknown> = { surface };
-    if (surface === "title" && typeof context.titleId === "string") stable.titleId = context.titleId;
+    if (surface === "title" && typeof context.titleId === "string")
+      stable.titleId = context.titleId;
     if (surface === "messages" && typeof context.conversationId === "string") {
       stable.conversationId = context.conversationId;
     }
-    if (surface === "swipe" && typeof context.sessionId === "string") stable.sessionId = context.sessionId;
+    if (surface === "swipe" && typeof context.sessionId === "string")
+      stable.sessionId = context.sessionId;
     if (surface === "search" && typeof context.query === "string") {
       stable.query = String(context.query).slice(0, 60);
     }
@@ -55,7 +57,8 @@ export function useAssistantSuggestions(
       // Proactive: gentle polling to surface hints without the user opening the chip.
       // Backend caching + caps + cooldowns prevent churn/cost.
       const proactivity = opts?.proactivityLevel ?? 1;
-      const shouldPoll = Boolean(userId) && Boolean(opts?.enabled ?? true) && !opts?.pausePolling && isVisible;
+      const shouldPoll =
+        Boolean(userId) && Boolean(opts?.enabled ?? true) && !opts?.pausePolling && isVisible;
       if (!shouldPoll) return false;
       if (proactivity <= 0) return false;
 
@@ -95,7 +98,6 @@ export function useAssistantSuggestions(
       suggestionId: first.id,
       kind: "shown",
     }).catch(() => null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data?.suggestions?.[0]?.id]);
 
   return {

@@ -63,6 +63,7 @@ function savePins(pins: PinItem[]) {
 export default function AssistantChatPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   const [conversationId, setConversationId] = React.useState<string | null>(null);
   const [loadingConversation, setLoadingConversation] = React.useState(true);
@@ -87,8 +88,9 @@ export default function AssistantChatPage() {
       if (!alive) return;
       if (error) {
         console.error("assistant-get-conversation", error);
-        toast.error("Assistant", {
-          description: "Couldn't load your assistant chat. Try again.",
+        toast.show("Couldn't load your assistant chat. Try again.", {
+          title: "Assistant",
+          variant: "error",
         });
         setLoadingConversation(false);
         return;
@@ -96,8 +98,9 @@ export default function AssistantChatPage() {
 
       const id = (data as any)?.conversationId as string | undefined;
       if (!id) {
-        toast.error("Assistant", {
-          description: "Assistant chat couldn't be created (missing conversationId).",
+        toast.show("Assistant chat couldn't be created (missing conversationId).", {
+          title: "Assistant",
+          variant: "error",
         });
         setLoadingConversation(false);
         return;
@@ -115,22 +118,20 @@ export default function AssistantChatPage() {
   const {
     data: messagesData,
     isLoading: loadingMessages,
-    hasNextPage,
-    fetchNextPage,
-    isFetchingNextPage,
+    hasMore,
+    loadOlder,
+    isLoadingOlder,
   } = useConversationMessages(conversationId);
 
   const sendMessage = useSendMessage(conversationId);
 
   const messages = React.useMemo(() => {
     const rows = Array.isArray(messagesData) ? messagesData : [];
-    const ordered = rows
-      .slice()
-      .sort((a, b) => {
-        const t = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        if (t !== 0) return t;
-        return String(a.id).localeCompare(String(b.id));
-      });
+    const ordered = rows.slice().sort((a, b) => {
+      const t = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (t !== 0) return t;
+      return String(a.id).localeCompare(String(b.id));
+    });
 
     if (!query.trim()) return ordered;
     const q = query.trim().toLowerCase();
@@ -196,7 +197,7 @@ export default function AssistantChatPage() {
 
   const handleSend = React.useCallback(async () => {
     const text = draft.trim();
-    if (!text || !conversationId || !user?.id) return;
+    if (!text || !conversationId || !userId) return;
 
     const clientId = safeRandomId();
     setIsThinking(true);
@@ -209,7 +210,7 @@ export default function AssistantChatPage() {
       const { error } = await supabase.functions.invoke("assistant-chat-reply", {
         body: {
           conversationId,
-          userId: user.id,
+          userId,
           text,
           clientId,
           surface: "messages",
@@ -219,21 +220,23 @@ export default function AssistantChatPage() {
 
       if (error) {
         console.error("assistant-chat-reply", error);
-        toast.error("Assistant", {
-          description: "Your message was sent, but the assistant failed to respond.",
+        toast.show("Your message was sent, but the assistant failed to respond.", {
+          title: "Assistant",
+          variant: "error",
         });
         setIsThinking(false);
         setLastUserClientId(null);
       }
     } catch (e) {
       console.error(e);
-      toast.error("Message failed", {
-        description: e instanceof Error ? e.message : "Unknown error",
+      toast.show(e instanceof Error ? e.message : "Unknown error", {
+        title: "Message failed",
+        variant: "error",
       });
       setIsThinking(false);
       setLastUserClientId(null);
     }
-  }, [draft, conversationId, user?.id, sendMessage, mode]);
+  }, [draft, conversationId, userId, sendMessage, mode]);
 
   const canSend = !!draft.trim() && !sendMessage.isPending && !!conversationId;
 
@@ -241,10 +244,13 @@ export default function AssistantChatPage() {
     const trimmed = text.trim();
     if (!trimmed) return;
     setPins((prev) => {
-      const next: PinItem[] = [{ id: safeRandomId(), text: trimmed, createdAt: new Date().toISOString() }, ...prev];
+      const next: PinItem[] = [
+        { id: safeRandomId(), text: trimmed, createdAt: new Date().toISOString() },
+        ...prev,
+      ];
       return next.slice(0, 20);
     });
-    toast.success("Pinned", { description: "Saved to your assistant sidebar (local)." });
+    toast.success("Saved to your assistant sidebar (local).", { title: "Pinned" });
   };
 
   const removePin = (id: string) => {
@@ -254,9 +260,9 @@ export default function AssistantChatPage() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied", { description: "Copied to clipboard." });
+      toast.success("Copied to clipboard.", { title: "Copied" });
     } catch {
-      toast.error("Copy failed", { description: "Couldn't copy to clipboard." });
+      toast.error("Couldn't copy to clipboard.", { title: "Copy failed" });
     }
   };
 
@@ -266,7 +272,9 @@ export default function AssistantChatPage() {
       <div className="p-6">
         <Card className="p-6">
           <div className="font-semibold">Sign in required</div>
-          <div className="text-sm text-muted-foreground mt-1">Please sign in to use the assistant.</div>
+          <div className="text-sm text-muted-foreground mt-1">
+            Please sign in to use the assistant.
+          </div>
           <div className="mt-4">
             <Button onClick={() => navigate("/auth/signin")}>Go to sign in</Button>
           </div>
@@ -292,10 +300,12 @@ export default function AssistantChatPage() {
 
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-2">
-              {( ["General","Recommendations","Watchlist","Explain","Mood"] as AssistantMode[]).map((m) => (
+              {(
+                ["General", "Recommendations", "Watchlist", "Explain", "Mood"] as AssistantMode[]
+              ).map((m) => (
                 <Chip
                   key={m}
-                  active={mode === m}
+                  variant={mode === m ? "accent" : "outline"}
                   onClick={() => setMode(m)}
                   className="cursor-pointer"
                 >
@@ -303,7 +313,9 @@ export default function AssistantChatPage() {
                 </Chip>
               ))}
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate("/messages")}>Messages</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/messages")}>
+              Messages
+            </Button>
           </div>
         </div>
       </div>
@@ -344,7 +356,7 @@ export default function AssistantChatPage() {
                   variant="ghost"
                   onClick={() => {
                     setPins([]);
-                    toast.success("Cleared", { description: "Pinned items cleared (local)." });
+                    toast.success("Pinned items cleared (local).", { title: "Cleared" });
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -397,14 +409,14 @@ export default function AssistantChatPage() {
               />
             </div>
 
-            {hasNextPage ? (
+            {hasMore ? (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
+                onClick={() => loadOlder()}
+                disabled={isLoadingOlder}
               >
-                {isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Older"}
+                {isLoadingOlder ? <Loader2 className="h-4 w-4 animate-spin" /> : "Older"}
               </Button>
             ) : null}
           </div>
@@ -431,7 +443,10 @@ export default function AssistantChatPage() {
                     const mine = m.senderId === user?.id;
                     const text = getMessageText(m);
                     return (
-                      <div key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                      <div
+                        key={m.id}
+                        className={cn("flex", mine ? "justify-end" : "justify-start")}
+                      >
                         <div
                           className={cn(
                             "group max-w-[92%] sm:max-w-[78%] rounded-2xl px-4 py-3 border shadow-sm",
@@ -441,9 +456,22 @@ export default function AssistantChatPage() {
                           )}
                         >
                           <div className="text-sm whitespace-pre-wrap break-words">{text}</div>
-                          <div className={cn("mt-2 flex items-center gap-2", mine ? "justify-end" : "justify-start")}>
-                            <div className={cn("text-[11px]", mine ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                              {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          <div
+                            className={cn(
+                              "mt-2 flex items-center gap-2",
+                              mine ? "justify-end" : "justify-start",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "text-[11px]",
+                                mine ? "text-primary-foreground/70" : "text-muted-foreground",
+                              )}
+                            >
+                              {new Date(m.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </div>
 
                             {!mine ? (
@@ -517,7 +545,11 @@ export default function AssistantChatPage() {
                 onClick={() => void handleSend()}
                 className="h-[52px] rounded-xl"
               >
-                {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sendMessage.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">
@@ -525,7 +557,9 @@ export default function AssistantChatPage() {
                 Enter to send • Shift+Enter for newline
               </div>
               <div className="sm:hidden flex items-center gap-2">
-                <Chip active className="cursor-default">{mode}</Chip>
+                <Chip variant="accent" className="cursor-default">
+                  {mode}
+                </Chip>
               </div>
             </div>
           </div>
@@ -546,7 +580,8 @@ export default function AssistantChatPage() {
           <Card className="p-4">
             <div className="text-sm font-semibold mb-2">Privacy</div>
             <div className="text-sm text-muted-foreground">
-              Pinned items are stored only in your browser (localStorage). Messages are stored in your MoviNesta database.
+              Pinned items are stored only in your browser (localStorage). Messages are stored in
+              your MoviNesta database.
             </div>
           </Card>
         </div>

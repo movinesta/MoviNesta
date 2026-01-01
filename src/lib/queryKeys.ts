@@ -15,11 +15,8 @@ export const qk = {
   friendsTitleReactions: (userId: string | null | undefined, titleId: string | null | undefined) =>
     ["title-friends-reactions", userId, titleId] as const,
 
-  assistantSuggestions: (
-    userId: string | null | undefined,
-    surface: string,
-    contextKey: string,
-  ) => ["assistant", "suggestions", userId, surface, contextKey] as const,
+  assistantSuggestions: (userId: string | null | undefined, surface: string, contextKey: string) =>
+    ["assistant", "suggestions", userId, surface, contextKey] as const,
 
   assistantPrefs: (userId: string | null | undefined) => ["assistant", "prefs", userId] as const,
 };

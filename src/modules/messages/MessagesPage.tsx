@@ -225,19 +225,16 @@ const MessagesPage: React.FC = () => {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
 
-  const isAssistantConversation = useCallback(
-    (conv: ConversationListItem) => {
-      return conv.participants.some(
-        (p) =>
-          !p.isSelf &&
-          (p.username?.toLowerCase() === ASSISTANT_USERNAME || p.id === ASSISTANT_FALLBACK_USER_ID),
-      );
-    },
-    [],
-  );
+  const isAssistantConversation = useCallback((conv: ConversationListItem) => {
+    return conv.participants.some(
+      (p) =>
+        !p.isSelf &&
+        (p.username?.toLowerCase() === ASSISTANT_USERNAME || p.id === ASSISTANT_FALLBACK_USER_ID),
+    );
+  }, []);
 
   const assistantConversation = useMemo(
-    () => ((data ?? []).find((c) => isAssistantConversation(c)) ?? null),
+    () => (data ?? []).find((c) => isAssistantConversation(c)) ?? null,
     [data, isAssistantConversation],
   );
 
@@ -299,7 +296,10 @@ const MessagesPage: React.FC = () => {
     const filteredVisibleNoAssistant = filteredVisible.filter((c) => !isAssistantConversation(c));
     const hiddenNoAssistant = hidden.filter((c) => !isAssistantConversation(c));
 
-    return { visibleConversations: filteredVisibleNoAssistant, hiddenConversations: hiddenNoAssistant };
+    return {
+      visibleConversations: filteredVisibleNoAssistant,
+      hiddenConversations: hiddenNoAssistant,
+    };
   }, [conversationsByQuery, unreadOnly, isAssistantConversation]);
 
   const unreadCount = useMemo(
@@ -710,7 +710,10 @@ const MessagesPage: React.FC = () => {
                       <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-primary/60">
                         {assistantConversation?.participants?.find((p) => !p.isSelf)?.avatarUrl ? (
                           <img
-                            src={assistantConversation.participants.find((p) => !p.isSelf)?.avatarUrl ?? undefined}
+                            src={
+                              assistantConversation.participants.find((p) => !p.isSelf)
+                                ?.avatarUrl ?? undefined
+                            }
                             alt="MoviNesta"
                             className="h-full w-full object-cover"
                             loading="lazy"

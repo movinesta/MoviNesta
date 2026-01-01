@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Loader2, ShieldX } from "lucide-react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { useAuth } from "../auth/AuthProvider";
@@ -66,15 +66,12 @@ const ConversationPage: React.FC = () => {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: conversations, isLoading: isConversationsLoading } = useConversations();
 
   const currentUserId = user?.id ?? null;
-
-
   const conversation: ConversationListItem | null = useMemo(() => {
     if (!conversationId || !conversations) return null;
     return conversations.find((c) => c.id === conversationId) ?? null;
@@ -253,10 +250,7 @@ const ConversationPage: React.FC = () => {
   const isAssistantThread = useMemo(() => {
     const p = otherParticipant;
     if (!p) return false;
-    return (
-      p.id === ASSISTANT_FALLBACK_USER_ID ||
-      p.username?.toLowerCase() === ASSISTANT_USERNAME
-    );
+    return p.id === ASSISTANT_FALLBACK_USER_ID || p.username?.toLowerCase() === ASSISTANT_USERNAME;
   }, [otherParticipant]);
 
   const [assistantIsTyping, setAssistantIsTyping] = useState(false);
@@ -304,15 +298,12 @@ const ConversationPage: React.FC = () => {
             ) {
               try {
                 setAssistantIsTyping(true);
-                const { data, error } = await supabase.functions.invoke(
-                  "assistant-chat-reply",
-                  {
-                    body: {
-                      conversationId,
-                      userMessageId: sentMessage.id,
-                    },
+                const { data, error } = await supabase.functions.invoke("assistant-chat-reply", {
+                  body: {
+                    conversationId,
+                    userMessageId: sentMessage.id,
                   },
-                );
+                });
 
                 if (error) {
                   console.error("assistant-chat-reply failed", error);
@@ -894,7 +885,14 @@ const ConversationPage: React.FC = () => {
     }
 
     return conversation?.subtitle || (isGroupConversation ? "Group chat" : "Direct message");
-  }, [blockedYou, isBlocked, assistantIsTyping, typingNames, isGroupConversation, conversation?.subtitle]);
+  }, [
+    blockedYou,
+    isBlocked,
+    assistantIsTyping,
+    typingNames,
+    isGroupConversation,
+    conversation?.subtitle,
+  ]);
   if (!conversationId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">

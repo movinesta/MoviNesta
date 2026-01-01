@@ -39,7 +39,9 @@ export function useAssistantPrefs() {
       return {
         enabled: typeof data?.enabled === "boolean" ? data.enabled : true,
         proactivityLevel:
-          data?.proactivity_level === 0 || data?.proactivity_level === 1 || data?.proactivity_level === 2
+          data?.proactivity_level === 0 ||
+          data?.proactivity_level === 1 ||
+          data?.proactivity_level === 2
             ? data.proactivity_level
             : 1,
       };
@@ -54,7 +56,8 @@ export function useUpdateAssistantPrefs() {
   return useMutation({
     mutationFn: async (next: Partial<AssistantPrefs>) => {
       if (!userId) throw new Error("Not signed in");
-      const current = (queryClient.getQueryData(qk.assistantPrefs(userId)) as AssistantPrefs | undefined) ??
+      const current =
+        (queryClient.getQueryData(qk.assistantPrefs(userId)) as AssistantPrefs | undefined) ??
         DEFAULT_PREFS;
       const enabled = typeof next.enabled === "boolean" ? next.enabled : current.enabled;
       const proactivityLevel =
@@ -62,17 +65,15 @@ export function useUpdateAssistantPrefs() {
           ? next.proactivityLevel
           : current.proactivityLevel;
 
-      const { error } = await (supabase as any)
-        .from("assistant_prefs")
-        .upsert(
-          {
-            user_id: userId,
-            enabled,
-            proactivity_level: proactivityLevel,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" },
-        );
+      const { error } = await (supabase as any).from("assistant_prefs").upsert(
+        {
+          user_id: userId,
+          enabled,
+          proactivity_level: proactivityLevel,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
 
       if (error) throw new Error(error.message);
       return { enabled, proactivityLevel } as AssistantPrefs;

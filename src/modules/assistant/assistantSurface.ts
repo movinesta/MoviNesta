@@ -17,7 +17,9 @@ function readQueryParam(search: string, key: string): string | null {
   }
 }
 
-export function getAssistantSurfaceContext(location: Pick<Location, "pathname" | "search">): AssistantSurfaceContext {
+export function getAssistantSurfaceContext(
+  location: Pick<Location, "pathname" | "search">,
+): AssistantSurfaceContext {
   const path = location.pathname;
 
   // Title

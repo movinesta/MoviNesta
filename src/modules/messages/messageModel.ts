@@ -45,6 +45,8 @@ export interface ConversationMessage {
   createdAt: string;
   body: any; // JSON or string
   attachmentUrl: string | null;
+  text?: string | null;
+  clientId?: string | null;
 }
 
 export interface ConversationReadReceipt {
@@ -164,6 +166,8 @@ export const mapMessageRowToConversationMessage = (row: MessageRow): Conversatio
   body: row.body ?? null,
   attachmentUrl: row.attachment_url ?? null,
   createdAt: row.created_at ?? new Date().toISOString(),
+  text: row.text ?? null,
+  clientId: row.client_id ?? null,
 });
 
 export const mapReadReceiptRowToConversationReadReceipt = (

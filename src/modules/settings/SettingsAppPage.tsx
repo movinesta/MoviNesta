@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Monitor, Film, Moon, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TopBar from "../../components/shared/TopBar";
@@ -21,7 +21,11 @@ const SettingsAppPage: React.FC = () => {
   const prefs = prefsData ?? { enabled: true, proactivityLevel: 1 as const };
 
   const quietUntil = getAssistantQuietUntil();
-  const isQuiet = Date.now() < quietUntil;
+  const [isQuiet, setIsQuiet] = useState(false);
+
+  useEffect(() => {
+    setIsQuiet(Date.now() < quietUntil);
+  }, [quietUntil]);
 
   const flashSaved = () => {
     setStatus("saved");
@@ -104,9 +108,7 @@ const SettingsAppPage: React.FC = () => {
               <h2 className="text-sm font-heading font-semibold text-foreground">
                 {t("assistant.settings.title")}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("assistant.settings.description")}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("assistant.settings.description")}</p>
             </div>
           </div>
 
@@ -155,7 +157,9 @@ const SettingsAppPage: React.FC = () => {
                 );
               })}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{t("assistant.settings.proactivityNote")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("assistant.settings.proactivityNote")}
+            </p>
           </div>
 
           {isQuiet && (
