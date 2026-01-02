@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { type InfiniteData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
@@ -64,6 +64,7 @@ export const useConversationMessages = (
   },
 ) => {
   const queryKey = useMemo(() => conversationMessagesQueryKey(conversationId), [conversationId]);
+  const queryClient = useQueryClient();
 
   // Virtuoso anchor: start from a high index (>= 0) and decrement as we prepend older pages,
   // so the user's scroll position stays stable.
@@ -119,7 +120,11 @@ export const useConversationMessages = (
       if (!firstPage.hasMore) return undefined;
       return firstPage.cursor ?? undefined;
     },
-    structuralSharing: (oldData, newData) => mergeMessagesInfiniteData(oldData, newData),
+    structuralSharing: (oldData, newData) =>
+      mergeMessagesInfiniteData(
+        oldData as InfiniteData<ConversationMessagesPage> | undefined,
+        newData as InfiniteData<ConversationMessagesPage> | undefined,
+      ),
   });
 
   // Update Virtuoso anchoring when a previous page is prepended.
@@ -165,8 +170,10 @@ export const useConversationMessages = (
       const row = rowUnknown as MessageRow;
       const mapped = mapMessageRowToConversationMessage(row);
 
-      queryClient.setQueryData<InfiniteData<ConversationMessagesPage>>(queryKey, (existing) =>
-        upsertMessageRowIntoPages(existing, row, { allowAppend: kind === "insert" }),
+      queryClient.setQueryData<InfiniteData<ConversationMessagesPage>>(
+        queryKey,
+        (existing?: InfiniteData<ConversationMessagesPage>) =>
+          upsertMessageRowIntoPages(existing, row, { allowAppend: kind === "insert" }),
       );
 
       if (kind === "insert") {
@@ -185,7 +192,7 @@ export const useConversationMessages = (
         handleMessageUpsert(payload, "update");
       },
     };
-  }, [conversationId, onRealtimeStatus, queryKey]);
+  }, [conversationId, onRealtimeStatus, queryClient, queryKey]);
 
   useConversationRealtimeSubscription(conversationId, createMessageRealtimeHandlers, []);
 
