@@ -28,46 +28,50 @@ const dedupeMessagesByClientId = (items: ConversationMessage[]): ConversationMes
     byId.set(message.id, message);
   }
 
-  const byClientId = new Map<string, ConversationMessage>();
+  const byClientId = new Map<string, ConversationMessage[]>();
+  const withoutClientId: ConversationMessage[] = [];
+
   for (const message of byId.values()) {
     const clientId = message.clientId ?? getMessageClientId(message.body);
-    if (!clientId) continue;
-    const existing = byClientId.get(clientId);
-    if (!existing) {
-      byClientId.set(clientId, message);
+    if (!clientId) {
+      withoutClientId.push(message);
       continue;
     }
-
-    const existingIsTemp = isTempId(existing.id);
-    const messageIsTemp = isTempId(message.id);
-    if (existingIsTemp && !messageIsTemp) {
-      byClientId.set(clientId, message);
-      continue;
-    }
-    if (!existingIsTemp && messageIsTemp) {
-      continue;
-    }
-
-    const existingTime = safeTime(existing.createdAt);
-    const messageTime = safeTime(message.createdAt);
-    if (messageTime !== existingTime) {
-      if (messageTime > existingTime) {
-        byClientId.set(clientId, message);
-      }
-      continue;
-    }
-
-    if (message.id.localeCompare(existing.id) > 0) {
-      byClientId.set(clientId, message);
+    const group = byClientId.get(clientId);
+    if (group) {
+      group.push(message);
+    } else {
+      byClientId.set(clientId, [message]);
     }
   }
 
-  const filtered = Array.from(byId.values()).filter((message) => {
-    const clientId = message.clientId ?? getMessageClientId(message.body);
-    if (!clientId) return true;
-    const chosen = byClientId.get(clientId);
-    return !chosen || chosen.id === message.id;
-  });
+  const filtered: ConversationMessage[] = [...withoutClientId];
+
+  for (const group of byClientId.values()) {
+    if (group.length <= 1) {
+      filtered.push(...group);
+      continue;
+    }
+
+    const nonTemps = group.filter((message) => !isTempId(message.id));
+    if (nonTemps.length > 0) {
+      // Keep all server messages; drop any optimistic temps that collided.
+      filtered.push(...nonTemps);
+      continue;
+    }
+
+    const newest = group.reduce((best, message) => {
+      if (!best) return message;
+      const bestTime = safeTime(best.createdAt);
+      const messageTime = safeTime(message.createdAt);
+      if (messageTime !== bestTime) {
+        return messageTime > bestTime ? message : best;
+      }
+      return message.id.localeCompare(best.id) > 0 ? message : best;
+    }, null as ConversationMessage | null);
+
+    if (newest) filtered.push(newest);
+  }
 
   return stableSortMessages(filtered);
 };
