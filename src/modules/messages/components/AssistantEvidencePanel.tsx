@@ -32,7 +32,10 @@ export default function AssistantEvidencePanel({
   className?: string;
 }) {
   const safeHandles = Array.isArray(handles)
-    ? handles.map((h) => String(h)).filter(Boolean).slice(0, 50)
+    ? handles
+        .map((h) => String(h))
+        .filter(Boolean)
+        .slice(0, 50)
     : [];
 
   const [selected, setSelected] = React.useState<string | null>(safeHandles[0] ?? null);
@@ -117,9 +120,7 @@ export default function AssistantEvidencePanel({
               ) : current ? (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-foreground">
-                      {current.actionType}
-                    </div>
+                    <div className="text-sm font-medium text-foreground">{current.actionType}</div>
                     <div className="flex items-center gap-2">
                       <div className="text-xs text-muted-foreground">
                         {new Date(current.createdAt).toLocaleString()}
@@ -128,7 +129,9 @@ export default function AssistantEvidencePanel({
                         variant="ghost"
                         size="sm"
                         onClick={async () => {
-                          const ok = await copyToClipboard(JSON.stringify(current.payload, null, 2));
+                          const ok = await copyToClipboard(
+                            JSON.stringify(current.payload, null, 2),
+                          );
                           if (ok) toast.show("Evidence copied.");
                           else toast.error("Couldn't copy evidence.");
                         }}
