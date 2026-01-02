@@ -372,7 +372,8 @@ export const MessageRow = React.memo(function MessageRow({
           </div>
         ) : null}
 
-        {!isSelf && Array.isArray((message as any)?.meta?.ai?.toolHandles) &&
+        {!isSelf &&
+        Array.isArray((message as any)?.meta?.ai?.toolHandles) &&
         (message as any).meta.ai.toolHandles.length > 0 ? (
           <div className="pl-7 pr-1">
             <AssistantEvidencePanel handles={(message as any).meta.ai.toolHandles} />
