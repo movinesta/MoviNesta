@@ -271,7 +271,7 @@ export async function handler(req: Request) {
           cfg.openrouterModelCreative,
           // Always include safe chat-completions defaults as fallbacks.
           "openai/gpt-4o-mini",
-          "openai/gpt-4.1-mini",
+          "openai/gpt-4.1-nano",
         ].filter(Boolean) as string[],
       ),
     );
