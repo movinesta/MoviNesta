@@ -171,15 +171,39 @@ export const mergeMessagesInfiniteData = (
   const base = ensureMessagesInfiniteData(existing);
   const next = ensureMessagesInfiniteData(incoming);
 
+  const pageParamKey = (param: unknown) => {
+    if (param == null) return "initial";
+    if (typeof param === "string") return `s:${param}`;
+    if (typeof param === "number") return `n:${param}`;
+    if (typeof param === "boolean") return `b:${param}`;
+    if (typeof param === "object") {
+      try {
+        return `o:${JSON.stringify(param)}`;
+      } catch {
+        return "o:[unserializable]";
+      }
+    }
+    return `u:${String(param)}`;
+  };
+
+  const existingByParam = new Map<string, ConversationMessagesPage>();
+  const existingParams = base.pageParams ?? [];
+  for (const [index, page] of base.pages.entries()) {
+    const param = existingParams[index];
+    existingByParam.set(pageParamKey(param), page);
+  }
+
   const pages: ConversationMessagesPage[] = [];
-  const pageCount = Math.max(base.pages.length, next.pages.length);
+  const nextParams = next.pageParams ?? [];
+  const pageCount = Math.max(next.pages.length, nextParams.length);
 
   for (let index = 0; index < pageCount; index += 1) {
-    const existingPage = base.pages[index];
     const nextPage = next.pages[index];
+    const paramKey = pageParamKey(nextParams[index]);
+    const existingPage = existingByParam.get(paramKey);
 
     if (!nextPage) {
-      pages.push(existingPage);
+      if (existingPage) pages.push(existingPage);
       continue;
     }
 
