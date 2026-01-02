@@ -218,7 +218,7 @@ export const mergeMessagesInfiniteData = (
       continue;
     }
     if (!nextPage) {
-      pages.push(existingPage);
+      if (existingPage) pages.push(existingPage);
       continue;
     }
 
