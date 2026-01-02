@@ -513,6 +513,7 @@ const ConversationPage: React.FC = () => {
   const lastSeenLastMessageIdRef = useRef<string | null>(null);
 
   const pendingScrollToMessageIdRef = useRef<string | null>(null);
+  const pendingAutoScrollRef = useRef(false);
   const didInitialScrollRef = useRef(false);
   const isJumpingToUnreadRef = useRef(false);
   const [pendingNewCount, setPendingNewCount] = useState(0);
@@ -657,6 +658,14 @@ const ConversationPage: React.FC = () => {
     [scrollBehavior],
   );
 
+  const requestAutoScrollToBottom = useCallback(() => {
+    pendingAutoScrollRef.current = true;
+    setIsPinnedToBottom(true);
+    setIsAtBottom(true);
+    setHasMeasuredAtBottom(true);
+    scrollToBottom("auto");
+  }, [scrollToBottom, setIsAtBottom]);
+
   const scrollToMessageId = useCallback(
     (messageId: string, opts?: { align?: ScrollLogicalPosition; behavior?: "auto" | "smooth" }) => {
       const node = messageNodeByIdRef.current.get(messageId);
@@ -733,6 +742,7 @@ const ConversationPage: React.FC = () => {
   useEffect(() => {
     if (didInitialScrollRef.current) return;
     if (!hasVisibleMessages) return;
+    if (!scrollerElRef.current) return;
 
     const lastIndex = visibleMessages.length - 1;
     if (lastIndex < 0) return;
@@ -753,7 +763,14 @@ const ConversationPage: React.FC = () => {
       lastSeenLastMessageIdRef.current = visibleMessages[lastIndex]?.message.id ?? null;
       setPendingNewCount(0);
     });
-  }, [conversationId, hasVisibleMessages, scrollToBottom, setIsAtBottom, visibleMessages]);
+  }, [
+    conversationId,
+    hasVisibleMessages,
+    scrollToBottom,
+    scrollerEl,
+    setIsAtBottom,
+    visibleMessages,
+  ]);
   // After sending a message, scroll to the optimistic temp message once it appears.
   // This avoids racing the cache update and eliminates "scroll didn't happen" flakiness.
   useEffect(() => {
@@ -775,6 +792,14 @@ const ConversationPage: React.FC = () => {
   // Auto-follow new messages only when the user is already pinned near the bottom.
   const lastVisibleMessageId =
     visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1]!.message.id : null;
+
+  useEffect(() => {
+    if (!lastVisibleMessageId) return;
+    if (!pendingAutoScrollRef.current) return;
+
+    pendingAutoScrollRef.current = false;
+    scrollToBottom("auto");
+  }, [lastVisibleMessageId, scrollToBottom]);
 
   useEffect(() => {
     if (!lastVisibleMessageId) return;
@@ -1064,6 +1089,8 @@ const ConversationPage: React.FC = () => {
       // Once the user interacts (send), never allow an "initial scroll" effect to reposition them.
       didInitialScrollRef.current = true;
       isJumpingToUnreadRef.current = false;
+
+      pendingAutoScrollRef.current = true;
 
       const tempId = createRandomTempId();
       const clientId = createClientId();
@@ -1578,7 +1605,7 @@ const ConversationPage: React.FC = () => {
             noteLocalInputActivity={noteLocalInputActivity}
             stopTyping={stopTyping}
             onSendText={handleSendText}
-            onRequestScrollToBottom={handleJumpToLatest}
+            onRequestScrollToBottom={requestAutoScrollToBottom}
             isUploadingImage={isUploadingImage}
             cancelImageUpload={cancelImageUpload}
             sendError={Boolean(sendError)}
@@ -1592,6 +1619,7 @@ const ConversationPage: React.FC = () => {
             openCameraPicker={handleCameraClick}
             fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
             onImageSelected={(event) => {
+              requestAutoScrollToBottom();
               handleImageSelected(event);
             }}
             onImageFile={(file) => sendImageFile(file)}
