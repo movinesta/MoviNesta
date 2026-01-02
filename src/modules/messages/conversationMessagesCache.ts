@@ -193,22 +193,37 @@ export const mergeMessagesInfiniteData = (
     existingByParam.set(pageParamKey(param), page);
   }
 
-  const pages: ConversationMessagesPage[] = [];
+  const nextByParam = new Map<string, ConversationMessagesPage>();
   const nextParams = next.pageParams ?? [];
-  const pageCount = Math.max(next.pages.length, nextParams.length);
+  for (const [index, page] of next.pages.entries()) {
+    const param = nextParams[index];
+    nextByParam.set(pageParamKey(param), page);
+  }
 
-  for (let index = 0; index < pageCount; index += 1) {
-    const nextPage = next.pages[index];
-    const paramKey = pageParamKey(nextParams[index]);
-    const existingPage = existingByParam.get(paramKey);
+  const pages: ConversationMessagesPage[] = [];
+  const orderParams = (next.pages.length >= base.pages.length ? nextParams : existingParams) ?? [];
+  const seen = new Set<string>();
 
+  for (const param of orderParams) {
+    const key = pageParamKey(param);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const existingPage = existingByParam.get(key);
+    const nextPage = nextByParam.get(key);
+
+    if (!existingPage && !nextPage) continue;
+    if (!existingPage) {
+      pages.push(nextPage!);
+      continue;
+    }
     if (!nextPage) {
       if (existingPage) pages.push(existingPage);
       continue;
     }
 
     const mergedMap = new Map<string, ConversationMessage>();
-    for (const message of existingPage?.items ?? []) {
+    for (const message of existingPage.items ?? []) {
       mergedMap.set(message.id, message);
     }
     for (const message of nextPage.items ?? []) {
@@ -221,9 +236,23 @@ export const mergeMessagesInfiniteData = (
       ...nextPage,
       items,
       cursor: buildCursor(items),
-      hasMore: nextPage.hasMore ?? existingPage?.hasMore ?? true,
+      hasMore: nextPage.hasMore ?? existingPage.hasMore ?? true,
     });
   }
+
+  const appendMissing = (params: unknown[], map: Map<string, ConversationMessagesPage>) => {
+    for (const param of params) {
+      const key = pageParamKey(param);
+      if (seen.has(key)) continue;
+      const page = map.get(key);
+      if (!page) continue;
+      seen.add(key);
+      pages.push(page);
+    }
+  };
+
+  appendMissing(nextParams, nextByParam);
+  appendMissing(existingParams, existingByParam);
 
   return {
     ...next,
