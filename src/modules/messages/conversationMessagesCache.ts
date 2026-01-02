@@ -22,6 +22,36 @@ export const stableSortMessages = (items: ConversationMessage[]): ConversationMe
   });
 };
 
+const dedupeMessagesByClientId = (items: ConversationMessage[]): ConversationMessage[] => {
+  const byId = new Map<string, ConversationMessage>();
+  for (const message of items) {
+    byId.set(message.id, message);
+  }
+
+  const byClientId = new Map<string, ConversationMessage>();
+  for (const message of byId.values()) {
+    const clientId = message.clientId ?? getMessageClientId(message.body);
+    if (!clientId) continue;
+    const existing = byClientId.get(clientId);
+    if (!existing) {
+      byClientId.set(clientId, message);
+      continue;
+    }
+    if (isTempId(existing.id) && !isTempId(message.id)) {
+      byClientId.set(clientId, message);
+    }
+  }
+
+  const filtered = Array.from(byId.values()).filter((message) => {
+    const clientId = message.clientId ?? getMessageClientId(message.body);
+    if (!clientId) return true;
+    const chosen = byClientId.get(clientId);
+    return !chosen || chosen.id === message.id;
+  });
+
+  return stableSortMessages(filtered);
+};
+
 export const ensureMessagesInfiniteData = (
   existing: MessagesInfiniteData | undefined,
 ): MessagesInfiniteData => {
@@ -58,7 +88,7 @@ export const upsertMessageIntoNewestPage = (
   for (const m of last.items ?? []) map.set(m.id, m);
   map.set(message.id, message);
 
-  last.items = stableSortMessages(Array.from(map.values()));
+  last.items = dedupeMessagesByClientId(Array.from(map.values()));
   return { ...base, pages };
 };
 
@@ -119,7 +149,7 @@ export const reconcileSentMessage = (
     const idx = (page.items ?? []).findIndex((m) => m.id === row.id);
     if (idx >= 0) {
       page.items[idx] = row;
-      page.items = stableSortMessages(page.items);
+      page.items = dedupeMessagesByClientId(page.items);
       replaced = true;
       break;
     }
@@ -128,7 +158,7 @@ export const reconcileSentMessage = (
   // Otherwise append to newest page.
   if (!replaced) {
     const last = pages[pages.length - 1];
-    last.items = stableSortMessages([...(last.items ?? []), row]);
+    last.items = dedupeMessagesByClientId([...(last.items ?? []), row]);
   }
 
   return { ...base, pages };
@@ -161,7 +191,7 @@ export const mergeMessagesInfiniteData = (
       mergedMap.set(message.id, message);
     }
 
-    const items = stableSortMessages(Array.from(mergedMap.values()));
+    const items = dedupeMessagesByClientId(Array.from(mergedMap.values()));
 
     pages.push({
       ...nextPage,
@@ -219,7 +249,7 @@ export const upsertMessageRowIntoPages = (
   // 3) Otherwise, append to the newest page (insert-only behavior).
   if (allowAppend) {
     const last = pages[pages.length - 1];
-    last.items = stableSortMessages([...(last.items ?? []), incomingMsg]);
+    last.items = dedupeMessagesByClientId([...(last.items ?? []), incomingMsg]);
   }
 
   return { ...base, pages };

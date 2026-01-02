@@ -742,6 +742,7 @@ const ConversationPage: React.FC = () => {
   useEffect(() => {
     if (didInitialScrollRef.current) return;
     if (!hasVisibleMessages) return;
+    if (!scrollerElRef.current) return;
 
     const lastIndex = visibleMessages.length - 1;
     if (lastIndex < 0) return;
@@ -762,7 +763,14 @@ const ConversationPage: React.FC = () => {
       lastSeenLastMessageIdRef.current = visibleMessages[lastIndex]?.message.id ?? null;
       setPendingNewCount(0);
     });
-  }, [conversationId, hasVisibleMessages, scrollToBottom, setIsAtBottom, visibleMessages]);
+  }, [
+    conversationId,
+    hasVisibleMessages,
+    scrollToBottom,
+    scrollerEl,
+    setIsAtBottom,
+    visibleMessages,
+  ]);
   // After sending a message, scroll to the optimistic temp message once it appears.
   // This avoids racing the cache update and eliminates "scroll didn't happen" flakiness.
   useEffect(() => {
