@@ -95,11 +95,21 @@ export const reconcileSentMessage = (
 
   const tempId = args.tempId ?? null;
   const row = args.row;
+  const rowClientId = row.clientId ?? getMessageClientId(row.body);
 
   // Remove any optimistic temp message (typically only exists on the newest page).
   if (tempId) {
     for (const page of pages) {
       page.items = (page.items ?? []).filter((m) => m.id !== tempId);
+    }
+  }
+
+  // Also remove any temp message that matches the server client id.
+  if (rowClientId) {
+    for (const page of pages) {
+      page.items = (page.items ?? []).filter(
+        (m) => !(isTempId(m.id) && getMessageClientId(m.body) === rowClientId),
+      );
     }
   }
 
@@ -178,7 +188,7 @@ export const upsertMessageRowIntoPages = (
 ): MessagesInfiniteData => {
   const allowAppend = options?.allowAppend ?? true;
   const incomingMsg = mapMessageRowToConversationMessage(row);
-  const clientId = getMessageClientId(incomingMsg.body);
+  const clientId = incomingMsg.clientId ?? getMessageClientId(incomingMsg.body);
 
   const base = ensureMessagesInfiniteData(existing);
   const pages = cloneMessagesPages(base);
