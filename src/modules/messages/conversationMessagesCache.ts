@@ -225,6 +225,7 @@ export const mergeMessagesInfiniteData = (
   }
 
   const pages: ConversationMessagesPage[] = [];
+  const pageParams: unknown[] = [];
   const orderParams = (next.pages.length >= base.pages.length ? nextParams : existingParams) ?? [];
   const seen = new Set<string>();
 
@@ -239,10 +240,14 @@ export const mergeMessagesInfiniteData = (
     if (!existingPage && !nextPage) continue;
     if (!existingPage) {
       pages.push(nextPage!);
+      pageParams.push(param);
       continue;
     }
     if (!nextPage) {
-      if (existingPage) pages.push(existingPage);
+      if (existingPage) {
+        pages.push(existingPage);
+        pageParams.push(param);
+      }
       continue;
     }
 
@@ -262,6 +267,7 @@ export const mergeMessagesInfiniteData = (
       cursor: buildCursor(items),
       hasMore: nextPage.hasMore ?? existingPage.hasMore ?? true,
     });
+    pageParams.push(param);
   }
 
   const appendMissing = (params: unknown[], map: Map<string, ConversationMessagesPage>) => {
@@ -272,6 +278,7 @@ export const mergeMessagesInfiniteData = (
       if (!page) continue;
       seen.add(key);
       pages.push(page);
+      pageParams.push(param);
     }
   };
 
@@ -281,7 +288,7 @@ export const mergeMessagesInfiniteData = (
   return {
     ...next,
     pages: pages.length > 0 ? pages : [{ items: [], hasMore: true, cursor: null }],
-    pageParams: next.pageParams.length > 0 ? next.pageParams : base.pageParams,
+    pageParams: pageParams.length > 0 ? pageParams : next.pageParams ?? base.pageParams,
   };
 };
 
