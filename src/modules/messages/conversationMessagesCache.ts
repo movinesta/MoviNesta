@@ -60,15 +60,18 @@ const dedupeMessagesByClientId = (items: ConversationMessage[]): ConversationMes
       continue;
     }
 
-    const newest = group.reduce((best, message) => {
-      if (!best) return message;
-      const bestTime = safeTime(best.createdAt);
-      const messageTime = safeTime(message.createdAt);
-      if (messageTime !== bestTime) {
-        return messageTime > bestTime ? message : best;
-      }
-      return message.id.localeCompare(best.id) > 0 ? message : best;
-    }, null as ConversationMessage | null);
+    const newest = group.reduce(
+      (best, message) => {
+        if (!best) return message;
+        const bestTime = safeTime(best.createdAt);
+        const messageTime = safeTime(message.createdAt);
+        if (messageTime !== bestTime) {
+          return messageTime > bestTime ? message : best;
+        }
+        return message.id.localeCompare(best.id) > 0 ? message : best;
+      },
+      null as ConversationMessage | null,
+    );
 
     if (newest) filtered.push(newest);
   }
@@ -288,7 +291,7 @@ export const mergeMessagesInfiniteData = (
   return {
     ...next,
     pages: pages.length > 0 ? pages : [{ items: [], hasMore: true, cursor: null }],
-    pageParams: pageParams.length > 0 ? pageParams : next.pageParams ?? base.pageParams,
+    pageParams: pageParams.length > 0 ? pageParams : (next.pageParams ?? base.pageParams),
   };
 };
 
