@@ -1219,7 +1219,7 @@ const ConversationPage: React.FC = () => {
       <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
         <div
           ref={headerRef}
-          className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md"
+          className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md"
         >
           <header className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">

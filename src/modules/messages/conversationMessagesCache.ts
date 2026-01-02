@@ -33,6 +33,11 @@ export const ensureMessagesInfiniteData = (
   return existing;
 };
 
+const buildCursor = (items: ConversationMessage[]): ConversationMessagesPage["cursor"] => {
+  if (!items.length) return null;
+  return { createdAt: items[0].createdAt, id: items[0].id };
+};
+
 const cloneMessagesPages = (data: MessagesInfiniteData): ConversationMessagesPage[] => {
   const pages = (data.pages ?? []).map((page) => ({
     ...page,
@@ -117,6 +122,50 @@ export const reconcileSentMessage = (
   }
 
   return { ...base, pages };
+};
+
+export const mergeMessagesInfiniteData = (
+  existing: MessagesInfiniteData | undefined,
+  incoming: MessagesInfiniteData | undefined,
+): MessagesInfiniteData => {
+  const base = ensureMessagesInfiniteData(existing);
+  const next = ensureMessagesInfiniteData(incoming);
+
+  const pages: ConversationMessagesPage[] = [];
+  const pageCount = Math.max(base.pages.length, next.pages.length);
+
+  for (let index = 0; index < pageCount; index += 1) {
+    const existingPage = base.pages[index];
+    const nextPage = next.pages[index];
+
+    if (!nextPage) {
+      pages.push(existingPage);
+      continue;
+    }
+
+    const mergedMap = new Map<string, ConversationMessage>();
+    for (const message of existingPage?.items ?? []) {
+      mergedMap.set(message.id, message);
+    }
+    for (const message of nextPage.items ?? []) {
+      mergedMap.set(message.id, message);
+    }
+
+    const items = stableSortMessages(Array.from(mergedMap.values()));
+
+    pages.push({
+      ...nextPage,
+      items,
+      cursor: buildCursor(items),
+      hasMore: nextPage.hasMore ?? existingPage?.hasMore ?? true,
+    });
+  }
+
+  return {
+    ...next,
+    pages: pages.length > 0 ? pages : [{ items: [], hasMore: true, cursor: null }],
+    pageParams: next.pageParams.length > 0 ? next.pageParams : base.pageParams,
+  };
 };
 
 /**

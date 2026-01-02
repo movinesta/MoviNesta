@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
@@ -10,7 +10,11 @@ import {
 import { conversationMessagesQueryKey } from "./queryKeys";
 import { useConversationRealtimeSubscription } from "./useConversationRealtimeSubscription";
 import { useRealtimeQueryFallbackOptions } from "./useRealtimeQueryFallbackOptions";
-import { stableSortMessages, upsertMessageRowIntoPages } from "./conversationMessagesCache";
+import {
+  mergeMessagesInfiniteData,
+  stableSortMessages,
+  upsertMessageRowIntoPages,
+} from "./conversationMessagesCache";
 import { getRealtimeNewRow, getStringField, hasConversationId } from "./realtimeGuards";
 import { REALTIME_STALE_TIME_MS } from "./realtimeQueryDefaults";
 import { MESSAGE_SELECT } from "./messageSelect";
@@ -59,7 +63,6 @@ export const useConversationMessages = (
     onUpdate?: (message: ConversationMessage) => void;
   },
 ) => {
-  const queryClient = useQueryClient();
   const queryKey = useMemo(() => conversationMessagesQueryKey(conversationId), [conversationId]);
 
   // Virtuoso anchor: start from a high index (>= 0) and decrement as we prepend older pages,
@@ -116,6 +119,7 @@ export const useConversationMessages = (
       if (!firstPage.hasMore) return undefined;
       return firstPage.cursor ?? undefined;
     },
+    structuralSharing: (oldData, newData) => mergeMessagesInfiniteData(oldData, newData),
   });
 
   // Update Virtuoso anchoring when a previous page is prepended.
@@ -181,7 +185,7 @@ export const useConversationMessages = (
         handleMessageUpsert(payload, "update");
       },
     };
-  }, [conversationId, onRealtimeStatus, queryClient, queryKey]);
+  }, [conversationId, onRealtimeStatus, queryKey]);
 
   useConversationRealtimeSubscription(conversationId, createMessageRealtimeHandlers, []);
 
