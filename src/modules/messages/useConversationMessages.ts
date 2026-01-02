@@ -10,7 +10,11 @@ import {
 import { conversationMessagesQueryKey } from "./queryKeys";
 import { useConversationRealtimeSubscription } from "./useConversationRealtimeSubscription";
 import { useRealtimeQueryFallbackOptions } from "./useRealtimeQueryFallbackOptions";
-import { stableSortMessages, upsertMessageRowIntoPages } from "./conversationMessagesCache";
+import {
+  mergeMessagesInfiniteData,
+  stableSortMessages,
+  upsertMessageRowIntoPages,
+} from "./conversationMessagesCache";
 import { getRealtimeNewRow, getStringField, hasConversationId } from "./realtimeGuards";
 import { REALTIME_STALE_TIME_MS } from "./realtimeQueryDefaults";
 import { MESSAGE_SELECT } from "./messageSelect";
@@ -115,6 +119,11 @@ export const useConversationMessages = (
     getPreviousPageParam: (firstPage) => {
       if (!firstPage.hasMore) return undefined;
       return firstPage.cursor ?? undefined;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData<InfiniteData<ConversationMessagesPage>>(queryKey, (existing) =>
+        mergeMessagesInfiniteData(existing, data),
+      );
     },
   });
 
