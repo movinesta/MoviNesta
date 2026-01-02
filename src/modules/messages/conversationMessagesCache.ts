@@ -37,7 +37,27 @@ const dedupeMessagesByClientId = (items: ConversationMessage[]): ConversationMes
       byClientId.set(clientId, message);
       continue;
     }
-    if (isTempId(existing.id) && !isTempId(message.id)) {
+
+    const existingIsTemp = isTempId(existing.id);
+    const messageIsTemp = isTempId(message.id);
+    if (existingIsTemp && !messageIsTemp) {
+      byClientId.set(clientId, message);
+      continue;
+    }
+    if (!existingIsTemp && messageIsTemp) {
+      continue;
+    }
+
+    const existingTime = safeTime(existing.createdAt);
+    const messageTime = safeTime(message.createdAt);
+    if (messageTime !== existingTime) {
+      if (messageTime > existingTime) {
+        byClientId.set(clientId, message);
+      }
+      continue;
+    }
+
+    if (message.id.localeCompare(existing.id) > 0) {
       byClientId.set(clientId, message);
     }
   }
