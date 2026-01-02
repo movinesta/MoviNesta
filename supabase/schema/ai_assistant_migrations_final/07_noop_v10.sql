@@ -1,0 +1,3 @@
+-- MoviNesta AI Assistant v10
+-- No database schema changes in this version.
+-- (v10 is a code-only update: evidence enforcement + evidence UI.)
