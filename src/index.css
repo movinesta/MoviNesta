@@ -1,0 +1,143 @@
+@import url("https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,200..700,0..1,-50..200");
+@import "tailwindcss";
+@config "../tailwind.config.cjs";
+
+:root {
+  font-family:
+    "Spline Sans",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/*
+  Tailwind v4 config in this repo doesn't enable @tailwindcss/line-clamp.
+  Swipe UI relies heavily on clamping to prevent text overlap.
+  Provide lightweight clamp utilities so long copy never collides.
+*/
+.line-clamp-1,
+.line-clamp-2,
+.line-clamp-3,
+.line-clamp-4,
+.line-clamp-5,
+.line-clamp-6 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-1 {
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+  -webkit-line-clamp: 3;
+}
+
+.line-clamp-4 {
+  -webkit-line-clamp: 4;
+}
+
+.line-clamp-5 {
+  -webkit-line-clamp: 5;
+}
+
+.line-clamp-6 {
+  -webkit-line-clamp: 6;
+}
+
+@media (min-width: 640px) {
+  .sm\:line-clamp-1 {
+    -webkit-line-clamp: 1;
+  }
+  .sm\:line-clamp-2 {
+    -webkit-line-clamp: 2;
+  }
+  .sm\:line-clamp-3 {
+    -webkit-line-clamp: 3;
+  }
+  .sm\:line-clamp-4 {
+    -webkit-line-clamp: 4;
+  }
+  .sm\:line-clamp-5 {
+    -webkit-line-clamp: 5;
+  }
+  .sm\:line-clamp-6 {
+    -webkit-line-clamp: 6;
+  }
+}
+
+@media (min-width: 768px) {
+  .md\:line-clamp-1 {
+    -webkit-line-clamp: 1;
+  }
+  .md\:line-clamp-2 {
+    -webkit-line-clamp: 2;
+  }
+  .md\:line-clamp-3 {
+    -webkit-line-clamp: 3;
+  }
+  .md\:line-clamp-4 {
+    -webkit-line-clamp: 4;
+  }
+  .md\:line-clamp-5 {
+    -webkit-line-clamp: 5;
+  }
+  .md\:line-clamp-6 {
+    -webkit-line-clamp: 6;
+  }
+}
+
+/* Material Symbols (Swipe v2) */
+.material-symbols-rounded {
+  font-variation-settings: "FILL" 0, "wght" 520, "GRAD" 0, "opsz" 24;
+  line-height: 1;
+  display: inline-block;
+}
+
+.material-symbols-rounded.is-filled {
+  font-variation-settings: "FILL" 1, "wght" 520, "GRAD" 0, "opsz" 24;
+}
+
+/* Hide scrollbars for chat panes and horizontal scrollers */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Fix chat layout issues with the Virtuoso viewport being absolutely positioned */
+.conversation-page [data-viewport-type="element"] {
+  position: relative !important;
+  top: auto !important;
+}
+
+/* Ensure the message list starts at the top when aligned to the bottom */
+.conversation-page [data-viewport-type="element"] [data-testid="virtuoso-item-list"] {
+  margin-top: 0 !important;
+}
+
+/* Hide scrollbars for horizontal scrollers (Home v2). */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
