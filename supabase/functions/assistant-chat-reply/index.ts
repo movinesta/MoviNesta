@@ -714,7 +714,11 @@ async function handler(req: Request) {
         }
 
         // Unknown agent type -> fallback
-        finalReplyText = sanitizeReply(completion.content);
+        if (agent && typeof (agent as any).text === "string") {
+          finalReplyText = sanitizeReply((agent as any).text);
+        } else {
+          finalReplyText = sanitizeReply(completion.content);
+        }
         break;
       }
     }
@@ -1775,7 +1779,19 @@ function mapDbMessageToOpenRouter(
 }
 
 function sanitizeReply(text: string) {
-  const t = String(text ?? "").trim();
+  let t = String(text ?? "").trim();
+
+  // Fix: The model sometimes hallucinates a "text:" label or key-value format.
+  // We strip it to ensure clean output for the user.
+  // Matches text:, "text":, 'text':
+  if (/^["']?text["']?\s*:/i.test(t)) {
+    t = t.replace(/^["']?text["']?\s*:\s*/i, "");
+    // If it was wrapped in quotes after the label, strip them too.
+    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+      t = t.slice(1, -1);
+    }
+  }
+
   // Basic protection against accidental gigantic outputs.
   return t.length > 4000 ? t.slice(0, 4000).trim() : t;
 }

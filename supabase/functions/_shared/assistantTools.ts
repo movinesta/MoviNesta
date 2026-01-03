@@ -1815,14 +1815,23 @@ export async function toolListAddItem(supabase: any, userId: string, args: any) 
 }
 
 export async function toolDiarySetStatus(supabase: any, userId: string, args: any) {
+  console.log("[toolDiarySetStatus] Called", { userId, args });
   const titleId = coerceString(args?.titleId);
   const status = coerceString(args?.status);
   const contentTypeRaw = typeof args?.contentType === "string" ? args.contentType : null;
   if (!titleId) throw new Error("Missing titleId");
   if (!status) throw new Error("Missing status");
-  const contentType = await resolveContentType(supabase, titleId, contentTypeRaw);
 
-  const { error } = await supabase.from("library_entries").upsert(
+  let contentType: string;
+  try {
+    contentType = await resolveContentType(supabase, titleId, contentTypeRaw);
+    console.log("[toolDiarySetStatus] Resolved contentType:", contentType);
+  } catch (err) {
+    console.error("[toolDiarySetStatus] resolveContentType failed:", err);
+    throw err;
+  }
+
+  const { data, error } = await supabase.from("library_entries").upsert(
     {
       user_id: userId,
       title_id: titleId,
@@ -1831,9 +1840,23 @@ export async function toolDiarySetStatus(supabase: any, userId: string, args: an
       content_type: contentType,
     },
     { onConflict: "user_id,title_id" },
-  );
-  if (error) throw new Error(error.message);
-  return { titleId, status };
+  ).select(); // Add select to see returned data
+
+  if (error) {
+    console.error("[toolDiarySetStatus] Upsert Error:", error);
+    // Return error in result instead of throwing to see it in trace
+    return { titleId, status, error: error.message, _debug: { error } };
+  }
+
+  if (!data || (Array.isArray(data) && data.length === 0)) {
+    console.error("[toolDiarySetStatus] Upsert returned NO DATA. RLS likely blocking return.");
+    // We still return success but note the warning. 
+    // Actually, if we can't verify the write, we should probably treat it as suspicious.
+    return { titleId, status, warning: "Silent Write (RLS?)", _debug: { data: null } };
+  }
+
+  console.log("[toolDiarySetStatus] Success. Data:", data);
+  return { titleId, status, _debug: { data } };
 }
 
 export async function toolMessageSend(supabase: any, userId: string, args: any) {
