@@ -1,0 +1,1 @@
+import{j as o}from"./index-DB3o-sVP.js";import{C as t}from"./ConnectionsPage-Bqrlm4iE.js";import"./index-CXX5Bf1D.js";import"./TopBar-BFA8vJ6G.js";import"./arrow-left-DMr8JisO.js";import"./useToggleFollow-B3MXeXBz.js";import"./user-plus-C5gg8qst.js";const a=()=>o.jsx(t,{mode:"following"});export{a as default};
