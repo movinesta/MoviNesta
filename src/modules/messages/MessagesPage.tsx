@@ -246,13 +246,16 @@ const MessagesPage: React.FC = () => {
   const [query, setQuery] = useState("");
   const [showHidden, setShowHidden] = useState(false);
 
-  const isAssistantConversation = useCallback((conv: ConversationListItem) => {
-    if (assistantCache?.conversationId && conv.id === assistantCache.conversationId) return true;
+  const isAssistantConversation = useCallback(
+    (conv: ConversationListItem) => {
+      if (assistantCache?.conversationId && conv.id === assistantCache.conversationId) return true;
 
-    return conv.participants.some(
-      (p) => !p.isSelf && p.username?.toLowerCase() === ASSISTANT_USERNAME,
-    );
-  }, [assistantCache?.conversationId]);
+      return conv.participants.some(
+        (p) => !p.isSelf && p.username?.toLowerCase() === ASSISTANT_USERNAME,
+      );
+    },
+    [assistantCache?.conversationId],
+  );
 
   const assistantConversation = useMemo(
     () => (data ?? []).find((c) => isAssistantConversation(c)) ?? null,

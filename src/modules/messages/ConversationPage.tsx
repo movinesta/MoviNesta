@@ -274,7 +274,9 @@ const ConversationPage: React.FC = () => {
 
   const isAssistantThread = useMemo(() => {
     // Strongest signal: conversationId matches the cached assistant DM.
-    if (assistantCache?.conversationId && conversationId === assistantCache.conversationId) return true;
+    if (assistantCache?.conversationId && conversationId === assistantCache.conversationId) {
+      return true;
+    }
 
     // Fallback heuristics for first-run (no cache yet).
     const p = otherParticipant;
@@ -343,7 +345,6 @@ const ConversationPage: React.FC = () => {
     },
     [conversationId, currentUserId, queryClient],
   );
-
 
   const handleAssistantAction = useCallback(
     async (messageId: string, actionId: string) => {
@@ -1638,9 +1639,15 @@ const ConversationPage: React.FC = () => {
             <div className="px-4 pb-2">
               <div className="flex items-center justify-between gap-2 rounded-xl border bg-background/95 p-2 shadow-sm">
                 <div className="flex items-start gap-2">
-                  <MaterialIcon name="error" className="mt-0.5 text-destructive" ariaLabel="Error" />
+                  <MaterialIcon
+                    name="error"
+                    className="mt-0.5 text-destructive"
+                    ariaLabel="Error"
+                  />
                   <div>
-                    <div className="text-xs font-semibold leading-snug">Assistant didn't reply</div>
+                    <div className="text-xs font-semibold leading-snug">
+                      Assistant didn&apos;t reply
+                    </div>
                     <div className="text-[11px] text-muted-foreground leading-snug">
                       {assistantReplyFailed.error}
                     </div>
