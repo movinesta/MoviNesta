@@ -93,8 +93,8 @@ const TOOL_NAMES = [
   "goal_end",
 ] as const;
 
-export 
-function safeYearFromDate(d: any): string {
+export
+  function safeYearFromDate(d: any): string {
   const s = typeof d === "string" ? d : "";
   const m = s.match(/^(\d{4})/);
   return m ? m[1] : "";
@@ -188,10 +188,10 @@ function overrideStrictOutput(latestUserText: string, toolTrace: any[], fallback
       const mediaRaw: any = lastDbRead?.media ?? {};
       const media: Record<string, any> = Array.isArray(mediaRaw)
         ? Object.fromEntries(
-            (mediaRaw as any[])
-              .filter((x: any) => x?.id)
-              .map((x: any) => [String(x.id), x]),
-          )
+          (mediaRaw as any[])
+            .filter((x: any) => x?.id)
+            .map((x: any) => [String(x.id), x]),
+        )
         : (mediaRaw ?? {});
       const lines = rows.slice(0, 5).map((r: any) => {
         const titleId = String(r?.title_id ?? r?.titleId ?? "").trim();
@@ -376,18 +376,18 @@ async function handler(req: Request) {
       const mini: Array<[number, string, string | null, string]> = [];
       for (const tcall of prefetchCalls) {
         try {
-          const r = await executeAssistantTool(supabaseAuth, myUserId, tcall);
+          const r = await executeAssistantTool(svc, myUserId, tcall);
           toolTrace.push({ call: tcall, result: r });
 
           const handleId = anchorMessageId
-            ? await tryLogToolResult(supabaseAuth, {
-                userId: myUserId,
-                conversationId,
-                messageId: anchorMessageId,
-                tool: tcall.tool,
-                args: tcall.args ?? null,
-                result: (r as any)?.result ?? r,
-              })
+            ? await tryLogToolResult(svc, {
+              userId: myUserId,
+              conversationId,
+              messageId: anchorMessageId,
+              tool: tcall.tool,
+              args: tcall.args ?? null,
+              result: (r as any)?.result ?? r,
+            })
             : null;
           if (handleId) evidenceHandles.push(handleId);
 
@@ -470,81 +470,81 @@ async function handler(req: Request) {
       });
 
 
-// Deterministic router for smoke-test style commands.
-// This avoids depending on the LLM for simple DB-backed actions (lists, watchlist, catalog search),
-// and makes the assistant reliable even if the AI provider is down.
-const routerAnchorMessageId =
-  payload.userMessageId ??
-  findLatestUserMessageId(chronological, myUserId) ??
-  null;
+    // Deterministic router for smoke-test style commands.
+    // This avoids depending on the LLM for simple DB-backed actions (lists, watchlist, catalog search),
+    // and makes the assistant reliable even if the AI provider is down.
+    const routerAnchorMessageId =
+      payload.userMessageId ??
+      findLatestUserMessageId(chronological, myUserId) ??
+      null;
 
-const routed = await maybeDeterministicReply({
-  supabaseAuth,
-  userId: myUserId,
-  conversationId,
-  anchorMessageId: routerAnchorMessageId,
-  text: latestUserText,
-  chronological,
-  toolTrace,
-  evidenceHandles,
-});
+    const routed = await maybeDeterministicReply({
+      supabaseAuth: svc,
+      userId: myUserId,
+      conversationId,
+      anchorMessageId: routerAnchorMessageId,
+      text: latestUserText,
+      chronological,
+      toolTrace,
+      evidenceHandles,
+    });
 
-if (routed) {
-  finalReplyText = routed.replyText;
-  finalModel = "server_router";
-  if (!navigateTo && routed.navigateTo) navigateTo = routed.navigateTo;
-} else {
-    for (let loop = 0; loop < MAX_TOOL_LOOPS; loop++) {
-      let completion: any;
-      try {
-        completion = await openrouterChatWithFallback({
-          models,
-          messages: orMessages,
-          // Token saver: smaller default generation budget.
-          max_tokens: 320,
-          temperature: 0.6,
-          top_p: 1,
-          response_format: responseFormat,
-          plugins,
-        });
-      } catch (e: any) {
-        const msg = e instanceof Error ? e.message : String(e ?? "OpenRouter error");
-        log(logCtx, "OpenRouter call failed", { error: msg, status: (e as any)?.status, data: (e as any)?.data });
-        finalReplyText =
-          "I couldn’t reach the AI provider right now. Please try again in a moment (or check your OpenRouter API key / model settings).";
-        break;
-      }
+    if (routed) {
+      finalReplyText = routed.replyText;
+      finalModel = "server_router";
+      if (!navigateTo && routed.navigateTo) navigateTo = routed.navigateTo;
+    } else {
+      for (let loop = 0; loop < MAX_TOOL_LOOPS; loop++) {
+        let completion: any;
+        try {
+          completion = await openrouterChatWithFallback({
+            models,
+            messages: orMessages,
+            // Token saver: smaller default generation budget.
+            max_tokens: 320,
+            temperature: 0.6,
+            top_p: 1,
+            response_format: responseFormat,
+            plugins,
+          });
+        } catch (e: any) {
+          const msg = e instanceof Error ? e.message : String(e ?? "OpenRouter error");
+          log(logCtx, "OpenRouter call failed", { error: msg, status: (e as any)?.status, data: (e as any)?.data });
+          finalReplyText =
+            "I couldn’t reach the AI provider right now. Please try again in a moment (or check your OpenRouter API key / model settings).";
+          break;
+        }
 
-      finalModel = completion.model ?? null;
-      finalUsage = completion.usage ?? null;
+        finalModel = completion.model ?? null;
+        finalUsage = completion.usage ?? null;
 
-      const agent = parseAgentJson(completion.content);
+        const agent = parseAgentJson(completion.content);
 
-      // If the model didn't comply, treat it as final text.
-      if (!agent) {
-        finalReplyText = sanitizeReply(completion.content);
-        break;
-      }
+        // If the model didn't comply, treat it as final text.
+        if (!agent) {
+          finalReplyText = sanitizeReply(completion.content);
+          break;
+        }
 
-      if (agent.type === "final") {
-        // Server-side guard: if the user is asking about *their* data and we don't have
-        // any grounding read yet, force a minimal snapshot once, then let the model answer.
-        if (!forcedEvidenceOnce && needsEvidence(latestUserText) && !hasGroundingEvidence()) {
-          forcedEvidenceOnce = true;
+        if (agent.type === "final") {
+          // Server-side guard: if the user is asking about *their* data and we don't have
+          // any grounding read yet, force a minimal snapshot once, then let the model answer.
+          if (!forcedEvidenceOnce && needsEvidence(latestUserText) && !hasGroundingEvidence()) {
+            forcedEvidenceOnce = true;
 
-          const anchorMessageId =
-            payload.userMessageId ??
-            findLatestUserMessageId(chronological, myUserId) ??
-            null;
+            const anchorMessageId =
+              payload.userMessageId ??
+              findLatestUserMessageId(chronological, myUserId) ??
+              null;
 
-          const mini: Array<[number, string, string | null, string]> = [];
-          try {
-            const tcall: AssistantToolCall = { tool: "get_ctx_snapshot" as any, args: { limit: 10 } };
-            const r = await executeAssistantTool(supabaseAuth, myUserId, tcall);
-            toolTrace.push({ call: tcall, result: r });
+            const mini: Array<[number, string, string | null, string]> = [];
+            try {
+              const tcall: AssistantToolCall = { tool: "get_ctx_snapshot" as any, args: { limit: 10 } };
+              const r = await executeAssistantTool(svc, myUserId, tcall);
+              toolTrace.push({ call: tcall, result: r });
 
-            const handleId = anchorMessageId
-              ? await tryLogToolResult(supabaseAuth, {
+              const handleId = anchorMessageId
+                ? await tryLogToolResult(svc, {
                   userId: myUserId,
                   conversationId,
                   messageId: anchorMessageId,
@@ -552,74 +552,74 @@ if (routed) {
                   args: tcall.args ?? null,
                   result: (r as any)?.result ?? r,
                 })
-              : null;
-            if (handleId) evidenceHandles.push(handleId);
-            mini.push([
-              1,
-              String(tcall.tool),
-              summarizeToolResult(String(tcall.tool), (r as any)?.result ?? r),
-            ]);
-          } catch (e: any) {
-            const msg = e instanceof Error ? e.message : String(e ?? "Prefetch failed");
-            mini.push([0, "get_ctx_snapshot", msg.slice(0, 160)]);
-          }
-
-          orMessages.push({ role: "user", content: `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}` });
-          continue;
-        }
-        finalReplyText = sanitizeReply(agent.text ?? "");
-        finalUi = (agent as any).ui ?? null;
-        finalActions = Array.isArray((agent as any).actions) ? ((agent as any).actions as any[]) : null;
-        break;
-      }
-
-      if (agent.type === "tool") {
-        const calls = Array.isArray(agent.calls) ? agent.calls : [];
-        const limited = calls.slice(0, MAX_TOOL_CALLS_PER_LOOP);
-
-        const results: any[] = [];
-        const mini: Array<[number, string, string | null, string]> = [];
-
-        // Anchor tool logs to the triggering user message if possible.
-        const anchorMessageId =
-          payload.userMessageId ??
-          findLatestUserMessageId(chronological, myUserId) ??
-          null;
-        for (const call of limited) {
-          try {
-            const tcall: AssistantToolCall = {
-              tool: call?.tool,
-              args: call?.args && typeof call.args === "object" ? call.args : undefined,
-            } as any;
-
-            // "Never guess" enforcement:
-            // If a write tool is missing required IDs, we run a resolver tool first.
-            // We only proceed with the write if confidence is high; otherwise we return
-            // resolver results so the model can ask the user to pick.
-            const prepared = await maybePrepareToolCall({
-              supabaseAuth,
-              userId: myUserId,
-              conversationId,
-              anchorMessageId,
-              call: tcall,
-              evidenceHandles,
-              toolTrace,
-              mini,
-            });
-
-            if (!prepared) {
-              // Resolver ran but could not disambiguate; skip executing the write.
-              continue;
+                : null;
+              if (handleId) evidenceHandles.push(handleId);
+              mini.push([
+                1,
+                String(tcall.tool),
+                summarizeToolResult(String(tcall.tool), (r as any)?.result ?? r),
+              ]);
+            } catch (e: any) {
+              const msg = e instanceof Error ? e.message : String(e ?? "Prefetch failed");
+              mini.push([0, "get_ctx_snapshot", msg.slice(0, 160)]);
             }
 
-            const finalCall = prepared;
+            orMessages.push({ role: "user", content: `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}` });
+            continue;
+          }
+          finalReplyText = sanitizeReply(agent.text ?? "");
+          finalUi = (agent as any).ui ?? null;
+          finalActions = Array.isArray((agent as any).actions) ? ((agent as any).actions as any[]) : null;
+          break;
+        }
 
-            const r = await executeAssistantTool(supabaseAuth, myUserId, finalCall);
-            results.push(r);
-            toolTrace.push({ call: finalCall, result: r });
+        if (agent.type === "tool") {
+          const calls = Array.isArray(agent.calls) ? agent.calls : [];
+          const limited = calls.slice(0, MAX_TOOL_CALLS_PER_LOOP);
 
-            const handleId = anchorMessageId
-              ? await tryLogToolResult(supabaseAuth, {
+          const results: any[] = [];
+          const mini: Array<[number, string, string | null, string]> = [];
+
+          // Anchor tool logs to the triggering user message if possible.
+          const anchorMessageId =
+            payload.userMessageId ??
+            findLatestUserMessageId(chronological, myUserId) ??
+            null;
+          for (const call of limited) {
+            try {
+              const tcall: AssistantToolCall = {
+                tool: call?.tool,
+                args: call?.args && typeof call.args === "object" ? call.args : undefined,
+              } as any;
+
+              // "Never guess" enforcement:
+              // If a write tool is missing required IDs, we run a resolver tool first.
+              // We only proceed with the write if confidence is high; otherwise we return
+              // resolver results so the model can ask the user to pick.
+              const prepared = await maybePrepareToolCall({
+                supabaseAuth: svc,
+                userId: myUserId,
+                conversationId,
+                anchorMessageId,
+                call: tcall,
+                evidenceHandles,
+                toolTrace,
+                mini,
+              });
+
+              if (!prepared) {
+                // Resolver ran but could not disambiguate; skip executing the write.
+                continue;
+              }
+
+              const finalCall = prepared;
+
+              const r = await executeAssistantTool(svc, myUserId, finalCall);
+              results.push(r);
+              toolTrace.push({ call: finalCall, result: r });
+
+              const handleId = anchorMessageId
+                ? await tryLogToolResult(svc, {
                   userId: myUserId,
                   conversationId,
                   messageId: anchorMessageId,
@@ -627,30 +627,30 @@ if (routed) {
                   args: finalCall.args ?? null,
                   result: (r as any)?.result ?? r,
                 })
-              : null;
-          if (handleId) evidenceHandles.push(handleId);
+                : null;
+              if (handleId) evidenceHandles.push(handleId);
 
-            mini.push([
-              (r as any)?.ok ? 1 : 0,
-              String(finalCall.tool),
-              summarizeToolResult(String(finalCall.tool), (r as any)?.result ?? r),
-            ]);
+              mini.push([
+                (r as any)?.ok ? 1 : 0,
+                String(finalCall.tool),
+                summarizeToolResult(String(finalCall.tool), (r as any)?.result ?? r),
+              ]);
 
-            if (!navigateTo && (r as any)?.navigateTo) navigateTo = String((r as any).navigateTo);
+              if (!navigateTo && (r as any)?.navigateTo) navigateTo = String((r as any).navigateTo);
 
-            // Cheap read-back verification for key write tools (reduces hallucinations).
-            const verify = await maybeVerifyAfterWrite({
-              supabaseAuth,
-              userId: myUserId,
-              conversationId,
-              anchorMessageId,
-              call: finalCall,
-              writeResult: (r as any)?.result ?? r,
-            });
-            if (verify) {
-              toolTrace.push({ call: verify.call, result: verify.result });
-              const vHandleId = anchorMessageId
-                ? await tryLogToolResult(supabaseAuth, {
+              // Cheap read-back verification for key write tools (reduces hallucinations).
+              const verify = await maybeVerifyAfterWrite({
+                supabaseAuth: svc,
+                userId: myUserId,
+                conversationId,
+                anchorMessageId,
+                call: finalCall,
+                writeResult: (r as any)?.result ?? r,
+              });
+              if (verify) {
+                toolTrace.push({ call: verify.call, result: verify.result });
+                const vHandleId = anchorMessageId
+                  ? await tryLogToolResult(svc, {
                     userId: myUserId,
                     conversationId,
                     messageId: anchorMessageId,
@@ -658,54 +658,54 @@ if (routed) {
                     args: verify.call.args ?? null,
                     result: (verify.result as any)?.result ?? verify.result,
                   })
-                : null;
-              if (vHandleId) evidenceHandles.push(vHandleId);
-              mini.push([
-                1,
-                String(verify.call.tool),
-                summarizeToolResult(String(verify.call.tool), (verify.result as any)?.result ?? verify.result),
-              ]);
-            }
-          } catch (e: any) {
-            const errMsg = e instanceof Error ? e.message : String(e ?? "Tool failed");
-            const toolName = typeof call?.tool === "string" ? call.tool : "unknown";
-            const errRes = { ok: false, tool: toolName, error: errMsg };
-            results.push(errRes);
-            toolTrace.push({
-              call: { tool: toolName as any, args: (call as any)?.args },
-              result: errRes,
-            });
+                  : null;
+                if (vHandleId) evidenceHandles.push(vHandleId);
+                mini.push([
+                  1,
+                  String(verify.call.tool),
+                  summarizeToolResult(String(verify.call.tool), (verify.result as any)?.result ?? verify.result),
+                ]);
+              }
+            } catch (e: any) {
+              const errMsg = e instanceof Error ? e.message : String(e ?? "Tool failed");
+              const toolName = typeof call?.tool === "string" ? call.tool : "unknown";
+              const errRes = { ok: false, tool: toolName, error: errMsg };
+              results.push(errRes);
+              toolTrace.push({
+                call: { tool: toolName as any, args: (call as any)?.args },
+                result: errRes,
+              });
 
-            mini.push([0, toolName, errMsg.slice(0, 160)]);
+              mini.push([0, toolName, errMsg.slice(0, 160)]);
+            }
           }
+
+          // Token saver: feed back compact agent JSON (not the whole completion content).
+          orMessages.push({
+            role: "assistant",
+            content: JSON.stringify(agent).slice(0, 2000),
+          });
+
+          // Token saver: feed back a minimal, keyless array structure.
+          // Full results (when available) are logged server-side for debugging/analytics.
+          orMessages.push({
+            role: "user",
+            content: `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
+          });
+
+          continue;
         }
 
-        // Token saver: feed back compact agent JSON (not the whole completion content).
-        orMessages.push({
-          role: "assistant",
-          content: JSON.stringify(agent).slice(0, 2000),
-        });
-
-        // Token saver: feed back a minimal, keyless array structure.
-        // Full results (when available) are logged server-side for debugging/analytics.
-        orMessages.push({
-          role: "user",
-          content: `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
-        });
-
-        continue;
+        // Unknown agent type -> fallback
+        finalReplyText = sanitizeReply(completion.content);
+        break;
       }
-
-      // Unknown agent type -> fallback
-      finalReplyText = sanitizeReply(completion.content);
-      break;
-    }
     }
 
     finalReplyText = overrideStrictOutput(latestUserText, toolTrace as any[], finalReplyText);
-	  // Never allow an empty reply to crash the DM thread.
-	  // If the model returns nothing (or strict override returns an empty string), fall back to a safe token.
-	  const replyText = ((finalReplyText ?? "").trim() || "NO_RESULTS").trim();
+    // Never allow an empty reply to crash the DM thread.
+    // If the model returns nothing (or strict override returns an empty string), fall back to a safe token.
+    const replyText = ((finalReplyText ?? "").trim() || "NO_RESULTS").trim();
 
     // 6) Insert assistant message.
     const clientId = `assistant_${crypto.randomUUID()}`;
@@ -933,18 +933,18 @@ function inferPrefetchCalls(text: string): AssistantToolCall[] {
 
   // Discovery
   if (/trending/.test(t)) add("get_trending", { limit: 12 });
-// Catalog search (prefetch for common "find/search" requests, useful for smoke tests).
-if (/(search\s+the\s+catalog|search\s+catalog|catalog\s+search|find\s+the\s+movie|find\s+movie|find\s+title|search\s+for)/.test(t)) {
-  const firstLine = String(text ?? "").split(/\n/)[0] ?? "";
-  const quoted = firstLine.match(/[“"](.*?)[”"]/);
-  let q = quoted?.[1] ?? "";
-  if (!q) {
-    const m = firstLine.match(/(?:search\s+(?:the\s+)?catalog\s+for|search\s+for|find\s+(?:the\s+)?movie)\s*[:\-]?\s*(.+)$/i);
-    q = m?.[1] ?? "";
+  // Catalog search (prefetch for common "find/search" requests, useful for smoke tests).
+  if (/(search\s+the\s+catalog|search\s+catalog|catalog\s+search|find\s+the\s+movie|find\s+movie|find\s+title|search\s+for)/.test(t)) {
+    const firstLine = String(text ?? "").split(/\n/)[0] ?? "";
+    const quoted = firstLine.match(/[“"](.*?)[”"]/);
+    let q = quoted?.[1] ?? "";
+    if (!q) {
+      const m = firstLine.match(/(?:search\s+(?:the\s+)?catalog\s+for|search\s+for|find\s+(?:the\s+)?movie)\s*[:\-]?\s*(.+)$/i);
+      q = m?.[1] ?? "";
+    }
+    q = String(q).trim();
+    if (q) add("search_catalog", { query: q.slice(0, 120), limit: 8 });
   }
-  q = String(q).trim();
-  if (q) add("search_catalog", { query: q.slice(0, 120), limit: 8 });
-}
   if (/(recommend|recommendation|suggest|something\s+like)/.test(t)) {
     add("get_recommendations", { limit: 12 });
   }
@@ -1289,13 +1289,13 @@ async function execAndLogTool(
 
   const handleId = ctx.anchorMessageId
     ? await tryLogToolResult(ctx.supabaseAuth, {
-        userId: ctx.userId,
-        conversationId: ctx.conversationId,
-        messageId: ctx.anchorMessageId,
-        tool: call.tool,
-        args: call.args ?? null,
-        result: (r as any)?.result ?? r,
-      })
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      messageId: ctx.anchorMessageId,
+      tool: call.tool,
+      args: call.args ?? null,
+      result: (r as any)?.result ?? r,
+    })
     : null;
   if (handleId) ctx.evidenceHandles.push(handleId);
 
@@ -1544,56 +1544,56 @@ function summarizeToolResult(tool: string, result: any): string {
       return `${res || "db"}: ${n} rows${sampleStr}`;
     }
     if (t === "get_trending") {
-  const items = (result?.items ?? result?.trending ?? result?.result ?? result) as any;
-  const arr = Array.isArray(items) ? items : [];
-  const n = arr.length;
-  const sample = arr
-    .slice(0, 5)
-    .map((it: any) => {
-      const id = String(it?.id ?? it?.titleId ?? "").trim();
-      const title = String(it?.title ?? it?.name ?? "").trim();
-      const rd = String(it?.releaseDate ?? it?.release_date ?? "").trim();
-      const year = rd && rd.length >= 4 ? rd.slice(0, 4) : "";
-      return [id, title, year].filter(Boolean).join(" | ");
-    })
-    .filter(Boolean)
-    .join("; ");
-  return sample ? `Trending: ${n} | ${sample}` : `Trending: ${n}`;
-}
+      const items = (result?.items ?? result?.trending ?? result?.result ?? result) as any;
+      const arr = Array.isArray(items) ? items : [];
+      const n = arr.length;
+      const sample = arr
+        .slice(0, 5)
+        .map((it: any) => {
+          const id = String(it?.id ?? it?.titleId ?? "").trim();
+          const title = String(it?.title ?? it?.name ?? "").trim();
+          const rd = String(it?.releaseDate ?? it?.release_date ?? "").trim();
+          const year = rd && rd.length >= 4 ? rd.slice(0, 4) : "";
+          return [id, title, year].filter(Boolean).join(" | ");
+        })
+        .filter(Boolean)
+        .join("; ");
+      return sample ? `Trending: ${n} | ${sample}` : `Trending: ${n}`;
+    }
     if (t === "get_recommendations") {
-  const items = (result?.items ?? result?.recommendations ?? result?.result ?? result) as any;
-  const arr = Array.isArray(items) ? items : [];
-  const n = arr.length;
-  const sample = arr
-    .slice(0, 5)
-    .map((it: any) => {
-      const id = String(it?.id ?? it?.titleId ?? "").trim();
-      const title = String(it?.title ?? it?.name ?? "").trim();
-      const rd = String(it?.releaseDate ?? it?.release_date ?? "").trim();
-      const year = rd && rd.length >= 4 ? rd.slice(0, 4) : "";
-      return [id, title, year].filter(Boolean).join(" | ");
-    })
-    .filter(Boolean)
-    .join("; ");
-  return sample ? `Recommendations: ${n} | ${sample}` : `Recommendations: ${n}`;
-}
+      const items = (result?.items ?? result?.recommendations ?? result?.result ?? result) as any;
+      const arr = Array.isArray(items) ? items : [];
+      const n = arr.length;
+      const sample = arr
+        .slice(0, 5)
+        .map((it: any) => {
+          const id = String(it?.id ?? it?.titleId ?? "").trim();
+          const title = String(it?.title ?? it?.name ?? "").trim();
+          const rd = String(it?.releaseDate ?? it?.release_date ?? "").trim();
+          const year = rd && rd.length >= 4 ? rd.slice(0, 4) : "";
+          return [id, title, year].filter(Boolean).join(" | ");
+        })
+        .filter(Boolean)
+        .join("; ");
+      return sample ? `Recommendations: ${n} | ${sample}` : `Recommendations: ${n}`;
+    }
     if (t === "search_catalog" || t === "search_my_library") {
-  const items = (result?.items ?? result?.results ?? result?.result ?? result) as any;
-  const arr = Array.isArray(items) ? items : [];
-  const n = arr.length;
-  const sample = arr
-    .slice(0, 5)
-    .map((it: any) => {
-      const id = String(it?.id ?? it?.titleId ?? "").trim();
-      const title = String(it?.title ?? it?.name ?? "").trim();
-      const rd = String(it?.releaseDate ?? it?.release_date ?? "").trim();
-      const year = rd && rd.length >= 4 ? rd.slice(0, 4) : "";
-      return [id, title, year].filter(Boolean).join(" | ");
-    })
-    .filter(Boolean)
-    .join("; ");
-  return sample ? `Found: ${n} | ${sample}` : `Found: ${n}`;
-}
+      const items = (result?.items ?? result?.results ?? result?.result ?? result) as any;
+      const arr = Array.isArray(items) ? items : [];
+      const n = arr.length;
+      const sample = arr
+        .slice(0, 5)
+        .map((it: any) => {
+          const id = String(it?.id ?? it?.titleId ?? "").trim();
+          const title = String(it?.title ?? it?.name ?? "").trim();
+          const rd = String(it?.releaseDate ?? it?.release_date ?? "").trim();
+          const year = rd && rd.length >= 4 ? rd.slice(0, 4) : "";
+          return [id, title, year].filter(Boolean).join(" | ");
+        })
+        .filter(Boolean)
+        .join("; ");
+      return sample ? `Found: ${n} | ${sample}` : `Found: ${n}`;
+    }
     if (t === "get_my_lists") {
       const items = (result?.lists ?? result?.items ?? result?.result ?? result) as any;
       const n = Array.isArray(items) ? items.length : 0;
@@ -1647,12 +1647,12 @@ function summarizeToolResult(tool: string, result: any): string {
       return result?.id ? "Review verified" : "No review";
     }
     if (t === "create_list") {
-  const listId = String(result?.listId ?? result?.id ?? "").trim();
-  const nav = String(result?.navigateTo ?? "").trim();
-  if (listId) return nav ? `Created listId=${listId} (${nav})` : `Created listId=${listId}`;
-  const name = String(result?.name ?? result?.listName ?? "").trim();
-  return name ? `Created list: ${name}` : "Created list";
-}
+      const listId = String(result?.listId ?? result?.id ?? "").trim();
+      const nav = String(result?.navigateTo ?? "").trim();
+      if (listId) return nav ? `Created listId=${listId} (${nav})` : `Created listId=${listId}`;
+      const name = String(result?.name ?? result?.listName ?? "").trim();
+      return name ? `Created list: ${name}` : "Created list";
+    }
     if (t === "list_add_item") {
       return "Added to list";
     }
