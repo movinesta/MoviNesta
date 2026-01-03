@@ -22,8 +22,7 @@ const EVENT = "movinesta:assistant-cache";
 
 function emitChange() {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any)?.dispatchEvent?.(new Event(EVENT));
+    window.dispatchEvent(new Event(EVENT));
   } catch {
     // ignore
   }
