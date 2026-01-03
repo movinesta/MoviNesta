@@ -448,7 +448,7 @@ async function handler(req: Request) {
           // Always include safe chat-completions defaults as fallbacks.
           "openai/gpt-4.1-mini",
           "openai/gpt-4o-mini",
-          "google/gemini-2.5-flash-lite",
+          "arcee-ai/trinity-mini:free",
           "xiaomi/mimo-v2-flash:free",
           "mistralai/devstral-2512:free",
         ].filter(Boolean) as string[],
