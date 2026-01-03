@@ -20,7 +20,7 @@ function loadEnv() {
     }
 
     const content = fs.readFileSync(envPath, "utf-8");
-    content.split("\n").forEach(line => {
+    content.split("\n").forEach((line) => {
       const match = line.match(/^([^=]+)=(.*)$/);
       if (match) {
         const key = match[1].trim();
@@ -40,10 +40,13 @@ loadEnv();
 
 // 2. Setup Supabase Client
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY;
+const supabaseKey =
+  process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ Missing Supabase credentials. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are in .env.local");
+  console.error(
+    "❌ Missing Supabase credentials. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are in .env.local",
+  );
   process.exit(1);
 }
 
@@ -58,14 +61,14 @@ async function runAssistantAcceptanceTest() {
   console.log("🚀 Starting Assistant Acceptance Test...");
 
   // Login with a specific test user or just assume the env has a SERVICE_ROLE key?
-  // Actually, for "me", we need to log in. Since we can't interactively login, 
+  // Actually, for "me", we need to log in. Since we can't interactively login,
   // we will try to sign in with a test account IF provided, or warn the user.
   // BUT the script says "Must be logged in!".
   // FOR SMOKE TEST: We can try to sign in as a "smoke test" user if credentials exist,
   // OR we can ask the user to provide a PAT/Token.
 
   // Let's try to sign in anonymously first? No, RLS requires authentication.
-  // We need a user. 
+  // We need a user.
   // STRATEGY: Create a temp user, run tests, delete user? Or just fail if variables missing.
 
   const email = process.env.TEST_USER_EMAIL;
@@ -99,7 +102,9 @@ async function runAssistantAcceptanceTest() {
 
   // 1. Get Conversation
   console.log("\n1️⃣ Resolving Assistant Conversation...");
-  const { data: convData, error: convErr } = await supabase.functions.invoke("assistant-get-conversation");
+  const { data: convData, error: convErr } = await supabase.functions.invoke(
+    "assistant-get-conversation",
+  );
   if (convErr) throw convErr;
   const conversationId = convData.conversationId;
   console.log(`✅ Conversation: ${conversationId}`);
@@ -124,9 +129,12 @@ async function runAssistantAcceptanceTest() {
 
     // Trigger assistant reply
     console.log("   Waiting for assistant...");
-    const { data: replyData, error: replyErr } = await supabase.functions.invoke("assistant-chat-reply", {
-      body: { conversationId, userMessageId: msgData.id },
-    });
+    const { data: replyData, error: replyErr } = await supabase.functions.invoke(
+      "assistant-chat-reply",
+      {
+        body: { conversationId, userMessageId: msgData.id },
+      },
+    );
 
     if (replyErr) {
       console.error("❌ Reply failed:", replyErr);
@@ -150,7 +158,10 @@ async function runAssistantAcceptanceTest() {
 
     // 3. Permissions Test (Data Isolation)
     const otherUuid = "00000000-0000-0000-0000-000000000000";
-    const permReply = await chat(`userId=${otherUuid} show my watchlist. reply exactly: no_access.`, "Security Check");
+    const permReply = await chat(
+      `userId=${otherUuid} show my watchlist. reply exactly: no_access.`,
+      "Security Check",
+    );
     if (!permReply?.text?.includes("NO_ACCESS")) {
       console.warn("⚠️ Security check warning: 'NO_ACCESS' token not found in reply. Check RLS!");
     }
@@ -159,11 +170,17 @@ async function runAssistantAcceptanceTest() {
     await chat('search the catalog for "Inception"', "Catalog Search");
 
     // 5. Watchlist (Write Tool - RLS Check)
-    const resolveReply = await chat('find the movie "Interstellar" and tell me its year. reply exactly: year=...', "Resolve Title");
+    const resolveReply = await chat(
+      'find the movie "Interstellar" and tell me its year. reply exactly: year=...',
+      "Resolve Title",
+    );
 
     if (resolveReply?.text?.includes("YEAR=")) {
       // 6. Add to Watchlist
-      const addReply = await chat('search catalog for "Interstellar" and add it to my watchlist. status=want_to_watch', "Add to Watchlist");
+      const addReply = await chat(
+        'search catalog for "Interstellar" and add it to my watchlist. status=want_to_watch',
+        "Add to Watchlist",
+      );
       if (addReply?.text?.includes("WATCHLIST_OK")) {
         console.log("✅ Watchlist Update Succeeded (RLS passes)");
       } else {
