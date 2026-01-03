@@ -345,15 +345,30 @@ export async function toolGetMyStats(supabase: any, userId: string) {
 }
 
 // One-call context snapshot to reduce roundtrips and hallucinations.
-// Backed by a SQL function (assistant_ctx_snapshot_v1).
-export async function toolGetCtxSnapshot(supabase: any, _userId: string, args: any) {
+// Reimplemented to use manual aggregation (Admin-client safe) instead of RPC (which needs exact auth.uid()).
+export async function toolGetCtxSnapshot(supabase: any, userId: string, args: any) {
   const limit = Math.max(1, Math.min(20, Number(args?.limit ?? 8) || 8));
-  const { data, error } = await supabase.rpc("assistant_ctx_snapshot_v1", { p_limit: limit });
-  if (error) throw new Error(error.message);
-  if ((data as any)?.ok === false) {
-    throw new Error(String((data as any)?.error ?? "CTX_SNAPSHOT_FAILED"));
+
+  try {
+    const [profile, stats, lists, library] = await Promise.all([
+      toolGetMyProfile(supabase, userId).catch(() => null),
+      toolGetMyStats(supabase, userId).catch(() => ({ libraryTotal: 0, libraryByStatus: {}, listsCount: 0, likesCount: 0 })),
+      // Just get a summary of recent lists
+      toolGetMyLists(supabase, userId, { limit: 5 }).catch(() => []),
+      // Just get a summary of recent library activity
+      toolGetMyLibrary(supabase, userId, { limit: 5 }).catch(() => []),
+    ]);
+
+    return {
+      ok: true,
+      profile: profile ?? null,
+      stats: stats ?? null,
+      lists: Array.isArray(lists) ? lists : [],
+      library: Array.isArray(library) ? library : [],
+    };
+  } catch (e: any) {
+    return { ok: false, error: e.message };
   }
-  return data ?? null;
 }
 
 // -----------------------------------------------------------------------------
@@ -1638,7 +1653,7 @@ async function toolPlanExecute(supabase: any, userId: string, args: any) {
     if (unsupported.length) {
       throw new Error(
         `This plan contains tools that are not transaction-enabled: ${[...new Set(unsupported)].join(", ")}. ` +
-          `Split the plan or set preferTx=false.`,
+        `Split the plan or set preferTx=false.`,
       );
     }
 
@@ -2100,92 +2115,92 @@ export async function executeAssistantTool(supabase: any, userId: string, call: 
       return { ok: true, tool, result: planned ?? null };
     }
 
-case "get_my_profile": {
-  const r = await toolGetMyProfile(supabase, userId);
-  return { ok: true, tool, result: r };
-}
-case "get_my_stats": {
-  const r = await toolGetMyStats(supabase, userId);
-  return { ok: true, tool, result: r };
-}
-case "get_ctx_snapshot": {
-  const r = await toolGetCtxSnapshot(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
-case "get_my_lists": {
-  const r = await toolGetMyLists(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
-case "get_list_items": {
-  const r = await toolGetListItems(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
-case "get_my_library": {
-  const r = await toolGetMyLibrary(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
-case "search_catalog": {
-  const r = await toolSearchCatalog(supabase, args);
-  return { ok: true, tool, result: r };
-}
-case "search_my_library": {
-  const r = await toolSearchMyLibrary(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
-case "get_my_recent_activity": {
-  const r = await toolGetMyRecentActivity(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_my_profile": {
+      const r = await toolGetMyProfile(supabase, userId);
+      return { ok: true, tool, result: r };
+    }
+    case "get_my_stats": {
+      const r = await toolGetMyStats(supabase, userId);
+      return { ok: true, tool, result: r };
+    }
+    case "get_ctx_snapshot": {
+      const r = await toolGetCtxSnapshot(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
+    case "get_my_lists": {
+      const r = await toolGetMyLists(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
+    case "get_list_items": {
+      const r = await toolGetListItems(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
+    case "get_my_library": {
+      const r = await toolGetMyLibrary(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
+    case "search_catalog": {
+      const r = await toolSearchCatalog(supabase, args);
+      return { ok: true, tool, result: r };
+    }
+    case "search_my_library": {
+      const r = await toolSearchMyLibrary(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
+    case "get_my_recent_activity": {
+      const r = await toolGetMyRecentActivity(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "get_tool_result": {
-  const r = await toolGetToolResult(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_tool_result": {
+      const r = await toolGetToolResult(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "get_trending": {
-  const r = await toolGetTrending(supabase, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_trending": {
+      const r = await toolGetTrending(supabase, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "get_recommendations": {
-  const r = await toolGetRecommendations(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_recommendations": {
+      const r = await toolGetRecommendations(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "resolve_title": {
-  const r = await toolResolveTitle(supabase, args);
-  return { ok: true, tool, result: r };
-}
+    case "resolve_title": {
+      const r = await toolResolveTitle(supabase, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "resolve_list": {
-  const r = await toolResolveList(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "resolve_list": {
+      const r = await toolResolveList(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "resolve_user": {
-  const r = await toolResolveUser(supabase, args);
-  return { ok: true, tool, result: r };
-}
+    case "resolve_user": {
+      const r = await toolResolveUser(supabase, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "get_my_rating": {
-  const r = await toolGetMyRating(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_my_rating": {
+      const r = await toolGetMyRating(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "get_my_review": {
-  const r = await toolGetMyReview(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_my_review": {
+      const r = await toolGetMyReview(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "get_relationship_status": {
-  const r = await toolGetRelationshipStatus(supabase, userId, args);
-  return { ok: true, tool, result: r };
-}
+    case "get_relationship_status": {
+      const r = await toolGetRelationshipStatus(supabase, userId, args);
+      return { ok: true, tool, result: r };
+    }
 
-case "plan_execute": {
-  const r = await toolPlanExecute(supabase, userId, args);
-  return { ok: true, tool, result: r, navigateTo: (r as any)?.navigateTo ?? null };
-}
+    case "plan_execute": {
+      const r = await toolPlanExecute(supabase, userId, args);
+      return { ok: true, tool, result: r, navigateTo: (r as any)?.navigateTo ?? null };
+    }
     case "create_list": {
       const r = await toolCreateList(supabase, userId, args);
       return { ok: true, tool, result: r, navigateTo: (r as any).navigateTo ?? null };
@@ -2195,74 +2210,74 @@ case "plan_execute": {
       return { ok: true, tool, result: r, navigateTo: (r as any).navigateTo ?? null };
     }
 
-case "list_add_items": {
-  const r = await toolListAddItems(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "list_add_items": {
+      const r = await toolListAddItems(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "list_remove_item": {
-  const r = await toolListRemoveItem(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "list_remove_item": {
+      const r = await toolListRemoveItem(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "list_set_visibility": {
-  const r = await toolListSetVisibility(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "list_set_visibility": {
+      const r = await toolListSetVisibility(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "rate_title": {
-  const r = await toolRateTitle(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "rate_title": {
+      const r = await toolRateTitle(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "review_upsert": {
-  const r = await toolReviewUpsert(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "review_upsert": {
+      const r = await toolReviewUpsert(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "follow_user": {
-  const r = await toolFollowUser(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "follow_user": {
+      const r = await toolFollowUser(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "unfollow_user": {
-  const r = await toolUnfollowUser(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "unfollow_user": {
+      const r = await toolUnfollowUser(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "block_user": {
-  const r = await toolBlockUser(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "block_user": {
+      const r = await toolBlockUser(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "unblock_user": {
-  const r = await toolUnblockUser(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "unblock_user": {
+      const r = await toolUnblockUser(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "notifications_mark_read": {
-  const r = await toolNotificationsMarkRead(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "notifications_mark_read": {
+      const r = await toolNotificationsMarkRead(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-case "conversation_mute": {
-  const r = await toolConversationMute(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    case "conversation_mute": {
+      const r = await toolConversationMute(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
-// Internal-only rollback helpers (not exposed to the model)
-case "list_delete": {
-  const r = await toolListDelete(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
-case "rating_delete": {
-  const r = await toolRatingDelete(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
-case "review_delete": {
-  const r = await toolReviewDelete(supabase, userId, call.args);
-  return { ok: true, tool: call.tool, result: r };
-}
+    // Internal-only rollback helpers (not exposed to the model)
+    case "list_delete": {
+      const r = await toolListDelete(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
+    case "rating_delete": {
+      const r = await toolRatingDelete(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
+    case "review_delete": {
+      const r = await toolReviewDelete(supabase, userId, call.args);
+      return { ok: true, tool: call.tool, result: r };
+    }
 
     case "diary_set_status": {
       const r = await toolDiarySetStatus(supabase, userId, args);
