@@ -67,7 +67,8 @@ export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  const logCtx = { fn: FN_NAME };
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const logCtx = { fn: FN_NAME, requestId };
 
   try {
     if (req.method !== "POST") {
