@@ -259,6 +259,23 @@ async function handler(req: Request) {
 
     const svc = getAdminClient();
 
+    // 0.5) Self-healing: Ensure public.profiles row exists for this user.
+    // (Fixes broken signup triggers or missing RLS policies preventing creation).
+    const { data: myProfile } = await svc.from("profiles").select("id").eq("id", myUserId).maybeSingle();
+    if (!myProfile) {
+      // Create detailed placeholder to ensure the assistant has something to work with
+      const { error: createProfileErr } = await svc.from("profiles").insert({
+        id: myUserId,
+        username: `user_${myUserId.slice(0, 8)}`,
+        display_name: "New User",
+      });
+      if (createProfileErr) {
+        log(logCtx, "Failed to auto-create profile", { error: createProfileErr.message });
+      } else {
+        log(logCtx, "Auto-created missing profile", { userId: myUserId });
+      }
+    }
+
     const cfg = getConfig();
     let assistant;
     try {
