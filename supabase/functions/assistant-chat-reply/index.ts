@@ -446,9 +446,9 @@ async function handler(req: Request) {
           cfg.openrouterModelFast,
           cfg.openrouterModelCreative,
           // Always include safe chat-completions defaults as fallbacks.
-          "openai/gpt-4.1",
-          "openai/gpt-5.1",
-          "openai/gpt-5.2",
+          "openai/gpt-4.1-mini",
+          "openai/gpt-4o-mini",
+          "google/gemini-2.5-flash-lite",
         ].filter(Boolean) as string[],
       ),
     );
