@@ -50,6 +50,7 @@ const normalizeLibraryContentType = (type: TitleType): LibraryContentType => {
 export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: string | null) => {
   const { user } = useAuth();
   const userId = userIdOverride ?? user?.id ?? null;
+  const isOwner = Boolean(user?.id && user?.id === userId);
 
   const query = useQuery({
     queryKey: ["diary", "library", userId],
@@ -65,6 +66,14 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
         .limit(500);
 
       if (error) {
+        const msg = error.message ?? "";
+        const isPermissionError =
+          error.code === "42501" ||
+          msg.toLowerCase().includes("permission denied") ||
+          msg.toLowerCase().includes("rls");
+        if (!isOwner && isPermissionError) {
+          return [];
+        }
         throw new Error(error.message);
       }
 
@@ -117,7 +126,7 @@ export const useDiaryLibrary = (filters: DiaryLibraryFilters, userIdOverride?: s
 
       let ratingsByTitleId = new Map<string, number | null>();
 
-      if (titleIds.length) {
+      if (titleIds.length && isOwner) {
         const { data: ratings, error: ratingsError } = await supabase
           .from("ratings")
           .select("title_id, rating")

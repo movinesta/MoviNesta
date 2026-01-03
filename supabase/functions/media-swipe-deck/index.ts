@@ -491,7 +491,8 @@ async function rerankRowsWithVoyage(
   }
 
   if (!VOYAGE_API_KEY) {
-    throw new Error("Missing VOYAGE_API_KEY");
+    console.warn("MEDIA_SWIPE_DECK_WARN rerank skipped: missing VOYAGE_API_KEY");
+    return { outRows: rows, orderIds: [], scored: 0, rerankCandidates: 0 };
   }
 
   // Cost/latency win: only send the first K candidates to the reranker.
@@ -541,8 +542,15 @@ serve(async (req) => {
   if (preflight) return preflight;
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return json(req, 500, {
+        ok: false,
+        code: "CONFIG_MISSING",
+        message: "Missing SUPABASE_URL or SUPABASE_ANON_KEY",
+      });
+    }
     const authHeader = req.headers.get("Authorization") ?? "";
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

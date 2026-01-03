@@ -127,6 +127,19 @@ const COLUMNS = [
 async function loadEmbeddingSettings(
   client: SupabaseClient<Database>,
 ): Promise<{ rerank_search_enabled: boolean; rerank_top_k: number } | null> {
+  // Prefer security-definer RPC so restrictive RLS doesn't break search rerank.
+  try {
+    const { data, error } = await client.rpc("get_embedding_search_settings_v1", {});
+    if (!error && data) {
+      return {
+        rerank_search_enabled: Boolean((data as any).rerank_search_enabled),
+        rerank_top_k: clamp(Number((data as any).rerank_top_k ?? 20), 5, 200),
+      };
+    }
+  } catch {
+    // ignore and fall back to direct table read
+  }
+
   try {
     const { data, error } = await client
       .from("embedding_settings")
