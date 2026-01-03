@@ -449,6 +449,8 @@ async function handler(req: Request) {
           "openai/gpt-4.1-mini",
           "openai/gpt-4o-mini",
           "google/gemini-2.5-flash-lite",
+          "mistralai/devstral-2512:free",
+          "xiaomi/mimo-v2-flash:free",
         ].filter(Boolean) as string[],
       ),
     );
