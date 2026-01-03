@@ -1208,8 +1208,7 @@ async function resolveContentType(
   if (ct === "movie" || ct === "series" || ct === "anime") return ct;
   const mi = await ensureTitleExists(supabase, titleId);
   const k = String((mi as any)?.kind ?? "");
-  if (k === "movie" || k === "series" || k === "anime") return k;
-  throw new Error("Cannot infer contentType for this title");
+  return inferContentTypeFromMediaKind(k);
 }
 
 function coerceRating(v: any): number {
