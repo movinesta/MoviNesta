@@ -12,6 +12,7 @@
 
 import { getConfig } from "./config.ts";
 import { openrouterChatWithFallback } from "./openrouter.ts";
+import { log } from "./logger.ts";
 
 export type AssistantContentType = "movie" | "series" | "anime";
 
@@ -70,13 +71,25 @@ export type AssistantToolCall = {
   args?: Record<string, unknown>;
 };
 
-export type AssistantToolResult = {
+export type AssistantToolSuccess = {
   ok: true;
   tool: AssistantToolName;
   result?: unknown;
   navigateTo?: string | null;
   meta?: Record<string, unknown>;
 };
+
+export type AssistantToolError = {
+  ok: false;
+  tool: AssistantToolName;
+  code: string;
+  message: string;
+  error?: string;
+  token?: string;
+  meta?: Record<string, unknown>;
+};
+
+export type AssistantToolResult = AssistantToolSuccess | AssistantToolError;
 
 function coerceString(x: unknown): string {
   return typeof x === "string" ? x : String(x ?? "");
@@ -88,6 +101,60 @@ function uuid(): string {
   } catch {
     return `assistant-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
   }
+}
+
+function inferToolToken(tool: AssistantToolName, code: string): string {
+  if (code === "MISSING_QUERY") return "NO_QUERY";
+  if (code === "NO_ACCESS") return "NO_ACCESS";
+
+  if (tool.startsWith("list_") || tool === "create_list" || tool === "get_list_items") {
+    return "NO_LIST_ACCESS";
+  }
+
+  if (
+    tool === "diary_set_status" ||
+    tool === "get_my_library" ||
+    tool === "search_my_library" ||
+    tool === "get_my_recent_activity" ||
+    tool === "get_my_rating" ||
+    tool === "get_my_review"
+  ) {
+    return "NO_LIBRARY_ACCESS";
+  }
+
+  if (tool === "search_catalog" || tool === "get_trending" || tool === "get_recommendations" || tool === "resolve_title") {
+    return "NO_CATALOG_ACCESS";
+  }
+
+  return "TOOL_ERROR";
+}
+
+function normalizeToolError(tool: AssistantToolName, err: unknown): AssistantToolError {
+  const rawMessage = err instanceof Error ? err.message : String(err ?? "Tool failed");
+  let message = rawMessage;
+  const lower = message.toLowerCase();
+  let code = "TOOL_ERROR";
+  if (lower.includes("missing query")) code = "MISSING_QUERY";
+  else if (lower.includes("query required") || lower.includes("query is required")) code = "MISSING_QUERY";
+  else if (lower.includes("missing listid") || lower.includes("list not found")) code = "NO_LIST_ACCESS";
+  else if (lower.includes("missing titleid")) code = "MISSING_TITLE_ID";
+  else if (lower.includes("missing conversationid")) code = "MISSING_CONVERSATION_ID";
+  else if (lower.includes("missing user")) code = "MISSING_USER_ID";
+  else if (lower.includes("no access") || lower.includes("forbidden")) code = "NO_ACCESS";
+
+  if (code === "MISSING_QUERY") message = "Query required";
+
+  return {
+    ok: false,
+    tool,
+    code,
+    message,
+    error: message,
+    token: inferToolToken(tool, code),
+    meta: {
+      errorCode: (err as any)?.code ?? null,
+    },
+  };
 }
 
 function truncateDeep(v: any, depth: number): any {
@@ -795,7 +862,7 @@ export async function toolResolveTitle(supabase: any, args: any) {
       best: null,
       needsDisambiguation: true,
       candidates: [],
-      reason: "Missing query",
+      reason: "MISSING_QUERY",
     };
   }
 
@@ -838,7 +905,7 @@ export async function toolResolveTitle(supabase: any, args: any) {
 export async function toolResolveList(supabase: any, userId: string, args: any) {
   const query = coerceString(args?.query).trim();
   const limit = Math.max(1, Math.min(20, Number(args?.limit ?? 10) || 10));
-  if (!query) throw new Error("Missing query");
+  if (!query) throw new Error("Query required");
 
   const like = `%${query.replace(/%/g, "").slice(0, 80)}%`;
   const { data, error } = await supabase
@@ -883,7 +950,7 @@ export async function toolResolveList(supabase: any, userId: string, args: any) 
 export async function toolResolveUser(supabase: any, args: any) {
   const query = coerceString(args?.query).trim();
   const limit = Math.max(1, Math.min(15, Number(args?.limit ?? 8) || 8));
-  if (!query) throw new Error("Missing query");
+  if (!query) throw new Error("Query required");
 
   const like = `%${query.replace(/%/g, "").slice(0, 80)}%`;
   const { data, error } = await supabase
@@ -1051,7 +1118,7 @@ export async function toolGetRecommendations(supabase: any, userId: string, args
 export async function toolSearchMyLibrary(supabase: any, userId: string, args: any) {
   const query = coerceString(args?.query).trim();
   const limit = Math.max(1, Math.min(30, Number(args?.limit ?? 10) || 10));
-  if (!query) throw new Error("Missing query");
+  if (!query) throw new Error("Query required");
 
   // 1) Find matching titles in catalog (small set)
   const hits = await toolSearchCatalog(supabase, { query, limit: Math.max(limit, 6) });
@@ -1692,7 +1759,11 @@ async function toolPlanExecute(supabase: any, userId: string, args: any) {
   const results: any[] = [];
   for (const s of steps) {
     const r = await executeAssistantTool(supabase, userId, { tool: s.tool as any, args: s.args });
-    results.push({ tool: s.tool, ok: true, result: (r as any).result ?? null });
+    results.push({
+      tool: s.tool,
+      ok: r.ok,
+      result: r.ok ? (r as any).result ?? null : { code: (r as any).code, message: (r as any).message, token: (r as any).token },
+    });
   }
   return { mode: "sequential", steps: results };
 }
@@ -2118,7 +2189,8 @@ export async function executeAssistantTool(supabase: any, userId: string, call: 
   const tool = call.tool;
   const args = call.args ?? {};
 
-  switch (tool) {
+  try {
+    switch (tool) {
     case "schema_summary": {
       const r = toolSchemaSummary();
       return { ok: true, tool, result: r };
@@ -2334,5 +2406,21 @@ export async function executeAssistantTool(supabase: any, userId: string, call: 
     }
     default:
       throw new Error(`Unknown tool: ${tool}`);
+    }
+  } catch (err) {
+    const normalized = normalizeToolError(tool, err);
+    log(
+      { fn: "assistantTools", userId },
+      "Tool execution failed",
+      {
+        tool,
+        code: normalized.code,
+        message: normalized.message,
+        token: normalized.token,
+        argsKeys: Object.keys(args ?? {}),
+        errorCode: normalized.meta?.errorCode ?? null,
+      },
+    );
+    return normalized;
   }
 }

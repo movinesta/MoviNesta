@@ -5,6 +5,7 @@
 export type LogContext = {
   fn: string;
   userId?: string | null;
+  requestId?: string | null;
 };
 
 export function log(ctx: LogContext, message: string, extra?: unknown) {
@@ -14,6 +15,7 @@ export function log(ctx: LogContext, message: string, extra?: unknown) {
         ts: new Date().toISOString(),
         fn: ctx.fn,
         userId: ctx.userId ?? null,
+        requestId: ctx.requestId ?? null,
         message,
         extra,
       }),

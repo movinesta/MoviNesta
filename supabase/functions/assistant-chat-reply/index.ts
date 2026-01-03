@@ -227,7 +227,8 @@ async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  const logCtx = { fn: FN_NAME };
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  let logCtx = { fn: FN_NAME, requestId };
 
   try {
     if (req.method !== "POST") {
@@ -256,6 +257,18 @@ async function handler(req: Request) {
 
     const myUserId = user.id;
     const { conversationId } = payload;
+    logCtx = { ...logCtx, userId: myUserId };
+    const logToolFailure = (tool: string, result: any, args: Record<string, unknown> | undefined) => {
+      if (!result || result.ok) return;
+      log(logCtx, "Tool failure", {
+        tool,
+        code: result.code ?? null,
+        message: result.message ?? result.error ?? null,
+        token: result.token ?? null,
+        argsKeys: Object.keys(args ?? {}),
+        errorCode: result.meta?.errorCode ?? null,
+      });
+    };
 
     const svc = getAdminClient();
 
@@ -283,8 +296,8 @@ async function handler(req: Request) {
     } catch (e: any) {
       const code = String(e?.message || "");
       if (code === "ASSISTANT_NOT_FOUND") return jsonError("Assistant user not found", 404, "ASSISTANT_NOT_FOUND", req);
-      if (code === "ASSISTANT_NOT_CONFIGURED") return jsonError("Assistant not configured", 500, "ASSISTANT_NOT_CONFIGURED", req);
-      return jsonError("Assistant lookup failed", 500, "ASSISTANT_LOOKUP_FAILED", req);
+      if (code === "ASSISTANT_NOT_CONFIGURED") return jsonError("Assistant not configured", 503, "ASSISTANT_NOT_CONFIGURED", req);
+      return jsonError("Assistant lookup failed", 503, "ASSISTANT_LOOKUP_FAILED", req);
     }
     const assistantUserId = assistant.id;
 
@@ -295,7 +308,8 @@ async function handler(req: Request) {
       .eq("conversation_id", conversationId);
 
     if (partErr) {
-      return jsonError("Participants fetch failed", 500, "PARTICIPANTS_FETCH_FAILED", req, { detail: partErr.message });
+      log(logCtx, "Participants fetch failed", { error: partErr.message, code: (partErr as any)?.code ?? null });
+      return jsonError("Participants fetch failed", 503, "PARTICIPANTS_FETCH_FAILED", req, { detail: partErr.message });
     }
 
     const myParticipant = (participants ?? []).find((p) => p.user_id === myUserId);
@@ -325,8 +339,8 @@ async function handler(req: Request) {
       .limit(maxContext);
 
     if (msgErr) {
-      log(logCtx, "Failed to read messages", { error: msgErr.message });
-      return jsonError("Database error", 500, "DB_ERROR", req);
+      log(logCtx, "Failed to read messages", { error: msgErr.message, code: (msgErr as any)?.code ?? null });
+      return jsonError("Database error", 503, "DB_ERROR", req);
     }
 
     // Ensure the reply is triggered by a *fresh* user message, when messageId is provided.
@@ -373,7 +387,7 @@ async function handler(req: Request) {
     // Collect tool calls (both preflight and model-initiated) for debugging/analytics.
     const toolTrace: {
       call: AssistantToolCall;
-      result: AssistantToolResult | { ok: false; tool: string; error: string };
+      result: AssistantToolResult;
     }[] = [];
 
     const evidenceHandles: string[] = [];
@@ -393,8 +407,9 @@ async function handler(req: Request) {
       const mini: Array<[number, string, string | null, string]> = [];
       for (const tcall of prefetchCalls) {
         try {
-          const r = await executeAssistantTool(svc, myUserId, tcall);
+          const r = await executeAssistantTool(supabaseAuth, myUserId, tcall);
           toolTrace.push({ call: tcall, result: r });
+          logToolFailure(String(tcall.tool), r, tcall.args ?? {});
 
           const handleId = anchorMessageId
             ? await tryLogToolResult(svc, {
@@ -496,7 +511,7 @@ async function handler(req: Request) {
       null;
 
     const routed = await maybeDeterministicReply({
-      supabaseAuth: svc,
+      supabaseAuth,
       userId: myUserId,
       conversationId,
       anchorMessageId: routerAnchorMessageId,
@@ -557,8 +572,9 @@ async function handler(req: Request) {
             const mini: Array<[number, string, string | null, string]> = [];
             try {
               const tcall: AssistantToolCall = { tool: "get_ctx_snapshot" as any, args: { limit: 10 } };
-              const r = await executeAssistantTool(svc, myUserId, tcall);
+              const r = await executeAssistantTool(supabaseAuth, myUserId, tcall);
               toolTrace.push({ call: tcall, result: r });
+              logToolFailure(String(tcall.tool), r, tcall.args ?? {});
 
               const handleId = anchorMessageId
                 ? await tryLogToolResult(svc, {
@@ -631,7 +647,8 @@ async function handler(req: Request) {
 
               const finalCall = prepared;
 
-              const r = await executeAssistantTool(svc, myUserId, finalCall);
+              const r = await executeAssistantTool(supabaseAuth, myUserId, finalCall);
+              logToolFailure(String(finalCall.tool), r, finalCall.args ?? {});
               results.push(r);
               toolTrace.push({ call: finalCall, result: r });
 
@@ -686,7 +703,13 @@ async function handler(req: Request) {
             } catch (e: any) {
               const errMsg = e instanceof Error ? e.message : String(e ?? "Tool failed");
               const toolName = typeof call?.tool === "string" ? call.tool : "unknown";
-              const errRes = { ok: false, tool: toolName, error: errMsg };
+              const errRes: AssistantToolResult = {
+                ok: false,
+                tool: toolName as any,
+                code: "TOOL_ERROR",
+                message: errMsg,
+                error: errMsg,
+              };
               results.push(errRes);
               toolTrace.push({
                 call: { tool: toolName as any, args: (call as any)?.args },
@@ -745,14 +768,20 @@ async function handler(req: Request) {
           evidenceRequired: needsEvidence(latestUserText),
           evidenceGrounded: !needsEvidence(latestUserText) || hasGroundingEvidence(),
           toolHandles: evidenceHandles.slice(0, 50),
-          toolsUsed: Array.from(new Set(toolTrace.map((x) => x.call.tool))).slice(0, 50),
+          toolsUsed: Array.from(
+            new Set(
+              toolTrace
+                .map((x) => x.call?.tool)
+                .filter(Boolean),
+            ),
+          ).slice(0, 50),
           model: finalModel ?? null,
           usage: finalUsage ?? null,
           ui: finalUi ?? null,
           actions: finalActions ?? null,
           toolTrace: toolTrace.map((t) => ({
-            tool: t.call.tool,
-            args: t.call.args ?? null,
+            tool: t.call?.tool ?? "unknown",
+            args: t.call?.args ?? null,
             ok: (t.result as any)?.ok ?? false,
           })),
         },
@@ -770,8 +799,8 @@ async function handler(req: Request) {
       .single();
 
     if (insErr || !inserted) {
-      log(logCtx, "Failed to insert assistant message", { error: insErr?.message });
-      return jsonError("Database error", 500, "DB_ERROR", req);
+      log(logCtx, "Failed to insert assistant message", { error: insErr?.message, code: (insErr as any)?.code ?? null });
+      return jsonError("Database error", 503, "DB_ERROR", req);
     }
 
     return jsonResponse(
@@ -789,8 +818,8 @@ async function handler(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
-    log({ fn: FN_NAME }, "Unexpected error", { error: message, stack });
-    return jsonError("Internal server error", 500, "INTERNAL_ERROR", req);
+    log(logCtx, "Unexpected error", { error: message, stack });
+    return jsonError("Internal server error", 503, "INTERNAL_ERROR", req, { requestId });
   }
 }
 
@@ -1021,6 +1050,15 @@ async function maybeDeterministicReply(ctx: {
     const nested = (r as any)?.result?.[key];
     return nested as T | undefined;
   };
+  const pickItems = (r: any): any[] => {
+    if (Array.isArray(r)) return r;
+    if (Array.isArray(r?.items)) return r.items;
+    if (Array.isArray(r?.results)) return r.results;
+    if (Array.isArray(r?.result)) return r.result;
+    if (Array.isArray(r?.result?.items)) return r.result.items;
+    if (Array.isArray(r?.result?.results)) return r.result.results;
+    return [];
+  };
 
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 
@@ -1054,14 +1092,17 @@ async function maybeDeterministicReply(ctx: {
 
   const runTool = async (call: AssistantToolCall | null | undefined): Promise<AssistantToolResult> => {
     if (!call || typeof call !== "object") {
+      const fallbackTool = "schema_summary" as AssistantToolCall["tool"];
+      const safeCall: AssistantToolCall = { tool: fallbackTool, args: {} };
       const err: AssistantToolResult = {
         ok: false,
+        tool: fallbackTool,
         error: "Invalid tool call",
         message: "Invalid tool call",
         code: "INVALID_TOOL_CALL",
       };
       // @ts-expect-error - trace is best-effort
-      ctx.toolTrace.push({ call, result: err });
+      ctx.toolTrace.push({ call: safeCall, result: err });
       return err;
     }
     const prepared = await maybePrepareToolCall({
@@ -1078,6 +1119,7 @@ async function maybeDeterministicReply(ctx: {
     if (!prepared) {
       const err: AssistantToolResult = {
         ok: false,
+        tool: call.tool,
         error: "Tool preparation failed",
         message: "Tool preparation failed",
         code: "TOOL_PREP_FAILED",
@@ -1126,7 +1168,7 @@ async function maybeDeterministicReply(ctx: {
   if (low.includes("trending now") && low.includes("format") && low.includes("|")) {
     const r = await runTool({ tool: "get_trending", args: { limit: 5 } });
     if (!r.ok) return { replyText: "NO_CATALOG_ACCESS" };
-    const items = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const items = pickItems(r);
     if (items.length === 0) return { replyText: "NO_RESULTS" };
     const lines = items.slice(0, 5).map((it: any) => {
       const year = String(it?.releaseDate ?? "").slice(0, 4);
@@ -1142,7 +1184,7 @@ async function maybeDeterministicReply(ctx: {
 
     const r = await runTool({ tool: "get_trending", args: { limit: 1 } });
     if (!r.ok) return { replyText: "CHOSEN_TITLE_ID=" };
-    const arr = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const arr = pickItems(r);
     const first = arr?.[0] ?? null;
     const id = first?.id;
     return { replyText: `CHOSEN_TITLE_ID=${id ?? ""}` };
@@ -1154,7 +1196,7 @@ async function maybeDeterministicReply(ctx: {
     const q = stripQuotes(searchMatch[1].replace(/\.*\s*$/, ""));
     const r = await runTool({ tool: "search_catalog", args: { query: q, limit: 5 } });
     if (!r.ok) return { replyText: "NO_CATALOG_ACCESS" };
-    const items = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const items = pickItems(r);
     if (items.length === 0) return { replyText: "NO_RESULTS" };
     const lines = items.slice(0, 5).map((it: any) => {
       const year = String(it?.releaseDate ?? "").slice(0, 4);
@@ -1171,7 +1213,7 @@ async function maybeDeterministicReply(ctx: {
     // require args.query, and some versions don't return releaseDate.
     const r = await runTool({ tool: "search_catalog", args: { query: title, limit: 5 } });
     if (!r.ok) return { replyText: "NO_CATALOG_ACCESS" };
-    const items = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const items = pickItems(r);
     const best = items?.[0] ?? null;
     const releaseDate = best?.releaseDate ?? best?.release_date ?? best?.firstAirDate ?? best?.first_air_date ?? "";
     const year = String(best?.year ?? String(releaseDate).slice(0, 4)).slice(0, 4);
@@ -1205,7 +1247,7 @@ async function maybeDeterministicReply(ctx: {
     const st = low.includes("status watched") ? "watched" : low.includes("status want_to_watch") ? "want_to_watch" : null;
     const r = await runTool({ tool: "get_my_library", args: { status: st, limit: 5, sort: "newest" } });
     if (!r.ok) return { replyText: "NO_LIBRARY_ACCESS" };
-    const items = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const items = pickItems(r);
     if (items.length === 0) return { replyText: "NO_RESULTS" };
     const lines = items.slice(0, 5).map((it: any) => `${it.titleId} | ${it.title ?? ""} | ${it.status}`);
     return { replyText: lines.join("\n") };
@@ -1239,7 +1281,7 @@ async function maybeDeterministicReply(ctx: {
     if (!listId) return { replyText: "NO_LIST_ACCESS" };
     const r = await runTool({ tool: "get_list_items", args: { listId, limit: 50 } });
     if (!r.ok) return { replyText: "NO_LIST_ACCESS" };
-    const items = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const items = pickItems(r);
     if (items.length == 0) return { replyText: "NO_RESULTS" };
     const lines = items.map((it: any, idx: number) => `${it.titleId} | ${it.title ?? ""} | ${it.position ?? idx}`);
     return { replyText: lines.join("\n") };
@@ -1258,7 +1300,7 @@ async function maybeDeterministicReply(ctx: {
     if (!listId) return { replyText: "NO_LIST_ACCESS" };
     const r = await runTool({ tool: "get_list_items", args: { listId, limit: 1 } });
     if (!r.ok) return { replyText: "NO_LIST_ACCESS" };
-    const items = Array.isArray(pick<any[]>(r, "items")) ? (pick<any[]>(r, "items") as any[]) : [];
+    const items = pickItems(r);
     return { replyText: items.length === 0 ? "LIST_EMPTY_OK" : "LIST_NOT_EMPTY" };
   }
 
@@ -1550,6 +1592,9 @@ async function tryLogToolResult(
 
 function summarizeToolResult(tool: string, result: any): string {
   try {
+    if (result?.ok === false) {
+      return String(result.token ?? result.code ?? "TOOL_ERROR");
+    }
     const t = String(tool);
     if (t === "schema_summary") {
       const n = Array.isArray(result?.resources) ? result.resources.length : 0;
