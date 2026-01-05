@@ -89,7 +89,9 @@ function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<
         (normalized as any).list_id ??
         (normalized as any).listID ??
         (normalized as any).list?.id ??
-        (normalized as any).list?.listId,
+        (normalized as any).list?.listId ??
+        (normalized as any).list?.list_id ??
+        (normalized as any).list?.listID,
     );
     if (listId) normalized.listId = listId;
   }
@@ -118,12 +120,35 @@ function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<
     if (Array.isArray((normalized as any).items)) {
       (normalized as any).items = (normalized as any).items
         .map((item: any) => {
-          if (!item || typeof item !== "object") return null;
+          if (!item) return null;
+          if (typeof item === "string") {
+            const titleId = coerceString(item);
+            return titleId ? { titleId } : null;
+          }
+          if (typeof item !== "object") return null;
           const mapped: Record<string, unknown> = { ...item };
-          const titleId = coerceString(item.titleId ?? item.title_id ?? item.id ?? item.media_item_id);
+          const titleId = coerceString(
+            item.titleId ??
+              item.title_id ??
+              item.id ??
+              item.media_item_id ??
+              item.title?.id ??
+              item.title?.titleId ??
+              item.title?.title_id ??
+              item.title?.media_item_id,
+          );
           if (titleId) mapped.titleId = titleId;
           if (!mapped.contentType) {
-            const contentType = coerceString(item.contentType ?? item.content_type ?? item.kind ?? item.type);
+            const contentType = coerceString(
+              item.contentType ??
+                item.content_type ??
+                item.kind ??
+                item.type ??
+                item.title?.contentType ??
+                item.title?.content_type ??
+                item.title?.kind ??
+                item.title?.type,
+            );
             if (contentType) mapped.contentType = contentType;
           }
           return mapped;
