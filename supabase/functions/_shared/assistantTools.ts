@@ -1268,7 +1268,7 @@ export async function toolGetRecommendations(supabase: any, userId: string, args
     )
     .overlaps("tmdb_genre_ids", genres as any)
     .not("tmdb_popularity", "is", null)
-    .not("id", "in", `(${likedIds.map((x) => `'${x}'`).join(",")})`)
+    .not("id", "in", `(${likedIds.join(",")})`)
     .order("tmdb_vote_average", { ascending: false, nullsFirst: false })
     .order("tmdb_popularity", { ascending: false })
     .limit(limit);
