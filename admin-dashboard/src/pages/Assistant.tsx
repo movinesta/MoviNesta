@@ -123,12 +123,12 @@ export default function Assistant() {
           <div className="text-sm text-red-600">Failed to load.</div>
         ) : (
           <>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <StatCard label="Suggestions (created)" value={fmtInt(data?.totals?.created ?? 0)} />
-            <StatCard label="Accepted" value={fmtInt(data?.totals?.accepted ?? 0)} />
-            <StatCard label="Accept rate" value={pct(Number(data?.totals?.acceptRate ?? 0))} />
-            <StatCard label="Tokens (est.)" value={fmtInt(data?.totals?.tokens ?? 0)} />
-          </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <StatCard title="Suggestions (created)" value={fmtInt(data?.totals?.created ?? 0)} />
+              <StatCard title="Accepted" value={fmtInt(data?.totals?.accepted ?? 0)} />
+              <StatCard title="Accept rate" value={pct(Number(data?.totals?.acceptRate ?? 0))} />
+              <StatCard title="Tokens (est.)" value={fmtInt(data?.totals?.tokens ?? 0)} />
+            </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
@@ -239,18 +239,18 @@ export default function Assistant() {
           <div className="mt-2 text-xs text-zinc-500">Snapshot: {fmtTs(health?.ts)}</div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <StatCard label="Pending" value={fmtInt(Number(health?.counts?.pending ?? 0))} />
-            <StatCard label="Processing" value={fmtInt(Number(health?.counts?.processing ?? 0))} />
-            <StatCard label="Failed" value={fmtInt(Number(health?.counts?.failed ?? 0))} />
-            <StatCard label="Done" value={fmtInt(Number(health?.counts?.done ?? 0))} />
+            <StatCard title="Pending" value={fmtInt(Number(health?.counts?.pending ?? 0))} />
+            <StatCard title="Processing" value={fmtInt(Number(health?.counts?.processing ?? 0))} />
+            <StatCard title="Failed" value={fmtInt(Number(health?.counts?.failed ?? 0))} />
+            <StatCard title="Done" value={fmtInt(Number(health?.counts?.done ?? 0))} />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
               <div className="mb-2 text-sm font-semibold">Queue age</div>
               <div className="grid grid-cols-2 gap-3">
-                <StatCard label="Oldest pending" value={fmtSec(Number(health?.oldestPendingSec ?? 0))} />
-                <StatCard label="Oldest processing" value={fmtSec(Number(health?.oldestProcessingSec ?? 0))} />
+                <StatCard title="Oldest pending" value={fmtSec(Number(health?.oldestPendingSec ?? 0))} />
+                <StatCard title="Oldest processing" value={fmtSec(Number(health?.oldestProcessingSec ?? 0))} />
               </div>
               <div className="mt-2 text-xs text-zinc-500">
                 If queue age keeps growing, check runner health and rate limits.
@@ -260,9 +260,9 @@ export default function Assistant() {
             <Card>
               <div className="mb-2 text-sm font-semibold">Last 24h</div>
               <div className="grid grid-cols-3 gap-3">
-                <StatCard label="Created" value={fmtInt(Number(health?.last24h?.created ?? 0))} />
-                <StatCard label="Done" value={fmtInt(Number(health?.last24h?.done ?? 0))} />
-                <StatCard label="Failed" value={fmtInt(Number(health?.last24h?.failed ?? 0))} />
+                <StatCard title="Created" value={fmtInt(Number(health?.last24h?.created ?? 0))} />
+                <StatCard title="Done" value={fmtInt(Number(health?.last24h?.done ?? 0))} />
+                <StatCard title="Failed" value={fmtInt(Number(health?.last24h?.failed ?? 0))} />
               </div>
             </Card>
           </div>
@@ -339,7 +339,9 @@ export default function Assistant() {
                       <Td>{r.jobKind}</Td>
                       <Td className="font-mono text-xs">{r.conversationId}</Td>
                       <Td className="text-right">{fmtInt(Number(r.attempts ?? 0))}</Td>
-                      <Td className="max-w-[520px] truncate" title={r.lastError}>{r.lastError}</Td>
+                      <Td className="max-w-[520px] truncate" title={r.lastError}>
+                        {r.lastError}
+                      </Td>
                     </tr>
                   ))}
                 </tbody>

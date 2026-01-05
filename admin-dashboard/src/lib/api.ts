@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
 
-type InvokeOpts = { body?: unknown; method?: "POST" | "GET" };
+type InvokeBody = BodyInit | Record<string, unknown> | undefined;
+type InvokeOpts = { body?: InvokeBody; method?: "POST" | "GET" };
 
 type ErrorEnvelope = { ok: false; code?: string; message?: string; details?: unknown; requestId?: string };
 

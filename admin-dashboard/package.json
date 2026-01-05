@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "test": "node -e \"console.log('No tests configured')\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

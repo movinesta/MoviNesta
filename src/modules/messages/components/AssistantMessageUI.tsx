@@ -120,7 +120,9 @@ export default function AssistantMessageUI({
   const cards = Array.isArray(payload.cards) ? payload.cards : [];
   const usedActionIds = new Set<string>();
   for (const c of cards) {
-    const ids = (Array.isArray((c as any)?.actionIds) ? (c as any).actionIds : []).filter(isNonEmptyString);
+    const ids = (Array.isArray((c as any)?.actionIds) ? (c as any).actionIds : []).filter(
+      isNonEmptyString,
+    );
     for (const id of ids) usedActionIds.add(String(id));
   }
 
@@ -194,7 +196,9 @@ export default function AssistantMessageUI({
                   </div>
                 ) : null}
 
-                {actionIds.length ? <div className="mt-3">{renderActionButtons(actionIds)}</div> : null}
+                {actionIds.length ? (
+                  <div className="mt-3">{renderActionButtons(actionIds)}</div>
+                ) : null}
               </div>
             </div>
           </div>

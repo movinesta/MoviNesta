@@ -19,7 +19,7 @@ export default function Logs() {
   const q = useQuery({ queryKey: ["logs", { limit, before }], queryFn: () => getLogs({ limit, before }) });
 
   // IMPORTANT: keep hooks unconditionally called across renders (avoids React error #310).
-  const rows = q.data?.rows ?? [];
+  const rows = (q.data?.rows ?? []) as JobRunLog[];
   const nextBefore = q.data?.next_before ?? null;
 
   const selected = useMemo(() => rows.find((r) => String(r.id) === String(selectedId)) ?? null, [rows, selectedId]);

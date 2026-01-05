@@ -24,7 +24,7 @@ export default function Audit() {
     queryFn: () => getAudit({ limit, search: searchApplied.trim() || null, before }),
   });
 
-  const rows = q.data?.rows ?? [];
+  const rows = (q.data?.rows ?? []) as AuditLogRow[];
   const selected = useMemo(() => rows.find((r: AuditLogRow) => String(r.id) === String(selectedId)) ?? null, [rows, selectedId]);
 
   useEffect(() => {
