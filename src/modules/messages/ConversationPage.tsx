@@ -1302,7 +1302,9 @@ const ConversationPage: React.FC = () => {
     const showAssistantTyping =
       isAssistantThread &&
       otherParticipant?.id &&
-      (assistantInvokeInFlight || assistantReplyStatus?.is_typing || assistantReplyStatus?.is_queued);
+      (assistantInvokeInFlight ||
+        assistantReplyStatus?.is_typing ||
+        assistantReplyStatus?.is_queued);
 
     if (showAssistantTyping) {
       const already = out.some((u) => u.id === otherParticipant.id);

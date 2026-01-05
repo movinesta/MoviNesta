@@ -41,14 +41,12 @@ export function useAssistantHealthSnapshot(opts?: { enabled?: boolean; pollMs?: 
   return useQuery({
     queryKey: qk.assistantHealthSnapshot(),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc(
-        "assistant_health_snapshot_v1" as any,
-      );
+      const { data, error } = await supabase.rpc("assistant_health_snapshot_v1" as any);
       if (error) throw error;
       return data as AssistantHealthSnapshot;
     },
     enabled: opts?.enabled ?? true,
-    refetchInterval: opts?.enabled === false ? false : opts?.pollMs ?? 15_000,
+    refetchInterval: opts?.enabled === false ? false : (opts?.pollMs ?? 15_000),
     staleTime: 5_000,
   });
 }

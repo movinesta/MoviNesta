@@ -87,35 +87,25 @@ const AssistantDiagnosticsPage: React.FC = () => {
           ) : snapshot.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading snapshot…</p>
           ) : snapshot.isError ? (
-            <p className="text-sm text-destructive">
-              Failed to load snapshot.
-            </p>
+            <p className="text-sm text-destructive">Failed to load snapshot.</p>
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Pending</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {counts.pending ?? 0}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{counts.pending ?? 0}</p>
                 </div>
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Processing</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {counts.processing ?? 0}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{counts.processing ?? 0}</p>
                 </div>
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Failed</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {counts.failed ?? 0}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{counts.failed ?? 0}</p>
                 </div>
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Done</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {counts.done ?? 0}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{counts.done ?? 0}</p>
                 </div>
               </div>
 
@@ -173,10 +163,7 @@ const AssistantDiagnosticsPage: React.FC = () => {
 
         {isAdmin ? (
           <>
-            <PageSection
-              title="Recent failures"
-              description="Last 20 failed jobs."
-            >
+            <PageSection title="Recent failures" description="Last 20 failed jobs.">
               {snapshot.data?.recentFailures?.length ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -202,9 +189,7 @@ const AssistantDiagnosticsPage: React.FC = () => {
                             {short(f.conversationId)}
                           </td>
                           <td className="py-2 pr-3">{f.attempts ?? 0}</td>
-                          <td className="py-2 text-muted-foreground">
-                            {f.lastError ?? "—"}
-                          </td>
+                          <td className="py-2 text-muted-foreground">{f.lastError ?? "—"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -232,9 +217,7 @@ const AssistantDiagnosticsPage: React.FC = () => {
                           <td className="py-2 pr-3 text-muted-foreground">
                             {c.createdAt ? new Date(c.createdAt).toLocaleString() : "—"}
                           </td>
-                          <td className="py-2 pr-3 font-medium text-foreground">
-                            {c.job ?? "—"}
-                          </td>
+                          <td className="py-2 pr-3 font-medium text-foreground">{c.job ?? "—"}</td>
                           <td className="py-2 text-muted-foreground">
                             {c.requestId ? String(c.requestId) : "—"}
                           </td>
@@ -251,7 +234,8 @@ const AssistantDiagnosticsPage: React.FC = () => {
         ) : null}
 
         <p className="px-1 text-xs text-muted-foreground">
-          Tip: If something looks stuck, check your Supabase scheduled triggers, the Edge Function logs, and the OpenRouter key.
+          Tip: If something looks stuck, check your Supabase scheduled triggers, the Edge Function
+          logs, and the OpenRouter key.
         </p>
       </section>
     </div>

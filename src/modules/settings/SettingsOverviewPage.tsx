@@ -4,7 +4,6 @@ import { User as UserIcon, Mail, Bell, Monitor, ChevronRight } from "lucide-reac
 import { PageSection } from "../../components/PageChrome";
 import TopBar from "../../components/shared/TopBar";
 
-
 interface SettingsItem {
   title: string;
   description: string;

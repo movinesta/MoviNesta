@@ -32,9 +32,12 @@ export function useAssistantReplyStatus(conversationId: string | null, enabled: 
     queryFn: async () => {
       if (!conversationId) return null;
 
-      const { data, error } = await supabase.rpc("assistant_reply_status_v1" as any, {
-        p_conversation_id: conversationId,
-      } as any);
+      const { data, error } = await supabase.rpc(
+        "assistant_reply_status_v1" as any,
+        {
+          p_conversation_id: conversationId,
+        } as any,
+      );
 
       if (error) {
         // If the function doesn't exist yet (older deployments), silently disable.
