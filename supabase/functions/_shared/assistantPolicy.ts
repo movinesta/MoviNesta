@@ -43,6 +43,10 @@ export const READ_EVIDENCE_TOOLS = new Set<string>([
 // Tools that can be executed from a user-clicked action button.
 // (Assistant chat model emits these as "actions"; the server executes them.)
 export const USER_ACTION_TOOL_ALLOWLIST = new Set<string>([
+  // Read / grounding tools can be invoked by user clicks too.
+  ...READ_EVIDENCE_TOOLS,
+
+  // Writes
   "create_list",
   "list_add_item",
   "list_add_items",
