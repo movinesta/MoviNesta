@@ -288,6 +288,8 @@ export async function handler(req: Request) {
         .from("assistant_message_action_log")
         .select("id,created_at,status,confirm_token,confirm_expires_at,payload,undo_tool,undo_args")
         .eq("user_id", userId)
+        .eq("conversation_id", conversationId)
+        .eq("message_id", messageId)
         .eq("action_id", actionId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -300,7 +302,8 @@ export async function handler(req: Request) {
     const existingStatus = typeof existingLog?.status === "string" ? String(existingLog.status) : "";
     if (existingLog && existingStatus === "done") {
       const prevToast = typeof existingLog?.payload?.toast === "string" ? String(existingLog.payload.toast) : "Already applied.";
-      return jsonResponse({ ok: true, toast: prevToast, alreadyExecuted: true }, 200, undefined, req);
+      const prevResult = existingLog?.payload?.result ?? null;
+      return jsonResponse({ ok: true, toast: prevToast, alreadyExecuted: true, result: prevResult }, 200, undefined, req);
     }
     if (existingLog && existingStatus === "processing") {
       return jsonResponse({ ok: true, toast: "Working…", alreadyProcessing: true }, 200, undefined, req);

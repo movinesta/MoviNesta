@@ -18,7 +18,6 @@ import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_sha
 import { log } from "../_shared/logger.ts";
 import { getAdminClient } from "../_shared/supabase.ts";
 import { safeInsertJobRunLog } from "../_shared/joblog.ts";
-import { requireInternalJob } from "../_shared/internal.ts";
 
 const FN_NAME = "media-trending-refresh";
 
@@ -34,8 +33,19 @@ export async function handler(req: Request): Promise<Response> {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
 
-  const internalGuard = requireInternalJob(req);
-  if (internalGuard) return internalGuard;
+  const internalToken = Deno.env.get("INTERNAL_JOB_TOKEN") ?? "";
+  const jobHeader = req.headers.get("x-job-token") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const apiKeyHeader = req.headers.get("apikey") ?? "";
+
+  const hasInternalToken = internalToken && jobHeader === internalToken;
+  const hasAnonKey = anonKey && (bearerToken === anonKey || apiKeyHeader === anonKey);
+
+  if (!hasInternalToken && !hasAnonKey) {
+    return jsonError("Unauthorized", 401, "INVALID_JOB_TOKEN", req);
+  }
 
   const startedAt = new Date().toISOString();
 
