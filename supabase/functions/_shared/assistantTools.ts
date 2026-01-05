@@ -127,19 +127,28 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
     note: z.string().max(500).optional(),
   }),
 
-  list_add_items: z.object({
-    listId: zUuid,
-    items: z
-      .array(
-        z.object({
-          titleId: zUuid,
-          contentType: zContentType,
-          note: z.string().max(500).optional(),
-        }),
-      )
-      .min(1)
-      .max(50),
-  }),
+  list_add_items: z
+    .object({
+      listId: zUuid,
+      items: z
+        .array(
+          z.object({
+            titleId: zUuid,
+            contentType: zContentType.optional(),
+            note: z.string().max(500).optional(),
+          }),
+        )
+        .min(1)
+        .max(50)
+        .optional(),
+      titleIds: z.array(zUuid).min(1).max(50).optional(),
+      contentType: zContentType.optional(),
+      note: z.string().max(500).optional(),
+    })
+    .refine((value) => (Array.isArray(value.items) && value.items.length > 0) || (Array.isArray(value.titleIds) && value.titleIds.length > 0), {
+      message: "items or titleIds required",
+      path: ["items"],
+    }),
 
   list_remove_item: z.object({
     listId: zUuid,
@@ -1384,7 +1393,21 @@ function coerceRating(v: any): number {
 
 async function toolListAddItems(supabase: any, userId: string, args: any) {
   const listId = coerceString(args?.listId);
-  const ids = Array.isArray(args?.titleIds) ? args.titleIds.map(coerceString).filter(Boolean) : [];
+  const items = Array.isArray(args?.items) ? args.items : [];
+  const itemMeta = new Map<string, { contentType: string | null; note: string | null }>();
+  const idsFromItems: string[] = [];
+  for (const item of items) {
+    const tid = coerceString(item?.titleId);
+    if (!tid) continue;
+    idsFromItems.push(tid);
+    itemMeta.set(tid, {
+      contentType: typeof item?.contentType === "string" ? item.contentType : null,
+      note: typeof item?.note === "string" ? item.note.slice(0, 200) : null,
+    });
+  }
+
+  const idsFromArgs = Array.isArray(args?.titleIds) ? args.titleIds.map(coerceString).filter(Boolean) : [];
+  const ids = idsFromItems.length ? idsFromItems : idsFromArgs;
   const contentTypeRaw = typeof args?.contentType === "string" ? args.contentType : null;
   const note = typeof args?.note === "string" ? args.note.slice(0, 200) : null;
   const max = Math.max(1, Math.min(30, Number(args?.max ?? (ids.length || 10))));
@@ -1429,14 +1452,15 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
   const rows: any[] = [];
   let pos = basePos;
   for (const tid of toInsert) {
-    const ct = await resolveContentType(supabase, tid, contentTypeRaw);
+    const item = itemMeta.get(tid);
+    const ct = await resolveContentType(supabase, tid, item?.contentType ?? contentTypeRaw);
     pos += 1;
     rows.push({
       list_id: listId,
       title_id: tid,
       content_type: ct,
       position: pos,
-      note,
+      note: item?.note ?? note,
       created_at: now,
       updated_at: now,
     });
