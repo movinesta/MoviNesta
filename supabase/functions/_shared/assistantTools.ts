@@ -680,10 +680,10 @@ const DB_READ_RESOURCES: Record<string, DbReadResourceSpec> = {
   },
   notifications: {
     table: "notifications",
-    select: "id,type,body,created_at,read_at",
+    select: "id,type,data,created_at,is_read",
     userScopeCol: "user_id",
-    filterable: ["type", "created_at", "read_at"],
-    orderable: ["created_at", "read_at"],
+    filterable: ["type", "created_at", "is_read"],
+    orderable: ["created_at"],
     maxLimit: 50,
   },
   follows: {
@@ -2328,11 +2328,15 @@ export async function toolPlaybookStartWeeklyWatchPlan(supabase: any, userId: st
   try {
     const ids = likes.map((x) => x.titleId).slice(0, 4);
     if (ids.length) {
-      const { data, error } = await supabase.from("media_items").select("id, name").in("id", ids);
+      const { data, error } = await supabase
+        .from("media_items")
+        .select("id,kind,tmdb_title,tmdb_name,omdb_title")
+        .in("id", ids);
       if (!error && Array.isArray(data)) {
         const byId = new Map<string, string>();
         (data as any[]).forEach((it) => {
-          if (it?.id && it?.name) byId.set(String(it.id), String(it.name));
+          const title = pickMediaTitle(it);
+          if (it?.id && title) byId.set(String(it.id), title);
         });
         likedNames = ids.map((id) => byId.get(id)).filter(Boolean) as string[];
       }
