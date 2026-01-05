@@ -153,6 +153,11 @@ function clamp(n: number, a: number, b: number): number {
   return Math.max(a, Math.min(n, b));
 }
 
+function isStatementTimeout(error: unknown): boolean {
+  const message = String((error as any)?.message ?? "").toLowerCase();
+  return message.includes("statement timeout");
+}
+
 async function countStrongPosSignals(client: any, userId: string): Promise<number> {
   // Cheap cold-start detector:
   // - count strong positive signals in the last 30 days
@@ -630,28 +635,31 @@ serve(async (req) => {
     const extraFactor = minImdbRating != null || (genresAny && genresAny.length) ? 3 : 2;
     const rpcLimit = Math.min(Math.max(limit * extraFactor, limit), 120);
 
-    const { data, error } = await supabase.rpc("media_swipe_deck_v3", {
-      p_session_id: sessionId,
-      p_limit: rpcLimit,
-      p_mode: mode,
-      p_kind_filter: kindFilter,
-      p_seed: seed,
-    });
+    const runDeckRpc = async (seedValue: string, limitValue: number) =>
+      supabase.rpc("media_swipe_deck_v3", {
+        p_session_id: sessionId,
+        p_limit: limitValue,
+        p_mode: mode,
+        p_kind_filter: kindFilter,
+        p_seed: seedValue,
+      });
+
+    let effectiveRpcLimit = rpcLimit;
+    let { data, error } = await runDeckRpc(seed, rpcLimit);
+
+    if (error && isStatementTimeout(error) && rpcLimit > limit) {
+      effectiveRpcLimit = limit;
+      ({ data, error } = await runDeckRpc(seed, effectiveRpcLimit));
+    }
 
     if (error) return json(req, 500, { ok: false, code: "RPC_FAILED", message: error.message });
 
     let rows = (data ?? []) as any[];
 
     // If the deck returns fewer than requested (dedupe/filters), try one more time with a different seed suffix.
-    if (rows.length < rpcLimit) {
+    if (rows.length < effectiveRpcLimit) {
       const seed2 = `${seed}:fill2`;
-      const { data: data2, error: error2 } = await supabase.rpc("media_swipe_deck_v3", {
-        p_session_id: sessionId,
-        p_limit: rpcLimit,
-        p_mode: mode,
-        p_kind_filter: kindFilter,
-        p_seed: seed2,
-      });
+      const { data: data2, error: error2 } = await runDeckRpc(seed2, effectiveRpcLimit);
       if (!error2 && Array.isArray(data2) && data2.length) {
         const seen = new Set(rows.map((r) => String(r.media_item_id ?? "")));
         for (const r of data2 as any[]) {
@@ -659,7 +667,7 @@ serve(async (req) => {
           if (!id || seen.has(id)) continue;
           rows.push(r);
           seen.add(id);
-          if (rows.length >= rpcLimit) break;
+          if (rows.length >= effectiveRpcLimit) break;
         }
       }
     }
