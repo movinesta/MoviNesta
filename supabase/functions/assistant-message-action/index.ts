@@ -76,6 +76,72 @@ function normalizeAction(action: AssistantAction): NormalizedAction | null {
   return { kind: "tool", tool: type, args: (payload as any) ?? {}, internal };
 }
 
+function coerceString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
+}
+
+function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...(args ?? {}) };
+
+  if (tool.startsWith("list_")) {
+    const listId = coerceString(
+      normalized.listId ??
+        (normalized as any).list_id ??
+        (normalized as any).listID ??
+        (normalized as any).list?.id ??
+        (normalized as any).list?.listId,
+    );
+    if (listId) normalized.listId = listId;
+  }
+
+  if (tool === "list_add_item") {
+    const titleId = coerceString(
+      normalized.titleId ??
+        (normalized as any).title_id ??
+        (normalized as any).id ??
+        (normalized as any).media_item_id,
+    );
+    if (titleId) normalized.titleId = titleId;
+    if (!(normalized as any).contentType) {
+      const contentType = coerceString(
+        (normalized as any).content_type ?? (normalized as any).kind ?? (normalized as any).type,
+      );
+      if (contentType) (normalized as any).contentType = contentType;
+    }
+  }
+
+  if (tool === "list_add_items") {
+    if (!Array.isArray((normalized as any).titleIds) && Array.isArray((normalized as any).title_ids)) {
+      (normalized as any).titleIds = (normalized as any).title_ids;
+    }
+
+    if (Array.isArray((normalized as any).items)) {
+      (normalized as any).items = (normalized as any).items
+        .map((item: any) => {
+          if (!item || typeof item !== "object") return null;
+          const mapped: Record<string, unknown> = { ...item };
+          const titleId = coerceString(item.titleId ?? item.title_id ?? item.id ?? item.media_item_id);
+          if (titleId) mapped.titleId = titleId;
+          if (!mapped.contentType) {
+            const contentType = coerceString(item.contentType ?? item.content_type ?? item.kind ?? item.type);
+            if (contentType) mapped.contentType = contentType;
+          }
+          return mapped;
+        })
+        .filter(Boolean);
+    }
+
+    if (!(normalized as any).contentType) {
+      const contentType = coerceString(
+        (normalized as any).content_type ?? (normalized as any).kind ?? (normalized as any).type,
+      );
+      if (contentType) (normalized as any).contentType = contentType;
+    }
+  }
+
+  return normalized;
+}
+
 export async function handler(req: Request) {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
@@ -196,6 +262,9 @@ export async function handler(req: Request) {
         req,
       );
     }
+
+    const normalizedArgs = normalizeToolArgs(normalized.tool, normalized.args ?? {});
+    normalized.args = normalizedArgs;
 
     const tool = assertAllowedUserActionTool(normalized.tool, Boolean((normalized as any).internal));
 
