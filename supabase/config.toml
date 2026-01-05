@@ -1,0 +1,50 @@
+[functions.catalog-backfill]
+verify_jwt = false
+
+[functions.catalog-sync]
+verify_jwt = true
+
+[functions.media-swipe-deck]
+verify_jwt = true
+
+[functions.media-swipe-event]
+verify_jwt = true
+
+[functions.media-embed-backfill]
+verify_jwt = false
+
+[functions.media-trending-refresh]
+verify_jwt = false
+
+[functions.media-smart-backfill]
+verify_jwt = false
+
+[functions.assistant-orchestrator]
+verify_jwt = true
+
+[functions.assistant-chat-reply]
+verify_jwt = false
+
+[functions.assistant-chat-reply-runner]
+verify_jwt = false
+
+[functions.assistant-message-action]
+verify_jwt = true
+
+[functions.assistant-tool-result]
+verify_jwt = true
+
+[functions.assistant-suggestion-action]
+verify_jwt = true
+
+[functions.assistant-trigger-runner]
+verify_jwt = false
+
+[functions.assistant-goal-sweeper]
+verify_jwt = false
+
+[functions.assistant-metrics-rollup]
+verify_jwt = false
+
+[functions.admin-assistant-metrics]
+verify_jwt = true
