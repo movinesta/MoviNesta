@@ -44,11 +44,6 @@ const CHUNK_MODE_MAX_SECTIONS = 6;
 const CHUNK_OUTLINE_MAX_TOKENS = 240;
 // Keep section generations below common provider completion caps (e.g. 500 tokens).
 const CHUNK_SECTION_MAX_TOKENS = 495;
-const STREAM_MIN_CHARS = 80;
-const STREAM_MAX_UPDATES = 24;
-const STREAM_MAX_DURATION_MS = 2000;
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Avoid chunk mode for strict-format requests ("reply exactly", "format each line exactly", etc).
@@ -1487,17 +1482,6 @@ async function handler(req: Request) {
     // If the model returns nothing (or strict override returns an empty string), fall back to a safe token.
     const replyText = ((finalReplyText ?? "").trim() || "NO_RESULTS").trim();
 
-    const shouldStreamReply = useStreaming && replyText.length >= STREAM_MIN_CHARS;
-    const streamUpdates = shouldStreamReply
-      ? Math.min(STREAM_MAX_UPDATES, Math.max(4, Math.ceil(replyText.length / 140)))
-      : 1;
-    const streamChunkSize = Math.ceil(replyText.length / streamUpdates);
-    const streamDelayMs = Math.max(
-      30,
-      Math.min(120, Math.floor(STREAM_MAX_DURATION_MS / Math.max(1, streamUpdates))),
-    );
-    const initialReplyText = shouldStreamReply ? replyText.slice(0, streamChunkSize) : replyText;
-
     // 6) Insert assistant message.
     const clientId = `assistant_${crypto.randomUUID()}`;
 
@@ -1506,8 +1490,8 @@ async function handler(req: Request) {
       user_id: assistantUserId,
       sender_id: assistantUserId,
       message_type: "text" as any,
-      text: initialReplyText,
-      body: { type: "text", text: initialReplyText },
+      text: replyText,
+      body: { type: "text", text: replyText },
       client_id: clientId,
       meta: {
         ai: {
@@ -1596,23 +1580,6 @@ async function handler(req: Request) {
 
       log(logCtx, "Failed to insert assistant message", { error: message, code });
       return jsonError("Database error", 503, "DB_ERROR", req);
-    }
-
-    if (shouldStreamReply && inserted?.id) {
-      for (let i = 2; i <= streamUpdates; i++) {
-        const nextText = replyText.slice(0, i * streamChunkSize);
-        try {
-          await svc
-            .from("messages")
-            .update({ text: nextText, body: { type: "text", text: nextText } })
-            .eq("id", inserted.id);
-        } catch {
-          // ignore streaming update failures
-        }
-        if (i < streamUpdates) {
-          await delay(streamDelayMs);
-        }
-      }
     }
 
     // Best-effort: mark queued job complete (if present).
