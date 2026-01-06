@@ -100,6 +100,31 @@ export type EmbeddingsResponse = {
   coverage: CoverageRow[];
 };
 
+export type AssistantSettings = {
+  id: number;
+  openrouter_base_url?: string | null;
+  model_fast?: string | null;
+  model_creative?: string | null;
+  model_planner?: string | null;
+  model_maker?: string | null;
+  model_critic?: string | null;
+  fallback_models: string[];
+  model_catalog: string[];
+  default_instructions?: string | null;
+  params: Record<string, unknown>;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type AssistantSettingsResponse = {
+  ok: true;
+  assistant_settings: AssistantSettings;
+  defaults?: {
+    model_catalog?: string[];
+    settings?: AssistantSettings;
+  };
+};
+
 export type JobsResponse = {
   ok: true;
   job_state: JobStateRow[];
