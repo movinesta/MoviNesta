@@ -65,22 +65,11 @@ export type OpenRouterChatResult = {
   raw?: unknown;
 };
 
-// OpenRouter/providers often enforce a hard output-token limit (especially for free tiers).
-// Clamp `max_output_tokens` below that limit to avoid upstream truncation.
-const MAX_OUTPUT_TOKENS_CAP = (() => {
-  const raw = (globalThis as any)?.Deno?.env?.get?.("OPENROUTER_MAX_COMPLETION_TOKENS") ?? "495";
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 495;
-})();
-
-function clampMaxOutputTokens(v?: number): number {
-  const n = Number.isFinite(Number(v)) ? Math.floor(Number(v)) : MAX_OUTPUT_TOKENS_CAP;
-  return Math.max(1, Math.min(n, MAX_OUTPUT_TOKENS_CAP));
-}
-
 const getBaseUrl = (override?: string) => {
-  const { openrouterBaseUrl } = getConfig();
-  return (override ?? openrouterBaseUrl ?? "https://openrouter.ai/api/v1").replace(/\/+$/, "");
+  if (!override) {
+    throw new Error("Missing openrouter_base_url in assistant settings");
+  }
+  return override.replace(/\\/+$/, "");
 };
 
 function buildInputFromMessages(messages: OpenRouterMessage[]): OpenRouterInputMessage[] {
@@ -134,12 +123,10 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     model: opts.model,
     input,
     ...(opts.instructions ? { instructions: opts.instructions } : {}),
-    temperature: opts.temperature ?? 0.1,
-    top_p: opts.top_p ?? 1,
-    // Clamp to avoid provider caps causing truncation.
-    max_output_tokens: clampMaxOutputTokens(opts.max_output_tokens == null ? undefined : opts.max_output_tokens),
-    // Enable usage accounting by default (adds a small overhead but is invaluable for cost tracking).
-    usage: opts.usage ?? { include: true },
+    ...(typeof opts.temperature === "number" ? { temperature: opts.temperature } : {}),
+    ...(typeof opts.top_p === "number" ? { top_p: opts.top_p } : {}),
+    ...(typeof opts.max_output_tokens === "number" ? { max_output_tokens: opts.max_output_tokens } : {}),
+    ...(opts.usage ? { usage: opts.usage } : {}),
     ...(opts.stop ? { stop: opts.stop } : {}),
     ...(typeof opts.presence_penalty === "number" ? { presence_penalty: opts.presence_penalty } : {}),
     ...(typeof opts.frequency_penalty === "number" ? { frequency_penalty: opts.frequency_penalty } : {}),
