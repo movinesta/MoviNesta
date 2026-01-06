@@ -220,6 +220,31 @@ export async function getAudit(payload?: { limit?: number; search?: string | nul
 }
 
 /* =========================
+ * Assistant Settings
+ * ======================= */
+
+export type AssistantSettingsPayload = {
+  openrouter_base_url?: string | null;
+  model_fast?: string | null;
+  model_creative?: string | null;
+  model_planner?: string | null;
+  model_maker?: string | null;
+  model_critic?: string | null;
+  fallback_models?: string[] | null;
+  model_catalog?: string[] | null;
+  default_instructions?: string | null;
+  params?: Record<string, unknown> | null;
+};
+
+export async function getAssistantSettings() {
+  return invoke<any>("admin-assistant-settings", { body: { action: "get" } });
+}
+
+export async function setAssistantSettings(settings: AssistantSettingsPayload) {
+  return invoke<{ ok: true }>("admin-assistant-settings", { body: { action: "set", settings } });
+}
+
+/* =========================
  * Users
  * ======================= */
 
