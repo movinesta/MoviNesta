@@ -35,6 +35,7 @@ const PARAM_FIELDS: ParamField[] = [
   { key: "top_logprobs", label: "Top logprobs", type: "number", min: 0, max: 20, step: 1 },
   { key: "parallel_tool_calls", label: "Parallel tool calls", type: "boolean" },
   { key: "stream", label: "Stream", type: "boolean" },
+  { key: "timeout_ms", label: "Timeout (ms)", type: "number", min: 1000, max: 120000, step: 1000 },
   { key: "user", label: "User", type: "text" },
   { key: "metadata", label: "Metadata (JSON)", type: "json" },
   { key: "tools", label: "Tools (JSON)", type: "json" },

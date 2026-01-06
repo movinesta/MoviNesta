@@ -133,7 +133,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     ...(typeof opts.presence_penalty === "number" ? { presence_penalty: opts.presence_penalty } : {}),
     ...(typeof opts.frequency_penalty === "number" ? { frequency_penalty: opts.frequency_penalty } : {}),
     ...(typeof opts.seed === "number" ? { seed: opts.seed } : {}),
-    ...(typeof opts.stream === "boolean" ? { stream: opts.stream } : {}),
+    ...(typeof opts.stream === "boolean" ? { stream: opts.stream } : { stream: false }),
     ...(opts.metadata ? { metadata: opts.metadata } : {}),
     ...(opts.user ? { user: opts.user } : {}),
     ...(typeof opts.logprobs === "boolean" ? { logprobs: opts.logprobs } : {}),
