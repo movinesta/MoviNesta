@@ -1426,9 +1426,19 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
   let listId = coerceString(
     args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
   );
-  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+
+  const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  const listName = rawListName
+    ? rawListName
+        .trim()
+        .replace(/^[\"“”']+/, "")
+        .replace(/[\\"“”']+$/, "")
+        .replace(/[\.!?,;:]+$/g, "")
+        .trim()
+    : "";
+
   if (!listId && listName) {
-    const { data: found, error: findErr } = await supabase
+    const { data: foundExact, error: findExactErr } = await supabase
       .from("lists")
       .select("id")
       .eq("user_id", userId)
@@ -1436,29 +1446,26 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (findErr) throw new Error(findErr.message);
-    if (found?.id) listId = String(found.id);
-  }
-  const items = Array.isArray(args?.items) ? args.items : [];
-  const itemMeta = new Map<string, { contentType: string | null; note: string | null }>();
-  const idsFromItems: string[] = [];
-  for (const item of items) {
-    const tid = coerceString(item?.titleId);
-    if (!tid) continue;
-    idsFromItems.push(tid);
-    itemMeta.set(tid, {
-      contentType: typeof item?.contentType === "string" ? item.contentType : null,
-      note: typeof item?.note === "string" ? item.note.slice(0, 200) : null,
-    });
+    if (findExactErr) throw new Error(findExactErr.message);
+    if (foundExact?.id) listId = String(foundExact.id);
   }
 
-  const idsFromArgs = Array.isArray(args?.titleIds) ? args.titleIds.map(coerceString).filter(Boolean) : [];
-  const ids = idsFromItems.length ? idsFromItems : idsFromArgs;
-  const contentTypeRaw = typeof args?.contentType === "string" ? args.contentType : null;
-  const note = typeof args?.note === "string" ? args.note.slice(0, 200) : null;
-  const max = Math.max(1, Math.min(30, Number(args?.max ?? (ids.length || 10))));
+  if (!listId && listName) {
+    const pattern = listName.includes("%") ? listName : `%${listName}%`;
+    const { data: foundFuzzy, error: findFuzzyErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", pattern)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findFuzzyErr) throw new Error(findFuzzyErr.message);
+    if (foundFuzzy?.id) listId = String(foundFuzzy.id);
+  }
+
+  if (!listId && listName) throw new Error("List not found");
   if (!listId) throw new Error("Missing listId");
-  if (!ids.length) throw new Error("Missing titleIds");
 
   // Ownership check
   const { data: list, error: listError } = await supabase
@@ -2130,9 +2137,28 @@ export async function toolListAddItem(supabase: any, userId: string, args: any) 
   let listId = coerceString(
     args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
   );
-  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+
+  const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  const listName = rawListName
+    ? rawListName
+        .trim()
+        .replace(/^[\"“”']+/, "")
+        .replace(/[\\"“”']+$/, "")
+        .replace(/[\.!?,;:]+$/g, "")
+        .trim()
+    : "";
+
+  const titleId = coerceString(
+    args?.titleId ?? args?.title_id ?? args?.media_item_id ?? args?.title?.id ?? args?.title?.titleId ?? args?.title?.title_id,
+  );
+
+  // contentType may be omitted; tool will infer from media_items.kind when needed.
+  const contentType = coerceString(args?.contentType ?? args?.content_type);
+  const note = coerceString(args?.note);
+
+  // Resolve listId from listName (exact then fuzzy) if needed.
   if (!listId && listName) {
-    const { data: found, error: findErr } = await supabase
+    const { data: foundExact, error: findExactErr } = await supabase
       .from("lists")
       .select("id")
       .eq("user_id", userId)
@@ -2140,15 +2166,27 @@ export async function toolListAddItem(supabase: any, userId: string, args: any) 
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (findErr) throw new Error(findErr.message);
-    if (found?.id) listId = String(found.id);
+    if (findExactErr) throw new Error(findExactErr.message);
+    if (foundExact?.id) listId = String(foundExact.id);
   }
-  const titleId = coerceString(args?.titleId);
-  const contentTypeRaw = typeof args?.contentType === "string" ? args.contentType : null;
-  const note = typeof args?.note === "string" ? args.note.slice(0, 200) : null;
+
+  if (!listId && listName) {
+    const pattern = listName.includes("%") ? listName : `%${listName}%`;
+    const { data: foundFuzzy, error: findFuzzyErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", pattern)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findFuzzyErr) throw new Error(findFuzzyErr.message);
+    if (foundFuzzy?.id) listId = String(foundFuzzy.id);
+  }
+
+  if (!listId && listName) throw new Error("List not found");
   if (!listId) throw new Error("Missing listId");
   if (!titleId) throw new Error("Missing titleId");
-  const contentType = await resolveContentType(supabase, titleId, contentTypeRaw);
 
   // Ownership check.
   const { data: list, error: listError } = await supabase
