@@ -564,7 +564,7 @@ async function maybeRewriteCopy(
   try {
     const res = await openrouterChatWithFallback({
       models,
-      temperature: 0.6,
+      temperature: 0.1,
       max_tokens: 360,
       messages: [
         { role: "system", content: system },
@@ -789,7 +789,7 @@ async function maybePlanExtraDraftsWithPlanner(args: {
     const res = await openrouterChatWithFallback({
       models,
       max_tokens: 360,
-      temperature: 0.55,
+      temperature: 0.1,
       messages: [
         { role: "system", content: sys },
         { role: "user", content: JSON.stringify(user) },
@@ -896,7 +896,7 @@ async function maybeCriticRankDrafts(args: {
     const res = await openrouterChatWithFallback({
       models,
       max_tokens: 220,
-      temperature: 0.2,
+      temperature: 0.1,
       messages: [
         { role: "system", content: sys },
         { role: "user", content: JSON.stringify(user) },
