@@ -13,6 +13,7 @@
 import { getConfig } from "./config.ts";
 import { openrouterChatWithFallback } from "./openrouter.ts";
 import { log } from "./logger.ts";
+import { normalizeListName, normalizeToolArgs } from "./assistantToolArgs.ts";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
 export type AssistantContentType = "movie" | "series" | "anime";
@@ -108,17 +109,17 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
     name: z.string().min(1),
     description: z.string().max(2000).optional(),
     isPublic: z.boolean().optional(),
-    items: z
-      .array(
-        z.object({
-          titleId: zUuid,
-          contentType: zContentType,
-          note: z.string().max(500).optional(),
-        }),
-      )
-      .max(50)
-      .optional(),
-  }),
+        items: z
+          .array(
+            z.object({
+              titleId: zUuid,
+              contentType: zContentType.optional(),
+              note: z.string().max(500).optional(),
+            }),
+          )
+          .max(50)
+          .optional(),
+      }),
 
   list_add_item: z
     .object({
@@ -171,8 +172,8 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
       titleId: zUuid.optional(),
     })
     .superRefine((v, ctx) => {
-      if (!v.listId && !v.listName) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide listId or listName", path: ["listId"] });
+      if (!v.listId && !v.listName && !v.titleId) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide listId, listName, or titleId", path: ["listId"] });
       }
       if (!v.itemId && !v.titleId) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide itemId or titleId", path: ["titleId"] });
@@ -266,7 +267,8 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
 };
 
 function parseToolArgs(tool: AssistantToolName, args: unknown): Record<string, unknown> {
-  const base = args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : {};
+  const baseRaw = args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : {};
+  const base = normalizeToolArgs(tool, baseRaw);
   const schema = TOOL_ARG_SCHEMAS[tool];
   if (!schema) return base;
   const parsed = schema.safeParse(base);
@@ -1428,14 +1430,7 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
   );
 
   const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
-  const listName = rawListName
-    ? rawListName
-        .trim()
-        .replace(/^[\"“”']+/, "")
-        .replace(/[\\"“”']+$/, "")
-        .replace(/[\.!?,;:]+$/g, "")
-        .trim()
-    : "";
+  const listName = normalizeListName(rawListName);
 
   if (!listId && listName) {
     const { data: foundExact, error: findExactErr } = await supabase
@@ -1531,14 +1526,7 @@ async function toolListRemoveItem(supabase: any, userId: string, args: any) {
   );
 
   const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
-  const listName = rawListName
-    ? rawListName
-        .trim()
-        .replace(/^[\"“”']+/, "")
-        .replace(/[\\"“”']+$/, "")
-        .replace(/[\.!?,;:]+$/g, "")
-        .trim()
-    : "";
+  const listName = normalizeListName(rawListName);
 
   const itemId = coerceString(args?.itemId ?? args?.item_id ?? args?.list_item_id ?? args?.id);
   const titleId = coerceString(
@@ -1615,7 +1603,7 @@ async function toolListSetVisibility(supabase: any, userId: string, args: any) {
   let listId = coerceString(
     args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
   );
-  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  const listName = normalizeListName(coerceString(args?.listName ?? args?.name ?? args?.list?.name));
   if (!listId && listName) {
     const { data: found, error: findErr } = await supabase
       .from("lists")
@@ -1628,6 +1616,20 @@ async function toolListSetVisibility(supabase: any, userId: string, args: any) {
     if (findErr) throw new Error(findErr.message);
     if (found?.id) listId = String(found.id);
   }
+  if (!listId && listName) {
+    const pattern = listName.includes("%") ? listName : `%${listName}%`;
+    const { data: foundFuzzy, error: findFuzzyErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", pattern)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findFuzzyErr) throw new Error(findFuzzyErr.message);
+    if (foundFuzzy?.id) listId = String(foundFuzzy.id);
+  }
+  if (!listId && listName) throw new Error("List not found");
   const isPublic = Boolean(args?.isPublic);
   if (!listId) throw new Error("Missing listId");
 
@@ -2110,17 +2112,21 @@ export async function toolCreateList(supabase: any, userId: string, args: any) {
 
   const items: any[] = Array.isArray(args?.items) ? args.items : [];
   if (items.length) {
-    const rows = items
-      .filter((it) => it && typeof it === "object" && typeof it.titleId === "string")
-      .slice(0, 50)
-      .map((it, idx) => ({
+    const rows: any[] = [];
+    for (const [idx, it] of items.filter(Boolean).slice(0, 50).entries()) {
+      if (!it || typeof it !== "object") continue;
+      const titleId = typeof (it as any).titleId === "string" ? (it as any).titleId : "";
+      if (!titleId) continue;
+      const contentType = await resolveContentType(supabase, titleId, (it as any).contentType ?? null);
+      rows.push({
         list_id: listId,
-        title_id: it.titleId,
-        content_type: it.contentType,
-        note: typeof it.note === "string" ? it.note.slice(0, 200) : null,
+        title_id: titleId,
+        content_type: contentType,
+        note: typeof (it as any).note === "string" ? (it as any).note.slice(0, 200) : null,
         position: idx + 1,
         created_at: createdAt,
-      }));
+      });
+    }
 
     if (rows.length) {
       const { error: itemsError } = await supabase.from("list_items").insert(rows);
@@ -2139,21 +2145,12 @@ export async function toolListAddItem(supabase: any, userId: string, args: any) 
   );
 
   const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
-  const listName = rawListName
-    ? rawListName
-        .trim()
-        .replace(/^[\"“”']+/, "")
-        .replace(/[\\"“”']+$/, "")
-        .replace(/[\.!?,;:]+$/g, "")
-        .trim()
-    : "";
+  const listName = normalizeListName(rawListName);
 
   const titleId = coerceString(
     args?.titleId ?? args?.title_id ?? args?.media_item_id ?? args?.title?.id ?? args?.title?.titleId ?? args?.title?.title_id,
   );
 
-  // contentType may be omitted; tool will infer from media_items.kind when needed.
-  const contentType = coerceString(args?.contentType ?? args?.content_type);
   const note = coerceString(args?.note);
 
   // Resolve listId from listName (exact then fuzzy) if needed.
@@ -2187,6 +2184,9 @@ export async function toolListAddItem(supabase: any, userId: string, args: any) 
   if (!listId && listName) throw new Error("List not found");
   if (!listId) throw new Error("Missing listId");
   if (!titleId) throw new Error("Missing titleId");
+
+  // contentType may be omitted; tool will infer from media_items.kind when needed.
+  const contentType = await resolveContentType(supabase, titleId, coerceString(args?.contentType ?? args?.content_type) || null);
 
   // Ownership check.
   const { data: list, error: listError } = await supabase
@@ -2695,72 +2695,72 @@ export async function executeAssistantTool(supabase: any, userId: string, call: 
     }
 
     case "list_add_items": {
-      const r = await toolListAddItems(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolListAddItems(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "list_remove_item": {
-      const r = await toolListRemoveItem(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolListRemoveItem(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "list_set_visibility": {
-      const r = await toolListSetVisibility(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolListSetVisibility(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "rate_title": {
-      const r = await toolRateTitle(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolRateTitle(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "review_upsert": {
-      const r = await toolReviewUpsert(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolReviewUpsert(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "follow_user": {
-      const r = await toolFollowUser(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolFollowUser(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "unfollow_user": {
-      const r = await toolUnfollowUser(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolUnfollowUser(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "block_user": {
-      const r = await toolBlockUser(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolBlockUser(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "unblock_user": {
-      const r = await toolUnblockUser(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolUnblockUser(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "notifications_mark_read": {
-      const r = await toolNotificationsMarkRead(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolNotificationsMarkRead(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "conversation_mute": {
-      const r = await toolConversationMute(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolConversationMute(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     // Internal-only rollback helpers (not exposed to the model)
     case "list_delete": {
-      const r = await toolListDelete(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolListDelete(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
     case "rating_delete": {
-      const r = await toolRatingDelete(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolRatingDelete(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
     case "review_delete": {
-      const r = await toolReviewDelete(supabase, userId, call.args);
-      return { ok: true, tool: call.tool, result: r };
+      const r = await toolReviewDelete(supabase, userId, args);
+      return { ok: true, tool, result: r };
     }
 
     case "diary_set_status": {

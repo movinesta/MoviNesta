@@ -11,6 +11,7 @@ import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { getConfig } from "../_shared/config.ts";
 import { resolveAssistantIdentity } from "../_shared/assistantIdentity.ts";
 import { executeAssistantTool } from "../_shared/assistantTools.ts";
+import { applyTextInferences, coerceArgString, normalizeToolArgs } from "../_shared/assistantToolArgs.ts";
 import { safeInsertAssistantFailure } from "../_shared/assistantTelemetry.ts";
 import { assertAllowedUserActionTool, requiresConfirmation } from "../_shared/assistantPolicy.ts";
 import { computeActionKey, issueConfirmToken } from "../_shared/assistantCrypto.ts";
@@ -41,6 +42,19 @@ type NormalizedAction =
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function getTriggeredUserMessageId(meta: any): string {
+  const aiMeta: any = meta?.ai ?? meta?.AI ?? null;
+  return coerceArgString(
+    aiMeta?.triggeredBy?.userMessageId ??
+      aiMeta?.triggered_by?.user_message_id ??
+      aiMeta?.triggered_by?.userMessageId ??
+      aiMeta?.triggeredByUserMessageId ??
+      aiMeta?.triggered_user_message_id ??
+      meta?.triggeredBy?.userMessageId ??
+      meta?.triggered_by?.user_message_id,
+  );
 }
 
 function normalizeAction(action: AssistantAction): NormalizedAction | null {
@@ -76,49 +90,14 @@ function normalizeAction(action: AssistantAction): NormalizedAction | null {
   return { kind: "tool", tool: type, args: (payload as any) ?? {}, internal };
 }
 
-function coerceString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
-}
-
 function extractMessageText(row: any): string {
   const t = row?.text ?? row?.body?.text ?? row?.body ?? "";
   if (typeof t === "string") return t;
   try {
     return JSON.stringify(t);
   } catch {
-    return String(t ?? "");
+  return String(t ?? "");
   }
-}
-
-function extractListNameFromText(text: string): string {
-  const t = String(text ?? "");
-  const m1 = t.match(/\blist\s+(?:named\s+)?["“”']([^"“”']{1,120})["“”']/i);
-  if (m1?.[1]) return String(m1[1]).trim();
-
-  const m2 = t.match(/\bfrom\s+list\s+([^\n\r\.!?]{1,120})/i);
-  if (m2?.[1]) return String(m2[1]).trim().replace(/["“”']+/g, "").trim();
-
-  const m3 = t.match(/\bto\s+list\s+([^\n\r\.!?]{1,120})/i);
-  if (m3?.[1]) return String(m3[1]).trim().replace(/["“”']+/g, "").trim();
-
-  return "";
-}
-
-function extractTitleIdFromText(text: string): string {
-  const t = String(text ?? "");
-
-  // Prefer explicit markers
-  const m1 = t.match(/\btitleId\s*[:=]?\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i);
-  if (m1?.[1]) return String(m1[1]).toLowerCase();
-
-  const m2 = t.match(/\bitemId\s*[:=]?\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i);
-  if (m2?.[1]) return String(m2[1]).toLowerCase();
-
-  // Fallback: first UUID in text
-  const m3 = t.match(/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i);
-  if (m3?.[1]) return String(m3[1]).toLowerCase();
-
-  return "";
 }
 
 async function fetchTriggeredUserText(
@@ -126,6 +105,7 @@ async function fetchTriggeredUserText(
   conversationId: string,
   userId: string,
   triggeredUserMessageId: string | null,
+  assistantCreatedAt?: string | null,
 ): Promise<string> {
   if (triggeredUserMessageId) {
     const { data, error } = await svc
@@ -144,6 +124,7 @@ async function fetchTriggeredUserText(
     .select("id,conversation_id,sender_id,text,body,created_at")
     .eq("conversation_id", conversationId)
     .eq("sender_id", userId)
+    .lt("created_at", assistantCreatedAt ?? new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -153,142 +134,44 @@ async function fetchTriggeredUserText(
   return "";
 }
 
+async function resolveListIdByName(svc: any, userId: string, listName: string): Promise<string | null> {
+  if (!listName) return null;
+  const { data: foundExact, error: exactErr } = await svc
+    .from("lists")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", listName)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (exactErr) throw new Error(exactErr.message);
+  if (foundExact?.id) return String(foundExact.id);
 
-function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<string, unknown> {
-  const normalized: Record<string, unknown> = { ...(args ?? {}) };
+  const pattern = listName.includes("%") ? listName : `%${listName}%`;
+  const { data: foundFuzzy, error: fuzzyErr } = await svc
+    .from("lists")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", pattern)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (fuzzyErr) throw new Error(fuzzyErr.message);
+  return foundFuzzy?.id ? String(foundFuzzy.id) : null;
+}
 
-  if (tool.startsWith("list_")) {
-    const listId = coerceString(
-      normalized.listId ??
-        (normalized as any).list_id ??
-        (normalized as any).listID ??
-        (normalized as any).list?.id ??
-        (normalized as any).list?.listId ??
-        (normalized as any).list?.list_id ??
-        (normalized as any).list?.listID,
-    );
-    if (listId) normalized.listId = listId;
-
-    const listName = coerceString(
-      (normalized as any).listName ?? (normalized as any).name ?? (normalized as any).list?.name,
-    );
-    if (listName) (normalized as any).listName = listName;
-  }
-
-  if (tool === "list_add_item") {
-    const titleId = coerceString(
-      normalized.titleId ??
-        (normalized as any).title_id ??
-        (normalized as any).id ??
-        (normalized as any).media_item_id,
-    );
-    if (titleId) normalized.titleId = titleId;
-    if (!(normalized as any).contentType) {
-      const contentType = coerceString(
-        (normalized as any).content_type ?? (normalized as any).kind ?? (normalized as any).type,
-      );
-      if (contentType) (normalized as any).contentType = contentType;
-    }
-  }
-
-  if (tool === "list_add_items") {
-    if (!Array.isArray((normalized as any).titleIds) && Array.isArray((normalized as any).title_ids)) {
-      (normalized as any).titleIds = (normalized as any).title_ids;
-    }
-
-    if (Array.isArray((normalized as any).items)) {
-      (normalized as any).items = (normalized as any).items
-        .map((item: any) => {
-          if (!item) return null;
-          if (typeof item === "string") {
-            const titleId = coerceString(item);
-            return titleId ? { titleId } : null;
-          }
-          if (typeof item !== "object") return null;
-          const mapped: Record<string, unknown> = { ...item };
-          const titleId = coerceString(
-            item.titleId ??
-              item.title_id ??
-              item.id ??
-              item.media_item_id ??
-              item.title?.id ??
-              item.title?.titleId ??
-              item.title?.title_id ??
-              item.title?.media_item_id,
-          );
-          if (titleId) mapped.titleId = titleId;
-          if (!mapped.contentType) {
-            const contentType = coerceString(
-              item.contentType ??
-                item.content_type ??
-                item.kind ??
-                item.type ??
-                item.title?.contentType ??
-                item.title?.content_type ??
-                item.title?.kind ??
-                item.title?.type,
-            );
-            if (contentType) mapped.contentType = contentType;
-          }
-          return mapped;
-        })
-        .filter(Boolean);
-    }
-
-    if (!(normalized as any).contentType) {
-      const contentType = coerceString(
-        (normalized as any).content_type ?? (normalized as any).kind ?? (normalized as any).type,
-      );
-      if (contentType) (normalized as any).contentType = contentType;
-    }
-  }
-
-  if (tool === "create_list") {
-    if (Array.isArray((normalized as any).items)) {
-      (normalized as any).items = (normalized as any).items
-        .map((item: any) => {
-          if (!item) return null;
-          if (typeof item === "string") {
-            const titleId = coerceString(item);
-            return titleId ? { titleId } : null;
-          }
-          if (typeof item !== "object") return null;
-          const mapped: Record<string, unknown> = { ...item };
-          const titleId = coerceString(
-            item.titleId ??
-              item.title_id ??
-              item.id ??
-              item.media_item_id ??
-              item.title?.id ??
-              item.title?.titleId ??
-              item.title?.title_id ??
-              item.title?.media_item_id,
-          );
-          if (titleId) mapped.titleId = titleId;
-          if (!mapped.contentType) {
-            const contentType = coerceString(
-              item.contentType ??
-                item.content_type ??
-                item.kind ??
-                item.type ??
-                item.title?.contentType ??
-                item.title?.content_type ??
-                item.title?.kind ??
-                item.title?.type ??
-                (normalized as any).contentType ??
-                (normalized as any).content_type ??
-                (normalized as any).kind ??
-                (normalized as any).type,
-            );
-            if (contentType) mapped.contentType = contentType;
-          }
-          return mapped;
-        })
-        .filter(Boolean);
-    }
-  }
-
-  return normalized;
+async function resolveListIdByTitleId(svc: any, userId: string, titleId: string): Promise<string | null> {
+  if (!titleId) return null;
+  const { data: hit, error: hitErr } = await svc
+    .from("list_items")
+    .select("list_id, lists!inner(id,user_id)")
+    .eq("title_id", titleId)
+    .eq("lists.user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (hitErr) throw new Error(hitErr.message);
+  return hit?.list_id ? String(hit.list_id) : null;
 }
 
 export async function handler(req: Request) {
@@ -367,7 +250,7 @@ export async function handler(req: Request) {
     // Fetch the source message (RLS should allow reading messages in the conversation).
     const { data: msg, error: msgErr } = await supabaseAuth
       .from("messages")
-      .select("id,conversation_id,user_id,meta")
+      .select("id,conversation_id,user_id,meta,created_at")
       .eq("id", messageId)
       .eq("conversation_id", conversationId)
       .eq("user_id", assistantUserId)
@@ -412,56 +295,59 @@ export async function handler(req: Request) {
       );
     }
 
-    const normalizedArgs = normalizeToolArgs(normalized.tool, normalized.args ?? {});
+    let normalizedArgs = normalizeToolArgs(normalized.tool, normalized.args ?? {});
 
-    // Infer missing list context for list_* tools from the triggering user message text (helps confirm buttons).
-    try {
-      if (String(normalized.tool ?? "").startsWith("list_")) {
-        const a: any = normalizedArgs as any;
-        const hasList = isNonEmptyString(a.listId) || isNonEmptyString(a.listName);
-        if (!hasList) {
-          const aiMeta: any = (msg as any)?.meta?.ai ?? (msg as any)?.meta?.AI ?? null;
-          const triggeredUserMessageId = coerceString(
-            aiMeta?.triggeredBy?.userMessageId ??
-              aiMeta?.triggered_by?.user_message_id ??
-              aiMeta?.triggered_by?.userMessageId ??
-              aiMeta?.triggeredByUserMessageId ??
-              aiMeta?.triggered_user_message_id,
-          );
-          const userText = await fetchTriggeredUserText(svc, conversationId, userId, triggeredUserMessageId);
-          const inferredListName = extractListNameFromText(userText);
-          if (inferredListName) a.listName = inferredListName;
+    const toolName = String(normalized.tool ?? "");
+    const needsListContext =
+      (toolName.startsWith("list_") || toolName === "list_set_visibility") &&
+      !isNonEmptyString((normalizedArgs as any).listId) &&
+      !isNonEmptyString((normalizedArgs as any).listName);
+    const needsTitleContext = [
+      "list_add_item",
+      "list_add_items",
+      "list_remove_item",
+      "diary_set_status",
+      "rate_title",
+      "review_upsert",
+    ].includes(toolName) && !isNonEmptyString((normalizedArgs as any).titleId);
+    const needsListItems =
+      toolName === "list_add_items" &&
+      (!Array.isArray((normalizedArgs as any).items) || (normalizedArgs as any).items.length === 0) &&
+      (!Array.isArray((normalizedArgs as any).titleIds) || (normalizedArgs as any).titleIds.length === 0);
+
+    if (needsListContext || needsTitleContext || needsListItems) {
+      try {
+        const triggeredUserMessageId = getTriggeredUserMessageId((msg as any)?.meta ?? null);
+        const userText = await fetchTriggeredUserText(svc, conversationId, userId, triggeredUserMessageId, (msg as any)?.created_at ?? null);
+        if (userText) {
+          normalizedArgs = applyTextInferences(toolName, normalizedArgs, userText);
+          normalizedArgs = normalizeToolArgs(toolName, normalizedArgs);
         }
+      } catch (_e) {
+        // Best-effort only.
       }
-    } catch (_e) {
-      // Best-effort only.
     }
 
-    
-    // Infer missing item context for list_remove_item from the triggering user message text (helps confirm buttons).
-    try {
-      if (normalized.tool === "list_remove_item") {
-        const a: any = normalizedArgs as any;
-        const hasItem = isNonEmptyString(a.itemId) || isNonEmptyString(a.titleId);
-        if (!hasItem) {
-          const aiMeta: any = (msg as any)?.meta?.ai ?? (msg as any)?.meta?.AI ?? null;
-          const triggeredUserMessageId = coerceString(
-            aiMeta?.triggeredBy?.userMessageId ??
-              aiMeta?.triggered_by?.user_message_id ??
-              aiMeta?.triggered_by?.userMessageId ??
-              aiMeta?.triggeredByUserMessageId ??
-              aiMeta?.triggered_user_message_id,
-          );
-          const userText = await fetchTriggeredUserText(svc, conversationId, userId, triggeredUserMessageId);
-          const inferredTitleId = extractTitleIdFromText(userText);
-          if (inferredTitleId) a.titleId = inferredTitleId;
+    // Resolve listId when possible (helps confirm buttons for list tools).
+    if (toolName.startsWith("list_") || toolName === "list_set_visibility") {
+      try {
+        const listId = coerceArgString((normalizedArgs as any).listId);
+        const listName = coerceArgString((normalizedArgs as any).listName);
+        const titleId = coerceArgString((normalizedArgs as any).titleId);
+        if (!listId && listName) {
+          const resolved = await resolveListIdByName(svc, userId, listName);
+          if (resolved) (normalizedArgs as any).listId = resolved;
         }
+        if (!coerceArgString((normalizedArgs as any).listId) && toolName === "list_remove_item" && titleId) {
+          const resolved = await resolveListIdByTitleId(svc, userId, titleId);
+          if (resolved) (normalizedArgs as any).listId = resolved;
+        }
+      } catch (_e) {
+        // Best-effort only.
       }
-    } catch (_e) {
-      // Best-effort only.
     }
 
-normalized.args = normalizedArgs;
+    normalized.args = normalizedArgs;
 
     const tool = assertAllowedUserActionTool(normalized.tool, Boolean((normalized as any).internal));
 

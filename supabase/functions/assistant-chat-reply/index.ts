@@ -33,6 +33,7 @@ import {
   type AssistantToolCall,
   type AssistantToolResult,
 } from "../_shared/assistantTools.ts";
+import { normalizeToolArgs } from "../_shared/assistantToolArgs.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "assistant-chat-reply";
@@ -2229,7 +2230,10 @@ async function maybePrepareToolCall(args?: {
 }): Promise<AssistantToolCall | null> {
   if (!args || !args.call || typeof args.call !== "object") return null;
   const tool = String(args.call.tool ?? "");
-  const callArgs: any = args.call.args && typeof args.call.args === "object" ? { ...(args.call.args as any) } : {};
+  const callArgs: any = normalizeToolArgs(
+    tool,
+    args.call.args && typeof args.call.args === "object" ? { ...(args.call.args as any) } : {},
+  );
 
   // plan_execute is a meta-tool; resolution is handled inside the tool itself.
   if (tool === "plan_execute") return { tool: tool as any, args: callArgs };
