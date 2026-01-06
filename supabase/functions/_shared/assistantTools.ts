@@ -156,12 +156,12 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
     .refine((value) => (Array.isArray(value.items) && value.items.length > 0) || (Array.isArray(value.titleIds) && value.titleIds.length > 0), {
       message: "items or titleIds required",
       path: ["items"],
-    }),
+    })
     .superRefine((v, ctx) => {
       if (!v.listId && !v.listName) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: \"Provide listId or listName\", path: [\"listId\"] });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide listId or listName", path: ["listId"] });
       }
-    })
+    }),
 
   list_remove_item: z
     .object({
@@ -1519,7 +1519,22 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
 }
 
 async function toolListRemoveItem(supabase: any, userId: string, args: any) {
-  const listId = coerceString(args?.listId);
+  let listId = coerceString(
+    args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
+  );
+  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  if (!listId && listName) {
+    const { data: found, error: findErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", listName)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) throw new Error(findErr.message);
+    if (found?.id) listId = String(found.id);
+  }
   const itemId = coerceString(args?.itemId);
   const titleId = coerceString(args?.titleId);
   if (!listId) throw new Error("Missing listId");
