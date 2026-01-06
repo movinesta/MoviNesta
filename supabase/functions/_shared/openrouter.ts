@@ -66,11 +66,15 @@ export type OpenRouterChatResult = {
   raw?: unknown;
 };
 
+const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+
 const getBaseUrl = (override?: string) => {
-  if (!override) {
-    throw new Error("Missing openrouter_base_url in assistant settings");
+  const cfg = getConfig();
+  const v = String(override ?? cfg.openrouterBaseUrl ?? DEFAULT_OPENROUTER_BASE_URL).trim();
+  if (!v) {
+    throw new Error("Missing OpenRouter base URL");
   }
-  return override.replace(/\/+$/, "");
+  return v.replace(/\/+$/, "");
 };
 
 function buildInputFromMessages(messages: OpenRouterMessage[]): OpenRouterInputMessage[] {

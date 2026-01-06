@@ -1,4 +1,5 @@
 import { getAdminClient } from "./supabase.ts";
+import { getConfig } from "./config.ts";
 
 export type AssistantSettingsRow = {
   id: number;
@@ -33,6 +34,11 @@ export type AssistantSettings = {
 };
 
 const DEFAULT_PARAMS: Record<string, unknown> = {};
+
+// Safe, free default that keeps the assistant usable even if the admin settings row is empty.
+// You can override via assistant_settings.* or OPENROUTER_MODEL_* env vars.
+const DEFAULT_OPENROUTER_MODEL = "xiaomi/mimo-v2-flash:free";
+const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 function uniqStrings(list: Array<string | null | undefined>): string[] {
   const out: string[] = [];
@@ -76,20 +82,37 @@ function normalizeParams(params?: unknown | null): Record<string, unknown> {
 }
 
 export function getDefaultModelCatalog(): string[] {
-  return [];
+  const cfg = getConfig();
+  return uniqStrings([
+    cfg.openrouterModelFast,
+    cfg.openrouterModelCreative,
+    cfg.openrouterModelPlanner,
+    cfg.openrouterModelMaker,
+    cfg.openrouterModelCritic,
+  ]);
 }
 
 export function getDefaultAssistantSettings(): AssistantSettings {
+  const cfg = getConfig();
+  const baseUrl = String(cfg.openrouterBaseUrl ?? DEFAULT_OPENROUTER_BASE_URL).trim() || DEFAULT_OPENROUTER_BASE_URL;
+
+  // Prefer env-provided models, otherwise fall back to a stable free model so the assistant still works out-of-the-box.
+  const modelFast = String(cfg.openrouterModelFast ?? "").trim() || DEFAULT_OPENROUTER_MODEL;
+  const modelCreative = String(cfg.openrouterModelCreative ?? "").trim() || modelFast;
+  const modelPlanner = String(cfg.openrouterModelPlanner ?? "").trim() || modelFast;
+  const modelMaker = String(cfg.openrouterModelMaker ?? "").trim() || modelCreative;
+  const modelCritic = String(cfg.openrouterModelCritic ?? "").trim() || modelFast;
+
   return {
     id: 1,
-    openrouter_base_url: null,
-    model_fast: null,
-    model_creative: null,
-    model_planner: null,
-    model_maker: null,
-    model_critic: null,
+    openrouter_base_url: baseUrl,
+    model_fast: modelFast,
+    model_creative: modelCreative,
+    model_planner: modelPlanner,
+    model_maker: modelMaker,
+    model_critic: modelCritic,
     fallback_models: [],
-    model_catalog: getDefaultModelCatalog(),
+    model_catalog: uniqStrings([modelFast, modelCreative, modelPlanner, modelMaker, modelCritic, ...getDefaultModelCatalog()]),
     default_instructions: null,
     params: { ...DEFAULT_PARAMS },
     created_at: null,
@@ -129,14 +152,14 @@ export async function getAssistantSettings(svc?: any): Promise<AssistantSettings
   const row = data as AssistantSettingsRow;
   return {
     id: row.id,
-    openrouter_base_url: row.openrouter_base_url ?? null,
-    model_fast: row.model_fast ?? null,
-    model_creative: row.model_creative ?? null,
-    model_planner: row.model_planner ?? null,
-    model_maker: row.model_maker ?? null,
-    model_critic: row.model_critic ?? null,
-    fallback_models: uniqStrings(row.fallback_models ?? []),
-    model_catalog: uniqStrings(row.model_catalog ?? []),
+    openrouter_base_url: String(row.openrouter_base_url ?? "").trim() || String(defaults.openrouter_base_url ?? "").trim() || null,
+    model_fast: String(row.model_fast ?? "").trim() || String(defaults.model_fast ?? "").trim() || null,
+    model_creative: String(row.model_creative ?? "").trim() || String(defaults.model_creative ?? "").trim() || null,
+    model_planner: String(row.model_planner ?? "").trim() || String(defaults.model_planner ?? "").trim() || null,
+    model_maker: String(row.model_maker ?? "").trim() || String(defaults.model_maker ?? "").trim() || null,
+    model_critic: String(row.model_critic ?? "").trim() || String(defaults.model_critic ?? "").trim() || null,
+    fallback_models: uniqStrings([...(row.fallback_models ?? []), ...(defaults.fallback_models ?? [])]),
+    model_catalog: uniqStrings([...(row.model_catalog ?? []), ...(defaults.model_catalog ?? [])]),
     default_instructions: row.default_instructions ?? null,
     params: {
       ...normalizeParams(row.params),

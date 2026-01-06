@@ -997,11 +997,22 @@ async function handler(req: Request) {
 
     // 5) Route models (fast -> creative fallback) + tool loop.
     const assistantSettings = await getAssistantSettings(svc);
+
+    // Allow env-based configuration (OPENROUTER_MODEL_*, OPENROUTER_BASE_URL) to act as a fallback
+    // in case the assistant_settings row is missing/empty (common after schema resets).
+    const baseUrl =
+      assistantSettings.openrouter_base_url ??
+      cfg.openrouterBaseUrl ??
+      "https://openrouter.ai/api/v1";
+
     const models = Array.from(
       new Set(
         [
-          assistantSettings.model_fast ?? null,
-          assistantSettings.model_creative ?? null,
+          assistantSettings.model_fast ?? cfg.openrouterModelFast ?? null,
+          assistantSettings.model_creative ?? cfg.openrouterModelCreative ?? null,
+          assistantSettings.model_planner ?? cfg.openrouterModelPlanner ?? null,
+          assistantSettings.model_maker ?? cfg.openrouterModelMaker ?? null,
+          assistantSettings.model_critic ?? cfg.openrouterModelCritic ?? null,
           ...assistantSettings.fallback_models,
           ...assistantSettings.model_catalog,
         ].filter(Boolean) as string[],
@@ -1138,6 +1149,14 @@ async function handler(req: Request) {
       finalModel = "server_router";
       if (!navigateTo && routed.navigateTo) navigateTo = routed.navigateTo;
     } else {
+      // Configuration preflight. Avoid burning tool loops when the assistant isn't configured.
+      if (!cfg.openrouterApiKey) {
+        finalReplyText =
+          "Assistant is not configured: missing OPENROUTER_API_KEY (Supabase Edge Functions secret).";
+      } else if (!models.length) {
+        finalReplyText =
+          "Assistant is not configured: no OpenRouter models selected. Set assistant_settings.model_fast (or OPENROUTER_MODEL_FAST).";
+      } else {
       for (let loop = 0; loop < MAX_TOOL_LOOPS; loop++) {
         let completion: any;
         try {
@@ -1152,7 +1171,7 @@ async function handler(req: Request) {
             defaults: {
               ...(assistantSettings.params ?? {}),
               instructions: defaultInstructions,
-              base_url: assistantSettings.openrouter_base_url ?? undefined,
+              base_url: baseUrl,
             },
           });
           const durationMs = Date.now() - t0;
@@ -1244,7 +1263,7 @@ async function handler(req: Request) {
                 defaults: {
                   ...(assistantSettings.params ?? {}),
                   instructions: defaultInstructions,
-                  base_url: assistantSettings.openrouter_base_url ?? undefined,
+                  base_url: baseUrl,
                 },
                 assistantName,
                 userRequest: latestUserText,
@@ -1470,6 +1489,7 @@ async function handler(req: Request) {
           finalReplyText = sanitizeReply(completion.content);
         }
         break;
+      }
       }
     }
 

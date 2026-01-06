@@ -50,7 +50,7 @@ export const getConfigFromEnv = (): AppConfig => {
     tastediveApiKey: Deno.env.get("TASTEDIVE_API_KEY") ?? "",
     internalJobToken: Deno.env.get("INTERNAL_JOB_TOKEN") ?? "",
 
-    openrouterApiKey: Deno.env.get("OPENROUTER_API_KEY") ?? undefined,
+    openrouterApiKey: Deno.env.get("OPENROUTER_API_KEY") ?? Deno.env.get("OPENAI_API_KEY") ?? undefined,
     openrouterBaseUrl: Deno.env.get("OPENROUTER_BASE_URL") ?? undefined,
     openrouterModelFast: Deno.env.get("OPENROUTER_MODEL_FAST") ?? undefined,
     openrouterModelCreative: Deno.env.get("OPENROUTER_MODEL_CREATIVE") ?? undefined,
