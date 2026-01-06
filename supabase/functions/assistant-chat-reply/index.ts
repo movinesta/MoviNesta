@@ -44,6 +44,11 @@ const CHUNK_MODE_MAX_SECTIONS = 6;
 const CHUNK_OUTLINE_MAX_TOKENS = 240;
 // Keep section generations below common provider completion caps (e.g. 500 tokens).
 const CHUNK_SECTION_MAX_TOKENS = 495;
+const STREAM_MIN_CHARS = 80;
+const STREAM_MAX_UPDATES = 24;
+const STREAM_MAX_DURATION_MS = 2000;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Avoid chunk mode for strict-format requests ("reply exactly", "format each line exactly", etc).
@@ -214,8 +219,9 @@ async function generateChunkedReplyText(args: {
   assistantName: string;
   userRequest: string;
   toolTrace: Array<{ call: AssistantToolCall; result: AssistantToolResult }>;
+  stream?: boolean;
 }): Promise<string> {
-  const { models, plugins, assistantName, userRequest, toolTrace } = args;
+  const { models, plugins, assistantName, userRequest, toolTrace, stream } = args;
 
   const mini: Array<[number, string, string]> = toolTrace
     .slice(0, 14)
@@ -243,6 +249,7 @@ async function generateChunkedReplyText(args: {
     top_p: 1,
     response_format: buildChunkOutlineResponseFormat(),
     plugins,
+    stream,
   });
 
   const outlineObj = safeJsonParse<any>(outlineCompletion.content) ?? {};
@@ -278,6 +285,7 @@ async function generateChunkedReplyText(args: {
       temperature: 0.1,
       top_p: 1,
       plugins,
+      stream,
     });
 
     let secText = sanitizeReply(String(sectionCompletion.content ?? "")).trim();
@@ -303,6 +311,7 @@ async function generateChunkedReplyText(args: {
         temperature: 0.1,
         top_p: 1,
         plugins,
+        stream,
       });
 
       const more = sanitizeReply(String(contCompletion.content ?? "")).trim();
@@ -662,6 +671,7 @@ async function handler(req: Request) {
     }
 
     const cfg = getConfig();
+    const useStreaming = Boolean(cfg.openrouterStreaming);
     let assistant;
     try {
       assistant = await resolveAssistantIdentity(svc, cfg, logCtx);
@@ -1158,6 +1168,7 @@ async function handler(req: Request) {
             top_p: 1,
             response_format: responseFormat,
             plugins,
+            stream: useStreaming,
           });
           const durationMs = Date.now() - t0;
           log(logCtx, "OpenRouter completion", {
@@ -1246,6 +1257,7 @@ async function handler(req: Request) {
                   assistantName,
                   userRequest: latestUserText,
                   toolTrace,
+                  stream: useStreaming,
                 });
               } catch (e: any) {
                 const msg = e instanceof Error ? e.message : String(e ?? "Chunk generation failed");
@@ -1475,6 +1487,17 @@ async function handler(req: Request) {
     // If the model returns nothing (or strict override returns an empty string), fall back to a safe token.
     const replyText = ((finalReplyText ?? "").trim() || "NO_RESULTS").trim();
 
+    const shouldStreamReply = useStreaming && replyText.length >= STREAM_MIN_CHARS;
+    const streamUpdates = shouldStreamReply
+      ? Math.min(STREAM_MAX_UPDATES, Math.max(4, Math.ceil(replyText.length / 140)))
+      : 1;
+    const streamChunkSize = Math.ceil(replyText.length / streamUpdates);
+    const streamDelayMs = Math.max(
+      30,
+      Math.min(120, Math.floor(STREAM_MAX_DURATION_MS / Math.max(1, streamUpdates))),
+    );
+    const initialReplyText = shouldStreamReply ? replyText.slice(0, streamChunkSize) : replyText;
+
     // 6) Insert assistant message.
     const clientId = `assistant_${crypto.randomUUID()}`;
 
@@ -1483,8 +1506,8 @@ async function handler(req: Request) {
       user_id: assistantUserId,
       sender_id: assistantUserId,
       message_type: "text" as any,
-      text: replyText,
-      body: { type: "text", text: replyText },
+      text: initialReplyText,
+      body: { type: "text", text: initialReplyText },
       client_id: clientId,
       meta: {
         ai: {
@@ -1573,6 +1596,23 @@ async function handler(req: Request) {
 
       log(logCtx, "Failed to insert assistant message", { error: message, code });
       return jsonError("Database error", 503, "DB_ERROR", req);
+    }
+
+    if (shouldStreamReply && inserted?.id) {
+      for (let i = 2; i <= streamUpdates; i++) {
+        const nextText = replyText.slice(0, i * streamChunkSize);
+        try {
+          await svc
+            .from("messages")
+            .update({ text: nextText, body: { type: "text", text: nextText } })
+            .eq("id", inserted.id);
+        } catch {
+          // ignore streaming update failures
+        }
+        if (i < streamUpdates) {
+          await delay(streamDelayMs);
+        }
+      }
     }
 
     // Best-effort: mark queued job complete (if present).
