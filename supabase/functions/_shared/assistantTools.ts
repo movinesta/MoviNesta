@@ -498,7 +498,7 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
     const res = await openrouterChatWithFallback({
       models,
       max_tokens: 220,
-      temperature: 0.7,
+      temperature: 0.1,
       response_format,
       plugins: [{ id: "response-healing" }],
       messages: [
