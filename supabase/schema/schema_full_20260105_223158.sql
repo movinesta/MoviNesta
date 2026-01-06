@@ -11511,6 +11511,31 @@ CREATE TABLE public.admin_costs_settings (
 ALTER TABLE public.admin_costs_settings OWNER TO postgres;
 
 --
+-- TOC entry 467 (class 1259 OID 355946)
+-- Name: assistant_settings; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.assistant_settings (
+    id integer NOT NULL,
+    openrouter_base_url text,
+    model_fast text,
+    model_creative text,
+    model_planner text,
+    model_maker text,
+    model_critic text,
+    fallback_models text[] DEFAULT '{}'::text[] NOT NULL,
+    model_catalog text[] DEFAULT '{}'::text[] NOT NULL,
+    default_instructions text,
+    params jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT assistant_settings_id_check CHECK ((id = 1))
+);
+
+
+ALTER TABLE public.assistant_settings OWNER TO postgres;
+
+--
 -- TOC entry 459 (class 1259 OID 287154)
 -- Name: admin_cron_registry; Type: TABLE; Schema: public; Owner: postgres
 --
@@ -13786,6 +13811,15 @@ ALTER TABLE ONLY public.admin_audit_log
 
 ALTER TABLE ONLY public.admin_costs_settings
     ADD CONSTRAINT admin_costs_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 5402 (class 2606 OID 17426)
+-- Name: assistant_settings assistant_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.assistant_settings
+    ADD CONSTRAINT assistant_settings_pkey PRIMARY KEY (id);
 
 
 --
@@ -17362,6 +17396,12 @@ CREATE TRIGGER trg_conversations_updated_at BEFORE UPDATE ON public.conversation
 
 CREATE TRIGGER trg_embedding_settings_touch BEFORE UPDATE ON public.embedding_settings FOR EACH ROW EXECUTE FUNCTION public._touch_updated_at();
 
+--
+-- Name: assistant_settings trg_assistant_settings_touch; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_assistant_settings_touch BEFORE UPDATE ON public.assistant_settings FOR EACH ROW EXECUTE FUNCTION public._touch_updated_at();
+
 
 --
 -- TOC entry 5651 (class 2620 OID 17526)
@@ -18738,6 +18778,22 @@ ALTER TABLE public.admin_costs_settings ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY admin_costs_settings_service_role_rw ON public.admin_costs_settings TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- TOC entry 5908 (class 0 OID 355946)
+-- Dependencies: 467
+-- Name: assistant_settings; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.assistant_settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- TOC entry 5926 (class 3256 OID 17974)
+-- Name: assistant_settings assistant_settings_service_role_rw; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY assistant_settings_service_role_rw ON public.assistant_settings TO service_role USING (true) WITH CHECK (true);
 
 
 --
@@ -24974,6 +25030,15 @@ GRANT ALL ON TABLE public.admin_costs_settings TO service_role;
 
 
 --
+-- TOC entry 6550 (class 0 OID 0)
+-- Dependencies: 467
+-- Name: TABLE assistant_settings; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.assistant_settings TO service_role;
+
+
+--
 -- TOC entry 6551 (class 0 OID 0)
 -- Dependencies: 459
 -- Name: TABLE admin_cron_registry; Type: ACL; Schema: public; Owner: postgres
@@ -26334,4 +26399,3 @@ ALTER EVENT TRIGGER pgrst_drop_watch OWNER TO supabase_admin;
 --
 
 \unrestrict S0ME5jWaS781Mpgrgrx0hdWTjRDXmzi1qZo8Lg9wuvQVgMCLToaht2mZi1ZSdmw
-
