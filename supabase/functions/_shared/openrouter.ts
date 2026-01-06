@@ -5,6 +5,8 @@
 import { getConfig } from "./config.ts";
 import { fetchJsonWithTimeout } from "./fetch.ts";
 
+const OPENROUTER_CLIENT_BUILD = "openrouter-client-v3-2026-01-06";
+
 export type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -144,6 +146,9 @@ function tryParseSseToContent(s: string): { content: string; raw?: any; model?: 
     // Some models may stream plain text chunks
     const d2 = obj?.choices?.[0]?.delta?.text;
     if (typeof d2 === "string") out += d2;
+    // Some completion endpoints stream "text" directly (non-chat format)
+    const t1 = obj?.choices?.[0]?.text;
+    if (typeof t1 === "string") out += t1;
 
     // OpenAI Responses streaming format (varies by provider/proxy)
     const d3 = obj?.delta;
@@ -393,9 +398,15 @@ export async function openrouterChatWithFallback(
         ...(merged as Omit<OpenRouterChatOptions, "model">),
         model,
       });
-      if (res?.content && String(res.content).trim()) {
-        return res;
-      }
+
+      const text = res?.content ? String(res.content).trim() : "";
+      if (text) return res;
+
+      // If the upstream call "succeeded" but we couldn't extract any text, treat it as an error so we
+      // don't end up throwing a misleading "All models failed" with no detail.
+      const err: any = new Error(`empty_completion_from_${model}`);
+      err.data = res?.raw ?? null;
+      lastErr = err;
     } catch (e: any) {
       lastErr = e;
       // continue

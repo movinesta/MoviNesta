@@ -38,6 +38,7 @@ import { normalizeToolArgs } from "../_shared/assistantToolArgs.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "assistant-chat-reply";
+const BUILD_TAG = "assistant-chat-reply-v3-2026-01-06";
 
 
 const CHUNK_MODE_MAX_TOTAL_CHARS = 14_000;
@@ -232,6 +233,7 @@ async function generateChunkedReplyText(args: {
   // A) Outline
   const outlineCompletion = await openrouterChatWithFallback({
     models,
+    stream: false,
     messages: [
       { role: "system", content: buildChunkOutlineSystemPrompt(assistantName) },
       {
@@ -264,6 +266,7 @@ async function generateChunkedReplyText(args: {
 
     const sectionCompletion = await openrouterChatWithFallback({
       models,
+      stream: false,
       messages: [
         { role: "system", content: buildChunkSectionSystemPrompt(assistantName) },
         {
@@ -288,6 +291,7 @@ async function generateChunkedReplyText(args: {
       const tail = secText.slice(Math.max(0, secText.length - 1200));
       const contCompletion = await openrouterChatWithFallback({
         models,
+        stream: false,
         messages: [
           { role: "system", content: buildChunkSectionSystemPrompt(assistantName) },
           {
@@ -623,6 +627,7 @@ async function handler(req: Request) {
     const { conversationId } = payload;
     logCtx = { ...logCtx, userId: myUserId, authMode, conversationId };
     logInfo(logCtx, "Request accepted", {
+      build: BUILD_TAG,
       hasUserMessageId: Boolean(payload.userMessageId),
       maxContextMessages: payload.maxContextMessages ?? null,
     });
@@ -1165,6 +1170,7 @@ async function handler(req: Request) {
             (assistantSettings.params as any)?.instructions ?? assistantSettings.default_instructions ?? undefined;
           completion = await openrouterChatWithFallback({
             models,
+            stream: false,
             messages: orMessages,
             response_format: responseFormat,
             plugins,
