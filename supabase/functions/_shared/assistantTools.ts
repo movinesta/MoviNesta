@@ -120,16 +120,24 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
       .optional(),
   }),
 
-  list_add_item: z.object({
-    listId: zUuid,
-    titleId: zUuid,
-    contentType: zContentType,
-    note: z.string().max(500).optional(),
-  }),
+  list_add_item: z
+    .object({
+      listId: zUuid.optional(),
+      listName: z.string().min(1).max(120).optional(),
+      titleId: zUuid,
+      contentType: zContentType.optional(),
+      note: z.string().max(500).optional(),
+    })
+    .superRefine((v, ctx) => {
+      if (!v.listId && !v.listName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide listId or listName", path: ["listId"] });
+      }
+    }),
 
   list_add_items: z
     .object({
-      listId: zUuid,
+      listId: zUuid.optional(),
+      listName: z.string().min(1).max(120).optional(),
       items: z
         .array(
           z.object({
@@ -149,6 +157,11 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
       message: "items or titleIds required",
       path: ["items"],
     }),
+    .superRefine((v, ctx) => {
+      if (!v.listId && !v.listName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: \"Provide listId or listName\", path: [\"listId\"] });
+      }
+    })
 
   list_remove_item: z
     .object({
@@ -166,10 +179,17 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
       }
     }),
 
-  list_set_visibility: z.object({
-    listId: zUuid,
-    isPublic: z.boolean(),
-  }),
+  list_set_visibility: z
+    .object({
+      listId: zUuid.optional(),
+      listName: z.string().min(1).max(120).optional(),
+      isPublic: z.boolean(),
+    })
+    .superRefine((v, ctx) => {
+      if (!v.listId && !v.listName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide listId or listName", path: ["listId"] });
+      }
+    }),
 
   diary_set_status: z.object({
     titleId: zUuid,
@@ -1403,7 +1423,22 @@ function coerceRating(v: any): number {
 }
 
 async function toolListAddItems(supabase: any, userId: string, args: any) {
-  const listId = coerceString(args?.listId);
+  let listId = coerceString(
+    args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
+  );
+  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  if (!listId && listName) {
+    const { data: found, error: findErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", listName)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) throw new Error(findErr.message);
+    if (found?.id) listId = String(found.id);
+  }
   const items = Array.isArray(args?.items) ? args.items : [];
   const itemMeta = new Map<string, { contentType: string | null; note: string | null }>();
   const idsFromItems: string[] = [];
@@ -1484,29 +1519,9 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
 }
 
 async function toolListRemoveItem(supabase: any, userId: string, args: any) {
-  let listId = coerceString(
-    args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
-  );
-  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
-  const itemId = coerceString(args?.itemId ?? args?.item_id ?? args?.list_item_id);
-  const titleId = coerceString(
-    args?.titleId ?? args?.title_id ?? args?.media_item_id ?? args?.title?.id ?? args?.title?.titleId ?? args?.title?.title_id,
-  );
-
-  // Resolve listId from listName when needed (for confirmation/action payloads).
-  if (!listId && listName) {
-    const { data: found, error: findErr } = await supabase
-      .from("lists")
-      .select("id")
-      .eq("user_id", userId)
-      .ilike("name", listName)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (findErr) throw new Error(findErr.message);
-    if (found?.id) listId = String(found.id);
-  }
-
+  const listId = coerceString(args?.listId);
+  const itemId = coerceString(args?.itemId);
+  const titleId = coerceString(args?.titleId);
   if (!listId) throw new Error("Missing listId");
   if (!itemId && !titleId) throw new Error("Provide itemId or titleId");
 
@@ -1531,7 +1546,22 @@ async function toolListRemoveItem(supabase: any, userId: string, args: any) {
 }
 
 async function toolListSetVisibility(supabase: any, userId: string, args: any) {
-  const listId = coerceString(args?.listId);
+  let listId = coerceString(
+    args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
+  );
+  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  if (!listId && listName) {
+    const { data: found, error: findErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", listName)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) throw new Error(findErr.message);
+    if (found?.id) listId = String(found.id);
+  }
   const isPublic = Boolean(args?.isPublic);
   if (!listId) throw new Error("Missing listId");
 
@@ -2038,7 +2068,22 @@ export async function toolCreateList(supabase: any, userId: string, args: any) {
 }
 
 export async function toolListAddItem(supabase: any, userId: string, args: any) {
-  const listId = coerceString(args?.listId);
+  let listId = coerceString(
+    args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
+  );
+  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  if (!listId && listName) {
+    const { data: found, error: findErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", listName)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) throw new Error(findErr.message);
+    if (found?.id) listId = String(found.id);
+  }
   const titleId = coerceString(args?.titleId);
   const contentTypeRaw = typeof args?.contentType === "string" ? args.contentType : null;
   const note = typeof args?.note === "string" ? args.note.slice(0, 200) : null;

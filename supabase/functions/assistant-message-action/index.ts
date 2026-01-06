@@ -76,6 +76,58 @@ function normalizeAction(action: AssistantAction): NormalizedAction | null {
   return { kind: "tool", tool: type, args: (payload as any) ?? {}, internal };
 }
 
+
+function extractListNameFromText(text: string): string {
+  const t = String(text ?? "");
+  // Prefer quoted names: list "Name" / list 'Name'
+  const m1 = t.match(/\blist\s+(?:named\s+)?["“”']([^"“”']{1,120})["“”']/i);
+  if (m1) return String(m1[1]).trim();
+
+  // Fallback: from list Name (until end/punctuation)
+  const m2 = t.match(/\bfrom\s+list\s+([^\n\r\.!?]{1,120})/i);
+  if (m2) return String(m2[1]).trim().replace(/["“”']+/g, "").trim();
+
+  // Another fallback: to list Name
+  const m3 = t.match(/\bto\s+list\s+([^\n\r\.!?]{1,120})/i);
+  if (m3) return String(m3[1]).trim().replace(/["“”']+/g, "").trim();
+
+  return "";
+}
+
+async function fetchTriggeredUserText(svc: any, conversationId: string, assistantCreatedAt: string | null, triggeredUserMessageId: string | null, userId: string): Promise<string> {
+  // 1) If we have an explicit triggered user message id, use it.
+  if (triggeredUserMessageId) {
+    const { data, error } = await svc
+      .from("messages")
+      .select("id,sender_id,text,body,created_at")
+      .eq("id", triggeredUserMessageId)
+      .maybeSingle();
+    if (!error && data) {
+      const txt = (data as any)?.text ?? (data as any)?.body?.text ?? "";
+      return typeof txt === "string" ? txt : String(txt ?? "");
+    }
+  }
+
+  // 2) Fallback: latest user message before the assistant message in the same conversation.
+  if (assistantCreatedAt) {
+    const { data, error } = await svc
+      .from("messages")
+      .select("id,sender_id,text,body,created_at")
+      .eq("conversation_id", conversationId)
+      .eq("sender_id", userId)
+      .lt("created_at", assistantCreatedAt)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data) {
+      const txt = (data as any)?.text ?? (data as any)?.body?.text ?? "";
+      return typeof txt === "string" ? txt : String(txt ?? "");
+    }
+  }
+
+  return "";
+}
+
 function coerceString(value: unknown): string {
   return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
 }
@@ -94,6 +146,11 @@ function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<
         (normalized as any).list?.listID,
     );
     if (listId) normalized.listId = listId;
+
+    const listName = coerceString(
+      (normalized as any).listName ?? (normalized as any).name ?? (normalized as any).list?.name,
+    );
+    if (listName) (normalized as any).listName = listName;
   }
 
   if (tool === "list_add_item") {
@@ -110,28 +167,7 @@ function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<
       );
       if (contentType) (normalized as any).contentType = contentType;
     }
-  
-
-  if (tool === "list_remove_item") {
-    // Accept common key variants from model outputs / older clients.
-    const titleId = coerceString(
-      (normalized as any).titleId ??
-        (normalized as any).title_id ??
-        (normalized as any).media_item_id ??
-        (normalized as any).title?.id ??
-        (normalized as any).title?.titleId ??
-        (normalized as any).title?.title_id,
-    );
-    if (titleId) (normalized as any).titleId = titleId;
-    const itemId = coerceString(
-      (normalized as any).itemId ?? (normalized as any).item_id ?? (normalized as any).list_item_id ?? (normalized as any).id,
-    );
-    if (itemId) (normalized as any).itemId = itemId;
-    if (!(normalized as any).listName) {
-      const listName = coerceString((normalized as any).listName ?? (normalized as any).name ?? (normalized as any).list?.name);
-      if (listName) (normalized as any).listName = listName;
-    }
-  }}
+  }
 
   if (tool === "list_add_items") {
     if (!Array.isArray((normalized as any).titleIds) && Array.isArray((normalized as any).title_ids)) {
@@ -309,7 +345,7 @@ export async function handler(req: Request) {
     // Fetch the source message (RLS should allow reading messages in the conversation).
     const { data: msg, error: msgErr } = await supabaseAuth
       .from("messages")
-      .select("id,conversation_id,user_id,meta")
+      .select("id,conversation_id,user_id,created_at,meta")
       .eq("id", messageId)
       .eq("conversation_id", conversationId)
       .eq("user_id", assistantUserId)
@@ -337,6 +373,9 @@ export async function handler(req: Request) {
       return jsonError("Invalid action", 400, "INVALID_ACTION", req);
     }
 
+    const triggeredUserMessageId = typeof (ai as any)?.triggeredBy?.userMessageId === \"string\" ? String((ai as any).triggeredBy.userMessageId) : null;
+    const assistantCreatedAt = typeof (msg as any)?.created_at === \"string\" ? String((msg as any).created_at) : null;
+
     if (normalized.kind === "dismiss") {
       return jsonResponse({ ok: true, toast: "Dismissed." }, 200, undefined, req);
     }
@@ -352,6 +391,18 @@ export async function handler(req: Request) {
         undefined,
         req,
       );
+    }
+
+    // Infer missing list context for list_* tools when the action payload omitted it.
+    if (normalized.kind === \"tool\" && String(normalized.tool ?? \"\").startsWith(\"list_\")) {
+      const a: any = normalized.args ?? {};
+      const hasList = Boolean(coerceString(a.listId)) || Boolean(coerceString(a.listName)) || Boolean(coerceString(a.name));
+      if (!hasList) {
+        const userText = await fetchTriggeredUserText(svc, conversationId, assistantCreatedAt, triggeredUserMessageId, userId);
+        const inferred = extractListNameFromText(userText);
+        if (inferred) a.listName = inferred;
+      }
+      normalized.args = a;
     }
 
     const normalizedArgs = normalizeToolArgs(normalized.tool, normalized.args ?? {});
