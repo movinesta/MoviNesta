@@ -162,20 +162,20 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
 
   diary_set_status: z.object({
     titleId: zUuid,
-    contentType: zContentType,
+    contentType: zContentType.optional(),
     status: z.enum(["want_to_watch", "watching", "watched", "dropped"]),
   }),
 
   rate_title: z.object({
     titleId: zUuid,
-    contentType: zContentType,
+    contentType: zContentType.optional(),
     rating: zRating,
     comment: z.string().max(2000).optional(),
   }),
 
   review_upsert: z.object({
     titleId: zUuid,
-    contentType: zContentType,
+    contentType: zContentType.optional(),
     rating: zRating.optional(),
     headline: z.string().max(140).optional(),
     body: z.string().min(1).max(10000),
