@@ -104,6 +104,23 @@ function extractListNameFromText(text: string): string {
   return "";
 }
 
+function extractTitleIdFromText(text: string): string {
+  const t = String(text ?? "");
+
+  // Prefer explicit markers
+  const m1 = t.match(/\btitleId\s*[:=]?\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i);
+  if (m1?.[1]) return String(m1[1]).toLowerCase();
+
+  const m2 = t.match(/\bitemId\s*[:=]?\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i);
+  if (m2?.[1]) return String(m2[1]).toLowerCase();
+
+  // Fallback: first UUID in text
+  const m3 = t.match(/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i);
+  if (m3?.[1]) return String(m3[1]).toLowerCase();
+
+  return "";
+}
+
 async function fetchTriggeredUserText(
   svc: any,
   conversationId: string,
@@ -420,7 +437,31 @@ export async function handler(req: Request) {
       // Best-effort only.
     }
 
-    normalized.args = normalizedArgs;
+    
+    // Infer missing item context for list_remove_item from the triggering user message text (helps confirm buttons).
+    try {
+      if (normalized.tool === "list_remove_item") {
+        const a: any = normalizedArgs as any;
+        const hasItem = isNonEmptyString(a.itemId) || isNonEmptyString(a.titleId);
+        if (!hasItem) {
+          const aiMeta: any = (msg as any)?.meta?.ai ?? (msg as any)?.meta?.AI ?? null;
+          const triggeredUserMessageId = coerceString(
+            aiMeta?.triggeredBy?.userMessageId ??
+              aiMeta?.triggered_by?.user_message_id ??
+              aiMeta?.triggered_by?.userMessageId ??
+              aiMeta?.triggeredByUserMessageId ??
+              aiMeta?.triggered_user_message_id,
+          );
+          const userText = await fetchTriggeredUserText(svc, conversationId, userId, triggeredUserMessageId);
+          const inferredTitleId = extractTitleIdFromText(userText);
+          if (inferredTitleId) a.titleId = inferredTitleId;
+        }
+      }
+    } catch (_e) {
+      // Best-effort only.
+    }
+
+normalized.args = normalizedArgs;
 
     const tool = assertAllowedUserActionTool(normalized.tool, Boolean((normalized as any).internal));
 
