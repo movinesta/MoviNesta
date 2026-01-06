@@ -22,6 +22,7 @@ import { log, logInfo, logWarn } from "../_shared/logger.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { requireInternalJob } from "../_shared/internal.ts";
 import { getConfig } from "../_shared/config.ts";
+import { getAssistantSettings } from "../_shared/assistantSettings.ts";
 import { resolveAssistantIdentity } from "../_shared/assistantIdentity.ts";
 import { safeInsertAssistantFailure } from "../_shared/assistantTelemetry.ts";
 import {
@@ -41,9 +42,6 @@ const FN_NAME = "assistant-chat-reply";
 
 const CHUNK_MODE_MAX_TOTAL_CHARS = 14_000;
 const CHUNK_MODE_MAX_SECTIONS = 6;
-const CHUNK_OUTLINE_MAX_TOKENS = 240;
-// Keep section generations below common provider completion caps (e.g. 500 tokens).
-const CHUNK_SECTION_MAX_TOKENS = 495;
 
 /**
  * Avoid chunk mode for strict-format requests ("reply exactly", "format each line exactly", etc).
@@ -170,7 +168,11 @@ function buildChunkSectionSystemPrompt(assistantName: string) {
 }
 
 function getFinishReasonFromRaw(raw: any): string | null {
-  const fr = raw?.choices?.[0]?.finish_reason ?? raw?.choices?.[0]?.finishReason;
+  const fr =
+    raw?.output?.[0]?.finish_reason ??
+    raw?.output?.[0]?.stop_reason ??
+    raw?.choices?.[0]?.finish_reason ??
+    raw?.choices?.[0]?.finishReason;
   const s = String(fr ?? "").trim();
   return s ? s : null;
 }
@@ -211,11 +213,12 @@ function safeJsonParse<T = any>(s: string): T | null {
 async function generateChunkedReplyText(args: {
   models: string[];
   plugins: any[];
+  defaults?: Record<string, unknown>;
   assistantName: string;
   userRequest: string;
   toolTrace: Array<{ call: AssistantToolCall; result: AssistantToolResult }>;
 }): Promise<string> {
-  const { models, plugins, assistantName, userRequest, toolTrace } = args;
+  const { models, plugins, assistantName, userRequest, toolTrace, defaults } = args;
 
   const mini: Array<[number, string, string]> = toolTrace
     .slice(0, 14)
@@ -238,11 +241,9 @@ async function generateChunkedReplyText(args: {
           `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
       },
     ],
-    max_tokens: CHUNK_OUTLINE_MAX_TOKENS,
-    temperature: 0.1,
-    top_p: 1,
     response_format: buildChunkOutlineResponseFormat(),
     plugins,
+    defaults,
   });
 
   const outlineObj = safeJsonParse<any>(outlineCompletion.content) ?? {};
@@ -274,10 +275,8 @@ async function generateChunkedReplyText(args: {
             `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
         },
       ],
-      max_tokens: CHUNK_SECTION_MAX_TOKENS,
-      temperature: 0.1,
-      top_p: 1,
       plugins,
+      defaults,
     });
 
     let secText = sanitizeReply(String(sectionCompletion.content ?? "")).trim();
@@ -299,10 +298,8 @@ async function generateChunkedReplyText(args: {
               `LAST_TEXT_TAIL:\n${tail}`,
           },
         ],
-        max_tokens: CHUNK_SECTION_MAX_TOKENS,
-        temperature: 0.1,
-        top_p: 1,
         plugins,
+        defaults,
       });
 
       const more = sanitizeReply(String(contCompletion.content ?? "")).trim();
@@ -999,18 +996,14 @@ async function handler(req: Request) {
     }
 
     // 5) Route models (fast -> creative fallback) + tool loop.
-    // Choose Chat Completions–compatible defaults. (Some models require the Responses API and will 400 on /chat/completions.)
+    const assistantSettings = await getAssistantSettings(svc);
     const models = Array.from(
       new Set(
         [
-          cfg.openrouterModelFast,
-          cfg.openrouterModelCreative,
-          // Always include safe chat-completions defaults as fallbacks.
-          "openai/gpt-4.1-mini",
-          "openai/gpt-4o-mini",
-          "google/gemini-2.5-flash-lite",
-          "xiaomi/mimo-v2-flash:free",
-          "mistralai/devstral-2512:free",
+          assistantSettings.model_fast ?? null,
+          assistantSettings.model_creative ?? null,
+          ...assistantSettings.fallback_models,
+          ...assistantSettings.model_catalog,
         ].filter(Boolean) as string[],
       ),
     );
@@ -1149,15 +1142,18 @@ async function handler(req: Request) {
         let completion: any;
         try {
           const t0 = Date.now();
+          const defaultInstructions =
+            (assistantSettings.params as any)?.instructions ?? assistantSettings.default_instructions ?? undefined;
           completion = await openrouterChatWithFallback({
             models,
             messages: orMessages,
-            // Token saver: smaller default generation budget.
-            max_tokens: 320,
-            temperature: 0.1,
-            top_p: 1,
             response_format: responseFormat,
             plugins,
+            defaults: {
+              ...(assistantSettings.params ?? {}),
+              instructions: defaultInstructions,
+              base_url: assistantSettings.openrouter_base_url ?? undefined,
+            },
           });
           const durationMs = Date.now() - t0;
           log(logCtx, "OpenRouter completion", {
@@ -1239,19 +1235,26 @@ async function handler(req: Request) {
             continue;
           }
           if (useChunkMode) {
-              try {
-                finalReplyText = await generateChunkedReplyText({
-                  models,
-                  plugins,
-                  assistantName,
-                  userRequest: latestUserText,
-                  toolTrace,
-                });
-              } catch (e: any) {
-                const msg = e instanceof Error ? e.message : String(e ?? "Chunk generation failed");
-                logWarn(logCtx, "Chunked generation failed", { error: msg });
-                finalReplyText = sanitizeReply(agent.text ?? "");
-              }
+            try {
+              const defaultInstructions =
+                (assistantSettings.params as any)?.instructions ?? assistantSettings.default_instructions ?? undefined;
+              finalReplyText = await generateChunkedReplyText({
+                models,
+                plugins,
+                defaults: {
+                  ...(assistantSettings.params ?? {}),
+                  instructions: defaultInstructions,
+                  base_url: assistantSettings.openrouter_base_url ?? undefined,
+                },
+                assistantName,
+                userRequest: latestUserText,
+                toolTrace,
+              });
+            } catch (e: any) {
+              const msg = e instanceof Error ? e.message : String(e ?? "Chunk generation failed");
+              logWarn(logCtx, "Chunked generation failed", { error: msg });
+              finalReplyText = sanitizeReply(agent.text ?? "");
+            }
           } else {
               finalReplyText = sanitizeReply(agent.text ?? "");
           }

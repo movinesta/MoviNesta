@@ -9,6 +9,7 @@
 import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
 import { getUserClient } from "../_shared/supabase.ts";
 import { getConfig } from "../_shared/config.ts";
+import { getAssistantSettings } from "../_shared/assistantSettings.ts";
 import { openrouterChatWithFallback } from "../_shared/openrouter.ts";
 import { type ActiveGoal, type AssistantPlaybookId } from "../_shared/assistantPlaybooks.ts";
 import { buildRewriteSystemPrompt, type AssistantSurface } from "./promptPacks.ts";
@@ -491,18 +492,20 @@ async function maybeRewriteCopy(
   if (!cfg.openrouterApiKey) return null;
   if (!drafts.length) return null;
 
+  const settings = await getAssistantSettings();
   const role = opts?.role ?? "rewriter";
   const primary =
     role === "maker"
-      ? (opts?.preferCreative ? cfg.openrouterModelMaker || cfg.openrouterModelCreative : cfg.openrouterModelMaker || cfg.openrouterModelFast)
+      ? (opts?.preferCreative ? settings.model_maker ?? settings.model_creative : settings.model_maker ?? settings.model_fast)
       : opts?.preferCreative
-        ? cfg.openrouterModelCreative
-        : cfg.openrouterModelFast;
+        ? settings.model_creative
+        : settings.model_fast;
 
   const models: string[] = [
     primary,
-    cfg.openrouterModelFast,
-    cfg.openrouterModelCreative,
+    settings.model_fast,
+    settings.model_creative,
+    ...settings.fallback_models,
   ].filter(Boolean) as string[];
   if (!models.length) return null;
 
@@ -562,16 +565,21 @@ async function maybeRewriteCopy(
   };
 
   try {
+    const defaultInstructions =
+      (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined;
     const res = await openrouterChatWithFallback({
       models,
-      temperature: 0.1,
-      max_tokens: 360,
       messages: [
         { role: "system", content: system },
         { role: "user", content: JSON.stringify(user) },
       ],
       response_format,
       plugins: OR_PLUGINS,
+      defaults: {
+        ...(settings.params ?? {}),
+        instructions: defaultInstructions,
+        base_url: settings.openrouter_base_url ?? undefined,
+      },
     });
     const parsed = safeJsonParse<{ s: string[][] }>(res.content);
     if (!parsed?.s?.length) return null;
@@ -707,7 +715,12 @@ async function maybePlanExtraDraftsWithPlanner(args: {
   if (!need) return null;
 
   // Keep planner calls cheap + rare (only when we have fewer deterministic drafts).
-  const models: string[] = [cfg.openrouterModelPlanner, cfg.openrouterModelFast].filter(Boolean) as string[];
+  const settings = await getAssistantSettings();
+  const models: string[] = [
+    settings.model_planner,
+    settings.model_fast,
+    ...settings.fallback_models,
+  ].filter(Boolean) as string[];
   if (!models.length) return null;
 
   const compactContext: Record<string, unknown> = {};
@@ -786,16 +799,21 @@ async function maybePlanExtraDraftsWithPlanner(args: {
   };
 
   try {
+    const defaultInstructions =
+      (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined;
     const res = await openrouterChatWithFallback({
       models,
-      max_tokens: 360,
-      temperature: 0.1,
       messages: [
         { role: "system", content: sys },
         { role: "user", content: JSON.stringify(user) },
       ],
       response_format,
       plugins: OR_PLUGINS,
+      defaults: {
+        ...(settings.params ?? {}),
+        instructions: defaultInstructions,
+        base_url: settings.openrouter_base_url ?? undefined,
+      },
     });
 
     const parsedV2 = safeJsonParse<PlannerResponseV2>(res.content);
@@ -849,7 +867,12 @@ async function maybeCriticRankDrafts(args: {
   if (!cfg.openrouterApiKey) return null;
   if (args.drafts.length < 2) return null;
 
-  const models: string[] = [cfg.openrouterModelCritic, cfg.openrouterModelFast].filter(Boolean) as string[];
+  const settings = await getAssistantSettings();
+  const models: string[] = [
+    settings.model_critic,
+    settings.model_fast,
+    ...settings.fallback_models,
+  ].filter(Boolean) as string[];
   if (!models.length) return null;
 
   const sys = [
@@ -893,16 +916,21 @@ async function maybeCriticRankDrafts(args: {
   };
 
   try {
+    const defaultInstructions =
+      (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined;
     const res = await openrouterChatWithFallback({
       models,
-      max_tokens: 220,
-      temperature: 0.1,
       messages: [
         { role: "system", content: sys },
         { role: "user", content: JSON.stringify(user) },
       ],
       response_format,
       plugins: OR_PLUGINS,
+      defaults: {
+        ...(settings.params ?? {}),
+        instructions: defaultInstructions,
+        base_url: settings.openrouter_base_url ?? undefined,
+      },
     });
 
     const parsedV2 = safeJsonParse<CriticResponseV2>(res.content);
