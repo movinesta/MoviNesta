@@ -111,6 +111,22 @@ function normalizeToolArgs(tool: string, args: Record<string, unknown>): Record<
       if (contentType) (normalized as any).contentType = contentType;
     }
   }
+  if (tool === "list_remove_item") {
+    const titleId = coerceString(
+      normalized.titleId ??
+        (normalized as any).title_id ??
+        (normalized as any).id ??
+        (normalized as any).media_item_id ??
+        (normalized as any).itemId ??
+        (normalized as any).item_id ??
+        (normalized as any).title?.id ??
+        (normalized as any).title?.titleId ??
+        (normalized as any).title?.title_id ??
+        (normalized as any).title?.media_item_id,
+    );
+    if (titleId) normalized.titleId = titleId;
+  }
+
 
   if (tool === "list_add_items") {
     if (!Array.isArray((normalized as any).titleIds) && Array.isArray((normalized as any).title_ids)) {
