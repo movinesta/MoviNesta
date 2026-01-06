@@ -474,10 +474,10 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
 
     const settings = await getAssistantSettings();
     const models: string[] = [
-      settings.model_planner ?? cfg.openrouterModelPlanner,
-      settings.model_maker ?? cfg.openrouterModelMaker,
-      settings.model_creative ?? cfg.openrouterModelCreative,
-      settings.model_fast ?? cfg.openrouterModelFast,
+      settings.model_planner,
+      settings.model_maker,
+      settings.model_creative,
+      settings.model_fast,
       ...settings.fallback_models,
     ].filter(Boolean) as string[];
     if (!models.length) return null;
@@ -504,8 +504,6 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
 
     const res = await openrouterChatWithFallback({
       models,
-      max_output_tokens: 220,
-      temperature: 0.1,
       response_format,
       plugins: [{ id: "response-healing" }],
       messages: [

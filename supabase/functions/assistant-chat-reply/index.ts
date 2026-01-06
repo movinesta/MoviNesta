@@ -42,9 +42,6 @@ const FN_NAME = "assistant-chat-reply";
 
 const CHUNK_MODE_MAX_TOTAL_CHARS = 14_000;
 const CHUNK_MODE_MAX_SECTIONS = 6;
-const CHUNK_OUTLINE_MAX_TOKENS = 240;
-// Keep section generations below common provider completion caps (e.g. 500 tokens).
-const CHUNK_SECTION_MAX_TOKENS = 495;
 
 /**
  * Avoid chunk mode for strict-format requests ("reply exactly", "format each line exactly", etc).
@@ -244,9 +241,6 @@ async function generateChunkedReplyText(args: {
           `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
       },
     ],
-    max_output_tokens: CHUNK_OUTLINE_MAX_TOKENS,
-    temperature: 0.1,
-    top_p: 1,
     response_format: buildChunkOutlineResponseFormat(),
     plugins,
     defaults,
@@ -281,9 +275,6 @@ async function generateChunkedReplyText(args: {
             `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
         },
       ],
-      max_output_tokens: CHUNK_SECTION_MAX_TOKENS,
-      temperature: 0.1,
-      top_p: 1,
       plugins,
       defaults,
     });
@@ -307,9 +298,6 @@ async function generateChunkedReplyText(args: {
               `LAST_TEXT_TAIL:\n${tail}`,
           },
         ],
-        max_output_tokens: CHUNK_SECTION_MAX_TOKENS,
-        temperature: 0.1,
-        top_p: 1,
         plugins,
         defaults,
       });
@@ -1009,15 +997,12 @@ async function handler(req: Request) {
 
     // 5) Route models (fast -> creative fallback) + tool loop.
     const assistantSettings = await getAssistantSettings(svc);
-    const fallbackModels = assistantSettings.fallback_models.length
-      ? assistantSettings.fallback_models
-      : ["openai/gpt-4.1-mini", "openai/gpt-4o-mini"];
     const models = Array.from(
       new Set(
         [
-          assistantSettings.model_fast ?? cfg.openrouterModelFast,
-          assistantSettings.model_creative ?? cfg.openrouterModelCreative,
-          ...fallbackModels,
+          assistantSettings.model_fast ?? null,
+          assistantSettings.model_creative ?? null,
+          ...assistantSettings.fallback_models,
           ...assistantSettings.model_catalog,
         ].filter(Boolean) as string[],
       ),
@@ -1162,10 +1147,6 @@ async function handler(req: Request) {
           completion = await openrouterChatWithFallback({
             models,
             messages: orMessages,
-            // Token saver: smaller default generation budget.
-            max_output_tokens: 320,
-            temperature: 0.1,
-            top_p: 1,
             response_format: responseFormat,
             plugins,
             defaults: {

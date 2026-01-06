@@ -496,17 +496,15 @@ async function maybeRewriteCopy(
   const role = opts?.role ?? "rewriter";
   const primary =
     role === "maker"
-      ? (opts?.preferCreative
-          ? settings.model_maker ?? cfg.openrouterModelMaker ?? settings.model_creative ?? cfg.openrouterModelCreative
-          : settings.model_maker ?? cfg.openrouterModelMaker ?? settings.model_fast ?? cfg.openrouterModelFast)
+      ? (opts?.preferCreative ? settings.model_maker ?? settings.model_creative : settings.model_maker ?? settings.model_fast)
       : opts?.preferCreative
-        ? settings.model_creative ?? cfg.openrouterModelCreative
-        : settings.model_fast ?? cfg.openrouterModelFast;
+        ? settings.model_creative
+        : settings.model_fast;
 
   const models: string[] = [
     primary,
-    settings.model_fast ?? cfg.openrouterModelFast,
-    settings.model_creative ?? cfg.openrouterModelCreative,
+    settings.model_fast,
+    settings.model_creative,
     ...settings.fallback_models,
   ].filter(Boolean) as string[];
   if (!models.length) return null;
@@ -571,8 +569,6 @@ async function maybeRewriteCopy(
       (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined;
     const res = await openrouterChatWithFallback({
       models,
-      temperature: 0.1,
-      max_output_tokens: 360,
       messages: [
         { role: "system", content: system },
         { role: "user", content: JSON.stringify(user) },
@@ -721,8 +717,8 @@ async function maybePlanExtraDraftsWithPlanner(args: {
   // Keep planner calls cheap + rare (only when we have fewer deterministic drafts).
   const settings = await getAssistantSettings();
   const models: string[] = [
-    settings.model_planner ?? cfg.openrouterModelPlanner,
-    settings.model_fast ?? cfg.openrouterModelFast,
+    settings.model_planner,
+    settings.model_fast,
     ...settings.fallback_models,
   ].filter(Boolean) as string[];
   if (!models.length) return null;
@@ -807,8 +803,6 @@ async function maybePlanExtraDraftsWithPlanner(args: {
       (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined;
     const res = await openrouterChatWithFallback({
       models,
-      max_output_tokens: 360,
-      temperature: 0.1,
       messages: [
         { role: "system", content: sys },
         { role: "user", content: JSON.stringify(user) },
@@ -875,8 +869,8 @@ async function maybeCriticRankDrafts(args: {
 
   const settings = await getAssistantSettings();
   const models: string[] = [
-    settings.model_critic ?? cfg.openrouterModelCritic,
-    settings.model_fast ?? cfg.openrouterModelFast,
+    settings.model_critic,
+    settings.model_fast,
     ...settings.fallback_models,
   ].filter(Boolean) as string[];
   if (!models.length) return null;
@@ -926,8 +920,6 @@ async function maybeCriticRankDrafts(args: {
       (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined;
     const res = await openrouterChatWithFallback({
       models,
-      max_output_tokens: 220,
-      temperature: 0.1,
       messages: [
         { role: "system", content: sys },
         { role: "user", content: JSON.stringify(user) },
