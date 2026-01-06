@@ -5,8 +5,6 @@
 import { getConfig } from "./config.ts";
 import { fetchJsonWithTimeout } from "./fetch.ts";
 
-const OPENROUTER_CLIENT_BUILD = "openrouter-client-v3-2026-01-06";
-
 export type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -68,14 +66,11 @@ export type OpenRouterChatResult = {
   raw?: unknown;
 };
 
-const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-
 const getBaseUrl = (override?: string) => {
   const cfg = getConfig();
+  const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
   const v = String(override ?? cfg.openrouterBaseUrl ?? DEFAULT_OPENROUTER_BASE_URL).trim();
-  if (!v) {
-    throw new Error("Missing OpenRouter base URL");
-  }
+  if (!v) throw new Error("Missing OpenRouter base URL");
   return v.replace(/\/+$/, "");
 };
 
@@ -87,25 +82,52 @@ function buildInputFromMessages(messages: OpenRouterMessage[]): OpenRouterInputM
 }
 
 function extractResponseText(data: any): string {
+  // OpenRouter's OpenAI-compatible Responses API sometimes returns `output_text: ""` even when
+  // the real content is present in `output[].content[]`. If we return the empty string here,
+  // the caller treats it as an "empty completion" and fails all fallbacks.
   const direct = data?.output_text;
-  if (typeof direct === "string") return direct;
+  if (typeof direct === "string" && direct.trim().length > 0) return direct;
 
   const output = Array.isArray(data?.output) ? data.output : [];
   const parts: string[] = [];
-  for (const item of output) {
-    if (item?.type === "message") {
-      const content = item?.content;
-      if (typeof content === "string") {
-        parts.push(content);
-      } else if (Array.isArray(content)) {
-        for (const c of content) {
-          if (c?.type === "output_text" && typeof c?.text === "string") parts.push(c.text);
-          else if (typeof c?.text === "string") parts.push(c.text);
-        }
-      }
-    } else if (typeof item?.text === "string") {
-      parts.push(item.text);
+
+  const pushText = (v: unknown) => {
+    if (typeof v === "string" && v.length) parts.push(v);
+    // Some proxies/models wrap text as { value: "..." }
+    else if (v && typeof v === "object" && typeof (v as any).value === "string") parts.push((v as any).value);
+  };
+
+  const readContent = (content: unknown) => {
+    if (typeof content === "string") {
+      pushText(content);
+      return;
     }
+    if (!Array.isArray(content)) return;
+    for (const c of content) {
+      if (typeof c === "string") {
+        pushText(c);
+        continue;
+      }
+      if (!c || typeof c !== "object") continue;
+
+      // OpenAI Responses: { type: "output_text" | "text", text: "..." }
+      pushText((c as any).text);
+      // Sometimes: { text: { value: "..." } }
+      pushText((c as any)?.text?.value);
+      // Some proxies: { content: "..." }
+      pushText((c as any).content);
+    }
+  };
+
+  for (const item of output) {
+    if (!item) continue;
+    // OpenAI Responses typically uses { type: "message", content: [...] }
+    // but some proxies omit/rename `type`, so we don't hard-require it.
+    readContent((item as any).content);
+    // Some proxies nest a `message` object.
+    readContent((item as any)?.message?.content);
+    pushText((item as any).text);
+    pushText((item as any)?.text?.value);
   }
 
   if (parts.length) return parts.join("");
@@ -115,68 +137,6 @@ function extractResponseText(data: any): string {
     data?.choices?.[0]?.text ??
     ""
   );
-
-
-function tryParseSseToContent(s: string): { content: string; raw?: any; model?: string; usage?: unknown } | null {
-  const text = String(s ?? "");
-  const looksLikeSse = text.startsWith("data:") || text.includes("\ndata:") || text.includes("\nevent:");
-  if (!looksLikeSse) return null;
-
-  const lines = text.split(/\r?\n/);
-  let out = "";
-  let lastObj: any = null;
-
-  for (const line of lines) {
-    if (!line.startsWith("data:")) continue;
-    const payload = line.slice(5).trim();
-    if (!payload || payload === "[DONE]") continue;
-
-    let obj: any = null;
-    try {
-      obj = JSON.parse(payload);
-    } catch {
-      continue;
-    }
-    lastObj = obj;
-
-    // OpenAI chat.completions streaming format
-    const d1 = obj?.choices?.[0]?.delta?.content;
-    if (typeof d1 === "string") out += d1;
-
-    // Some models may stream plain text chunks
-    const d2 = obj?.choices?.[0]?.delta?.text;
-    if (typeof d2 === "string") out += d2;
-    // Some completion endpoints stream "text" directly (non-chat format)
-    const t1 = obj?.choices?.[0]?.text;
-    if (typeof t1 === "string") out += t1;
-
-    // OpenAI Responses streaming format (varies by provider/proxy)
-    const d3 = obj?.delta;
-    if (typeof d3 === "string") out += d3;
-
-    const d4 = obj?.output_text_delta;
-    if (typeof d4 === "string") out += d4;
-
-    const d5 = obj?.text;
-    if (typeof d5 === "string" && typeof obj?.type === "string" && obj.type.includes("delta")) out += d5;
-  }
-
-  if (!out && lastObj) {
-    // Sometimes the final SSE event includes the full shape. Try extracting normally.
-    out = extractResponseText(lastObj) || "";
-  }
-
-  out = String(out ?? "").trim();
-  if (!out) return null;
-
-  return {
-    content: out,
-    raw: lastObj,
-    model: lastObj?.model,
-    usage: lastObj?.usage,
-  };
-}
-
 };
 
 export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenRouterChatResult> {
@@ -294,23 +254,6 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     throw lastErr ?? new Error("OpenRouter request failed");
   }
 
-  if (typeof data === "string") {
-    const parsed = tryParseSseToContent(data);
-    if (parsed) {
-      return {
-        content: parsed.content,
-        model: parsed.model,
-        usage: parsed.usage,
-        raw: parsed.raw ?? data,
-      };
-    }
-    const err: any = new Error(
-      "OpenRouter returned a non-JSON response (likely SSE streaming). Set stream=false for server-side calls.",
-    );
-    err.data = String(data).slice(0, 900);
-    throw err;
-  }
-
   const content = extractResponseText(data);
 
   return {
@@ -398,15 +341,9 @@ export async function openrouterChatWithFallback(
         ...(merged as Omit<OpenRouterChatOptions, "model">),
         model,
       });
-
-      const text = res?.content ? String(res.content).trim() : "";
-      if (text) return res;
-
-      // If the upstream call "succeeded" but we couldn't extract any text, treat it as an error so we
-      // don't end up throwing a misleading "All models failed" with no detail.
-      const err: any = new Error(`empty_completion_from_${model}`);
-      err.data = res?.raw ?? null;
-      lastErr = err;
+      if (res?.content && String(res.content).trim()) {
+        return res;
+      }
     } catch (e: any) {
       lastErr = e;
       // continue
