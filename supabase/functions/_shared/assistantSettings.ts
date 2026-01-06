@@ -1,0 +1,147 @@
+import { getAdminClient } from "./supabase.ts";
+
+export type AssistantSettingsRow = {
+  id: number;
+  openrouter_base_url?: string | null;
+  model_fast?: string | null;
+  model_creative?: string | null;
+  model_planner?: string | null;
+  model_maker?: string | null;
+  model_critic?: string | null;
+  fallback_models?: string[] | null;
+  model_catalog?: string[] | null;
+  default_instructions?: string | null;
+  params?: unknown | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type AssistantSettings = {
+  id: number;
+  openrouter_base_url?: string | null;
+  model_fast?: string | null;
+  model_creative?: string | null;
+  model_planner?: string | null;
+  model_maker?: string | null;
+  model_critic?: string | null;
+  fallback_models: string[];
+  model_catalog: string[];
+  default_instructions?: string | null;
+  params: Record<string, unknown>;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+const DEFAULT_PARAMS: Record<string, unknown> = {};
+
+function uniqStrings(list: Array<string | null | undefined>): string[] {
+  const out: string[] = [];
+  for (const item of list) {
+    const v = String(item ?? "").trim();
+    if (!v) continue;
+    if (!out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+function coerceParams(params?: unknown | null): Record<string, unknown> {
+  if (!params) return {};
+  if (typeof params === "string") {
+    try {
+      const parsed = JSON.parse(params) as unknown;
+      return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof params === "object" && !Array.isArray(params)) {
+    return params as Record<string, unknown>;
+  }
+  return {};
+}
+
+function normalizeParams(params?: unknown | null): Record<string, unknown> {
+  const raw = coerceParams(params);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === undefined) continue;
+    if (v === null) {
+      out[k] = null;
+      continue;
+    }
+    if (typeof v === "string" && v.trim() === "") continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+export function getDefaultModelCatalog(): string[] {
+  return [];
+}
+
+export function getDefaultAssistantSettings(): AssistantSettings {
+  return {
+    id: 1,
+    openrouter_base_url: null,
+    model_fast: null,
+    model_creative: null,
+    model_planner: null,
+    model_maker: null,
+    model_critic: null,
+    fallback_models: [],
+    model_catalog: getDefaultModelCatalog(),
+    default_instructions: null,
+    params: { ...DEFAULT_PARAMS },
+    created_at: null,
+    updated_at: null,
+  };
+}
+
+export async function getAssistantSettings(svc?: any): Promise<AssistantSettings> {
+  const client = svc ?? getAdminClient();
+  const defaults = getDefaultAssistantSettings();
+  const { data, error } = await client.from("assistant_settings").select("*").eq("id", 1).maybeSingle();
+
+  if (error && String(error.message ?? "").includes("assistant_settings")) {
+    throw error;
+  }
+
+  if (error || !data) {
+    if (!data) {
+      await client.from("assistant_settings").upsert({
+        id: 1,
+        openrouter_base_url: defaults.openrouter_base_url ?? null,
+        model_fast: defaults.model_fast ?? null,
+        model_creative: defaults.model_creative ?? null,
+        model_planner: defaults.model_planner ?? null,
+        model_maker: defaults.model_maker ?? null,
+        model_critic: defaults.model_critic ?? null,
+        fallback_models: defaults.fallback_models ?? [],
+        model_catalog: defaults.model_catalog ?? [],
+        default_instructions: defaults.default_instructions ?? null,
+        params: defaults.params ?? {},
+        updated_at: new Date().toISOString(),
+      });
+    }
+    return defaults;
+  }
+
+  const row = data as AssistantSettingsRow;
+  return {
+    id: row.id,
+    openrouter_base_url: row.openrouter_base_url ?? null,
+    model_fast: row.model_fast ?? null,
+    model_creative: row.model_creative ?? null,
+    model_planner: row.model_planner ?? null,
+    model_maker: row.model_maker ?? null,
+    model_critic: row.model_critic ?? null,
+    fallback_models: uniqStrings(row.fallback_models ?? []),
+    model_catalog: uniqStrings(row.model_catalog ?? []),
+    default_instructions: row.default_instructions ?? null,
+    params: {
+      ...normalizeParams(row.params),
+    },
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
+  };
+}
