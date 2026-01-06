@@ -23,7 +23,6 @@ export interface AppConfig {
   openrouterModelPlanner?: string;
   openrouterModelMaker?: string;
   openrouterModelCritic?: string;
-  openrouterStreaming?: boolean;
 
   // Assistant identity (for DM/chat and attribution)
   assistantUserId?: string;
@@ -38,14 +37,6 @@ const getRequiredEnv = (key: string): string => {
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;
-};
-
-const parseOptionalBool = (value: string | null | undefined): boolean | undefined => {
-  if (value == null) return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) return true;
-  if (["0", "false", "no", "off"].includes(normalized)) return false;
-  return undefined;
 };
 
 // This function is intended to be called in the Deno runtime.
@@ -66,7 +57,6 @@ export const getConfigFromEnv = (): AppConfig => {
     openrouterModelPlanner: Deno.env.get("OPENROUTER_MODEL_PLANNER") ?? undefined,
     openrouterModelMaker: Deno.env.get("OPENROUTER_MODEL_MAKER") ?? undefined,
     openrouterModelCritic: Deno.env.get("OPENROUTER_MODEL_CRITIC") ?? undefined,
-    openrouterStreaming: parseOptionalBool(Deno.env.get("OPENROUTER_STREAMING")),
 
     assistantUserId: Deno.env.get("ASSISTANT_USER_ID") ?? Deno.env.get("MOVINESTA_ASSISTANT_USER_ID") ?? undefined,
     assistantUsername: Deno.env.get("ASSISTANT_USERNAME") ?? "movinesta",
@@ -106,7 +96,6 @@ export const getConfig = (): AppConfig => {
         openrouterModelPlanner: undefined,
         openrouterModelMaker: undefined,
         openrouterModelCritic: undefined,
-        openrouterStreaming: undefined,
 
         assistantUserId: undefined,
         assistantUsername: "movinesta",

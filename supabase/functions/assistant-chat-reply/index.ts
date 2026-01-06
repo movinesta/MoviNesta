@@ -214,9 +214,8 @@ async function generateChunkedReplyText(args: {
   assistantName: string;
   userRequest: string;
   toolTrace: Array<{ call: AssistantToolCall; result: AssistantToolResult }>;
-  stream?: boolean;
 }): Promise<string> {
-  const { models, plugins, assistantName, userRequest, toolTrace, stream } = args;
+  const { models, plugins, assistantName, userRequest, toolTrace } = args;
 
   const mini: Array<[number, string, string]> = toolTrace
     .slice(0, 14)
@@ -244,7 +243,6 @@ async function generateChunkedReplyText(args: {
     top_p: 1,
     response_format: buildChunkOutlineResponseFormat(),
     plugins,
-    stream,
   });
 
   const outlineObj = safeJsonParse<any>(outlineCompletion.content) ?? {};
@@ -280,7 +278,6 @@ async function generateChunkedReplyText(args: {
       temperature: 0.1,
       top_p: 1,
       plugins,
-      stream,
     });
 
     let secText = sanitizeReply(String(sectionCompletion.content ?? "")).trim();
@@ -306,7 +303,6 @@ async function generateChunkedReplyText(args: {
         temperature: 0.1,
         top_p: 1,
         plugins,
-        stream,
       });
 
       const more = sanitizeReply(String(contCompletion.content ?? "")).trim();
@@ -666,7 +662,6 @@ async function handler(req: Request) {
     }
 
     const cfg = getConfig();
-    const useStreaming = Boolean(cfg.openrouterStreaming);
     let assistant;
     try {
       assistant = await resolveAssistantIdentity(svc, cfg, logCtx);
@@ -1163,7 +1158,6 @@ async function handler(req: Request) {
             top_p: 1,
             response_format: responseFormat,
             plugins,
-            stream: useStreaming,
           });
           const durationMs = Date.now() - t0;
           log(logCtx, "OpenRouter completion", {
@@ -1252,7 +1246,6 @@ async function handler(req: Request) {
                   assistantName,
                   userRequest: latestUserText,
                   toolTrace,
-                  stream: useStreaming,
                 });
               } catch (e: any) {
                 const msg = e instanceof Error ? e.message : String(e ?? "Chunk generation failed");
