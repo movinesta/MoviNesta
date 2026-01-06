@@ -275,7 +275,7 @@ async function generateChunkedReplyText(args: {
         },
       ],
       max_tokens: CHUNK_SECTION_MAX_TOKENS,
-      temperature: 0.6,
+      temperature: 0.1,
       top_p: 1,
       plugins,
     });
