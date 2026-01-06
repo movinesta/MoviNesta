@@ -8,7 +8,14 @@ import {
 } from "../_shared/assistantSettings.ts";
 
 const ParamsSchema = z
-  .object({
+  .preprocess((val) => {
+    if (typeof val !== "string") return val;
+    try {
+      return JSON.parse(val);
+    } catch {
+      return val;
+    }
+  }, z.object({
     temperature: z.number().min(0).max(2).nullable().optional(),
     top_p: z.number().min(0).max(1).nullable().optional(),
     max_output_tokens: z.number().int().min(1).max(32768).nullable().optional(),
@@ -27,8 +34,7 @@ const ParamsSchema = z
     tool_choice: z.any().nullable().optional(),
     response_format: z.any().nullable().optional(),
     plugins: z.array(z.any()).nullable().optional(),
-  })
-  .strict();
+  }).strict());
 
 const BodySchema = z
   .object({

@@ -11,7 +11,7 @@ export type AssistantSettingsRow = {
   fallback_models?: string[] | null;
   model_catalog?: string[] | null;
   default_instructions?: string | null;
-  params?: Record<string, unknown> | null;
+  params?: unknown | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -44,9 +44,26 @@ function uniqStrings(list: Array<string | null | undefined>): string[] {
   return out;
 }
 
-function normalizeParams(params?: Record<string, unknown> | null): Record<string, unknown> {
+function coerceParams(params?: unknown | null): Record<string, unknown> {
+  if (!params) return {};
+  if (typeof params === "string") {
+    try {
+      const parsed = JSON.parse(params) as unknown;
+      return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof params === "object" && !Array.isArray(params)) {
+    return params as Record<string, unknown>;
+  }
+  return {};
+}
+
+function normalizeParams(params?: unknown | null): Record<string, unknown> {
+  const raw = coerceParams(params);
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(params ?? {})) {
+  for (const [k, v] of Object.entries(raw)) {
     if (v === undefined) continue;
     if (v === null) {
       out[k] = null;
