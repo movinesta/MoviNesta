@@ -1522,9 +1522,25 @@ async function toolListRemoveItem(supabase: any, userId: string, args: any) {
   let listId = coerceString(
     args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
   );
-  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+
+  const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  const listName = rawListName
+    ? rawListName
+        .trim()
+        .replace(/^[\"“”']+/, "")
+        .replace(/[\\"“”']+$/, "")
+        .replace(/[\.!?,;:]+$/g, "")
+        .trim()
+    : "";
+
+  const itemId = coerceString(args?.itemId ?? args?.item_id ?? args?.list_item_id ?? args?.id);
+  const titleId = coerceString(
+    args?.titleId ?? args?.title_id ?? args?.media_item_id ?? args?.title?.id ?? args?.title?.titleId ?? args?.title?.title_id,
+  );
+
+  // Resolve listId from listName (exact then fuzzy) if needed.
   if (!listId && listName) {
-    const { data: found, error: findErr } = await supabase
+    const { data: foundExact, error: findExactErr } = await supabase
       .from("lists")
       .select("id")
       .eq("user_id", userId)
@@ -1532,11 +1548,39 @@ async function toolListRemoveItem(supabase: any, userId: string, args: any) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (findErr) throw new Error(findErr.message);
-    if (found?.id) listId = String(found.id);
+    if (findExactErr) throw new Error(findExactErr.message);
+    if (foundExact?.id) listId = String(foundExact.id);
   }
-  const itemId = coerceString(args?.itemId);
-  const titleId = coerceString(args?.titleId);
+
+  if (!listId && listName) {
+    const pattern = listName.includes("%") ? listName : `%${listName}%`;
+    const { data: foundFuzzy, error: findFuzzyErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", pattern)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findFuzzyErr) throw new Error(findFuzzyErr.message);
+    if (foundFuzzy?.id) listId = String(foundFuzzy.id);
+  }
+
+  // Last resort: if we have a titleId, find a list containing it for this user.
+  if (!listId && titleId) {
+    const { data: hit, error: hitErr } = await supabase
+      .from("list_items")
+      .select("list_id, lists!inner(id,user_id)")
+      .eq("title_id", titleId)
+      .eq("lists.user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (hitErr) throw new Error(hitErr.message);
+    if (hit?.list_id) listId = String(hit.list_id);
+  }
+
+  if (!listId && listName) throw new Error("List not found");
   if (!listId) throw new Error("Missing listId");
   if (!itemId && !titleId) throw new Error("Provide itemId or titleId");
 
