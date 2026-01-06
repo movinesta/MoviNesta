@@ -69,7 +69,7 @@ const getBaseUrl = (override?: string) => {
   if (!override) {
     throw new Error("Missing openrouter_base_url in assistant settings");
   }
-  return override.replace(/\\/+$/, "");
+  return override.replace(/\/+$/, "");
 };
 
 function buildInputFromMessages(messages: OpenRouterMessage[]): OpenRouterInputMessage[] {
