@@ -11,6 +11,7 @@
 //   (best-effort sequential execution with a structured outcome).
 
 import { getConfig } from "./config.ts";
+import { getAssistantSettings } from "./assistantSettings.ts";
 import { openrouterChatWithFallback } from "./openrouter.ts";
 import { log } from "./logger.ts";
 import { normalizeListName, normalizeToolArgs } from "./assistantToolArgs.ts";
@@ -471,8 +472,14 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
     const cfg = getConfig();
     if (!cfg.openrouterApiKey) return null;
 
-    const models: string[] = [cfg.openrouterModelPlanner, cfg.openrouterModelMaker, cfg.openrouterModelCreative, cfg.openrouterModelFast]
-      .filter(Boolean) as string[];
+    const settings = await getAssistantSettings();
+    const models: string[] = [
+      settings.model_planner ?? cfg.openrouterModelPlanner,
+      settings.model_maker ?? cfg.openrouterModelMaker,
+      settings.model_creative ?? cfg.openrouterModelCreative,
+      settings.model_fast ?? cfg.openrouterModelFast,
+      ...settings.fallback_models,
+    ].filter(Boolean) as string[];
     if (!models.length) return null;
 
     const liked = likedTitleNames.filter(Boolean).slice(0, 5);
@@ -497,7 +504,7 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
 
     const res = await openrouterChatWithFallback({
       models,
-      max_tokens: 220,
+      max_output_tokens: 220,
       temperature: 0.1,
       response_format,
       plugins: [{ id: "response-healing" }],
@@ -515,6 +522,11 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
           }),
         },
       ],
+      defaults: {
+        ...(settings.params ?? {}),
+        instructions: (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined,
+        base_url: settings.openrouter_base_url ?? undefined,
+      },
     });
 
     let raw = (res.content ?? "").trim();
