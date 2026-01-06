@@ -19,6 +19,7 @@ const ParamsSchema = z
     temperature: z.number().min(0).max(2).nullable().optional(),
     top_p: z.number().min(0).max(1).nullable().optional(),
     max_output_tokens: z.number().int().min(1).max(32768).nullable().optional(),
+    timeout_ms: z.number().int().min(1000).max(120000).nullable().optional(),
     presence_penalty: z.number().min(-2).max(2).nullable().optional(),
     frequency_penalty: z.number().min(-2).max(2).nullable().optional(),
     seed: z.number().int().min(0).max(2_000_000_000).nullable().optional(),

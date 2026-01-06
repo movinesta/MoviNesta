@@ -38,6 +38,7 @@ export interface OpenRouterChatOptions {
   max_output_tokens?: number;
   temperature?: number;
   top_p?: number;
+  timeout_ms?: number;
   stop?: string | string[];
   presence_penalty?: number;
   frequency_penalty?: number;
@@ -113,6 +114,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
   }
 
   const url = `${getBaseUrl(opts.base_url)}/responses`;
+  const timeoutMs = typeof opts.timeout_ms === "number" ? opts.timeout_ms : 12_000;
 
   const input = opts.input ?? (opts.messages ? buildInputFromMessages(opts.messages) : undefined);
   if (!input) {
@@ -195,7 +197,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
           },
           body: JSON.stringify(payload),
         },
-        12_000,
+        timeoutMs,
       )) as any;
       break;
     } catch (e: any) {
@@ -239,6 +241,7 @@ export interface OpenRouterChatWithFallbackOptions {
   max_output_tokens?: number;
   temperature?: number;
   top_p?: number;
+  timeout_ms?: number;
   stop?: string | string[];
   presence_penalty?: number;
   frequency_penalty?: number;
@@ -284,6 +287,7 @@ export async function openrouterChatWithFallback(
       assignIfDefined("max_output_tokens", opts.max_output_tokens);
       assignIfDefined("temperature", opts.temperature);
       assignIfDefined("top_p", opts.top_p);
+      assignIfDefined("timeout_ms", opts.timeout_ms);
       assignIfDefined("stop", opts.stop);
       assignIfDefined("presence_penalty", opts.presence_penalty);
       assignIfDefined("frequency_penalty", opts.frequency_penalty);
