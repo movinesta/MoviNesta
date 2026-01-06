@@ -150,10 +150,21 @@ const TOOL_ARG_SCHEMAS: Partial<Record<AssistantToolName, z.ZodTypeAny>> = {
       path: ["items"],
     }),
 
-  list_remove_item: z.object({
-    listId: zUuid,
-    titleId: zUuid,
-  }),
+  list_remove_item: z
+    .object({
+      listId: zUuid.optional(),
+      listName: z.string().min(1).max(120).optional(),
+      itemId: zUuid.optional(),
+      titleId: zUuid.optional(),
+    })
+    .superRefine((v, ctx) => {
+      if (!v.listId && !v.listName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide listId or listName", path: ["listId"] });
+      }
+      if (!v.itemId && !v.titleId) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide itemId or titleId", path: ["titleId"] });
+      }
+    }),
 
   list_set_visibility: z.object({
     listId: zUuid,
@@ -1473,9 +1484,29 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
 }
 
 async function toolListRemoveItem(supabase: any, userId: string, args: any) {
-  const listId = coerceString(args?.listId);
-  const itemId = coerceString(args?.itemId);
-  const titleId = coerceString(args?.titleId);
+  let listId = coerceString(
+    args?.listId ?? args?.list_id ?? args?.listID ?? args?.list?.id ?? args?.list?.listId ?? args?.list?.list_id ?? args?.list?.listID,
+  );
+  const listName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
+  const itemId = coerceString(args?.itemId ?? args?.item_id ?? args?.list_item_id);
+  const titleId = coerceString(
+    args?.titleId ?? args?.title_id ?? args?.media_item_id ?? args?.title?.id ?? args?.title?.titleId ?? args?.title?.title_id,
+  );
+
+  // Resolve listId from listName when needed (for confirmation/action payloads).
+  if (!listId && listName) {
+    const { data: found, error: findErr } = await supabase
+      .from("lists")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("name", listName)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) throw new Error(findErr.message);
+    if (found?.id) listId = String(found.id);
+  }
+
   if (!listId) throw new Error("Missing listId");
   if (!itemId && !titleId) throw new Error("Provide itemId or titleId");
 
