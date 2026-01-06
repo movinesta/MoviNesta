@@ -128,6 +128,10 @@ export async function getAssistantSettings(svc?: any): Promise<AssistantSettings
   const defaults = getDefaultAssistantSettings();
   const { data, error } = await client.from("assistant_settings").select("*").eq("id", 1).maybeSingle();
 
+  if (error && String(error.message ?? "").includes("assistant_settings")) {
+    throw error;
+  }
+
   if (error || !data) {
     if (!data) {
       await client.from("assistant_settings").upsert({

@@ -70,7 +70,18 @@ serve(async (req) => {
     const action = body?.action ?? "get";
 
     if (action === "get") {
-      const settings = await getAssistantSettings(svc);
+      let settings;
+      try {
+        settings = await getAssistantSettings(svc);
+      } catch (err: any) {
+        const msg = String(err?.message ?? err ?? "");
+        return json(req, 503, {
+          ok: false,
+          message: msg.includes("assistant_settings")
+            ? "assistant_settings table is missing. Apply the migration before using this endpoint."
+            : "Failed to load assistant settings.",
+        });
+      }
       return json(req, 200, {
         ok: true,
         assistant_settings: settings,
