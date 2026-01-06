@@ -74,7 +74,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
   const basePayload: Record<string, unknown> = {
     model: opts.model,
     messages: opts.messages,
-    temperature: opts.temperature ?? 0.7,
+    temperature: opts.temperature ?? 0.1,
     top_p: opts.top_p ?? 1,
     // Clamp to avoid provider caps causing truncation.
     max_tokens: clampMaxTokens(opts.max_tokens),
