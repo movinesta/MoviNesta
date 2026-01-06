@@ -1170,6 +1170,7 @@ async function handler(req: Request) {
             plugins,
             defaults: {
               ...(assistantSettings.params ?? {}),
+              stream: false,
               instructions: defaultInstructions,
               base_url: baseUrl,
             },
@@ -1262,6 +1263,7 @@ async function handler(req: Request) {
                 plugins,
                 defaults: {
                   ...(assistantSettings.params ?? {}),
+                  stream: false,
                   instructions: defaultInstructions,
                   base_url: baseUrl,
                 },

@@ -113,6 +113,65 @@ function extractResponseText(data: any): string {
     data?.choices?.[0]?.text ??
     ""
   );
+
+
+function tryParseSseToContent(s: string): { content: string; raw?: any; model?: string; usage?: unknown } | null {
+  const text = String(s ?? "");
+  const looksLikeSse = text.startsWith("data:") || text.includes("\ndata:") || text.includes("\nevent:");
+  if (!looksLikeSse) return null;
+
+  const lines = text.split(/\r?\n/);
+  let out = "";
+  let lastObj: any = null;
+
+  for (const line of lines) {
+    if (!line.startsWith("data:")) continue;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === "[DONE]") continue;
+
+    let obj: any = null;
+    try {
+      obj = JSON.parse(payload);
+    } catch {
+      continue;
+    }
+    lastObj = obj;
+
+    // OpenAI chat.completions streaming format
+    const d1 = obj?.choices?.[0]?.delta?.content;
+    if (typeof d1 === "string") out += d1;
+
+    // Some models may stream plain text chunks
+    const d2 = obj?.choices?.[0]?.delta?.text;
+    if (typeof d2 === "string") out += d2;
+
+    // OpenAI Responses streaming format (varies by provider/proxy)
+    const d3 = obj?.delta;
+    if (typeof d3 === "string") out += d3;
+
+    const d4 = obj?.output_text_delta;
+    if (typeof d4 === "string") out += d4;
+
+    const d5 = obj?.text;
+    if (typeof d5 === "string" && typeof obj?.type === "string" && obj.type.includes("delta")) out += d5;
+  }
+
+  if (!out && lastObj) {
+    // Sometimes the final SSE event includes the full shape. Try extracting normally.
+    out = extractResponseText(lastObj) || "";
+  }
+
+  out = String(out ?? "").trim();
+  if (!out) return null;
+
+  return {
+    content: out,
+    raw: lastObj,
+    model: lastObj?.model,
+    usage: lastObj?.usage,
+  };
+}
+
 };
 
 export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenRouterChatResult> {
@@ -228,6 +287,23 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
       throw err;
     }
     throw lastErr ?? new Error("OpenRouter request failed");
+  }
+
+  if (typeof data === "string") {
+    const parsed = tryParseSseToContent(data);
+    if (parsed) {
+      return {
+        content: parsed.content,
+        model: parsed.model,
+        usage: parsed.usage,
+        raw: parsed.raw ?? data,
+      };
+    }
+    const err: any = new Error(
+      "OpenRouter returned a non-JSON response (likely SSE streaming). Set stream=false for server-side calls.",
+    );
+    err.data = String(data).slice(0, 900);
+    throw err;
   }
 
   const content = extractResponseText(data);
