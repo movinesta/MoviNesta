@@ -76,7 +76,7 @@ const getBaseUrl = (override?: string) => {
 function buildInputFromMessages(messages: OpenRouterMessage[]): OpenRouterInputMessage[] {
   return messages.map((m) => ({
     role: m.role,
-    content: [{ type: "input_text", text: m.content }],
+    content: m.content,
   }));
 }
 
@@ -88,10 +88,14 @@ function extractResponseText(data: any): string {
   const parts: string[] = [];
   for (const item of output) {
     if (item?.type === "message") {
-      const content = Array.isArray(item?.content) ? item.content : [];
-      for (const c of content) {
-        if (c?.type === "output_text" && typeof c?.text === "string") parts.push(c.text);
-        else if (typeof c?.text === "string") parts.push(c.text);
+      const content = item?.content;
+      if (typeof content === "string") {
+        parts.push(content);
+      } else if (Array.isArray(content)) {
+        for (const c of content) {
+          if (c?.type === "output_text" && typeof c?.text === "string") parts.push(c.text);
+          else if (typeof c?.text === "string") parts.push(c.text);
+        }
       }
     } else if (typeof item?.text === "string") {
       parts.push(item.text);
