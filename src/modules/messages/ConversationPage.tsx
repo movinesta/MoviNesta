@@ -94,14 +94,11 @@ const ConversationPage: React.FC = () => {
     () => getString("ux.presence.label_active_prefix", "Active"),
     [getString],
   );
-  const messageSearchMinChars = useMemo(
-    () => {
-      const raw = getNumber("ux.messages.search.min_query_chars", 2);
-      const n = Number.isFinite(raw) ? Math.trunc(raw) : 2;
-      return Math.max(1, Math.min(10, n));
-    },
-    [getNumber],
-  );
+  const messageSearchMinChars = useMemo(() => {
+    const raw = getNumber("ux.messages.search.min_query_chars", 2);
+    const n = Number.isFinite(raw) ? Math.trunc(raw) : 2;
+    return Math.max(1, Math.min(10, n));
+  }, [getNumber]);
 
   const { data: conversations, isLoading: isConversationsLoading } = useConversations();
 

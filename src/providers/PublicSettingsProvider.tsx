@@ -1,7 +1,11 @@
 import * as React from "react";
 
 import { DEFAULT_PUBLIC_SETTINGS } from "@/lib/settings/defaultPublicSettings";
-import { fetchPublicSettings, getSettingNumber, getSettingString } from "@/lib/settings/publicSettingsApi";
+import {
+  fetchPublicSettings,
+  getSettingNumber,
+  getSettingString,
+} from "@/lib/settings/publicSettingsApi";
 import { getPublicSettingsSnapshot, setPublicSettings } from "@/lib/settings/publicSettingsStore";
 
 type PublicSettingsCtx = {
@@ -19,7 +23,9 @@ export function PublicSettingsProvider({ children }: { children: React.ReactNode
   const hydrated = React.useMemo(() => getPublicSettingsSnapshot(), []);
   const [ready, setReady] = React.useState(false);
   const [version, setVersion] = React.useState(hydrated.version ?? 1);
-  const [settings, setSettings] = React.useState<Record<string, unknown>>(hydrated.settings ?? { ...DEFAULT_PUBLIC_SETTINGS });
+  const [settings, setSettings] = React.useState<Record<string, unknown>>(
+    hydrated.settings ?? { ...DEFAULT_PUBLIC_SETTINGS },
+  );
 
   const refresh = React.useCallback(async () => {
     try {
@@ -67,7 +73,9 @@ export function usePublicSettings(): PublicSettingsCtx {
     version: 1,
     settings: { ...DEFAULT_PUBLIC_SETTINGS },
     refresh: async () => {},
-    getNumber: (key: string, fallback: number) => getSettingNumber(DEFAULT_PUBLIC_SETTINGS as any, key, fallback),
-    getString: (key: string, fallback: string) => getSettingString(DEFAULT_PUBLIC_SETTINGS as any, key, fallback),
+    getNumber: (key: string, fallback: number) =>
+      getSettingNumber(DEFAULT_PUBLIC_SETTINGS as any, key, fallback),
+    getString: (key: string, fallback: string) =>
+      getSettingString(DEFAULT_PUBLIC_SETTINGS as any, key, fallback),
   };
 }

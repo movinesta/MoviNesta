@@ -22,7 +22,9 @@ const LS_KEY = "movinesta.public_settings.v1";
 let currentVersion = 1;
 let currentSettings: Record<string, unknown> = { ...DEFAULT_PUBLIC_SETTINGS };
 
-function mergeWithDefaults(remote: Record<string, unknown> | null | undefined): Record<string, unknown> {
+function mergeWithDefaults(
+  remote: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
   const merged: Record<string, unknown> = { ...DEFAULT_PUBLIC_SETTINGS };
   if (!remote) return merged;
   for (const [k, v] of Object.entries(remote)) {
@@ -67,7 +69,10 @@ export function setPublicSettings(version: number, settings: Record<string, unkn
   writeToStorage();
 }
 
-export function getPublicSettingsSnapshot(): { version: number; settings: Record<string, unknown> } {
+export function getPublicSettingsSnapshot(): {
+  version: number;
+  settings: Record<string, unknown>;
+} {
   return { version: currentVersion, settings: { ...currentSettings } };
 }
 

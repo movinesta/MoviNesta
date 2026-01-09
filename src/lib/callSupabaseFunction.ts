@@ -59,7 +59,8 @@ export async function callSupabaseFunction<T>(
   }
 
   const controller = new AbortController();
-  const timeoutMs = opts?.timeoutMs ?? getPublicSettingNumber("ops.frontend.function_timeout_ms", 20_000);
+  const timeoutMs =
+    opts?.timeoutMs ?? getPublicSettingNumber("ops.frontend.function_timeout_ms", 20_000);
   const timeoutId = setTimeout(
     () => controller.abort(new DOMException("Timeout", "TimeoutError")),
     timeoutMs,

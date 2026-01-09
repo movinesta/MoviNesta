@@ -224,7 +224,17 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
 
       channelRef.current = null;
     };
-  }, [awayTtlMs, channelName, heartbeatMs, initialSyncDelayMs, onlineTtlMs, recomputeMs, recomputeSnapshot, trackNow, user?.id]);
+  }, [
+    awayTtlMs,
+    channelName,
+    heartbeatMs,
+    initialSyncDelayMs,
+    onlineTtlMs,
+    recomputeMs,
+    recomputeSnapshot,
+    trackNow,
+    user?.id,
+  ]);
 
   const getLastSeen = React.useCallback(
     (userId: string) => {

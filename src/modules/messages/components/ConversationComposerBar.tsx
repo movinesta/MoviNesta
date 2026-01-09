@@ -124,13 +124,15 @@ export const ConversationComposerBar: React.FC<Props> = ({
 }) => {
   const { getNumber } = usePublicSettings();
   const maxMessageChars = Math.max(1, Math.floor(getNumber("ux.messages.max_message_chars", 2000)));
-  const maxComposerHeightPx = Math.max(60, Math.floor(getNumber("ux.messages.composer_max_height_px", 140)));
+  const maxComposerHeightPx = Math.max(
+    60,
+    Math.floor(getNumber("ux.messages.composer_max_height_px", 140)),
+  );
 
   const handleDraftChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const nextRaw = event.target.value;
-      const next =
-        nextRaw.length > maxMessageChars ? nextRaw.slice(0, maxMessageChars) : nextRaw;
+      const next = nextRaw.length > maxMessageChars ? nextRaw.slice(0, maxMessageChars) : nextRaw;
       setDraft(next);
       if (showEmojiPicker) setShowEmojiPicker(false);
       noteLocalInputActivity(next.trim().length > 0);
@@ -141,7 +143,14 @@ export const ConversationComposerBar: React.FC<Props> = ({
       const nextHeight = Math.min(el.scrollHeight, maxComposerHeightPx);
       el.style.height = `${nextHeight}px`;
     },
-    [maxComposerHeightPx, maxMessageChars, noteLocalInputActivity, setDraft, setShowEmojiPicker, showEmojiPicker],
+    [
+      maxComposerHeightPx,
+      maxMessageChars,
+      noteLocalInputActivity,
+      setDraft,
+      setShowEmojiPicker,
+      showEmojiPicker,
+    ],
   );
 
   const handleEmojiSelect = useCallback(

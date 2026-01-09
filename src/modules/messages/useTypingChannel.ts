@@ -103,7 +103,15 @@ export const useTypingChannel = (params: {
         void stopTyping();
       }
     },
-    [broadcastTyping, conversationId, displayName, stopTyping, userId],
+    [
+      broadcastTyping,
+      conversationId,
+      displayName,
+      stopTyping,
+      typingHeartbeatMs,
+      typingInactivityMs,
+      userId,
+    ],
   );
 
   const clearRemoteTypingState = useCallback(() => {

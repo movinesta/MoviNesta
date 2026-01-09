@@ -65,7 +65,10 @@ const validateImageFile = (file: File, maxImageBytes: number) => {
   }
 
   if (file.size > maxImageBytes) {
-    return { ok: false, error: `That image is too large (max ${formatBytes(maxImageBytes)}). Try a smaller file.` } as const;
+    return {
+      ok: false,
+      error: `That image is too large (max ${formatBytes(maxImageBytes)}). Try a smaller file.`,
+    } as const;
   }
 
   return { ok: true } as const;

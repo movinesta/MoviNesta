@@ -16,7 +16,9 @@ export type LoadedPublicSettings = {
   settings: Record<string, unknown>;
 };
 
-export function mergePublicSettings(remote: Record<string, unknown> | null | undefined): Record<string, unknown> {
+export function mergePublicSettings(
+  remote: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
   const merged: Record<string, unknown> = { ...DEFAULT_PUBLIC_SETTINGS };
   if (!remote) return merged;
   for (const [k, v] of Object.entries(remote)) {
@@ -25,7 +27,10 @@ export function mergePublicSettings(remote: Record<string, unknown> | null | und
   return merged;
 }
 
-export async function fetchPublicSettings(opts?: { signal?: AbortSignal; timeoutMs?: number }): Promise<LoadedPublicSettings> {
+export async function fetchPublicSettings(opts?: {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}): Promise<LoadedPublicSettings> {
   const data = await callSupabaseFunction<PublicSettingsEnvelope>(
     "public-app-settings",
     {},
@@ -38,12 +43,20 @@ export async function fetchPublicSettings(opts?: { signal?: AbortSignal; timeout
   return { version, settings };
 }
 
-export function getSettingString(settings: Record<string, unknown>, key: string, fallback: string): string {
+export function getSettingString(
+  settings: Record<string, unknown>,
+  key: string,
+  fallback: string,
+): string {
   const v = settings[key];
   return typeof v === "string" && v.length ? v : fallback;
 }
 
-export function getSettingNumber(settings: Record<string, unknown>, key: string, fallback: number): number {
+export function getSettingNumber(
+  settings: Record<string, unknown>,
+  key: string,
+  fallback: number,
+): number {
   const v = settings[key];
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }

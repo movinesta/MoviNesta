@@ -579,9 +579,9 @@ export interface Database {
           model_catalog: string[];
           default_instructions: string | null;
           params: Json;
-          behavior: Json;
           created_at: string;
           updated_at: string;
+          behavior: Json;
         };
         Insert: {
           id: number;
@@ -595,9 +595,9 @@ export interface Database {
           model_catalog?: string[];
           default_instructions?: string | null;
           params?: Json;
-          behavior?: Json;
           created_at?: string;
           updated_at?: string;
+          behavior?: Json;
         };
         Update: {
           id?: number;
@@ -611,9 +611,9 @@ export interface Database {
           model_catalog?: string[];
           default_instructions?: string | null;
           params?: Json;
-          behavior?: Json;
           created_at?: string;
           updated_at?: string;
+          behavior?: Json;
         };
         Relationships: [
         ];
@@ -2513,6 +2513,68 @@ export interface Database {
           title_id?: string;
           tag_id?: string;
           created_at?: string;
+        };
+        Relationships: [
+        ];
+      };
+      admin_user_prefs: {
+        Row: {
+          user_id: string | null;
+          settings_favorites: string[];
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string | null;
+          settings_favorites?: string[];
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string | null;
+          settings_favorites?: string[];
+          updated_at?: string;
+        };
+        Relationships: [
+        ];
+      };
+      app_settings_presets: {
+        Row: {
+          id: unknown | null;
+          slug: string;
+          title: string;
+          description: string;
+          group_key: string;
+          preset: Json;
+          is_builtin: boolean;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: unknown | null;
+          slug: string;
+          title: string;
+          description?: string;
+          group_key?: string;
+          preset?: Json;
+          is_builtin?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: unknown | null;
+          slug?: string;
+          title?: string;
+          description?: string;
+          group_key?: string;
+          preset?: Json;
+          is_builtin?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
         };
         Relationships: [
         ];
