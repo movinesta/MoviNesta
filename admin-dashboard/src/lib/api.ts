@@ -1,0 +1,621 @@
+import { supabase } from "./supabaseClient";
+
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/+$/, "");
+const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY) as
+  | string
+  | undefined;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY for admin dashboard API calls.");
+}
+
+type InvokeBody = BodyInit | Record<string, unknown> | undefined;
+type InvokeOpts = { body?: InvokeBody; method?: "POST" | "GET" };
+
+type ErrorEnvelope = { ok: false; code?: string; message?: string; details?: unknown; requestId?: string };
+
+class AdminApiError extends Error {
+  code?: string;
+  requestId?: string;
+  details?: unknown;
+
+  constructor(message: string, opts?: { code?: string; requestId?: string; details?: unknown }) {
+    super(message);
+    this.name = "AdminApiError";
+    this.code = opts?.code;
+    this.requestId = opts?.requestId;
+    this.details = opts?.details;
+  }
+}
+
+export type AdminErrorMeta = { message: string; code?: string; requestId?: string; details?: unknown };
+
+export function getAdminErrorMeta(err: unknown): AdminErrorMeta {
+  if (!err) return { message: "Unknown error" };
+  if (err instanceof AdminApiError) {
+    return { message: err.message || "Request failed", code: err.code, requestId: err.requestId, details: err.details };
+  }
+  if (err instanceof Error) return { message: err.message || "Request failed" };
+  try {
+    return { message: String(err) };
+  } catch {
+    return { message: "Unknown error" };
+  }
+}
+
+export function formatAdminError(err: unknown): string {
+  const m = getAdminErrorMeta(err);
+  const bits: string[] = [];
+  if (m.code) bits.push(m.code);
+  if (m.requestId) bits.push(`req:${m.requestId}`);
+  return bits.length ? `${m.message} (${bits.join(" ")})` : m.message;
+}
+
+
+function isErrorEnvelope(x: unknown): x is ErrorEnvelope {
+  return !!x && typeof x === "object" && (x as any).ok === false;
+}
+
+/**
+ * Invoke a Supabase Edge Function from the admin dashboard.
+ * - Handles Supabase FunctionsHttpError with JSON error envelopes when present.
+ * - Throws AdminApiError for consistent UI error handling.
+ */
+async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<T> {
+  const method = opts?.method ?? "POST";
+
+  // Correlate admin-dashboard requests with Edge Function logs.
+  const requestId =
+    (globalThis as any)?.crypto?.randomUUID?.() ??
+    `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+  // Always attach an explicit Bearer token so Edge Functions never fail due to missing auth headers.
+  // Some environments can be finicky about header merging in wrapped clients.
+  let { data: sessionData } = await supabase.auth.getSession();
+  let accessToken = sessionData?.session?.access_token ?? null;
+
+  // If the session exists but the access token is missing/stale, try one refresh.
+  if (!accessToken) {
+    const refreshed = await supabase.auth.refreshSession().catch(() => null);
+    accessToken = refreshed?.data?.session?.access_token ?? null;
+  }
+
+  if (!accessToken) {
+    throw new AdminApiError("Not signed in", { code: "NO_SESSION", requestId });
+  }
+
+  const headers: Record<string, string> = {
+    apikey: SUPABASE_ANON_KEY!,
+    authorization: `Bearer ${accessToken}`,
+    "x-request-id": requestId,
+  };
+
+  let body: BodyInit | undefined = undefined;
+  if (method !== "GET" && opts?.body !== undefined) {
+    if (typeof opts.body === "string" || opts.body instanceof Blob || opts.body instanceof FormData) {
+      body = opts.body as any;
+    } else {
+      headers["content-type"] = "application/json";
+      body = JSON.stringify(opts.body);
+    }
+  }
+
+  const url = `${SUPABASE_URL}/functions/v1/${fn}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { method, headers, body });
+  } catch (e: any) {
+    throw new AdminApiError(e?.message ?? "Network error", { code: "NETWORK_ERROR", requestId });
+  }
+
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      (data && typeof data === "object" && (data.message ?? data.error)) ||
+      (text && text.trim()) ||
+      `Request failed (${res.status})`;
+
+    throw new AdminApiError(String(msg), {
+      code: (data && typeof data === "object" && data.code) ? String(data.code) : `HTTP_${res.status}`,
+      requestId: (data && typeof data === "object" && data.requestId) ? String(data.requestId) : requestId,
+      details: data ?? text,
+    });
+  }
+
+  if (isErrorEnvelope(data)) {
+    throw new AdminApiError(data.message ?? "Request failed", {
+      code: data.code,
+      requestId: data.requestId,
+      details: data.details,
+    });
+  }
+
+  return data as T;
+}
+
+async function parseFunctionsHttpError(error: unknown): Promise<AdminApiError | null> {
+  if (!error || typeof error !== "object") return null;
+  const err = error as { name?: string; context?: any; message?: string };
+
+  // supabase-js typically uses name === "FunctionsHttpError" and context.response
+  if (err.name !== "FunctionsHttpError") return null;
+
+  const res: any = err.context?.response ?? err.context;
+  if (!res) return null;
+
+  try {
+    const cloned = typeof res.clone === "function" ? res.clone() : res;
+    const contentType = cloned.headers?.get?.("Content-Type")?.split(";")[0]?.trim?.();
+
+    if (contentType === "application/json" && typeof cloned.json === "function") {
+      const j = await cloned.json().catch(() => null);
+      if (isErrorEnvelope(j)) {
+        return new AdminApiError(j.message ?? "Request failed", {
+          code: j.code,
+          requestId: j.requestId,
+          details: j.details,
+        });
+      }
+      if (j?.message) return new AdminApiError(String(j.message));
+    }
+
+    if (typeof cloned.text === "function") {
+      const t = await cloned.text().catch(() => "");
+      if (t) return new AdminApiError(t);
+    }
+  } catch {
+    // ignore
+  }
+
+  return new AdminApiError(err.message ?? "Function request failed");
+}
+
+/* =========================
+ * WhoAmI
+ * ======================= */
+
+export type WhoAmI = { ok: true; is_admin: boolean; user: { id: string; email?: string | null } | null };
+
+export async function whoami() {
+  return invoke<WhoAmI>("admin-whoami");
+}
+
+/* =========================
+ * Overview
+ * ======================= */
+
+export type AdminOverviewResp = {
+  ok: true;
+  active_profile: { provider: string; model: string; dimensions: number; task: string } | null;
+  coverage: Array<{ provider: string; model: string; count: number }>;
+  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
+  recent_errors: Array<{ id: string | number; created_at?: string; started_at?: string; job_name: string; error_code?: string | null; error_message?: string | null }>;
+  last_job_runs: Array<{ id: string | number; started_at: string; finished_at?: string | null; job_name: string; ok: boolean }>;
+};
+
+export async function getOverview() {
+  return invoke<AdminOverviewResp>("admin-overview");
+}
+
+/* =========================
+ * Embeddings
+ * ======================= */
+
+export type EmbeddingsResp = {
+  ok: true;
+  embedding_settings: {
+    id: number;
+    active_provider: string | null;
+    active_model: string | null;
+    active_dimensions: number | null;
+    active_task: string | null;
+    rerank_swipe_enabled: boolean | null;
+    rerank_search_enabled: boolean | null;
+    rerank_top_k: number | null;
+    updated_at?: string | null;
+  } | null;
+  coverage: Array<{ provider: string; model: string; count: number }>;
+};
+
+export async function getEmbeddings() {
+  return invoke<EmbeddingsResp>("admin-embeddings", { body: { action: "get" } });
+}
+
+export async function setActiveProfile(payload: { provider: string; model: string; dimensions: number; task: string }) {
+  // Server may ignore provider/model/dimensions (locked profile). Keep payload for compatibility.
+  return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_active_profile", ...payload } });
+}
+
+export async function setRerank(payload: { swipe_enabled: boolean; search_enabled: boolean; top_k: number }) {
+  return invoke<{ ok: true }>("admin-embeddings", { body: { action: "set_rerank", ...payload } });
+}
+
+/* =========================
+ * Jobs / Cron
+ * ======================= */
+
+export type JobsResp = {
+  ok: true;
+  job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
+  cron_jobs: Array<{ jobid: number; jobname: string; schedule: string | null; active: boolean }>;
+  cron_error?: string;
+};
+
+export async function getJobs() {
+  return invoke<JobsResp>("admin-jobs", { body: { action: "get" } });
+}
+
+export async function runCronNow(jobname: string) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "run_now", jobname } });
+}
+
+export async function setCronActive(jobname: string, active: boolean) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_active", jobname, active } });
+}
+
+export async function setCronSchedule(jobname: string, schedule: string) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "set_cron_schedule", jobname, schedule } });
+}
+
+export async function resetCursor(job_name: string, cursor: string | null = null) {
+  return invoke<{ ok: true }>("admin-jobs", { body: { action: "reset_cursor", job_name, cursor } });
+}
+
+/* =========================
+ * Costs / Budgets
+ * ======================= */
+
+export async function getCosts(payload?: { days?: number }) {
+  return invoke<any>("admin-costs", { body: { ...(payload ?? {}) } });
+}
+
+export async function setCostsBudgets(payload: { total_daily_budget: number | null; by_provider_budget: Record<string, number> }) {
+  return invoke<{ ok: true }>("admin-costs", { body: { action: "set_budgets", ...payload } });
+}
+
+/* =========================
+ * Logs
+ * ======================= */
+
+export async function getLogs(payload?: { limit?: number; before?: string | null }) {
+  // Some versions support cursor pagination; others just support limit.
+  return invoke<any>("admin-logs", { body: { ...(payload ?? {}) } });
+}
+
+/* =========================
+ * Audit
+ * ======================= */
+
+export async function getAudit(payload?: { limit?: number; search?: string | null; before?: string | null }) {
+  // Your Audit page expects { rows, next_before }. Keep it flexible.
+  return invoke<any>("admin-audit", { body: { ...(payload ?? {}) } });
+}
+
+/* =========================
+ * Assistant Settings
+ * ======================= */
+
+export type AssistantSettingsPayload = {
+  openrouter_base_url?: string | null;
+  model_fast?: string | null;
+  model_creative?: string | null;
+  model_planner?: string | null;
+  model_maker?: string | null;
+  model_critic?: string | null;
+  fallback_models?: string[] | null;
+  model_catalog?: string[] | null;
+  default_instructions?: string | null;
+  params?: Record<string, unknown> | null;
+  behavior?: Record<string, unknown> | null;
+};
+
+export async function getAssistantSettings() {
+  return invoke<any>("admin-assistant-settings", { body: { action: "get" } });
+}
+
+export async function setAssistantSettings(settings: AssistantSettingsPayload) {
+  return invoke<{ ok: true }>("admin-assistant-settings", { body: { action: "set", settings } });
+}
+
+export type AssistantProviderTestResp = {
+  ok: true;
+  requestId?: string | null;
+  test: {
+    ok: boolean;
+    durationMs?: number;
+    baseUrl?: string | null;
+    usedModel?: string | null;
+    contentPreview?: string | null;
+    userMessage?: string | null;
+    envelope?: any;
+    culprit?: any;
+  };
+};
+
+export async function testAssistantProvider(payload?: { prompt?: string; model_key?: string; model?: string }) {
+  return invoke<AssistantProviderTestResp>("admin-assistant-settings", {
+    body: { action: "test_provider", test: payload ?? {} },
+  });
+}
+
+/* =========================
+ * Users
+ * ======================= */
+
+export type UsersResp = {
+  ok: true;
+  users: Array<{
+    id: string;
+    email?: string | null;
+    created_at?: string | null;
+    banned_until?: string | null;
+  }>;
+  next_page: string | null;
+};
+
+export async function listUsers(payload?: { search?: string | null; page?: string | null }) {
+  return invoke<UsersResp>("admin-users", { body: { action: "list", ...(payload ?? {}) } });
+}
+
+export async function banUser(user_id: string, banned: boolean) {
+  // ✅ FIX: server expects action "ban" or "unban" (not {is_banned:true/false})
+  return invoke<{ ok: true }>("admin-users", { body: { action: banned ? "ban" : "unban", user_id } });
+}
+
+export async function resetUserVectors(user_id: string) {
+  return invoke<{ ok: true }>("admin-users", { body: { action: "reset_vectors", user_id } });
+}
+
+export async function getAssistantMetrics(payload?: { days?: number }) {
+  // Admin assistant metrics endpoint (Supabase Edge Function)
+  return invoke<any>("admin-assistant-metrics", { body: { ...(payload ?? {}) } });
+}
+
+export type AssistantHealthSnapshot = {
+  ok: true;
+  ts?: string;
+  counts?: Record<string, number>;
+  byKind?: Record<string, { pending: number; processing: number; done: number; failed: number; total: number }>;
+  oldestPendingSec?: number;
+  oldestProcessingSec?: number;
+  last24h?: { created: number; done: number; failed: number };
+  recentFailures?: Array<{
+    id: string;
+    conversationId: string;
+    userId: string;
+    jobKind: string;
+    attempts: number;
+    updatedAt: string;
+    lastError: string;
+  }>;
+  recentAiFailures?: Array<{
+    id: string;
+    fn: string;
+    createdAt: string;
+    requestId: string | null;
+    conversationId: string | null;
+    userId: string | null;
+    code: string;
+    reason: string;
+    culprit: { var: string; source: string; value_preview?: string | null } | null;
+    context: any;
+  }>;
+  recentCron?: Array<{ id: string; job: string; requestId: string | null; createdAt: string }>;
+};
+
+export async function getAssistantHealthSnapshot() {
+  return invoke<AssistantHealthSnapshot>("admin-assistant-health", { body: {} });
+}
+
+/* =========================
+ * App Settings (non-secret)
+ * ======================= */
+
+export type AppSettingsRow = {
+  key: string;
+  scope: "public" | "admin" | "server_only" | string;
+  value: any;
+  version?: number | null;
+  updated_at?: string | null;
+  updated_by?: string | null;
+  description?: string | null;
+};
+
+export type AppSettingsRegistryEntry = {
+  scope: "public" | "admin" | "server_only";
+  default: any;
+  description: string;
+  meta?:
+    | { kind: "number"; int?: boolean; min?: number; max?: number }
+    | { kind: "string"; minLength?: number; maxLength?: number }
+    | { kind: "boolean" }
+    | { kind: "enum"; values: string[] }
+    | { kind: "json" };
+};
+
+export type AdminAppSettingsGetResp = {
+  ok: true;
+  version: number;
+  rows: AppSettingsRow[];
+  registry: Record<string, AppSettingsRegistryEntry>;
+  favorites?: string[];
+  favorites_storage?: "db" | "fallback";
+  actor?: { userId: string; email?: string | null; role?: string | null };
+};
+
+export async function getAppSettings() {
+  return invoke<AdminAppSettingsGetResp>("admin-app-settings", { body: { action: "get" } });
+}
+
+
+
+/* =========================
+ * Settings Favorites (server-backed)
+ * ======================= */
+
+export async function setAppSettingsFavorites(payload: { favorites: string[] }) {
+  return invoke<{ ok: true; favorites: string[]; favorites_storage?: "db" | "fallback" }>("admin-app-settings", {
+    body: { action: "favorites_set", favorites: payload.favorites },
+  });
+}
+
+export async function getAppSettingsFavorites() {
+  return invoke<{ ok: true; favorites: string[]; favorites_storage?: "db" | "fallback" }>("admin-app-settings", { body: { action: "favorites_get" } });
+}
+
+export async function updateAppSettings(payload: { expected_version?: number; updates: Record<string, any>; reason?: string }) {
+  return invoke<{ ok: true; version: number; updated_keys: string[]; deleted_keys?: string[]; same_keys?: string[]; ignored_default_keys?: string[] }>("admin-app-settings", {
+    body: {
+      action: "update",
+      expected_version: payload.expected_version,
+      updates: payload.updates,
+      reason: payload.reason,
+    },
+  });
+}
+
+export type AppSettingsHistoryRow = {
+  id: number;
+  key: string;
+  scope: string;
+  old_value: any;
+  new_value: any;
+  old_version: number | null;
+  new_version: number | null;
+  change_reason: string | null;
+  request_id: string | null;
+  changed_at: string;
+  changed_by: string | null;
+};
+
+export async function getAppSettingsHistory(payload?: { key?: string; limit?: number; since?: string }) {
+  return invoke<{ ok: true; rows: AppSettingsHistoryRow[] }>("admin-app-settings", {
+    body: { action: "history", ...(payload ?? {}) },
+  });
+}
+
+export type AppSettingsExportBundleV1 = {
+  format: "movinesta_app_settings_bundle_v1";
+  exported_at: string;
+  version: number;
+  scopes: Array<"public" | "admin" | "server_only">;
+  settings: Record<string, any>;
+};
+
+export async function exportAppSettings(payload?: { scopes?: Array<"public" | "admin" | "server_only">; include_registry?: boolean }) {
+  return invoke<{ ok: true; bundle: AppSettingsExportBundleV1; skipped_unregistered?: string[] }>("admin-app-settings", {
+    body: { action: "export", ...(payload ?? {}) },
+  });
+}
+
+export type AppSettingsImportPreview = {
+  requestedScopes: Array<"public" | "admin" | "server_only">;
+  counts: { add: number; update: number; same: number; delete: number; skipped_scope: number; skipped_unknown: number };
+  adds: string[];
+  updates: string[];
+  deletes: string[];
+  skipped_scope: string[];
+  skipped_unknown: string[];
+  version: number;
+};
+
+export async function importAppSettings(payload: {
+  mode: "dry_run" | "apply";
+  bundle: any;
+  scopes?: Array<"public" | "admin" | "server_only">;
+  expected_version?: number;
+  reason?: string;
+  delete_missing?: boolean;
+}) {
+  return invoke<{ ok: true; preview: AppSettingsImportPreview; version?: number; request_id?: string }>("admin-app-settings", {
+    body: { action: "import", ...(payload ?? {}) },
+  });
+}
+
+/* =========================
+ * App Settings Presets
+ * ======================= */
+
+export type AppSettingsPresetRow = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  group_key: string;
+  preset: Record<string, any>;
+  is_builtin: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AppSettingsPresetListResp = {
+  ok: true;
+  presets: AppSettingsPresetRow[];
+  presets_storage?: "db" | "fallback";
+  actor?: { userId: string; email?: string | null; role?: string | null };
+};
+
+export async function getAppSettingsPresets() {
+  return invoke<AppSettingsPresetListResp>("admin-app-settings", { body: { action: "presets_list" } });
+}
+
+export type AppSettingsPresetPreview = {
+  counts: {
+    update: number;
+    reset: number;
+    same: number;
+    already_default: number;
+    unknown: number;
+    invalid: number;
+  };
+  changes: Array<{
+    key: string;
+    scope: string;
+    change_type: "update" | "reset" | "same" | "already_default";
+    current: any;
+    target: any;
+    had_override: boolean;
+  }>;
+  unknown_keys: string[];
+  invalid_values: Array<{ key: string; message: string }>;
+};
+
+export type AppSettingsPresetPreviewResp = {
+  ok: true;
+  presets_storage: "db" | "fallback";
+  preset: AppSettingsPresetRow | null;
+  version?: number;
+  preview: AppSettingsPresetPreview | null;
+  message?: string;
+  actor?: { userId: string; email?: string | null; role?: string | null };
+};
+
+export async function previewAppSettingsPreset(payload: { slug: string }) {
+  return invoke<AppSettingsPresetPreviewResp>("admin-app-settings", { body: { action: "presets_preview", ...payload } });
+}
+
+export type AppSettingsPresetApplyResp = {
+  ok: true;
+  version: number;
+  preset_slug: string;
+  updated_keys: string[];
+  deleted_keys: string[];
+  same_keys: string[];
+  ignored_default_keys: string[];
+  ignored_unknown_keys?: string[];
+  request_id?: string;
+};
+
+export async function applyAppSettingsPreset(payload: { slug: string; expected_version?: number; reason: string }) {
+  return invoke<AppSettingsPresetApplyResp>("admin-app-settings", {
+    body: { action: "presets_apply", ...payload },
+  });
+}
