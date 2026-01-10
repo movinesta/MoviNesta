@@ -131,7 +131,7 @@ export type AssistantSettings = {
 
 // Safe, free default that keeps the assistant usable even if the admin settings row is empty.
 // You can override via assistant_settings.* or OPENROUTER_MODEL_* env vars.
-const DEFAULT_OPENROUTER_MODEL = "mistralai/devstral-2512:free";
+const DEFAULT_OPENROUTER_MODEL = "xiaomi/mimo-v2-flash:free";
 const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 // Option 1 default: long-form capable.
