@@ -14,6 +14,7 @@ export interface MessageMeta extends Record<string, unknown> {
   deletedAt?: string;
   editedAt?: string;
   caption?: string;
+  streaming?: boolean;
 }
 
 export type ParsedMessageBody = {
