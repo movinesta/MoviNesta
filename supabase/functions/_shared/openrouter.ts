@@ -30,6 +30,15 @@ export type OpenRouterResponseFormat =
 
 export type OpenRouterPlugin = { id: string; [k: string]: unknown };
 
+export type OpenRouterProviderRouting = {
+  order?: string[];
+  require?: string[];
+  allow?: string[];
+  ignore?: string[];
+  allow_fallbacks?: boolean;
+  sort?: "price" | "throughput" | "latency";
+};
+
 // Optional OpenRouter attribution headers.
 // These are non-secret and can be safely configured by admins.
 export type OpenRouterAttribution = {
@@ -65,7 +74,8 @@ export interface OpenRouterChatOptions {
   plugins?: OpenRouterPlugin[];
   // OpenRouter usage accounting.
   usage?: { include: boolean };
-  // OpenRouter supports provider routing, but we keep it simple for v0.
+  provider?: OpenRouterProviderRouting;
+  payload_variants?: string[];
   base_url?: string;
 }
 
@@ -74,6 +84,7 @@ export type OpenRouterChatResult = {
   model?: string;
   usage?: unknown;
   raw?: unknown;
+  variant?: string | null;
 };
 
 const getBaseUrl = (override?: string) => {
@@ -202,6 +213,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     ...(typeof opts.parallel_tool_calls === "boolean" ? { parallel_tool_calls: opts.parallel_tool_calls } : {}),
     ...(opts.response_format ? { response_format: opts.response_format } : {}),
     ...(opts.plugins ? { plugins: opts.plugins } : {}),
+    ...(opts.provider ? { provider: opts.provider } : {}),
   };
 
   // OpenRouter/provider validation can reject some Responses fields (e.g., plugins/structured outputs/tools)
@@ -244,7 +256,16 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
 
   let lastErr: any = null;
   let data: any = null;
+  let usedVariant: string | null = null;
+  const allowedVariants = Array.isArray(opts.payload_variants)
+    ? opts.payload_variants.map((v) => String(v ?? "").trim()).filter(Boolean)
+    : [];
+  let allowedSet = allowedVariants.length ? new Set(allowedVariants) : null;
+  if (allowedSet && !variants.some((v) => allowedSet?.has(v.tag))) {
+    allowedSet = null;
+  }
   for (const v of variants) {
+    if (allowedSet && !allowedSet.has(v.tag)) continue;
     try {
       data = (await fetchJsonWithTimeout(
         url,
@@ -261,6 +282,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
         },
         timeoutMs,
       )) as any;
+      usedVariant = v.tag;
       break;
     } catch (e: any) {
       lastErr = e;
@@ -310,6 +332,7 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     model: data?.model,
     usage: data?.usage,
     raw: data,
+    variant: usedVariant,
   };
 }
 
@@ -339,6 +362,8 @@ export interface OpenRouterChatWithFallbackOptions {
   response_format?: OpenRouterResponseFormat;
   plugins?: OpenRouterPlugin[];
   usage?: { include: boolean };
+  provider?: OpenRouterProviderRouting;
+  payload_variants?: string[];
   base_url?: string;
   defaults?: Partial<Omit<OpenRouterChatOptions, "model" | "input" | "messages">>;
 }
@@ -393,6 +418,8 @@ export async function openrouterChatWithFallback(
       assignIfDefined("response_format", opts.response_format);
       assignIfDefined("plugins", opts.plugins);
       assignIfDefined("usage", opts.usage);
+      assignIfDefined("provider", opts.provider);
+      assignIfDefined("payload_variants", opts.payload_variants);
       assignIfDefined("base_url", opts.base_url);
 
       const res = await openrouterChat({

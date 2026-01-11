@@ -92,6 +92,20 @@ export type AssistantBehavior = {
       http_referer: string;
       x_title: string;
     };
+    policy: {
+      mode: "fallback" | "auto";
+      auto_model: string;
+      fallback_models: string[];
+      provider: {
+        order: string[];
+        require: string[];
+        allow: string[];
+        ignore: string[];
+        allow_fallbacks: boolean;
+        sort: "price" | "throughput" | "latency";
+      };
+      variants: string[];
+    };
   };
 };
 
@@ -254,6 +268,20 @@ const DEFAULT_BEHAVIOR: AssistantBehavior = {
       http_referer: "https://movinesta.app",
       x_title: "MoviNesta Assistant",
     },
+    policy: {
+      mode: "fallback",
+      auto_model: "openrouter/auto",
+      fallback_models: [],
+      provider: {
+        order: [],
+        require: [],
+        allow: [],
+        ignore: [],
+        allow_fallbacks: true,
+        sort: "price",
+      },
+      variants: [],
+    },
   },
 };
 
@@ -385,6 +413,7 @@ export function resolveAssistantBehavior(input?: unknown | null): AssistantBehav
   const orchestrator = coerceJsonObject((merged as any).orchestrator);
   const router = coerceJsonObject(merged.router as any);
   const diagnostics = coerceJsonObject((merged as any).diagnostics);
+  const routerPolicy = coerceJsonObject((router as any).policy);
 
   // Hard safety clamps. DB messages.body has pg_column_size <= 65536.
   const maxReplyChars = clampInt(output.max_reply_chars, 1000, 55000, DEFAULT_BEHAVIOR.output.max_reply_chars);
@@ -549,6 +578,50 @@ export function resolveAssistantBehavior(input?: unknown | null): AssistantBehav
           220,
         ),
       },
+      policy: (() => {
+        const modeRaw = String(routerPolicy.mode ?? "").trim().toLowerCase();
+        const mode = modeRaw === "auto" ? "auto" : "fallback";
+        const allowedVariants = new Set([
+          "base",
+          "rf_json_object",
+          "drop_plugins",
+          "drop_plugins_rf_json_object",
+          "drop_tools",
+          "bare",
+        ]);
+        const variants = clampStringArray(routerPolicy.variants, DEFAULT_BEHAVIOR.router.policy.variants, 12, 40)
+          .filter((v) => allowedVariants.has(v));
+        const provider = coerceJsonObject(routerPolicy.provider as any);
+        const providerSortRaw = String(provider.sort ?? "").trim().toLowerCase();
+        const providerSort =
+          providerSortRaw === "throughput" || providerSortRaw === "latency" ? providerSortRaw : "price";
+        return {
+          mode,
+          auto_model: clampString(
+            routerPolicy.auto_model,
+            DEFAULT_BEHAVIOR.router.policy.auto_model,
+            200,
+          ),
+          fallback_models: clampStringArray(
+            routerPolicy.fallback_models,
+            DEFAULT_BEHAVIOR.router.policy.fallback_models,
+            12,
+            200,
+          ),
+          provider: {
+            order: clampStringArray(provider.order, DEFAULT_BEHAVIOR.router.policy.provider.order, 12, 48),
+            require: clampStringArray(provider.require, DEFAULT_BEHAVIOR.router.policy.provider.require, 12, 48),
+            allow: clampStringArray(provider.allow, DEFAULT_BEHAVIOR.router.policy.provider.allow, 12, 48),
+            ignore: clampStringArray(provider.ignore, DEFAULT_BEHAVIOR.router.policy.provider.ignore, 12, 48),
+            allow_fallbacks: clampBool(
+              provider.allow_fallbacks,
+              DEFAULT_BEHAVIOR.router.policy.provider.allow_fallbacks,
+            ),
+            sort: providerSort as "price" | "throughput" | "latency",
+          },
+          variants: variants.length ? variants : DEFAULT_BEHAVIOR.router.policy.variants,
+        };
+      })(),
     },
   };
 
