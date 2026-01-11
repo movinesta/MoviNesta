@@ -11,6 +11,7 @@ import type {
   MessageDeliveryReceipt,
   ConversationReadReceipt,
 } from "./messageModel";
+import { getMessageMeta } from "./messageText";
 import { useConversationMessages } from "./useConversationMessages";
 import { useConversationUiMessages } from "./useConversationUiMessages";
 import { useLastVisibleOwnMessageId } from "./useLastVisibleOwnMessageId";
@@ -316,6 +317,8 @@ const ConversationPage: React.FC = () => {
 
   // Local in-flight indicator for immediate "optimistic" typing.
   const [assistantInvokeInFlight, setAssistantInvokeInFlight] = useState(false);
+  const [assistantStreamText, setAssistantStreamText] = useState<string | null>(null);
+  const assistantStreamAbortRef = useRef<AbortController | null>(null);
 
   const assistantInvokeState = React.useRef<{ inFlight: boolean; queuedMessageId: string | null }>({
     inFlight: false,
@@ -327,6 +330,10 @@ const ConversationPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
+      if (assistantStreamAbortRef.current) {
+        assistantStreamAbortRef.current.abort();
+        assistantStreamAbortRef.current = null;
+      }
       if (assistantDebounceRef.current) {
         window.clearTimeout(assistantDebounceRef.current);
         assistantDebounceRef.current = null;
@@ -357,35 +364,98 @@ const ConversationPage: React.FC = () => {
       setAssistantReplyFailed(null);
 
       try {
-        const { data, error } = await supabase.functions.invoke("assistant-chat-reply", {
-          body: { conversationId, userMessageId },
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey =
+          import.meta.env.VITE_SUPABASE_ANON_KEY ??
+          import.meta.env.VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error("Missing Supabase config for assistant streaming.");
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token ?? null;
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          apikey: supabaseAnonKey,
+        };
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+        const controller = new AbortController();
+        assistantStreamAbortRef.current = controller;
+        setAssistantStreamText("");
+
+        const res = await fetch(`${supabaseUrl}/functions/v1/assistant-chat-reply`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ conversationId, userMessageId, stream: true }),
+          signal: controller.signal,
         });
 
-        if (error) {
-          const status = (error as any)?.context?.status ?? (error as any)?.status ?? null;
-          const msg = String(error.message || "Assistant failed");
-          const lower = msg.toLowerCase();
-          const isRateLimited =
-            status === 429 ||
-            lower.includes("429") ||
-            lower.includes("rate_limited") ||
-            lower.includes("rate limit") ||
-            lower.includes("too many requests");
+        if (!res.ok || !res.body) {
+          throw new Error(`Assistant failed (${res.status})`);
+        }
 
-          if (isRateLimited) {
-            toast.show("Assistant queued — try again in a moment.");
-          } else {
-            setAssistantReplyFailed({ userMessageId, error: msg });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let eventName = "message";
+        let dataLines: string[] = [];
+
+        const handleEvent = (event: string, data: string) => {
+          if (event === "delta") {
+            try {
+              const parsed = JSON.parse(data);
+              const text = typeof parsed?.text === "string" ? parsed.text : "";
+              if (text) {
+                setAssistantStreamText((prev) => `${prev ?? ""}${text}`);
+              }
+            } catch {
+              // ignore malformed chunk
+            }
           }
-        } else if (!data?.ok) {
-          const code = (data as any)?.code ? String((data as any).code) : "Assistant failed";
-          if (code === "RATE_LIMITED") {
-            toast.show("Assistant queued — try again in a moment.");
-          } else {
-            setAssistantReplyFailed({ userMessageId, error: code });
+          if (event === "done") {
+            setAssistantStreamText(null);
+          }
+          if (event === "error") {
+            try {
+              const parsed = JSON.parse(data);
+              throw new Error(parsed?.message ?? "Assistant failed");
+            } catch {
+              throw new Error("Assistant failed");
+            }
+          }
+        };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let idx: number;
+          while ((idx = buffer.indexOf("\n")) >= 0) {
+            const line = buffer.slice(0, idx).replace(/\r$/, "");
+            buffer = buffer.slice(idx + 1);
+            if (!line.trim()) {
+              if (dataLines.length) {
+                handleEvent(eventName, dataLines.join("\n"));
+                dataLines = [];
+                eventName = "message";
+              }
+              continue;
+            }
+            if (line.startsWith("event:")) {
+              eventName = line.slice(6).trim();
+              continue;
+            }
+            if (line.startsWith("data:")) {
+              dataLines.push(line.slice(5).trimStart());
+            }
           }
         }
       } catch (e: any) {
+        setAssistantStreamText(null);
         setAssistantReplyFailed({ userMessageId, error: e?.message || "Assistant failed" });
       } finally {
         setAssistantInvokeInFlight(false);
@@ -721,6 +791,30 @@ const ConversationPage: React.FC = () => {
     lastOwnMessageId,
   });
 
+  const streamingAssistantMessage = useMemo(() => {
+    if (!assistantStreamText) return null;
+    if (!conversationId || !otherParticipant?.id) return null;
+    const message: ConversationMessage = {
+      id: `assistant_stream_${conversationId}`,
+      conversationId,
+      senderId: otherParticipant.id,
+      createdAt: new Date().toISOString(),
+      body: { type: "text", text: assistantStreamText },
+      attachmentUrl: null,
+      text: assistantStreamText,
+    };
+
+    return {
+      message,
+      meta: getMessageMeta(message.body),
+      sender: otherParticipant,
+      isSelf: false,
+      deliveryStatus: null,
+      showDeliveryStatus: false,
+      reactions: [],
+    };
+  }, [assistantStreamText, conversationId, otherParticipant]);
+
   const {
     firstUnreadIndex,
     lastReadMessageId,
@@ -758,6 +852,11 @@ const ConversationPage: React.FC = () => {
   const hasVisibleMessages = visibleMessages.length > 0;
   const visibleMessagesRef = useRef(visibleMessages);
   const hasMoreMessagesRef = useRef(hasMoreMessages);
+
+  const displayMessages = useMemo(
+    () => (streamingAssistantMessage ? [...visibleMessages, streamingAssistantMessage] : visibleMessages),
+    [streamingAssistantMessage, visibleMessages],
+  );
 
   const scrollBehavior: "auto" | "smooth" = prefersReducedMotion ? "auto" : "smooth";
 
@@ -1590,7 +1689,7 @@ const ConversationPage: React.FC = () => {
               </div>
             )}
             <MessageList
-              items={visibleMessages}
+              items={displayMessages}
               isLoading={isMessagesLoading && !hasVisibleMessages}
               loadingContent={
                 <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] text-muted-foreground">
@@ -1664,10 +1763,10 @@ const ConversationPage: React.FC = () => {
                   showDeliveryStatus,
                 } = uiMessage;
 
-                const previous = index > 0 ? (visibleMessages[index - 1]?.message ?? null) : null;
+                const previous = index > 0 ? (displayMessages[index - 1]?.message ?? null) : null;
                 const next =
-                  index < visibleMessages.length - 1
-                    ? (visibleMessages[index + 1]?.message ?? null)
+                  index < displayMessages.length - 1
+                    ? (displayMessages[index + 1]?.message ?? null)
                     : null;
 
                 const registerNode = (node: HTMLDivElement | null) => {

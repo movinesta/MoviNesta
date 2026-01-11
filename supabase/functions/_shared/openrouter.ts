@@ -3,7 +3,7 @@
 // Minimal OpenRouter client (OpenAI-compatible responses API).
 
 import { getConfig } from "./config.ts";
-import { fetchJsonWithTimeout } from "./fetch.ts";
+import { fetchJsonWithTimeout, fetchStreamWithTimeout } from "./fetch.ts";
 
 export type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
@@ -113,6 +113,16 @@ export type OpenRouterChatResult = {
   variant?: string | null;
 };
 
+export type OpenRouterStreamChunk = {
+  text: string;
+  raw?: unknown;
+};
+
+export type OpenRouterChatStreamResult = {
+  stream: AsyncIterable<OpenRouterStreamChunk>;
+  result: Promise<OpenRouterChatResult>;
+};
+
 const getBaseUrl = (override?: string) => {
   const cfg = getConfig();
   const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -184,14 +194,27 @@ function extractResponseText(data: any): string {
     data?.choices?.[0]?.text ??
     ""
   );
-};
+}
 
-export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenRouterChatResult> {
-  const { openrouterApiKey } = getConfig();
-  if (!openrouterApiKey) {
-    throw new Error("Missing OPENROUTER_API_KEY");
-  }
+function extractStreamDelta(data: any): string | null {
+  if (!data) return null;
+  if (typeof data?.delta === "string") return data.delta;
+  if (typeof data?.text === "string") return data.text;
+  if (data?.type === "response.output_text.delta" && typeof data?.delta === "string") return data.delta;
+  if (data?.type === "response.output_text" && typeof data?.text === "string") return data.text;
+  const choice = Array.isArray(data?.choices) ? data.choices[0] : null;
+  if (choice?.delta?.content) return choice.delta.content;
+  if (typeof choice?.text === "string") return choice.text;
+  return null;
+}
 
+function buildOpenRouterVariants(opts: OpenRouterChatOptions): {
+  url: string;
+  timeoutMs: number;
+  attribution: Required<OpenRouterAttribution>;
+  variants: Array<{ tag: string; payload: Record<string, unknown> }>;
+  baseUrl: string;
+} {
   const baseUrl = getBaseUrl(opts.base_url);
   const url = `${baseUrl}/responses`;
   const timeoutMs = typeof opts.timeout_ms === "number" ? opts.timeout_ms : 12_000;
@@ -242,19 +265,14 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     ...(opts.provider ? { provider: opts.provider } : {}),
   };
 
-  // OpenRouter/provider validation can reject some Responses fields (e.g., plugins/structured outputs/tools)
-  // depending on the selected model. To avoid hard failures, we retry a small set of progressively simpler
-  // payload variants on 400 errors.
   const variants: Array<{ tag: string; payload: Record<string, unknown> }> = [];
   variants.push({ tag: "base", payload: basePayload });
 
-  // If structured outputs are requested, try degrading to json_object.
   const rf = opts.response_format as any;
   if (rf?.type === "json_schema") {
     variants.push({ tag: "rf_json_object", payload: { ...basePayload, response_format: { type: "json_object" } } });
   }
 
-  // Try dropping plugins (e.g. response-healing) if rejected.
   if (opts.plugins?.length) {
     variants.push({ tag: "drop_plugins", payload: { ...basePayload, plugins: undefined } });
     if (rf?.type === "json_schema") {
@@ -262,12 +280,10 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     }
   }
 
-  // Try dropping tools/tool_choice if rejected.
   if (opts.tools?.length || opts.tool_choice || typeof opts.parallel_tool_calls === "boolean") {
     variants.push({ tag: "drop_tools", payload: { ...basePayload, tools: undefined, tool_choice: undefined, parallel_tool_calls: undefined } });
   }
 
-  // Last resort: remove response_format + plugins + tools.
   variants.push({
     tag: "bare",
     payload: {
@@ -279,6 +295,23 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
       parallel_tool_calls: undefined,
     },
   });
+
+  return { url, timeoutMs, attribution, variants, baseUrl };
+}
+
+export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenRouterChatResult> {
+  const { openrouterApiKey } = getConfig();
+  if (!openrouterApiKey) {
+    throw new Error("Missing OPENROUTER_API_KEY");
+  }
+
+  const {
+    url,
+    timeoutMs,
+    attribution,
+    variants,
+    baseUrl,
+  } = buildOpenRouterVariants(opts);
 
   let lastErr: any = null;
   let data: any = null;
@@ -360,6 +393,167 @@ export async function openrouterChat(opts: OpenRouterChatOptions): Promise<OpenR
     raw: data,
     variant: usedVariant,
   };
+}
+
+async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let dataLines: string[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, idx).replace(/\r$/, "");
+      buffer = buffer.slice(idx + 1);
+      if (!line.trim()) {
+        if (dataLines.length) {
+          yield dataLines.join("\n");
+          dataLines = [];
+        }
+        continue;
+      }
+      if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).trimStart());
+      }
+    }
+  }
+  if (dataLines.length) {
+    yield dataLines.join("\n");
+  }
+}
+
+export async function openrouterChatStream(opts: OpenRouterChatOptions): Promise<OpenRouterChatStreamResult> {
+  const { openrouterApiKey } = getConfig();
+  if (!openrouterApiKey) {
+    throw new Error("Missing OPENROUTER_API_KEY");
+  }
+
+  const {
+    url,
+    timeoutMs,
+    attribution,
+    variants,
+    baseUrl,
+  } = buildOpenRouterVariants({ ...opts, stream: true });
+
+  let lastErr: any = null;
+  let usedVariant: string | null = null;
+  let res: Response | null = null;
+  const allowedVariants = Array.isArray(opts.payload_variants)
+    ? opts.payload_variants.map((v) => String(v ?? "").trim()).filter(Boolean)
+    : [];
+  let allowedSet = allowedVariants.length ? new Set(allowedVariants) : null;
+  if (allowedSet && !variants.some((v) => allowedSet?.has(v.tag))) {
+    allowedSet = null;
+  }
+
+  for (const v of variants) {
+    if (allowedSet && !allowedSet.has(v.tag)) continue;
+    try {
+      res = await fetchStreamWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openrouterApiKey}`,
+            "HTTP-Referer": attribution.http_referer,
+            "X-Title": attribution.x_title,
+          },
+          body: JSON.stringify(v.payload),
+        },
+        timeoutMs,
+      );
+      usedVariant = v.tag;
+      break;
+    } catch (e: any) {
+      lastErr = e;
+      try {
+        (lastErr as any).openrouter = {
+          ...(typeof (lastErr as any).openrouter === "object" ? (lastErr as any).openrouter : {}),
+          variant: v.tag,
+          model: opts.model,
+          base_url: baseUrl,
+          timeout_ms: timeoutMs,
+          upstreamRequestId: (e as any)?.upstreamRequestId ?? null,
+        };
+      } catch {
+        // ignore
+      }
+      if (e?.status !== 400) {
+        break;
+      }
+    }
+  }
+
+  if (!res?.body) {
+    if (lastErr?.status) {
+      const details = typeof lastErr?.data === "string" ? lastErr.data : JSON.stringify(lastErr.data ?? null);
+      const msg = `upstream_error_${lastErr.status}: ${details?.slice?.(0, 900) ?? ""}`;
+      const err: any = lastErr instanceof Error ? lastErr : new Error(msg);
+      try {
+        err.message = msg;
+      } catch {
+        // ignore
+      }
+      err.status = lastErr.status;
+      err.data = lastErr.data;
+      throw err;
+    }
+    throw lastErr ?? new Error("OpenRouter request failed");
+  }
+
+  let resolveFinal: (value: OpenRouterChatResult) => void;
+  let rejectFinal: (reason?: unknown) => void;
+  const result = new Promise<OpenRouterChatResult>((resolve, reject) => {
+    resolveFinal = resolve;
+    rejectFinal = reject;
+  });
+
+  const stream = (async function* () {
+    let fullText = "";
+    let lastRaw: any = null;
+    let model: string | undefined;
+    let usage: unknown;
+    try {
+      for await (const data of parseSseStream(res.body)) {
+        if (!data) continue;
+        if (data === "[DONE]") break;
+        let parsed: any = null;
+        try {
+          parsed = JSON.parse(data);
+        } catch {
+          parsed = null;
+        }
+        if (parsed) {
+          lastRaw = parsed;
+          if (parsed?.response?.model) model = parsed.response.model;
+          if (parsed?.response?.usage) usage = parsed.response.usage;
+          const delta = extractStreamDelta(parsed);
+          if (delta) {
+            fullText += delta;
+            yield { text: delta, raw: parsed };
+          }
+        }
+      }
+      const content = fullText || extractResponseText(lastRaw?.response ?? lastRaw);
+      resolveFinal({
+        content: typeof content === "string" ? content : JSON.stringify(content),
+        model,
+        usage,
+        raw: lastRaw,
+        variant: usedVariant,
+      });
+    } catch (err) {
+      rejectFinal(err);
+      throw err;
+    }
+  })();
+
+  return { stream, result };
 }
 
 
