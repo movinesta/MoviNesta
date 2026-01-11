@@ -40,6 +40,32 @@ function normalizeProvider(p: unknown): string {
   return cleaned ? cleaned.slice(0, 64) : "unknown";
 }
 
+function normalizeModel(m: unknown): string {
+  const raw = String(m ?? "").trim();
+  if (!raw) return "unknown";
+  return raw.slice(0, 128);
+}
+
+function extractUsageTokens(usage: unknown): number {
+  if (!usage || typeof usage !== "object") return 0;
+  const u = usage as Record<string, unknown>;
+  const total = asNum(u.total_tokens ?? (u as any).totalTokens ?? (u as any).total);
+  if (total !== null) return total;
+  const prompt = asNum(u.prompt_tokens ?? (u as any).promptTokens ?? (u as any).input_tokens);
+  const completion = asNum(u.completion_tokens ?? (u as any).completionTokens ?? (u as any).output_tokens);
+  if (prompt !== null || completion !== null) {
+    return (prompt ?? 0) + (completion ?? 0);
+  }
+  return 0;
+}
+
+function extractUsageCost(usage: unknown): number {
+  if (!usage || typeof usage !== "object") return 0;
+  const u = usage as Record<string, unknown>;
+  const cost = asNum(u.total_cost ?? (u as any).cost ?? (u as any).totalCost ?? (u as any).usd);
+  return cost ?? 0;
+}
+
 function sanitizeBudgets(input: unknown): { total_daily_budget: number | null; by_provider_budget: Record<string, number> } {
   const total = asNum((input as any)?.total_daily_budget);
   const total_daily_budget = total === null ? null : Math.max(0, Math.floor(total));
@@ -109,7 +135,7 @@ serve(async (req) => {
 
     const { data: rows, error: rowsErr } = await svc
       .from("job_run_log")
-      .select("started_at, provider, total_tokens, ok, job_name")
+      .select("started_at, provider, model, total_tokens, ok, job_name")
       .gte("started_at", sinceIso)
       .order("started_at", { ascending: true });
 
@@ -118,6 +144,7 @@ serve(async (req) => {
     const dailyAgg = new Map<string, { tokens: number; runs: number; errors: number }>();
     const dailyJobAgg = new Map<string, { tokens: number; runs: number; errors: number }>();
     const jobAgg = new Map<string, { tokens: number; runs: number; errors: number; last_started_at: string | null }>();
+    const modelAgg = new Map<string, { tokens: number; runs: number; errors: number; last_started_at: string | null }>();
 
     const todayByProvider: Record<string, number> = {};
     let todayTotal = 0;
@@ -129,6 +156,7 @@ serve(async (req) => {
     for (const r of rows ?? []) {
       rowsTotal += 1;
       const provider = normalizeProvider((r as any).provider);
+      const model = normalizeModel((r as any).model);
       const jobName = String((r as any).job_name ?? "unknown");
       const startedAt = String((r as any).started_at ?? "");
       const day = dayKey(startedAt);
@@ -163,6 +191,16 @@ serve(async (req) => {
       }
       jobAgg.set(jobKey, j0);
 
+      const modelKey = `${provider}|${model}`;
+      const m0 = modelAgg.get(modelKey) ?? { tokens: 0, runs: 0, errors: 0, last_started_at: null };
+      m0.tokens += tok;
+      m0.runs += 1;
+      if (!ok) m0.errors += 1;
+      if (!m0.last_started_at || String(startedAt).localeCompare(m0.last_started_at) > 0) {
+        m0.last_started_at = startedAt;
+      }
+      modelAgg.set(modelKey, m0);
+
       if (day === todayDay) {
         todayByProvider[provider] = (todayByProvider[provider] ?? 0) + tok;
         todayTotal += tok;
@@ -183,6 +221,63 @@ serve(async (req) => {
       const [job_name, provider] = k.split("|");
       return { job_name, provider, tokens: v.tokens, runs: v.runs, errors: v.errors, last_started_at: v.last_started_at };
     }).sort((a, b) => b.tokens - a.tokens);
+
+    const models = Array.from(modelAgg.entries()).map(([k, v]) => {
+      const [provider, model] = k.split("|");
+      return { provider, model, tokens: v.tokens, runs: v.runs, errors: v.errors, last_started_at: v.last_started_at };
+    }).sort((a, b) => b.tokens - a.tokens);
+
+    const { data: orRows, error: orErr } = await svc
+      .from("openrouter_request_log")
+      .select("created_at, user_id, model, usage, provider")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: true });
+
+    if (orErr) return json(req, 500, { ok: false, message: orErr.message });
+
+    const orDailyAgg = new Map<string, { tokens: number; requests: number; cost: number }>();
+    const orUserAgg = new Map<string, { tokens: number; requests: number; cost: number }>();
+    const orModelAgg = new Map<string, { tokens: number; requests: number; cost: number }>();
+
+    for (const r of orRows ?? []) {
+      const day = dayKey(String((r as any).created_at ?? ""));
+      const usage = (r as any).usage;
+      const tokens = extractUsageTokens(usage);
+      const cost = extractUsageCost(usage);
+
+      const daily0 = orDailyAgg.get(day) ?? { tokens: 0, requests: 0, cost: 0 };
+      daily0.tokens += tokens;
+      daily0.requests += 1;
+      daily0.cost += cost;
+      orDailyAgg.set(day, daily0);
+
+      const userKey = String((r as any).user_id ?? "unknown");
+      const user0 = orUserAgg.get(userKey) ?? { tokens: 0, requests: 0, cost: 0 };
+      user0.tokens += tokens;
+      user0.requests += 1;
+      user0.cost += cost;
+      orUserAgg.set(userKey, user0);
+
+      const provider = normalizeProvider((r as any).provider);
+      const model = normalizeModel((r as any).model);
+      const modelKey = `${provider}|${model}`;
+      const model0 = orModelAgg.get(modelKey) ?? { tokens: 0, requests: 0, cost: 0 };
+      model0.tokens += tokens;
+      model0.requests += 1;
+      model0.cost += cost;
+      orModelAgg.set(modelKey, model0);
+    }
+
+    const openrouter_usage = {
+      daily: Array.from(orDailyAgg.entries()).map(([day, v]) => ({ day, tokens: v.tokens, requests: v.requests, cost: v.cost }))
+        .sort((a, b) => String(a.day).localeCompare(String(b.day))),
+      by_user: Array.from(orUserAgg.entries()).map(([user_id, v]) => ({ user_id, tokens: v.tokens, requests: v.requests, cost: v.cost }))
+        .sort((a, b) => b.tokens - a.tokens),
+      by_model: Array.from(orModelAgg.entries()).map(([k, v]) => {
+        const [provider, model] = k.split("|");
+        return { provider, model, tokens: v.tokens, requests: v.requests, cost: v.cost };
+      }).sort((a, b) => b.tokens - a.tokens),
+    };
 
     const totalBudget = settings.total_daily_budget;
     const totalRemaining = totalBudget === null ? null : Math.max(0, Math.floor(totalBudget - todayTotal));
@@ -215,6 +310,8 @@ serve(async (req) => {
       daily,
       daily_jobs,
       jobs,
+      models,
+      openrouter_usage,
     });
   } catch (e) {
     return jsonError(req, e);

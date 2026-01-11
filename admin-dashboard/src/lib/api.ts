@@ -300,6 +300,20 @@ export async function getAudit(payload?: { limit?: number; search?: string | nul
 }
 
 /* =========================
+ * OpenRouter Cache
+ * ======================= */
+
+export async function getOpenRouterCredits(payload?: { base_url?: string | null }) {
+  const qs = payload?.base_url ? `?base_url=${encodeURIComponent(payload.base_url)}` : "";
+  return invoke<any>(`admin-openrouter-credits${qs}`, { method: "GET" });
+}
+
+export async function getOpenRouterUsage(payload?: { base_url?: string | null }) {
+  const qs = payload?.base_url ? `?base_url=${encodeURIComponent(payload.base_url)}` : "";
+  return invoke<any>(`admin-openrouter-usage${qs}`, { method: "GET" });
+}
+
+/* =========================
  * Assistant Settings
  * ======================= */
 

@@ -16,6 +16,18 @@ function Title(props: { children: React.ReactNode }) {
   return <div className="mb-4 text-xl font-semibold tracking-tight">{props.children}</div>;
 }
 
+function downloadText(filename: string, content: string, mime = "text/plain") {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function Audit() {
   const [limit, setLimit] = useState(100);
   const [searchDraft, setSearchDraft] = useState("");
@@ -60,6 +72,30 @@ export default function Audit() {
     setSearchApplied("");
   };
 
+  const exportCsv = () => {
+    const header = ["id", "created_at", "admin_user_id", "admin_email", "action", "target", "details"].join(",");
+    const lines = rows.map((r) => {
+      const details = (() => {
+        try {
+          return JSON.stringify(r.details ?? {});
+        } catch {
+          return "{}";
+        }
+      })();
+      return [
+        JSON.stringify(r.id ?? ""),
+        JSON.stringify(r.created_at ?? ""),
+        JSON.stringify(r.admin_user_id ?? ""),
+        JSON.stringify(r.admin_email ?? ""),
+        JSON.stringify(r.action ?? ""),
+        JSON.stringify(r.target ?? ""),
+        JSON.stringify(details),
+      ].join(",");
+    });
+    const suffix = before ? "paged" : "latest";
+    downloadText(`audit_${suffix}_${rows.length}.csv`, [header, ...lines].join("\n"), "text/csv");
+  };
+
   if (q.isLoading) return <LoadingState />;
 if (q.error) return <ErrorBox error={q.error} />;
 
@@ -84,6 +120,9 @@ if (q.error) return <ErrorBox error={q.error} />;
           })()}
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" type="button" onClick={exportCsv} disabled={!rows.length}>
+            Export CSV
+          </Button>
           <Button variant="ghost" type="button" onClick={clearFilters}>
             Reset filters
           </Button>
