@@ -10,9 +10,35 @@ export type OpenRouterMessage = {
   content: string;
 };
 
+export type OpenRouterInputTextPart = { type: "input_text"; text: string };
+
+export type OpenRouterInputImagePart = {
+  type: "input_image";
+  image_url:
+    | string
+    | {
+        url: string;
+        detail?: "auto" | "low" | "high";
+      };
+};
+
+export type OpenRouterInputAudioPart = {
+  type: "input_audio";
+  audio_url?: string;
+  audio?: {
+    data: string;
+    format?: string;
+  };
+};
+
+export type OpenRouterInputContentPart =
+  | OpenRouterInputTextPart
+  | OpenRouterInputImagePart
+  | OpenRouterInputAudioPart;
+
 export type OpenRouterInputMessage = {
   role: "system" | "user" | "assistant";
-  content: string | Array<{ type: "input_text"; text: string }>;
+  content: string | OpenRouterInputContentPart[];
 };
 
 // OpenAI-compatible structured outputs.
