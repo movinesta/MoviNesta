@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getCosts, setCostsBudgets } from "../lib/api";
+import { getCosts, getOpenRouterCredits, setCostsBudgets } from "../lib/api";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -42,6 +42,28 @@ function downloadText(filename: string, content: string, mime = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
+function toNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickNumber(source: unknown, keys: string[]): number | null {
+  if (!source || typeof source !== "object") return null;
+  const obj = source as Record<string, unknown>;
+  for (const key of keys) {
+    if (key in obj) {
+      const n = toNumber(obj[key]);
+      if (n !== null) return n;
+    }
+  }
+  return null;
+}
+
+function fmtUsd(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 4 }).format(n);
+}
+
 export default function Costs() {
   const [days, setDays] = useState(14);
   const [tz, setTz] = useState<"utc" | "local">("utc");
@@ -77,6 +99,7 @@ export default function Costs() {
   }
 
   const q = useQuery({ queryKey: ["costs", { days }], queryFn: () => getCosts({ days }) });
+  const creditsQ = useQuery({ queryKey: ["openrouter-credits"], queryFn: () => getOpenRouterCredits() });
 
   const resp = q.data;
 
@@ -130,6 +153,23 @@ export default function Costs() {
       .map((r: any) => ({
         job_name: String(r.job_name),
         provider: r.provider == null ? null : String(r.provider),
+        tokens: Number.isFinite(Number(r.tokens)) ? Number(r.tokens) : 0,
+        runs: Number.isFinite(Number(r.runs)) ? Number(r.runs) : 0,
+        errors: Number.isFinite(Number(r.errors)) ? Number(r.errors) : 0,
+        last_started_at: r.last_started_at ? String(r.last_started_at) : null,
+      }))
+      .sort((a: any, b: any) => b.tokens - a.tokens);
+  }, [resp]);
+
+  const models = useMemo(() => {
+    const raw: any = (resp as any)?.models;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter(Boolean)
+      .filter((r: any) => typeof r.model === "string")
+      .map((r: any) => ({
+        provider: r.provider == null ? null : String(r.provider),
+        model: String(r.model),
         tokens: Number.isFinite(Number(r.tokens)) ? Number(r.tokens) : 0,
         runs: Number.isFinite(Number(r.runs)) ? Number(r.runs) : 0,
         errors: Number.isFinite(Number(r.errors)) ? Number(r.errors) : 0,
@@ -213,6 +253,71 @@ export default function Costs() {
     return { day, totalTokens, byProvider };
   }, [resp]);
 
+  const openrouterUsage = useMemo(() => {
+    const raw: any = (resp as any)?.openrouter_usage;
+    const daily = Array.isArray(raw?.daily)
+      ? raw.daily
+          .filter(Boolean)
+          .filter((r: any) => typeof r.day === "string")
+          .map((r: any) => ({
+            day: String(r.day),
+            tokens: Number.isFinite(Number(r.tokens)) ? Number(r.tokens) : 0,
+            requests: Number.isFinite(Number(r.requests)) ? Number(r.requests) : 0,
+            cost: Number.isFinite(Number(r.cost)) ? Number(r.cost) : 0,
+          }))
+      : [];
+    const byUser = Array.isArray(raw?.by_user)
+      ? raw.by_user
+          .filter(Boolean)
+          .map((r: any) => ({
+            user_id: String(r.user_id ?? "unknown"),
+            tokens: Number.isFinite(Number(r.tokens)) ? Number(r.tokens) : 0,
+            requests: Number.isFinite(Number(r.requests)) ? Number(r.requests) : 0,
+            cost: Number.isFinite(Number(r.cost)) ? Number(r.cost) : 0,
+          }))
+      : [];
+    const byModel = Array.isArray(raw?.by_model)
+      ? raw.by_model
+          .filter(Boolean)
+          .map((r: any) => ({
+            provider: r.provider == null ? null : String(r.provider),
+            model: String(r.model ?? "unknown"),
+            tokens: Number.isFinite(Number(r.tokens)) ? Number(r.tokens) : 0,
+            requests: Number.isFinite(Number(r.requests)) ? Number(r.requests) : 0,
+            cost: Number.isFinite(Number(r.cost)) ? Number(r.cost) : 0,
+          }))
+      : [];
+    return { daily, byUser, byModel };
+  }, [resp]);
+
+  const openrouterDailyChart = useMemo(() => {
+    if (!openrouterUsage.daily.length) return [];
+    return openrouterUsage.daily.map((r) => ({
+      day: r.day,
+      dayLabel: formatDay(r.day, tz),
+      Tokens: r.tokens,
+      Cost: r.cost,
+      Requests: r.requests,
+    }));
+  }, [openrouterUsage.daily, tz]);
+
+  const creditsSummary = useMemo(() => {
+    const payload = (creditsQ.data as any)?.payload;
+    if (!payload) return null;
+    const source = payload?.data ?? payload;
+    const balance = pickNumber(source, ["balance", "remaining", "credits", "available", "total_credits_remaining"]);
+    const total = pickNumber(source, ["total", "total_credits", "total_credits_granted"]);
+    const used = pickNumber(source, ["used", "spent", "total_credits_used"]);
+    return {
+      balance,
+      total,
+      used,
+      raw: payload,
+      fetchedAt: (creditsQ.data as any)?.fetched_at ?? null,
+      baseUrl: (creditsQ.data as any)?.base_url ?? null,
+    };
+  }, [creditsQ.data]);
+
   const dataQuality = useMemo(() => {
     const d = (resp as any)?.data_quality;
     return {
@@ -246,6 +351,12 @@ export default function Costs() {
     const header = ["job_name", "provider", "tokens", "runs", "errors", "last_started_at"].join(",");
     const lines = jobs.map((r) => [JSON.stringify(r.job_name), r.provider ?? "", r.tokens, r.runs, r.errors, r.last_started_at ?? ""].join(","));
     downloadText(`costs_jobs_${days}d.csv`, [header, ...lines].join("\n"), "text/csv");
+  };
+
+  const exportModelsCsv = () => {
+    const header = ["provider", "model", "tokens", "runs", "errors", "last_started_at"].join(",");
+    const lines = models.map((r) => [r.provider ?? "", JSON.stringify(r.model), r.tokens, r.runs, r.errors, r.last_started_at ?? ""].join(","));
+    downloadText(`costs_models_${days}d.csv`, [header, ...lines].join("\n"), "text/csv");
   };
 
   if (q.isLoading) return <LoadingState />;
@@ -327,6 +438,7 @@ if (q.error) return <ErrorBox error={q.error} />;
             <Button variant="ghost" onClick={exportDailyCsv}>Export daily CSV</Button>
             <Button variant="ghost" onClick={exportDailyJobsCsv}>Export daily jobs CSV</Button>
             <Button variant="ghost" onClick={exportJobsCsv}>Export jobs CSV</Button>
+            <Button variant="ghost" onClick={exportModelsCsv}>Export models CSV</Button>
 
             <Button
               variant="ghost"
@@ -398,6 +510,44 @@ if (q.error) return <ErrorBox error={q.error} />;
             )}
           </tbody>
         </Table>
+      </Card>
+
+      <Card title="OpenRouter credits">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <StatCard title="Balance" value={fmtUsd(creditsSummary?.balance ?? null)} subtitle={<span className="text-xs text-zinc-500">Remaining credits</span>} />
+          <StatCard title="Total" value={fmtUsd(creditsSummary?.total ?? null)} subtitle={<span className="text-xs text-zinc-500">Granted credits</span>} />
+          <StatCard title="Used" value={fmtUsd(creditsSummary?.used ?? null)} subtitle={<span className="text-xs text-zinc-500">Consumed credits</span>} />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+          <span>Base URL: <span className="font-mono">{creditsSummary?.baseUrl ?? "—"}</span></span>
+          <span>Fetched: <span className="font-mono">{creditsSummary?.fetchedAt ?? "—"}</span></span>
+          {!creditsSummary ? <span>No credits payload cached yet.</span> : null}
+        </div>
+      </Card>
+
+      <Card title="OpenRouter usage trends">
+        {openrouterDailyChart.length ? (
+          <>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={openrouterDailyChart}>
+                  <XAxis dataKey="dayLabel" />
+                  <YAxis tickFormatter={(v) => fmtInt(Number(v))} />
+                  <Tooltip formatter={(v: any, name: any) => name === "Cost" ? fmtUsd(Number(v)) : fmtInt(Number(v))} />
+                  <Legend />
+                  <Line type="monotone" dataKey="Tokens" dot={false} />
+                  <Line type="monotone" dataKey="Cost" dot={false} />
+                  <Line type="monotone" dataKey="Requests" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-3 text-xs text-zinc-500">
+              Trends are based on <span className="font-mono">openrouter_request_log</span> entries for the last {days} days.
+            </div>
+          </>
+        ) : (
+          <EmptyState title="No OpenRouter usage" message="No OpenRouter request logs found for this range." className="border-0 bg-transparent p-0" />
+        )}
       </Card>
 
       <Card title="Budgets">
@@ -485,6 +635,96 @@ if (q.error) return <ErrorBox error={q.error} />;
           <div className="text-xs text-zinc-500">Stored in DB (<span className="font-mono">admin_costs_settings</span>). No ENV vars.</div>
           {budgetsError ? <div className="text-xs text-red-600">{budgetsError}</div> : null}
         </div>
+      </Card>
+
+      <Card title="Per-model token costs (job runs)">
+        <Table>
+          <thead>
+            <tr>
+              <Th>Provider</Th>
+              <Th>Model</Th>
+              <Th className="text-right">Tokens</Th>
+              <Th className="text-right">Runs</Th>
+              <Th className="text-right">Errors</Th>
+              <Th>Last run</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {models.length ? (
+              models.slice(0, 30).map((r) => (
+                <tr key={`${r.provider ?? ""}|${r.model}`}>
+                  <Td className="font-mono">{r.provider ?? "—"}</Td>
+                  <Td className="font-mono">{r.model}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.tokens)}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.runs)}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.errors)}</Td>
+                  <Td className="font-mono">{fmtDateTime(r.last_started_at)}</Td>
+                </tr>
+              ))
+            ) : (
+              <tr><Td colSpan={6} className="text-zinc-500">No model-level data.</Td></tr>
+            )}
+          </tbody>
+        </Table>
+        <div className="mt-3 text-xs text-zinc-500">
+          Token totals are sourced from <span className="font-mono">job_run_log</span> entries.
+        </div>
+      </Card>
+
+      <Card title="OpenRouter usage by user">
+        <Table>
+          <thead>
+            <tr>
+              <Th>User</Th>
+              <Th className="text-right">Tokens</Th>
+              <Th className="text-right">Requests</Th>
+              <Th className="text-right">Cost (USD)</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {openrouterUsage.byUser.length ? (
+              openrouterUsage.byUser.slice(0, 25).map((r) => (
+                <tr key={r.user_id}>
+                  <Td className="font-mono">{r.user_id}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.tokens)}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.requests)}</Td>
+                  <Td className="text-right font-mono">{fmtUsd(r.cost)}</Td>
+                </tr>
+              ))
+            ) : (
+              <tr><Td colSpan={4} className="text-zinc-500">No OpenRouter user usage for this range.</Td></tr>
+            )}
+          </tbody>
+        </Table>
+      </Card>
+
+      <Card title="OpenRouter usage by model">
+        <Table>
+          <thead>
+            <tr>
+              <Th>Provider</Th>
+              <Th>Model</Th>
+              <Th className="text-right">Tokens</Th>
+              <Th className="text-right">Requests</Th>
+              <Th className="text-right">Cost (USD)</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {openrouterUsage.byModel.length ? (
+              openrouterUsage.byModel.slice(0, 25).map((r) => (
+                <tr key={`${r.provider ?? ""}|${r.model}`}>
+                  <Td className="font-mono">{r.provider ?? "—"}</Td>
+                  <Td className="font-mono">{r.model}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.tokens)}</Td>
+                  <Td className="text-right font-mono">{fmtInt(r.requests)}</Td>
+                  <Td className="text-right font-mono">{fmtUsd(r.cost)}</Td>
+                </tr>
+              ))
+            ) : (
+              <tr><Td colSpan={5} className="text-zinc-500">No OpenRouter model usage for this range.</Td></tr>
+            )}
+          </tbody>
+        </Table>
       </Card>
 
       <Card title="Daily breakdown">
