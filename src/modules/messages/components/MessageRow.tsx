@@ -18,7 +18,7 @@ import { getMessageMeta, getMessageType, parseMessageText } from "../messageText
 
 import { MessageBubble } from "./MessageBubble";
 import { LinkifiedText } from "./LinkifiedText";
-import { ChatImage } from "./ChatImage";
+import { ChatAttachment } from "./ChatAttachment";
 import AssistantMessageUI from "./AssistantMessageUI";
 import AssistantEvidencePanel from "./AssistantEvidencePanel";
 
@@ -259,7 +259,7 @@ export const MessageRow = React.memo(function MessageRow({
             )}
 
             {!isDeletedMessage && message.attachmentUrl && (
-              <ChatImage path={message.attachmentUrl} />
+              <ChatAttachment path={message.attachmentUrl} />
             )}
           </MessageBubble>
         </div>

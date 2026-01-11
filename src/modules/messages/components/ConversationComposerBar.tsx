@@ -1,11 +1,21 @@
 import React, { useCallback } from "react";
-import { AlertCircle, Camera, Loader2, Send, Smile } from "lucide-react";
+import {
+  AlertCircle,
+  Camera,
+  FileText,
+  Loader2,
+  Paperclip,
+  Send,
+  Smile,
+  Volume2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageComposer } from "./MessageComposer";
 import { usePublicSettings } from "@/providers/PublicSettingsProvider";
+import type { PendingAttachment } from "../useAttachmentUpload";
 
 type Props = {
   show: boolean;
@@ -24,8 +34,10 @@ type Props = {
   onSendText: (text: string) => void;
   onRequestScrollToBottom?: () => void;
 
-  isUploadingImage: boolean;
-  cancelImageUpload: () => void;
+  isUploadingAttachment: boolean;
+  pendingAttachment: PendingAttachment | null;
+  clearPendingAttachment: () => void;
+  cancelAttachmentUpload: () => void;
 
   sendError: boolean;
   sendErrorMessage?: string | null;
@@ -39,9 +51,12 @@ type Props = {
   setShowEmojiPicker: (open: boolean) => void;
 
   openCameraPicker: () => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
   onImageSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onImageFile?: (file: File) => void;
+  openAttachmentPicker: () => void;
+  imageInputRef: React.RefObject<HTMLInputElement>;
+  attachmentInputRef: React.RefObject<HTMLInputElement>;
+  onAttachmentSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onAttachmentFile?: (file: File) => void;
   disableSend: boolean;
 };
 
@@ -105,8 +120,10 @@ export const ConversationComposerBar: React.FC<Props> = ({
   stopTyping,
   onSendText,
   onRequestScrollToBottom,
-  isUploadingImage,
-  cancelImageUpload,
+  isUploadingAttachment,
+  pendingAttachment,
+  clearPendingAttachment,
+  cancelAttachmentUpload,
   sendError,
   sendErrorMessage,
 
@@ -117,9 +134,12 @@ export const ConversationComposerBar: React.FC<Props> = ({
   showEmojiPicker,
   setShowEmojiPicker,
   openCameraPicker,
-  fileInputRef,
   onImageSelected,
-  onImageFile,
+  openAttachmentPicker,
+  imageInputRef,
+  attachmentInputRef,
+  onAttachmentSelected,
+  onAttachmentFile,
   disableSend,
 }) => {
   const { getNumber } = usePublicSettings();
@@ -179,7 +199,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
 
       // Do not block sending while a previous send is still in-flight.
       // Users should be able to send multiple messages quickly (Instagram-like).
-      if (disableSend || isUploadingImage) return;
+      if (disableSend || isUploadingAttachment) return;
       const text = draft.trim();
       if (!text) return;
 
@@ -187,13 +207,21 @@ export const ConversationComposerBar: React.FC<Props> = ({
       stopTyping();
       onSendText(text);
     },
-    [disableSend, draft, isUploadingImage, onSendText, setDraft, stopTyping],
+    [disableSend, draft, isUploadingAttachment, onSendText, setDraft, stopTyping],
   );
 
   if (!show) return null;
 
-  const sendButtonDisabled = disableSend || !draft.trim() || isUploadingImage;
-  const cameraDisabled = isUploadingImage || disableSend;
+  const sendButtonDisabled = disableSend || !draft.trim() || isUploadingAttachment;
+  const cameraDisabled = isUploadingAttachment || disableSend;
+  const attachDisabled = isUploadingAttachment || disableSend;
+
+  const attachmentStatusLabel = (() => {
+    if (!pendingAttachment) return null;
+    if (isUploadingAttachment) return "Uploading…";
+    if (uploadError) return "Upload failed";
+    return "Ready";
+  })();
 
   return (
     <MessageComposer
@@ -202,7 +230,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
       onHeightChange={onHeightChange}
       minHeight={headerHeight}
       onDragOver={(event) => {
-        if (!onImageFile || disableSend) return;
+        if (!onAttachmentFile || disableSend) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
         (event.currentTarget as any).dataset.dragging = "true";
@@ -211,28 +239,76 @@ export const ConversationComposerBar: React.FC<Props> = ({
         (event.currentTarget as any).dataset.dragging = "false";
       }}
       onDrop={(event) => {
-        if (!onImageFile || disableSend || isUploadingImage) return;
+        if (!onAttachmentFile || disableSend || isUploadingAttachment) return;
         event.preventDefault();
         (event.currentTarget as any).dataset.dragging = "false";
         const files = event.dataTransfer.files;
         if (!files || files.length === 0) return;
-        const image = Array.from(files).find((f) => f.type.startsWith("image/"));
-        if (!image) return;
-        onImageFile(image);
+        const file = Array.from(files)[0];
+        if (!file) return;
+        onAttachmentFile(file);
       }}
     >
       {/* Typing indicator is now rendered Instagram-style in the message list footer. */}
 
-      {isUploadingImage && (
+      {pendingAttachment && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-xs text-muted-foreground"
+        >
+          <div className="flex items-center gap-3">
+            {pendingAttachment.kind === "image" && pendingAttachment.previewUrl ? (
+              <img
+                src={pendingAttachment.previewUrl}
+                alt=""
+                className="h-12 w-12 rounded-lg object-cover"
+              />
+            ) : pendingAttachment.kind === "audio" && pendingAttachment.previewUrl ? (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted/60">
+                <Volume2 className="h-5 w-5" aria-hidden="true" />
+              </div>
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted/60">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+              </div>
+            )}
+
+            <div className="flex flex-col">
+              <p className="text-xs font-semibold text-foreground">{pendingAttachment.name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {pendingAttachment.sizeLabel}
+                {attachmentStatusLabel ? ` • ${attachmentStatusLabel}` : ""}
+              </p>
+              {pendingAttachment.kind === "audio" && pendingAttachment.previewUrl ? (
+                <audio
+                  controls
+                  src={pendingAttachment.previewUrl}
+                  className="mt-2 w-52"
+                />
+              ) : null}
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={isUploadingAttachment ? cancelAttachmentUpload : clearPendingAttachment}
+          >
+            {isUploadingAttachment ? "Cancel" : "Remove"}
+          </Button>
+        </div>
+      )}
+
+      {isUploadingAttachment && (
         <div
           role="status"
           className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-xs text-muted-foreground"
         >
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            <p className="font-semibold text-foreground">Uploading image…</p>
+            <p className="font-semibold text-foreground">Uploading attachment…</p>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={cancelImageUpload}>
+          <Button type="button" size="sm" variant="outline" onClick={cancelAttachmentUpload}>
             Cancel
           </Button>
         </div>
@@ -320,16 +396,35 @@ export const ConversationComposerBar: React.FC<Props> = ({
           onClick={openCameraPicker}
           aria-label="Send photo"
           disabled={cameraDisabled}
-          aria-busy={isUploadingImage}
+          aria-busy={isUploadingAttachment}
         >
           <Camera className="h-4 w-4" aria-hidden="true" />
         </Button>
         <input
           type="file"
-          ref={fileInputRef}
+          ref={imageInputRef}
           accept="image/*"
           className="hidden"
           onChange={onImageSelected}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full bg-muted/60 text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+          onClick={openAttachmentPicker}
+          aria-label="Add attachment"
+          disabled={attachDisabled}
+          aria-busy={isUploadingAttachment}
+        >
+          <Paperclip className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <input
+          type="file"
+          ref={attachmentInputRef}
+          accept="image/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/rtf"
+          className="hidden"
+          onChange={onAttachmentSelected}
         />
 
         <div className="flex max-h-[160px] flex-1 items-end gap-2 rounded-2xl border border-border bg-background/60 px-3 py-2 shadow-inner">
@@ -342,8 +437,8 @@ export const ConversationComposerBar: React.FC<Props> = ({
             onChange={handleDraftChange}
             onBlur={stopTyping}
             onPaste={(event) => {
-              if (!onImageFile) return;
-              if (disableSend || isUploadingImage) return;
+              if (!onAttachmentFile) return;
+              if (disableSend || isUploadingAttachment) return;
               const items = event.clipboardData?.items;
               if (!items) return;
               const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
@@ -352,7 +447,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
               if (!file) return;
               event.preventDefault();
               onRequestScrollToBottom?.();
-              onImageFile(file);
+              onAttachmentFile(file);
             }}
             onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -377,9 +472,9 @@ export const ConversationComposerBar: React.FC<Props> = ({
           onMouseDown={(e) => e.preventDefault()}
           disabled={sendButtonDisabled}
           aria-label="Send message"
-          aria-busy={isUploadingImage}
+          aria-busy={isUploadingAttachment}
         >
-          {isUploadingImage ? (
+          {isUploadingAttachment ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
             <Send className="h-4 w-4" aria-hidden="true" />

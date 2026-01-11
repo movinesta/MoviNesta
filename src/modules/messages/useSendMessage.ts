@@ -12,6 +12,7 @@ import { createRandomTempId, ensureTempId } from "./idUtils";
 import { createClientId } from "./clientId";
 import { updateConversationListItemInCache } from "./conversationsCache";
 import { MESSAGE_SELECT } from "./messageSelect";
+import { getAttachmentKindFromPath, type AttachmentKind } from "./attachmentUtils";
 import {
   ensureMessagesInfiniteData,
   reconcileSentMessage,
@@ -21,6 +22,7 @@ import {
 interface SendMessageArgs {
   text: string;
   attachmentPath?: string | null;
+  attachmentKind?: AttachmentKind | null;
   clientId?: string;
   tempId?: string;
 }
@@ -34,19 +36,30 @@ type SendMessageContext = {
   usedServerAnchor?: boolean;
   payload?: FailedMessagePayload;
 };
-const buildMessagePayload = (text: string, attachmentPath: string | null, clientId: string) => {
+const buildMessagePayload = (
+  text: string,
+  attachmentPath: string | null,
+  attachmentKind: AttachmentKind | null,
+  clientId: string,
+) => {
   const trimmed = text.trim();
 
   if (!attachmentPath && !trimmed) {
     return { payload: null, trimmed } as const;
   }
 
+  const kind = attachmentKind ?? (attachmentPath ? getAttachmentKindFromPath(attachmentPath) : null);
+  const attachmentType = kind ?? "image";
+
   if (attachmentPath && trimmed) {
-    return { payload: { type: "text+image", text: trimmed, clientId }, trimmed } as const;
+    return {
+      payload: { type: `text+${attachmentType}`, text: trimmed, clientId },
+      trimmed,
+    } as const;
   }
 
   if (attachmentPath) {
-    return { payload: { type: "image", text: "", clientId }, trimmed } as const;
+    return { payload: { type: attachmentType, text: "", clientId }, trimmed } as const;
   }
 
   return { payload: { type: "text", text: trimmed, clientId }, trimmed } as const;
@@ -65,7 +78,7 @@ export const useSendMessage = (
   const queryClient = useQueryClient();
 
   return useMutation<ConversationMessage, Error, SendMessageArgs, SendMessageContext>({
-    mutationFn: async ({ text, attachmentPath, clientId }: SendMessageArgs) => {
+    mutationFn: async ({ text, attachmentPath, attachmentKind, clientId }: SendMessageArgs) => {
       if (!conversationId) throw new Error("Missing conversation id.");
       if (!userId) throw new Error("You must be signed in to send messages.");
 
@@ -83,7 +96,12 @@ export const useSendMessage = (
 
       const effectiveClientId = clientId ?? createClientId();
 
-      const { payload } = buildMessagePayload(text, attachmentPath ?? null, effectiveClientId);
+      const { payload } = buildMessagePayload(
+        text,
+        attachmentPath ?? null,
+        attachmentKind ?? null,
+        effectiveClientId,
+      );
       if (!payload) {
         throw new Error("Cannot send an empty message.");
       }
@@ -136,7 +154,7 @@ export const useSendMessage = (
     onMutate: async (variables) => {
       if (!conversationId || !userId) return { previous: undefined, tempId: null };
 
-      const { text, attachmentPath } = variables;
+      const { text, attachmentPath, attachmentKind } = variables;
 
       const effectiveClientId = variables.clientId ?? createClientId();
       // React Query passes the same variables object through to mutationFn.
@@ -146,6 +164,7 @@ export const useSendMessage = (
       const { payload, trimmed } = buildMessagePayload(
         text,
         attachmentPath ?? null,
+        attachmentKind ?? null,
         effectiveClientId,
       );
       if (!payload) {
@@ -200,6 +219,7 @@ export const useSendMessage = (
         payload: {
           text: trimmed,
           attachmentPath: attachmentPath ?? null,
+          attachmentKind: attachmentKind ?? null,
           clientId: effectiveClientId,
         },
       };
