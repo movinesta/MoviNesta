@@ -11785,6 +11785,86 @@ CREATE TABLE public.assistant_failures (
 ALTER TABLE public.assistant_failures OWNER TO postgres;
 
 --
+-- TOC entry 498 (class 1259 OID 802100)
+-- Name: openrouter_models_cache; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.openrouter_models_cache (
+    base_url text NOT NULL,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.openrouter_models_cache OWNER TO postgres;
+
+--
+-- TOC entry 499 (class 1259 OID 802115)
+-- Name: openrouter_credits_cache; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.openrouter_credits_cache (
+    base_url text NOT NULL,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.openrouter_credits_cache OWNER TO postgres;
+
+--
+-- TOC entry 500 (class 1259 OID 802130)
+-- Name: openrouter_usage_cache; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.openrouter_usage_cache (
+    base_url text NOT NULL,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.openrouter_usage_cache OWNER TO postgres;
+
+--
+-- TOC entry 501 (class 1259 OID 802145)
+-- Name: openrouter_endpoints_cache; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.openrouter_endpoints_cache (
+    base_url text NOT NULL,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.openrouter_endpoints_cache OWNER TO postgres;
+
+--
+-- TOC entry 502 (class 1259 OID 802160)
+-- Name: openrouter_request_log; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.openrouter_request_log (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    fn text NOT NULL,
+    request_id text,
+    user_id uuid,
+    conversation_id uuid,
+    provider text,
+    model text,
+    base_url text,
+    usage jsonb,
+    upstream_request_id text,
+    variant text,
+    meta jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE public.openrouter_request_log OWNER TO postgres;
+
+--
 -- TOC entry 483 (class 1259 OID 631530)
 -- Name: assistant_goal_events; Type: TABLE; Schema: public; Owner: postgres
 --
@@ -14123,6 +14203,50 @@ ALTER TABLE ONLY public.assistant_cron_requests
 ALTER TABLE ONLY public.assistant_failures
     ADD CONSTRAINT assistant_failures_pkey PRIMARY KEY (id);
 
+--
+-- TOC entry 5595 (class 2606 OID 802170)
+-- Name: openrouter_models_cache openrouter_models_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.openrouter_models_cache
+    ADD CONSTRAINT openrouter_models_cache_pkey PRIMARY KEY (base_url);
+
+
+--
+-- TOC entry 5597 (class 2606 OID 802175)
+-- Name: openrouter_credits_cache openrouter_credits_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.openrouter_credits_cache
+    ADD CONSTRAINT openrouter_credits_cache_pkey PRIMARY KEY (base_url);
+
+
+--
+-- TOC entry 5599 (class 2606 OID 802180)
+-- Name: openrouter_usage_cache openrouter_usage_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.openrouter_usage_cache
+    ADD CONSTRAINT openrouter_usage_cache_pkey PRIMARY KEY (base_url);
+
+
+--
+-- TOC entry 5601 (class 2606 OID 802185)
+-- Name: openrouter_endpoints_cache openrouter_endpoints_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.openrouter_endpoints_cache
+    ADD CONSTRAINT openrouter_endpoints_cache_pkey PRIMARY KEY (base_url);
+
+
+--
+-- TOC entry 5603 (class 2606 OID 802190)
+-- Name: openrouter_request_log openrouter_request_log_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.openrouter_request_log
+    ADD CONSTRAINT openrouter_request_log_pkey PRIMARY KEY (id);
+
 
 --
 -- TOC entry 5501 (class 2606 OID 631540)
@@ -15486,6 +15610,61 @@ CREATE INDEX assistant_failures_created_at_idx ON public.assistant_failures USIN
 --
 
 CREATE INDEX assistant_failures_fn_created_at_idx ON public.assistant_failures USING btree (fn, created_at DESC);
+
+--
+-- TOC entry 5592 (class 1259 OID 802200)
+-- Name: openrouter_models_cache_fetched_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_models_cache_fetched_at_idx ON public.openrouter_models_cache USING btree (fetched_at DESC);
+
+
+--
+-- TOC entry 5593 (class 1259 OID 802205)
+-- Name: openrouter_credits_cache_fetched_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_credits_cache_fetched_at_idx ON public.openrouter_credits_cache USING btree (fetched_at DESC);
+
+
+--
+-- TOC entry 5594 (class 1259 OID 802210)
+-- Name: openrouter_usage_cache_fetched_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_usage_cache_fetched_at_idx ON public.openrouter_usage_cache USING btree (fetched_at DESC);
+
+
+--
+-- TOC entry 5596 (class 1259 OID 802215)
+-- Name: openrouter_endpoints_cache_fetched_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_endpoints_cache_fetched_at_idx ON public.openrouter_endpoints_cache USING btree (fetched_at DESC);
+
+
+--
+-- TOC entry 5598 (class 1259 OID 802220)
+-- Name: openrouter_request_log_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_request_log_created_at_idx ON public.openrouter_request_log USING btree (created_at DESC);
+
+
+--
+-- TOC entry 5600 (class 1259 OID 802225)
+-- Name: openrouter_request_log_fn_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_request_log_fn_created_at_idx ON public.openrouter_request_log USING btree (fn, created_at DESC);
+
+
+--
+-- TOC entry 5602 (class 1259 OID 802230)
+-- Name: openrouter_request_log_request_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX openrouter_request_log_request_id_idx ON public.openrouter_request_log USING btree (request_id);
 
 
 --
@@ -19480,6 +19659,151 @@ CREATE POLICY assistant_failures_authenticated_deny ON public.assistant_failures
 --
 
 CREATE POLICY assistant_failures_service_role_all ON public.assistant_failures TO service_role USING (true) WITH CHECK (true);
+
+--
+-- TOC entry 6058 (class 0 OID 802100)
+-- Dependencies: 498
+-- Name: openrouter_models_cache; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.openrouter_models_cache ENABLE ROW LEVEL SECURITY;
+
+--
+-- TOC entry 6068 (class 3256 OID 802240)
+-- Name: openrouter_models_cache openrouter_models_cache_anon_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_models_cache_anon_deny ON public.openrouter_models_cache TO anon USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6069 (class 3256 OID 802241)
+-- Name: openrouter_models_cache openrouter_models_cache_authenticated_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_models_cache_authenticated_deny ON public.openrouter_models_cache TO authenticated USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6070 (class 3256 OID 802242)
+-- Name: openrouter_models_cache openrouter_models_cache_service_role_all; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_models_cache_service_role_all ON public.openrouter_models_cache TO service_role USING (true) WITH CHECK (true);
+
+--
+-- TOC entry 6060 (class 0 OID 802115)
+-- Dependencies: 499
+-- Name: openrouter_credits_cache; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.openrouter_credits_cache ENABLE ROW LEVEL SECURITY;
+
+--
+-- TOC entry 6071 (class 3256 OID 802243)
+-- Name: openrouter_credits_cache openrouter_credits_cache_anon_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_credits_cache_anon_deny ON public.openrouter_credits_cache TO anon USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6072 (class 3256 OID 802244)
+-- Name: openrouter_credits_cache openrouter_credits_cache_authenticated_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_credits_cache_authenticated_deny ON public.openrouter_credits_cache TO authenticated USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6073 (class 3256 OID 802245)
+-- Name: openrouter_credits_cache openrouter_credits_cache_service_role_all; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_credits_cache_service_role_all ON public.openrouter_credits_cache TO service_role USING (true) WITH CHECK (true);
+
+--
+-- TOC entry 6061 (class 0 OID 802130)
+-- Dependencies: 500
+-- Name: openrouter_usage_cache; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.openrouter_usage_cache ENABLE ROW LEVEL SECURITY;
+
+--
+-- TOC entry 6074 (class 3256 OID 802246)
+-- Name: openrouter_usage_cache openrouter_usage_cache_anon_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_usage_cache_anon_deny ON public.openrouter_usage_cache TO anon USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6075 (class 3256 OID 802247)
+-- Name: openrouter_usage_cache openrouter_usage_cache_authenticated_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_usage_cache_authenticated_deny ON public.openrouter_usage_cache TO authenticated USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6076 (class 3256 OID 802248)
+-- Name: openrouter_usage_cache openrouter_usage_cache_service_role_all; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_usage_cache_service_role_all ON public.openrouter_usage_cache TO service_role USING (true) WITH CHECK (true);
+
+--
+-- TOC entry 6062 (class 0 OID 802145)
+-- Dependencies: 501
+-- Name: openrouter_endpoints_cache; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.openrouter_endpoints_cache ENABLE ROW LEVEL SECURITY;
+
+--
+-- TOC entry 6077 (class 3256 OID 802249)
+-- Name: openrouter_endpoints_cache openrouter_endpoints_cache_anon_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_endpoints_cache_anon_deny ON public.openrouter_endpoints_cache TO anon USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6078 (class 3256 OID 802250)
+-- Name: openrouter_endpoints_cache openrouter_endpoints_cache_authenticated_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_endpoints_cache_authenticated_deny ON public.openrouter_endpoints_cache TO authenticated USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6079 (class 3256 OID 802251)
+-- Name: openrouter_endpoints_cache openrouter_endpoints_cache_service_role_all; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_endpoints_cache_service_role_all ON public.openrouter_endpoints_cache TO service_role USING (true) WITH CHECK (true);
+
+--
+-- TOC entry 6063 (class 0 OID 802160)
+-- Dependencies: 502
+-- Name: openrouter_request_log; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.openrouter_request_log ENABLE ROW LEVEL SECURITY;
+
+--
+-- TOC entry 6080 (class 3256 OID 802252)
+-- Name: openrouter_request_log openrouter_request_log_anon_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_request_log_anon_deny ON public.openrouter_request_log TO anon USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6081 (class 3256 OID 802253)
+-- Name: openrouter_request_log openrouter_request_log_authenticated_deny; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_request_log_authenticated_deny ON public.openrouter_request_log TO authenticated USING (false) WITH CHECK (false);
+
+--
+-- TOC entry 6082 (class 3256 OID 802254)
+-- Name: openrouter_request_log openrouter_request_log_service_role_all; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY openrouter_request_log_service_role_all ON public.openrouter_request_log TO service_role USING (true) WITH CHECK (true);
 
 
 --
@@ -25797,6 +26121,51 @@ GRANT ALL ON TABLE public.assistant_failures TO service_role;
 
 
 --
+-- TOC entry 6685 (class 0 OID 0)
+-- Dependencies: 498
+-- Name: TABLE openrouter_models_cache; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.openrouter_models_cache TO service_role;
+
+
+--
+-- TOC entry 6686 (class 0 OID 0)
+-- Dependencies: 499
+-- Name: TABLE openrouter_credits_cache; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.openrouter_credits_cache TO service_role;
+
+
+--
+-- TOC entry 6687 (class 0 OID 0)
+-- Dependencies: 500
+-- Name: TABLE openrouter_usage_cache; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.openrouter_usage_cache TO service_role;
+
+
+--
+-- TOC entry 6688 (class 0 OID 0)
+-- Dependencies: 501
+-- Name: TABLE openrouter_endpoints_cache; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.openrouter_endpoints_cache TO service_role;
+
+
+--
+-- TOC entry 6689 (class 0 OID 0)
+-- Dependencies: 502
+-- Name: TABLE openrouter_request_log; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.openrouter_request_log TO service_role;
+
+
+--
 -- TOC entry 6679 (class 0 OID 0)
 -- Dependencies: 483
 -- Name: TABLE assistant_goal_events; Type: ACL; Schema: public; Owner: postgres
@@ -27116,4 +27485,3 @@ ALTER EVENT TRIGGER pgrst_drop_watch OWNER TO supabase_admin;
 --
 
 \unrestrict LjTQpBf9AiwLqUjncnJjoycHCcRX47uHqSNiBUN7UjJiQwcnuu6Bc5Oaraeeehk
-

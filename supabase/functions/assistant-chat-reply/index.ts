@@ -33,6 +33,7 @@ import {
   type OpenRouterProviderRouting,
 } from "../_shared/openrouter.ts";
 import { getOpenRouterCapabilities } from "../_shared/openrouterCapabilities.ts";
+import { safeInsertOpenRouterUsageLog } from "../_shared/openrouterUsageLog.ts";
 import {
   executeAssistantTool,
   type AssistantToolCall,
@@ -156,6 +157,16 @@ function uniqStrings(list: Array<string | null | undefined>): string[] {
 
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
+}
+
+function extractUpstreamRequestId(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate =
+    (raw as any).id ??
+    (raw as any).request_id ??
+    (raw as any).requestId ??
+    null;
+  return typeof candidate === "string" && candidate.trim() ? candidate : null;
 }
 
 async function buildSignedMediaUrlMap(
@@ -338,8 +349,9 @@ async function generateChunkedReplyText(args: {
   userRequest: string;
   toolTrace: Array<{ call: AssistantToolCall; result: AssistantToolResult }>;
   timeLeftMs?: () => number;
+  usageLogger?: (entry: { completion: any; stage: string }) => void;
 }): Promise<string> {
-  const { models, plugins, assistantName, userRequest, toolTrace, defaults, behavior, sanitizeOpts } = args;
+  const { models, plugins, assistantName, userRequest, toolTrace, defaults, behavior, sanitizeOpts, usageLogger } = args;
 
   const getRemainingMs = args.timeLeftMs ?? (() => 60_000);
   const clampTimeoutMs = (preferred: number) => {
@@ -378,6 +390,7 @@ async function generateChunkedReplyText(args: {
     plugins,
     defaults: { ...(defaults ?? {}), timeout_ms: clampTimeoutMs(10_000) },
   });
+  usageLogger?.({ completion: outlineCompletion, stage: "chunk_outline" });
 
   const outlineObj = safeJsonParse<any>(outlineCompletion.content) ?? {};
   const sectionsRaw = Array.isArray(outlineObj?.sections) ? outlineObj.sections : [];
@@ -413,6 +426,7 @@ async function generateChunkedReplyText(args: {
       plugins,
       defaults: { ...(defaults ?? {}), timeout_ms: clampTimeoutMs(10_000) },
     });
+    usageLogger?.({ completion: sectionCompletion, stage: "chunk_section" });
 
     let secText = sanitizeReply(String(sectionCompletion.content ?? ""), sanitizeOpts).trim();
     let finishReason = getFinishReasonFromRaw((sectionCompletion as any)?.raw);
@@ -441,6 +455,7 @@ async function generateChunkedReplyText(args: {
         plugins,
         defaults: { ...(defaults ?? {}), timeout_ms: clampTimeoutMs(10_000) },
       });
+      usageLogger?.({ completion: contCompletion, stage: "chunk_continuation" });
 
       const more = sanitizeReply(String(contCompletion.content ?? ""), sanitizeOpts).trim();
       if (!more) break;
@@ -1179,6 +1194,27 @@ async function handler(req: Request) {
       cfg.openrouterBaseUrl ??
       "https://openrouter.ai/api/v1";
 
+    const logOpenRouterUsage = async (entry: { completion: any; stage: string; meta?: Record<string, unknown> }) => {
+      try {
+        const completion = entry.completion ?? {};
+        await safeInsertOpenRouterUsageLog(svc, {
+          fn: FN_NAME,
+          request_id: requestId,
+          user_id: myUserId,
+          conversation_id: conversationId ?? null,
+          provider: "openrouter",
+          model: completion.model ?? null,
+          base_url: baseUrl,
+          usage: completion.usage ?? null,
+          upstream_request_id: extractUpstreamRequestId(completion.raw),
+          variant: completion.variant ?? null,
+          meta: { stage: entry.stage, runner_job_id: runnerJobId ?? null, ...(entry.meta ?? {}) },
+        });
+      } catch {
+        // best-effort only
+      }
+    };
+
     const routingPolicy = behavior?.router?.policy ?? null;
     const policyMode = routingPolicy?.mode === "auto" ? "auto" : "fallback";
     const policyAutoModel = String(routingPolicy?.auto_model ?? "").trim() || null;
@@ -1406,6 +1442,11 @@ async function handler(req: Request) {
             model: (completion as any)?.model ?? null,
             usage: (completion as any)?.usage ?? null,
           });
+          void logOpenRouterUsage({
+            completion,
+            stage: "tool_loop",
+            meta: { loop_index: loop, duration_ms: durationMs, timeout_ms: timeoutMsUsed ?? null },
+          });
         } catch (e: any) {
           const msg = e instanceof Error ? e.message : String(e ?? "OpenRouter error");
           const status = Number((e as any)?.status ?? 0);
@@ -1588,6 +1629,9 @@ async function handler(req: Request) {
                 assistantName,
                 userRequest: latestUserText,
                 toolTrace,
+                usageLogger: (entry) => {
+                  void logOpenRouterUsage({ completion: entry.completion, stage: entry.stage });
+                },
               });
             } catch (e: any) {
               const msg = e instanceof Error ? e.message : String(e ?? "Chunk generation failed");
