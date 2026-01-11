@@ -611,6 +611,7 @@ const ConversationPage: React.FC = () => {
   type SendAttemptPayload = {
     text: string;
     attachmentPath: string | null;
+    attachmentKind?: import("./attachmentUtils").AttachmentKind | null;
     clientId?: string;
   };
 
@@ -623,6 +624,7 @@ const ConversationPage: React.FC = () => {
         {
           text: payload.text,
           attachmentPath: payload.attachmentPath,
+          attachmentKind: payload.attachmentKind ?? null,
           clientId: payload.clientId,
           tempId: opts?.tempId,
         },
@@ -635,7 +637,7 @@ const ConversationPage: React.FC = () => {
               isAssistantThread &&
               conversationId &&
               currentUserId &&
-              payload.text.trim().length > 0
+              (payload.text.trim().length > 0 || payload.attachmentPath)
             ) {
               scheduleAssistantReply(sentMessage.id);
             }
@@ -673,14 +675,19 @@ const ConversationPage: React.FC = () => {
   // currentUserId defined near the top.
 
   const {
-    fileInputRef,
-    isUploadingImage,
+    imageInputRef,
+    attachmentInputRef,
+    isUploadingAttachment,
+    pendingAttachment,
     uploadError,
-    cancelImageUpload,
+    clearPendingAttachment,
+    cancelAttachmentUpload,
     clearUploadError,
     handleImageSelected,
-    sendImageFile,
-    openFilePicker: handleCameraClick,
+    handleAttachmentSelected,
+    sendAttachmentFile,
+    openImagePicker: handleCameraClick,
+    openAttachmentPicker,
   } = useAttachmentUpload({
     conversationId,
     userId: currentUserId,
@@ -1972,8 +1979,10 @@ const ConversationPage: React.FC = () => {
             stopTyping={stopTyping}
             onSendText={handleSendText}
             onRequestScrollToBottom={requestAutoScrollToBottom}
-            isUploadingImage={isUploadingImage}
-            cancelImageUpload={cancelImageUpload}
+            isUploadingAttachment={isUploadingAttachment}
+            pendingAttachment={pendingAttachment}
+            clearPendingAttachment={clearPendingAttachment}
+            cancelAttachmentUpload={cancelAttachmentUpload}
             sendError={Boolean(sendError)}
             sendErrorMessage={sendError}
             canRetrySend={Boolean(lastFailedPayload)}
@@ -1983,12 +1992,18 @@ const ConversationPage: React.FC = () => {
             showEmojiPicker={showEmojiPicker}
             setShowEmojiPicker={setShowEmojiPicker}
             openCameraPicker={handleCameraClick}
-            fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+            openAttachmentPicker={openAttachmentPicker}
+            imageInputRef={imageInputRef as React.RefObject<HTMLInputElement>}
+            attachmentInputRef={attachmentInputRef as React.RefObject<HTMLInputElement>}
             onImageSelected={(event) => {
               requestAutoScrollToBottom();
               handleImageSelected(event);
             }}
-            onImageFile={(file) => sendImageFile(file)}
+            onAttachmentSelected={(event) => {
+              requestAutoScrollToBottom();
+              handleAttachmentSelected(event);
+            }}
+            onAttachmentFile={(file) => sendAttachmentFile(file)}
             disableSend={Boolean(isBlocked || blockedYou)}
           />
 

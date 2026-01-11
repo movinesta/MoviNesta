@@ -86,6 +86,7 @@ export interface MessageDeliveryStatus {
 export type FailedMessagePayload = {
   text: string;
   attachmentPath: string | null;
+  attachmentKind?: import("./attachmentUtils").AttachmentKind | null;
   clientId: string;
 };
 

@@ -156,6 +156,16 @@ export function parseMessageText(body: unknown): string {
     return c ? c : "Photo";
   }
 
+  if ((type === "audio" || type === "text+audio") && parsed.text.trim() === "") {
+    const c = typeof caption === "string" ? caption.trim() : "";
+    return c ? c : "Audio";
+  }
+
+  if ((type === "document" || type === "text+document") && parsed.text.trim() === "") {
+    const c = typeof caption === "string" ? caption.trim() : "";
+    return c ? c : "Document";
+  }
+
   const t = typeof parsed.text === "string" ? parsed.text : "";
   return t.trim() ? t.trim() : "";
 }
@@ -178,6 +188,10 @@ export function getMessagePreview(body: unknown, maxLen = 120): string | null {
     preview = `🗑️ ${text}`;
   } else if (type === "image" && text === "Photo") {
     preview = `📷 Photo`;
+  } else if (type === "audio" && text === "Audio") {
+    preview = "🎧 Audio";
+  } else if (type === "document" && text === "Document") {
+    preview = "📄 Document";
   }
 
   if (typeof preview !== "string") preview = "";

@@ -6,6 +6,13 @@ import { createClientId } from "./clientId";
 import { prefetchSignedStorageUrl } from "./storageUrls";
 import { removeChatMediaFile } from "./chatMediaStorage";
 import { usePublicSettings } from "@/providers/PublicSettingsProvider";
+import type { AttachmentKind } from "./attachmentUtils";
+import {
+  AUDIO_EXTENSIONS,
+  DOCUMENT_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  getFileExtension,
+} from "./attachmentUtils";
 
 function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);
@@ -27,33 +34,79 @@ const IMAGE_MIME_TO_EXT: Record<string, string> = {
   "image/heif": "heif",
 };
 
+const AUDIO_MIME_TO_EXT: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/webm": "webm",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/flac": "flac",
+};
+
+const DOCUMENT_MIME_TO_EXT: Record<string, string> = {
+  "application/pdf": "pdf",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "application/rtf": "rtf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+};
+
 const ALLOWED_IMAGE_MIME_TYPES = new Set(Object.keys(IMAGE_MIME_TO_EXT));
+const ALLOWED_AUDIO_MIME_TYPES = new Set(Object.keys(AUDIO_MIME_TO_EXT));
+const ALLOWED_DOCUMENT_MIME_TYPES = new Set(Object.keys(DOCUMENT_MIME_TO_EXT));
 
 const getSafeImageExtension = (file: File) => {
   if (file.type && IMAGE_MIME_TO_EXT[file.type]) return IMAGE_MIME_TO_EXT[file.type];
 
   // Some environments omit the MIME type; fall back to filename extension, but keep a whitelist.
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? null;
+  const ext = getFileExtension(file.name);
   if (!ext) return null;
   if (ext === "jpeg") return "jpg";
-  if (["jpg", "png", "webp", "gif", "avif", "heic", "heif"].includes(ext)) return ext;
+  if (IMAGE_EXTENSIONS.has(ext)) return ext;
   return null;
 };
 
-const validateImageFile = (file: File, maxImageBytes: number) => {
-  if (file.type) {
-    if (!file.type.startsWith("image/")) {
-      return { ok: false, error: "Please choose an image file." } as const;
-    }
+const getSafeAudioExtension = (file: File) => {
+  if (file.type && AUDIO_MIME_TO_EXT[file.type]) return AUDIO_MIME_TO_EXT[file.type];
+  const ext = getFileExtension(file.name);
+  if (!ext) return null;
+  if (AUDIO_EXTENSIONS.has(ext)) return ext;
+  return null;
+};
 
-    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+const getSafeDocumentExtension = (file: File) => {
+  if (file.type && DOCUMENT_MIME_TO_EXT[file.type]) return DOCUMENT_MIME_TO_EXT[file.type];
+  const ext = getFileExtension(file.name);
+  if (!ext) return null;
+  if (DOCUMENT_EXTENSIONS.has(ext)) return ext;
+  return null;
+};
+
+const validateAttachmentFile = (
+  file: File,
+  limits: { image: number; audio: number; document: number },
+) => {
+  const type = file.type ?? "";
+  const isImage = type.startsWith("image/");
+  const isAudio = type.startsWith("audio/");
+
+  if (isImage) {
+    if (file.type && !ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
       return {
         ok: false,
         error:
           "Unsupported image format. Please choose a JPG, PNG, WebP, GIF, HEIC/HEIF, or AVIF image.",
       } as const;
     }
-  } else {
+
     const ext = getSafeImageExtension(file);
     if (!ext) {
       return {
@@ -62,16 +115,66 @@ const validateImageFile = (file: File, maxImageBytes: number) => {
           "Unsupported image format. Please choose a JPG, PNG, WebP, GIF, HEIC/HEIF, or AVIF image.",
       } as const;
     }
+
+    if (file.size > limits.image) {
+      return {
+        ok: false,
+        error: `That image is too large (max ${formatBytes(limits.image)}). Try a smaller file.`,
+      } as const;
+    }
+
+    return { ok: true, kind: "image", ext } as const;
   }
 
-  if (file.size > maxImageBytes) {
-    return {
-      ok: false,
-      error: `That image is too large (max ${formatBytes(maxImageBytes)}). Try a smaller file.`,
-    } as const;
+  if (isAudio || ALLOWED_AUDIO_MIME_TYPES.has(type)) {
+    const ext = getSafeAudioExtension(file);
+    if (!ext) {
+      return {
+        ok: false,
+        error: "Unsupported audio format. Please choose an MP3, WAV, OGG, M4A, AAC, or FLAC.",
+      } as const;
+    }
+
+    if (file.size > limits.audio) {
+      return {
+        ok: false,
+        error: `That audio file is too large (max ${formatBytes(limits.audio)}). Try a smaller file.`,
+      } as const;
+    }
+
+    return { ok: true, kind: "audio", ext } as const;
   }
 
-  return { ok: true } as const;
+  const nameExtension = getFileExtension(file.name);
+  if (
+    ALLOWED_DOCUMENT_MIME_TYPES.has(type) ||
+    (nameExtension && DOCUMENT_EXTENSIONS.has(nameExtension))
+  ) {
+    const ext = getSafeDocumentExtension(file);
+    if (!ext) {
+      return {
+        ok: false,
+        error:
+          "Unsupported document format. Please choose a PDF, Word, Excel, PowerPoint, text, or CSV file.",
+      } as const;
+    }
+
+    if (file.size > limits.document) {
+      return {
+        ok: false,
+        error: `That document is too large (max ${formatBytes(
+          limits.document,
+        )}). Try a smaller file.`,
+      } as const;
+    }
+
+    return { ok: true, kind: "document", ext } as const;
+  }
+
+  return {
+    ok: false,
+    error: "Unsupported file type. Please choose an image, audio, or document file.",
+  } as const;
 };
 
 const buildAttachmentPath = (conversationId: string, userId: string, ext: string) => {
@@ -82,7 +185,16 @@ const buildAttachmentPath = (conversationId: string, userId: string, ext: string
 type AttemptSendPayload = {
   text: string;
   attachmentPath: string | null;
+  attachmentKind?: AttachmentKind | null;
   clientId?: string;
+};
+
+export type PendingAttachment = {
+  id: string;
+  name: string;
+  sizeLabel: string;
+  kind: AttachmentKind;
+  previewUrl?: string | null;
 };
 
 export function useAttachmentUpload(args: {
@@ -99,52 +211,93 @@ export function useAttachmentUpload(args: {
     1,
     Math.floor(getNumber("ux.attachments.max_image_bytes", 10 * 1024 * 1024)),
   );
+  const maxAudioBytes = Math.max(
+    1,
+    Math.floor(getNumber("ux.attachments.max_audio_bytes", 20 * 1024 * 1024)),
+  );
+  const maxDocumentBytes = Math.max(
+    1,
+    Math.floor(getNumber("ux.attachments.max_document_bytes", 15 * 1024 * 1024)),
+  );
 
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
 
   // Best-effort cancellation token for uploads (Supabase upload itself is not abortable).
   const uploadTokenRef = useRef(0);
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const clearUploadError = useCallback(() => setUploadError(null), []);
 
-  const cancelImageUpload = useCallback(() => {
-    uploadTokenRef.current += 1;
-    setIsUploadingImage(false);
+  const setPendingAttachmentState = useCallback((next: PendingAttachment | null) => {
+    setPendingAttachment((prev) => {
+      if (prev?.previewUrl) {
+        URL.revokeObjectURL(prev.previewUrl);
+      }
+      return next;
+    });
   }, []);
 
-  const openFilePicker = useCallback(() => {
+  const clearPendingAttachment = useCallback(() => {
+    setPendingAttachmentState(null);
+  }, [setPendingAttachmentState]);
+
+  const cancelAttachmentUpload = useCallback(() => {
+    uploadTokenRef.current += 1;
+    setIsUploadingAttachment(false);
+    clearPendingAttachment();
+  }, [clearPendingAttachment]);
+
+  const openImagePicker = useCallback(() => {
     if (!conversationId || !userId) return;
     if (isBlocked || blockedYou) return;
 
-    fileInputRef.current?.click();
+    imageInputRef.current?.click();
   }, [blockedYou, conversationId, isBlocked, userId]);
 
-  const sendImageFile = useCallback(
+  const openAttachmentPicker = useCallback(() => {
+    if (!conversationId || !userId) return;
+    if (isBlocked || blockedYou) return;
+
+    attachmentInputRef.current?.click();
+  }, [blockedYou, conversationId, isBlocked, userId]);
+
+  const sendAttachmentFile = useCallback(
     async (file: File) => {
       if (!conversationId || !userId) return;
       if (isBlocked || blockedYou) return;
 
       setUploadError(null);
-      const validation = validateImageFile(file, maxImageBytes);
+      const validation = validateAttachmentFile(file, {
+        image: maxImageBytes,
+        audio: maxAudioBytes,
+        document: maxDocumentBytes,
+      });
       if (!validation.ok) {
         setUploadError(validation.error);
         return;
       }
       // Create a best-effort cancel token. If the user cancels, we stop updating UI and skip sending.
       const token = (uploadTokenRef.current += 1);
-      setIsUploadingImage(true);
+      setIsUploadingAttachment(true);
 
-      const ext = getSafeImageExtension(file);
-      if (!ext) {
-        setUploadError("Unsupported image format.");
-        setIsUploadingImage(false);
-        return;
-      }
+      const previewUrl =
+        validation.kind === "image" || validation.kind === "audio"
+          ? URL.createObjectURL(file)
+          : null;
+      setPendingAttachmentState({
+        id: createClientId(),
+        name: file.name,
+        sizeLabel: formatBytes(file.size),
+        kind: validation.kind,
+        previewUrl,
+      });
 
-      const path = buildAttachmentPath(conversationId, userId, ext);
+      const path = buildAttachmentPath(conversationId, userId, validation.ext);
+      let didSend = false;
 
       try {
         const { error: uploadErrorResult } = await supabase.storage
@@ -183,21 +336,35 @@ export function useAttachmentUpload(args: {
           return;
         }
 
-        attemptSend({ text: "", attachmentPath: path });
+        attemptSend({ text: "", attachmentPath: path, attachmentKind: validation.kind });
+        didSend = true;
       } catch (error) {
-        console.error("[useAttachmentUpload] sendImageFile failed", error);
-        setUploadError("Something went wrong while sending your image.");
+        console.error("[useAttachmentUpload] sendAttachmentFile failed", error);
+        setUploadError("Something went wrong while sending your attachment.");
 
         // If the upload succeeded but the send failed before it hit the DB, the file can be retried
         // (and can be manually discarded via the failed message UI).
       } finally {
         // Don't clobber a newer upload.
         if (token === uploadTokenRef.current) {
-          setIsUploadingImage(false);
+          setIsUploadingAttachment(false);
+          if (didSend) {
+            clearPendingAttachment();
+          }
         }
       }
     },
-    [attemptSend, blockedYou, conversationId, isBlocked, maxImageBytes, userId],
+    [
+      attemptSend,
+      blockedYou,
+      clearPendingAttachment,
+      conversationId,
+      isBlocked,
+      maxAudioBytes,
+      maxDocumentBytes,
+      maxImageBytes,
+      userId,
+    ],
   );
 
   const handleImageSelected = useCallback(
@@ -207,22 +374,42 @@ export function useAttachmentUpload(args: {
       event.target.value = "";
 
       if (!file || !conversationId || !userId) return;
-      if (isUploadingImage) return;
+      if (isUploadingAttachment) return;
       if (isBlocked || blockedYou) return;
 
-      await sendImageFile(file);
+      await sendAttachmentFile(file);
     },
-    [blockedYou, conversationId, isBlocked, isUploadingImage, sendImageFile, userId],
+    [blockedYou, conversationId, isBlocked, isUploadingAttachment, sendAttachmentFile, userId],
+  );
+
+  const handleAttachmentSelected = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+
+      event.target.value = "";
+
+      if (!file || !conversationId || !userId) return;
+      if (isUploadingAttachment) return;
+      if (isBlocked || blockedYou) return;
+
+      await sendAttachmentFile(file);
+    },
+    [blockedYou, conversationId, isBlocked, isUploadingAttachment, sendAttachmentFile, userId],
   );
 
   return {
-    fileInputRef,
-    openFilePicker,
+    imageInputRef,
+    attachmentInputRef,
+    openImagePicker,
+    openAttachmentPicker,
     handleImageSelected,
-    sendImageFile,
-    isUploadingImage,
+    handleAttachmentSelected,
+    sendAttachmentFile,
+    pendingAttachment,
+    clearPendingAttachment,
+    isUploadingAttachment,
     uploadError,
     clearUploadError,
-    cancelImageUpload,
+    cancelAttachmentUpload,
   };
 }
