@@ -8,6 +8,7 @@ import {
 } from "../_shared/assistantSettings.ts";
 import { openrouterChatWithFallback, type OpenRouterMessage } from "../_shared/openrouter.ts";
 import { classifyOpenRouterError, type AiCulprit } from "../_shared/aiErrors.ts";
+import { safeInsertOpenRouterUsageLog } from "../_shared/openrouterUsageLog.ts";
 
 const ParamsSchema = z
   .preprocess((val) => {
@@ -48,6 +49,16 @@ const BehaviorSchema = z
       return val;
     }
   }, z.record(z.any()));
+
+function extractUpstreamRequestId(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate =
+    (raw as any).id ??
+    (raw as any).request_id ??
+    (raw as any).requestId ??
+    null;
+  return typeof candidate === "string" && candidate.trim() ? candidate : null;
+}
 
 const BodySchema = z
   .object({
@@ -238,6 +249,19 @@ serve(async (req) => {
           tool_choice: "none" as any,
           parallel_tool_calls: false,
           attribution,
+        });
+        void safeInsertOpenRouterUsageLog(svc, {
+          fn: "admin-assistant-settings",
+          request_id: requestId,
+          user_id: userId,
+          conversation_id: null,
+          provider: "openrouter",
+          model: res?.model ?? null,
+          base_url: baseUrl ?? null,
+          usage: res?.usage ?? null,
+          upstream_request_id: extractUpstreamRequestId((res as any)?.raw),
+          variant: (res as any)?.variant ?? null,
+          meta: { stage: "provider_test" },
         });
 
         const durationMs = Date.now() - t0;

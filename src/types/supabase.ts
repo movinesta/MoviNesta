@@ -431,6 +431,131 @@ export interface Database {
         Relationships: [
         ];
       };
+      openrouter_models_cache: {
+        Row: {
+          base_url: string;
+          fetched_at: string;
+          payload: Json;
+        };
+        Insert: {
+          base_url: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Update: {
+          base_url?: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Relationships: [
+        ];
+      };
+      openrouter_credits_cache: {
+        Row: {
+          base_url: string;
+          fetched_at: string;
+          payload: Json;
+        };
+        Insert: {
+          base_url: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Update: {
+          base_url?: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Relationships: [
+        ];
+      };
+      openrouter_usage_cache: {
+        Row: {
+          base_url: string;
+          fetched_at: string;
+          payload: Json;
+        };
+        Insert: {
+          base_url: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Update: {
+          base_url?: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Relationships: [
+        ];
+      };
+      openrouter_endpoints_cache: {
+        Row: {
+          base_url: string;
+          fetched_at: string;
+          payload: Json;
+        };
+        Insert: {
+          base_url: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Update: {
+          base_url?: string;
+          fetched_at?: string;
+          payload?: Json;
+        };
+        Relationships: [
+        ];
+      };
+      openrouter_request_log: {
+        Row: {
+          id: string;
+          created_at: string;
+          fn: string;
+          request_id: string | null;
+          user_id: string | null;
+          conversation_id: string | null;
+          provider: string | null;
+          model: string | null;
+          base_url: string | null;
+          usage: Json | null;
+          upstream_request_id: string | null;
+          variant: string | null;
+          meta: Json;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          fn: string;
+          request_id?: string | null;
+          user_id?: string | null;
+          conversation_id?: string | null;
+          provider?: string | null;
+          model?: string | null;
+          base_url?: string | null;
+          usage?: Json | null;
+          upstream_request_id?: string | null;
+          variant?: string | null;
+          meta?: Json;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          fn?: string;
+          request_id?: string | null;
+          user_id?: string | null;
+          conversation_id?: string | null;
+          provider?: string | null;
+          model?: string | null;
+          base_url?: string | null;
+          usage?: Json | null;
+          upstream_request_id?: string | null;
+          variant?: string | null;
+          meta?: Json;
+        };
+        Relationships: [
+        ];
+      };
       assistant_goal_events: {
         Row: {
           id: string;

@@ -6,13 +6,14 @@
 // - Suggestions are cached per (user_id, context_key) to avoid churn.
 // - Actions are deterministic and executed server-side via assistant-suggestion-action.
 
-import { handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
-import { getUserClient } from "../_shared/supabase.ts";
+import { getRequestId, handleOptions, jsonError, jsonResponse, validateRequest } from "../_shared/http.ts";
+import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { getConfig } from "../_shared/config.ts";
 import { getAssistantSettings, resolveAssistantBehavior, type AssistantBehavior } from "../_shared/assistantSettings.ts";
 import { openrouterChatWithFallback } from "../_shared/openrouter.ts";
 import { type ActiveGoal, type AssistantPlaybookId } from "../_shared/assistantPlaybooks.ts";
 import { buildRewriteSystemPrompt, type AssistantSurface } from "./promptPacks.ts";
+import { safeInsertOpenRouterUsageLog } from "../_shared/openrouterUsageLog.ts";
 
 type AssistantAction =
   | { id: string; label: string; type: "dismiss" }
@@ -513,6 +514,7 @@ async function maybeRewriteCopy(
     verbosityPreference?: number;
     /** Role-based routing: maker is higher quality; rewriter is cheap polish */
     role?: "maker" | "rewriter";
+    usageLogger?: UsageLogger;
   },
 ): Promise<{ rewritten: DraftSuggestion[]; model?: string; usage?: unknown } | null> {
   const cfg = getConfig();
@@ -520,6 +522,7 @@ async function maybeRewriteCopy(
   if (!drafts.length) return null;
 
   const settings = await getAssistantSettings();
+  const baseUrl = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
   const role = opts?.role ?? "rewriter";
   const primary =
     role === "maker"
@@ -606,8 +609,13 @@ async function maybeRewriteCopy(
         ...(settings.params ?? {}),
         instructions: defaultInstructions,
         attribution: (settings as any)?.behavior?.router?.attribution ?? undefined,
-        base_url: settings.openrouter_base_url ?? undefined,
+        base_url: baseUrl ?? undefined,
       },
+    });
+    opts?.usageLogger?.({
+      completion: res,
+      stage: role === "maker" ? "maker" : "rewriter",
+      baseUrl,
     });
     const parsed = safeJsonParse<{ s: string[][] }>(res.content);
     if (!parsed?.s?.length) return null;
@@ -725,6 +733,18 @@ type PlannerResponse = { suggestions: Array<{ kind?: string; title?: string; bod
 
 const OR_PLUGINS = [{ id: "response-healing" }];
 
+type UsageLogger = (entry: { completion: any; stage: string; baseUrl?: string | null }) => void;
+
+function extractUpstreamRequestId(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate =
+    (raw as any).id ??
+    (raw as any).request_id ??
+    (raw as any).requestId ??
+    null;
+  return typeof candidate === "string" && candidate.trim() ? candidate : null;
+}
+
 // Token-lean shapes (short keys) for LLM inputs/outputs.
 type PlannerResponseV2 = { s: Array<{ k?: string; t?: string; b?: string; a?: unknown; s?: number }> };
 
@@ -736,6 +756,7 @@ async function maybePlanExtraDraftsWithPlanner(args: {
   activeGoal: ActiveGoal | null;
   needCount: number;
   avoidTitles: string[];
+  usageLogger?: UsageLogger;
 }): Promise<{ drafts: DraftSuggestion[]; model?: string; usage?: unknown } | null> {
   const cfg = getConfig();
   if (!cfg.openrouterApiKey) return null;
@@ -744,6 +765,7 @@ async function maybePlanExtraDraftsWithPlanner(args: {
 
   // Keep planner calls cheap + rare (only when we have fewer deterministic drafts).
   const settings = await getAssistantSettings();
+  const baseUrl = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
   const models: string[] = [
     settings.model_planner,
     settings.model_fast,
@@ -841,9 +863,10 @@ async function maybePlanExtraDraftsWithPlanner(args: {
         ...(settings.params ?? {}),
         instructions: defaultInstructions,
         attribution: (settings as any)?.behavior?.router?.attribution ?? undefined,
-        base_url: settings.openrouter_base_url ?? undefined,
+        base_url: baseUrl ?? undefined,
       },
     });
+    args.usageLogger?.({ completion: res, stage: "planner", baseUrl });
 
     const parsedV2 = safeJsonParse<PlannerResponseV2>(res.content);
     const parsedLegacy = safeJsonParse<PlannerResponse>(res.content);
@@ -891,6 +914,7 @@ async function maybeCriticRankDrafts(args: {
   surface: AssistantSurface;
   drafts: DraftSuggestion[];
   avoidTitles: string[];
+  usageLogger?: UsageLogger;
 }): Promise<{ drafts: DraftSuggestion[]; model?: string; usage?: unknown } | null> {
   const cfg = getConfig();
   if (!cfg.openrouterApiKey) return null;
@@ -959,9 +983,10 @@ async function maybeCriticRankDrafts(args: {
         ...(settings.params ?? {}),
         instructions: defaultInstructions,
         attribution: (settings as any)?.behavior?.router?.attribution ?? undefined,
-        base_url: settings.openrouter_base_url ?? undefined,
+        base_url: baseUrl ?? undefined,
       },
     });
+    args.usageLogger?.({ completion: res, stage: "critic", baseUrl });
 
     const parsedV2 = safeJsonParse<CriticResponseV2>(res.content);
     const parsedLegacy = safeJsonParse<CriticResponse>(res.content);
@@ -1300,6 +1325,8 @@ Deno.serve(async (req) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
 
+  const requestId = getRequestId(req);
+
   const validated = await validateRequest(
     req,
     (body) => {
@@ -1320,6 +1347,27 @@ Deno.serve(async (req) => {
   if (authError || !userId) {
     return jsonError(req, "Unauthorized", 401, "UNAUTHORIZED");
   }
+  const admin = getAdminClient();
+  const logOpenRouterUsage: UsageLogger = (entry) => {
+    try {
+      const completion = entry.completion ?? {};
+      void safeInsertOpenRouterUsageLog(admin, {
+        fn: "assistant-orchestrator",
+        request_id: requestId,
+        user_id: userId,
+        conversation_id: null,
+        provider: "openrouter",
+        model: completion.model ?? null,
+        base_url: entry.baseUrl ?? null,
+        usage: completion.usage ?? null,
+        upstream_request_id: extractUpstreamRequestId(completion.raw),
+        variant: completion.variant ?? null,
+        meta: { stage: entry.stage },
+      });
+    } catch {
+      // best-effort
+    }
+  };
 
   const baseContextKey = toContextKey(surface, context);
 
@@ -1444,6 +1492,7 @@ Deno.serve(async (req) => {
       activeGoal,
       needCount,
       avoidTitles: recent.titles,
+      usageLogger: logOpenRouterUsage,
     });
     if (planned?.drafts?.length) {
       plannerTrace = { model: planned.model, usage: planned.usage };
@@ -1475,6 +1524,7 @@ Deno.serve(async (req) => {
     avoidPhrases: recent.titles,
     verbosityPreference: style.verbosityPreference,
     role: useMaker ? "maker" : "rewriter",
+    usageLogger: logOpenRouterUsage,
   });
   let finalDrafts = rewrittenResult?.rewritten ?? drafts;
   let model = rewrittenResult?.model ?? null;
@@ -1482,7 +1532,12 @@ Deno.serve(async (req) => {
   // Critic: only when proactivity is high and the surface is high-visibility.
   let criticTrace: { model?: string; usage?: unknown } | null = null;
   if (prefs.proactivityLevel === 2 && (surface === "home" || surface === "title")) {
-    const crit = await maybeCriticRankDrafts({ surface, drafts: finalDrafts, avoidTitles: recent.titles });
+    const crit = await maybeCriticRankDrafts({
+      surface,
+      drafts: finalDrafts,
+      avoidTitles: recent.titles,
+      usageLogger: logOpenRouterUsage,
+    });
     if (crit?.drafts?.length) {
       criticTrace = { model: crit.model, usage: crit.usage };
       finalDrafts = crit.drafts.slice(0, limit);
