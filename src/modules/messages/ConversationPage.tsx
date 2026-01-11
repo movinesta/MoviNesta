@@ -376,89 +376,155 @@ const ConversationPage: React.FC = () => {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData?.session?.access_token ?? null;
 
-        const headers: Record<string, string> = {
+        const baseHeaders: Record<string, string> = {
           "Content-Type": "application/json",
-          Accept: "text/event-stream",
           apikey: supabaseAnonKey,
         };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+        if (accessToken) baseHeaders.Authorization = `Bearer ${accessToken}`;
 
-        const controller = new AbortController();
-        assistantStreamAbortRef.current = controller;
-        setAssistantStreamText("");
-
-        const res = await fetch(`${supabaseUrl}/functions/v1/assistant-chat-reply`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ conversationId, userMessageId, stream: true }),
-          signal: controller.signal,
-        });
-
-        if (!res.ok || !res.body) {
-          throw new Error(`Assistant failed (${res.status})`);
-        }
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let eventName = "message";
-        let dataLines: string[] = [];
-
-        const handleEvent = (event: string, data: string) => {
-          if (event === "delta") {
-            try {
-              const parsed = JSON.parse(data);
-              const text = typeof parsed?.text === "string" ? parsed.text : "";
-              if (text) {
-                setAssistantStreamText((prev) => `${prev ?? ""}${text}`);
-              }
-            } catch {
-              // ignore malformed chunk
-            }
+        const readErrorPayload = async (res: Response) => {
+          const raw = await res.text();
+          if (!raw) {
+            return { message: `Assistant failed (${res.status})`, code: null };
           }
-          if (event === "done") {
-            setAssistantStreamText(null);
-          }
-          if (event === "error") {
-            try {
-              const parsed = JSON.parse(data);
-              throw new Error(parsed?.message ?? "Assistant failed");
-            } catch {
-              throw new Error("Assistant failed");
-            }
+          try {
+            const parsed = JSON.parse(raw);
+            return {
+              message:
+                (parsed as any)?.message ??
+                (parsed as any)?.error ??
+                (parsed as any)?.details ??
+                raw,
+              code:
+                (parsed as any)?.code ??
+                (parsed as any)?.errorCode ??
+                (parsed as any)?.error_code ??
+                null,
+            };
+          } catch {
+            return { message: raw, code: null };
           }
         };
 
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          let idx: number;
-          while ((idx = buffer.indexOf("\n")) >= 0) {
-            const line = buffer.slice(0, idx).replace(/\r$/, "");
-            buffer = buffer.slice(idx + 1);
-            if (!line.trim()) {
-              if (dataLines.length) {
-                handleEvent(eventName, dataLines.join("\n"));
-                dataLines = [];
-                eventName = "message";
+        const shouldFallbackToJson = (
+          status: number,
+          err: { message?: string | null; code?: string | null },
+        ) => {
+          if (status === 415) return true;
+          const needle = `${err.code ?? ""} ${err.message ?? ""}`.toLowerCase();
+          return needle.includes("stream") && needle.includes("support");
+        };
+
+        const requestAssistant = async (stream: boolean) => {
+          const headers = {
+            ...baseHeaders,
+            Accept: stream ? "text/event-stream" : "application/json",
+          };
+          const controller = new AbortController();
+          if (stream) assistantStreamAbortRef.current = controller;
+
+          const res = await fetch(`${supabaseUrl}/functions/v1/assistant-chat-reply`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ conversationId, userMessageId, stream }),
+            signal: controller.signal,
+          });
+
+          if (!res.ok) {
+            const err = await readErrorPayload(res);
+            if (stream && shouldFallbackToJson(res.status, err)) {
+              return { fallback: true } as const;
+            }
+            throw new Error(err.message ?? `Assistant failed (${res.status})`);
+          }
+
+          const contentType = res.headers.get("Content-Type") ?? "";
+          if (!stream || !contentType.includes("text/event-stream") || !res.body) {
+            setAssistantStreamText(null);
+            let payload: any = null;
+            try {
+              payload = await res.json();
+            } catch {
+              payload = null;
+            }
+            if (payload && payload.ok === false) {
+              throw new Error(payload.message ?? payload.error ?? "Assistant failed");
+            }
+            return { fallback: false } as const;
+          }
+
+          setAssistantStreamText("");
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let eventName = "message";
+          let dataLines: string[] = [];
+
+          const handleEvent = (event: string, data: string) => {
+            if (event === "delta") {
+              try {
+                const parsed = JSON.parse(data);
+                const text = typeof parsed?.text === "string" ? parsed.text : "";
+                if (text) {
+                  setAssistantStreamText((prev) => `${prev ?? ""}${text}`);
+                }
+              } catch {
+                // ignore malformed chunk
               }
-              continue;
             }
-            if (line.startsWith("event:")) {
-              eventName = line.slice(6).trim();
-              continue;
+            if (event === "done") {
+              setAssistantStreamText(null);
             }
-            if (line.startsWith("data:")) {
-              dataLines.push(line.slice(5).trimStart());
+            if (event === "error") {
+              try {
+                const parsed = JSON.parse(data);
+                throw new Error(parsed?.message ?? "Assistant failed");
+              } catch {
+                throw new Error("Assistant failed");
+              }
+            }
+          };
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let idx: number;
+            while ((idx = buffer.indexOf("\n")) >= 0) {
+              const line = buffer.slice(0, idx).replace(/\r$/, "");
+              buffer = buffer.slice(idx + 1);
+              if (!line.trim()) {
+                if (dataLines.length) {
+                  handleEvent(eventName, dataLines.join("\n"));
+                  dataLines = [];
+                  eventName = "message";
+                }
+                continue;
+              }
+              if (line.startsWith("event:")) {
+                eventName = line.slice(6).trim();
+                continue;
+              }
+              if (line.startsWith("data:")) {
+                dataLines.push(line.slice(5).trimStart());
+              }
             }
           }
+
+          return { fallback: false } as const;
+        };
+
+        const streamResult = await requestAssistant(true);
+        if (streamResult.fallback) {
+          setAssistantStreamText(null);
+          await requestAssistant(false);
         }
       } catch (e: any) {
         setAssistantStreamText(null);
         setAssistantReplyFailed({ userMessageId, error: e?.message || "Assistant failed" });
       } finally {
         setAssistantInvokeInFlight(false);
+        assistantStreamAbortRef.current = null;
 
         // Ensure UI refresh picks up the assistant reply (or any retries).
         queryClient.invalidateQueries({ queryKey: conversationMessagesQueryKey(conversationId) });
@@ -806,7 +872,7 @@ const ConversationPage: React.FC = () => {
 
     return {
       message,
-      meta: getMessageMeta(message.body),
+      meta: { ...getMessageMeta(message.body), streaming: true },
       sender: otherParticipant,
       isSelf: false,
       deliveryStatus: null,
@@ -1373,6 +1439,17 @@ const ConversationPage: React.FC = () => {
     if (blockedYou) return "You are blocked";
     if (isBlocked) return "You blocked them";
 
+    if (isAssistantThread) {
+      if (assistantStreamText !== null) return "Streaming…";
+      if (
+        assistantInvokeInFlight ||
+        assistantReplyStatus?.is_typing ||
+        assistantReplyStatus?.is_queued
+      ) {
+        return "Typing…";
+      }
+    }
+
     // Instagram-style: show typing state under the name.
     if (remoteTypingUsers.length > 0) {
       if (isGroupConversation) {
@@ -1400,6 +1477,11 @@ const ConversationPage: React.FC = () => {
   }, [
     blockedYou,
     isBlocked,
+    isAssistantThread,
+    assistantInvokeInFlight,
+    assistantReplyStatus?.is_typing,
+    assistantReplyStatus?.is_queued,
+    assistantStreamText,
     isGroupConversation,
     otherPresenceStatus,
     otherLastActiveLabel,
@@ -1430,6 +1512,7 @@ const ConversationPage: React.FC = () => {
       isAssistantThread &&
       otherParticipant?.id &&
       (assistantInvokeInFlight ||
+        assistantStreamText !== null ||
         assistantReplyStatus?.is_typing ||
         assistantReplyStatus?.is_queued);
 
@@ -1451,6 +1534,7 @@ const ConversationPage: React.FC = () => {
     return out;
   }, [
     assistantInvokeInFlight,
+    assistantStreamText,
     assistantReplyStatus?.is_typing,
     assistantReplyStatus?.is_queued,
     conversation?.participants,

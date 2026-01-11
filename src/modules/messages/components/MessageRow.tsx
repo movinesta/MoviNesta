@@ -114,8 +114,10 @@ export const MessageRow = React.memo(function MessageRow({
   const isDeletedMessage = meta.deleted === true;
   const editedAt = meta.editedAt;
   const deletedAt = meta.deletedAt;
+  const isStreamingMessage = meta.streaming === true;
   const name = sender?.displayName ?? (isSelf ? "You" : "Someone");
   const text = parseMessageText(message.body);
+  const showStreamingCaret = isStreamingMessage && !isDeletedMessage;
 
   const highlightQuery = (searchQuery ?? "").trim();
   const shouldHighlight = Boolean(highlightQuery && isSearchMatch && !isDeletedMessage);
@@ -239,12 +241,20 @@ export const MessageRow = React.memo(function MessageRow({
             onTouchCancel={onBubbleTouchEndOrCancel}
             aria-label={messageAriaLabel}
           >
-            {text && (
+            {(text || showStreamingCaret) && (
               <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-snug">
-                <LinkifiedText
-                  text={text}
-                  highlight={shouldHighlight ? highlightQuery : undefined}
-                />
+                {text ? (
+                  <LinkifiedText
+                    text={text}
+                    highlight={shouldHighlight ? highlightQuery : undefined}
+                  />
+                ) : null}
+                {showStreamingCaret ? (
+                  <span
+                    className="ml-1 inline-block h-3 w-1 animate-pulse rounded-sm bg-current align-baseline"
+                    aria-hidden="true"
+                  />
+                ) : null}
               </p>
             )}
 
