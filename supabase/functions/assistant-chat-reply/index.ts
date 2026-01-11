@@ -30,6 +30,7 @@ import {
   openrouterChatWithFallback,
   type OpenRouterMessage,
 } from "../_shared/openrouter.ts";
+import { getOpenRouterCapabilities } from "../_shared/openrouterCapabilities.ts";
 import {
   executeAssistantTool,
   type AssistantToolCall,
@@ -1072,6 +1073,14 @@ async function handler(req: Request) {
       ),
     );
 
+    const capabilitySummary = models.length
+      ? await getOpenRouterCapabilities({ models, base_url: baseUrl })
+      : {
+          combined: { streaming: false, routing: false, multimodal: false, plugins: false },
+          by_model: {},
+          catalog_size: 0,
+        };
+
     // For precise, actionable error reporting.
     const baseUrlCulprit = resolveBaseUrlCulprit(assistantSettings, cfg, baseUrl);
     const timeoutCulprit = resolveTimeoutCulprit(assistantSettings);
@@ -1081,7 +1090,7 @@ async function handler(req: Request) {
     let loggedAiFailure = false;
 
     const responseFormat = buildAgentResponseFormat();
-    const plugins = [{ id: "response-healing" }];
+    const plugins = capabilitySummary.combined.plugins ? [{ id: "response-healing" }] : undefined;
 
     const MAX_TOOL_LOOPS = Number(behavior?.tool_loop?.max_loops ?? 3);
     const MAX_TOOL_CALLS_PER_LOOP = Number(behavior?.tool_loop?.max_calls_per_loop ?? 4);
