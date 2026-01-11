@@ -28,7 +28,7 @@ import { safeInsertAssistantFailure } from "../_shared/assistantTelemetry.ts";
 import { classifyOpenRouterError, type AiCulprit, type AiErrorEnvelope } from "../_shared/aiErrors.ts";
 import {
   openrouterChatWithFallback,
-  type OpenRouterMessage,
+  type OpenRouterInputMessage,
   type OpenRouterProviderRouting,
 } from "../_shared/openrouter.ts";
 import { getOpenRouterCapabilities } from "../_shared/openrouterCapabilities.ts";
@@ -42,6 +42,8 @@ import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "assistant-chat-reply";
 const BUILD_TAG = "assistant-chat-reply-v3-2026-01-06";
+const CHAT_MEDIA_BUCKET = "chat-media";
+const ASSISTANT_MEDIA_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 
 // Legacy defaults; overridden by assistant_settings.behavior.chunking
@@ -94,6 +96,41 @@ function uniqStrings(list: Array<string | null | undefined>): string[] {
     if (!v) continue;
     if (!out.includes(v)) out.push(v);
   }
+  return out;
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+async function buildSignedMediaUrlMap(
+  supabase: any,
+  paths: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const unique = uniqStrings(paths);
+  if (!unique.length) return out;
+
+  await Promise.all(
+    unique.map(async (path) => {
+      if (!path) return;
+      if (isHttpUrl(path)) {
+        out.set(path, path);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.storage
+          .from(CHAT_MEDIA_BUCKET)
+          .createSignedUrl(path, ASSISTANT_MEDIA_SIGNED_URL_TTL_SECONDS);
+        if (!error && data?.signedUrl) {
+          out.set(path, data.signedUrl);
+        }
+      } catch {
+        // best-effort: omit failed signing
+      }
+    }),
+  );
+
   return out;
 }
 
@@ -768,7 +805,7 @@ async function handler(req: Request) {
 
     const { data: recentMsgs, error: msgErr } = await svc
       .from("messages")
-      .select("id,created_at,conversation_id,user_id,sender_id,message_type,text,body,meta")
+      .select("id,created_at,conversation_id,user_id,sender_id,message_type,text,body,meta,attachment_url")
       .eq("conversation_id", conversationId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -996,9 +1033,16 @@ async function handler(req: Request) {
     // Reverse to chronological order
     const chronological = [...(recentMsgs ?? [])].reverse();
 
-    const orMessages: OpenRouterMessage[] = [
+    const signedMediaMap = await buildSignedMediaUrlMap(
+      svc,
+      chronological.map((m) => (m as any)?.attachment_url ?? null),
+    );
+
+    const orMessages: OpenRouterInputMessage[] = [
       { role: "system", content: sys },
-      ...chronological.map((m) => mapDbMessageToOpenRouter(m, myUserId, assistantUserId)),
+      ...chronological.map((m) =>
+        mapDbMessageToOpenRouter(m, myUserId, assistantUserId, signedMediaMap)
+      ),
     ];
 
     // If client provided raw text but it didn't exist as a message row (fallback), append.
@@ -1286,7 +1330,7 @@ async function handler(req: Request) {
           completion = await openrouterChatWithFallback({
             models,
             stream: false,
-            messages: orMessages,
+            input: orMessages,
             response_format: responseFormat,
             plugins,
             provider: routingProvider ?? undefined,
@@ -3122,11 +3166,12 @@ function truncateDeep(v: any, depth: number): any {
 }
 
 function mapDbMessageToOpenRouter(
-  m: Pick<MessageRow, "sender_id" | "text" | "body">,
+  m: Pick<MessageRow, "sender_id" | "text" | "body" | "attachment_url">,
   _myUserId: string,
   assistantUserId: string,
-): OpenRouterMessage {
-  const role: OpenRouterMessage["role"] =
+  signedMediaMap: Map<string, string>,
+): OpenRouterInputMessage {
+  const role: OpenRouterInputMessage["role"] =
     m.sender_id === assistantUserId ? "assistant" : "user";
 
   // Prefer text, fallback to body.text
@@ -3136,6 +3181,20 @@ function mapDbMessageToOpenRouter(
       : typeof (m.body as any)?.text === "string"
         ? String((m.body as any).text)
         : "";
+
+  const attachmentPath = typeof m.attachment_url === "string" ? m.attachment_url.trim() : "";
+  const signedUrl = attachmentPath ? signedMediaMap.get(attachmentPath) ?? null : null;
+
+  if (signedUrl) {
+    const textPart = text.trim() || "User sent an image attachment.";
+    return {
+      role,
+      content: [
+        { type: "input_text", text: textPart },
+        { type: "input_image", image_url: signedUrl },
+      ],
+    };
+  }
 
   // Token saver: do NOT stringify whole body (can explode tokens).
   const content = text.trim() ? text : "[non-text message]";
