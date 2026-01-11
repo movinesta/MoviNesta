@@ -11735,6 +11735,45 @@ ALTER SEQUENCE public.app_settings_presets_id_seq OWNED BY public.app_settings_p
 
 
 --
+-- TOC entry 504 (class 1259 OID 777020)
+-- Name: schema_registry; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.schema_registry (
+    id bigint NOT NULL,
+    key text NOT NULL,
+    version bigint DEFAULT 1 NOT NULL,
+    name text NOT NULL,
+    schema jsonb DEFAULT '{}'::jsonb NOT NULL,
+    strict boolean DEFAULT true NOT NULL,
+    description text,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    updated_by uuid,
+    CONSTRAINT schema_registry_key_version_unique UNIQUE (key, version)
+);
+
+
+ALTER TABLE public.schema_registry OWNER TO postgres;
+
+--
+-- TOC entry 505 (class 1259 OID 777030)
+-- Name: schema_registry_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.schema_registry ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.schema_registry_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- TOC entry 480 (class 1259 OID 630305)
 -- Name: assistant_cron_requests; Type: TABLE; Schema: public; Owner: postgres
 --

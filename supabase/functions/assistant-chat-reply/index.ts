@@ -27,6 +27,7 @@ import { getAssistantSettings, resolveAssistantBehavior, type AssistantBehavior 
 import { resolveAssistantIdentity } from "../_shared/assistantIdentity.ts";
 import { safeInsertAssistantFailure } from "../_shared/assistantTelemetry.ts";
 import { classifyOpenRouterError, type AiCulprit, type AiErrorEnvelope } from "../_shared/aiErrors.ts";
+import { loadAppSettingsForScopes } from "../_shared/appSettings.ts";
 import {
   openrouterChatWithFallback,
   type OpenRouterInputMessage,
@@ -40,12 +41,34 @@ import {
   type AssistantToolResult,
 } from "../_shared/assistantTools.ts";
 import { normalizeToolArgs } from "../_shared/assistantToolArgs.ts";
+import {
+  buildResponseFormatFromSchema,
+  loadSchemaRegistryEntry,
+  validateSchemaPayload,
+  type SchemaRegistryEntry,
+} from "../_shared/schemaRegistry.ts";
 import type { Database } from "../../../src/types/supabase.ts";
 
 const FN_NAME = "assistant-chat-reply";
 const BUILD_TAG = "assistant-chat-reply-v3-2026-01-06";
 const CHAT_MEDIA_BUCKET = "chat-media";
 const ASSISTANT_MEDIA_SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+type OutputValidationMode = "strict" | "lenient";
+type OutputValidationPolicy = {
+  mode: OutputValidationMode;
+  autoHeal: boolean;
+};
+
+function resolveOutputValidationPolicy(settings: Record<string, unknown>): OutputValidationPolicy {
+  const rawMode = String(settings["assistant.output_validation.mode"] ?? "lenient").trim().toLowerCase();
+  const mode: OutputValidationMode = rawMode === "strict" ? "strict" : "lenient";
+  const autoHeal = settings["assistant.output_validation.auto_heal"];
+  return {
+    mode,
+    autoHeal: typeof autoHeal === "boolean" ? autoHeal : true,
+  };
+}
 
 
 // Legacy defaults; overridden by assistant_settings.behavior.chunking
@@ -222,54 +245,6 @@ function extractRoutingProvider(raw: unknown): string | null {
   return null;
 }
 
-function buildChunkOutlineResponseFormat() {
-  return {
-    type: "json_schema" as const,
-    json_schema: {
-      name: "MoviNestaChunkOutline",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          intro: { type: "string" },
-          sections: {
-            type: "array",
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                title: { type: "string" },
-                bullets: { type: "array", items: { type: "string" } },
-              },
-              required: ["title", "bullets"],
-            },
-          },
-        },
-        required: ["sections"],
-      },
-    },
-  };
-}
-
-function buildChunkSectionResponseFormat() {
-  return {
-    type: "json_schema" as const,
-    json_schema: {
-      name: "MoviNestaChunkSection",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          text: { type: "string" },
-        },
-        required: ["text"],
-      },
-    },
-  };
-}
-
 function renderPromptTemplate(tpl: string, vars: Record<string, string>): string {
   const s = String(tpl ?? "");
   return s.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key) => {
@@ -352,6 +327,63 @@ function safeJsonParse<T = any>(s: string): T | null {
   }
 }
 
+function withToolEnum(entry: SchemaRegistryEntry, toolNames: string[]): SchemaRegistryEntry {
+  const schema = structuredClone(entry.schema ?? {});
+  const toolNode =
+    (schema as any)?.properties?.calls?.items?.properties?.tool ??
+    null;
+  if (toolNode && typeof toolNode === "object") {
+    (toolNode as any).enum = toolNames;
+  }
+  return { ...entry, schema };
+}
+
+function isSchemaValid(entry: SchemaRegistryEntry, payload: unknown): { ok: boolean; errors: string[] } {
+  const result = validateSchemaPayload(entry, payload);
+  return { ok: result.valid, errors: result.errors };
+}
+
+async function maybeRepairStructuredOutput<T>(args: {
+  models: string[];
+  plugins: any[] | undefined;
+  schemaEntry: SchemaRegistryEntry;
+  raw: string;
+  parse: (raw: string) => T | null;
+  defaults?: Record<string, unknown>;
+  timeLeftMs?: () => number;
+  usageLogger?: (entry: { completion: any; stage: string }) => void;
+  stage: string;
+}): Promise<{ value: T | null; completion: any | null }> {
+  const { models, plugins, schemaEntry, raw, parse, defaults, timeLeftMs, usageLogger, stage } = args;
+  const remaining = timeLeftMs ? timeLeftMs() : 10_000;
+  if (remaining < 2_000) return { value: null, completion: null };
+
+  const completion = await openrouterChatWithFallback({
+    models,
+    stream: false,
+    messages: [
+      {
+        role: "system",
+        content: [
+          "You fix and return JSON that matches the schema.",
+          "Output JSON only. Do not include commentary or code fences.",
+        ].join(" "),
+      },
+      {
+        role: "user",
+        content: `INPUT_JSON:\n${String(raw ?? "").slice(0, 12000)}`,
+      },
+    ],
+    response_format: buildResponseFormatFromSchema(schemaEntry),
+    plugins,
+    defaults: { ...(defaults ?? {}) },
+  });
+  usageLogger?.({ completion, stage });
+
+  const parsed = parse(String(completion.content ?? ""));
+  return { value: parsed, completion };
+}
+
 async function generateChunkedReplyText(args: {
   models: string[];
   plugins: any[];
@@ -361,10 +393,24 @@ async function generateChunkedReplyText(args: {
   assistantName: string;
   userRequest: string;
   toolTrace: Array<{ call: AssistantToolCall; result: AssistantToolResult }>;
+  outputPolicy: OutputValidationPolicy;
+  outlineSchema: SchemaRegistryEntry;
   timeLeftMs?: () => number;
   usageLogger?: (entry: { completion: any; stage: string }) => void;
 }): Promise<string> {
-  const { models, plugins, assistantName, userRequest, toolTrace, defaults, behavior, sanitizeOpts, usageLogger } = args;
+  const {
+    models,
+    plugins,
+    assistantName,
+    userRequest,
+    toolTrace,
+    defaults,
+    behavior,
+    sanitizeOpts,
+    usageLogger,
+    outputPolicy,
+    outlineSchema,
+  } = args;
 
   const getRemainingMs = args.timeLeftMs ?? (() => 60_000);
   const clampTimeoutMs = (preferred: number) => {
@@ -399,13 +445,43 @@ async function generateChunkedReplyText(args: {
           `TOOL_RESULTS_MINI:${JSON.stringify(mini).slice(0, 3500)}`,
       },
     ],
-    response_format: buildChunkOutlineResponseFormat(),
+    response_format: buildResponseFormatFromSchema(outlineSchema),
     plugins,
     defaults: { ...(defaults ?? {}), timeout_ms: clampTimeoutMs(10_000) },
   });
   usageLogger?.({ completion: outlineCompletion, stage: "chunk_outline" });
 
-  const outlineObj = safeJsonParse<any>(outlineCompletion.content) ?? {};
+  let outlineObj = safeJsonParse<any>(outlineCompletion.content) ?? null;
+  const initialValidation = outlineObj ? isSchemaValid(outlineSchema, outlineObj) : { ok: false, errors: [] };
+
+  if (!initialValidation.ok) {
+    if (outputPolicy.autoHeal) {
+      const healed = await maybeRepairStructuredOutput({
+        models,
+        plugins,
+        schemaEntry: outlineSchema,
+        raw: outlineCompletion.content ?? "",
+        parse: (raw) => safeJsonParse<any>(raw),
+        defaults: { ...(defaults ?? {}), timeout_ms: clampTimeoutMs(8_000) },
+        timeLeftMs: getRemainingMs,
+        usageLogger,
+        stage: "chunk_outline_repair",
+      });
+
+      if (healed.value) {
+        outlineObj = healed.value;
+      }
+    }
+  }
+
+  const finalValidation = outlineObj ? isSchemaValid(outlineSchema, outlineObj) : { ok: false, errors: [] };
+  if (!finalValidation.ok) {
+    if (outputPolicy.mode === "strict") {
+      throw new Error("Invalid chunk outline schema output");
+    }
+    outlineObj = { intro: "", sections: [{ title: "Overview", bullets: [] }] };
+  }
+
   const sectionsRaw = Array.isArray(outlineObj?.sections) ? outlineObj.sections : [];
   const sections = sectionsRaw
     .filter((s: any) => s && typeof s.title === "string")
@@ -1043,6 +1119,19 @@ async function handler(req: Request) {
     const behavior = (assistantSettings as any)?.behavior
       ? (assistantSettings as any).behavior
       : resolveAssistantBehavior((assistantSettings as any)?.behavior ?? null);
+    let outputPolicy: OutputValidationPolicy = { mode: "lenient", autoHeal: true };
+    try {
+      const settings = await loadAppSettingsForScopes(svc as any, ["server_only"], { cacheTtlMs: 60_000 });
+      outputPolicy = resolveOutputValidationPolicy(settings.settings ?? {});
+    } catch {
+      // ignore: fall back to defaults
+    }
+
+    const [agentSchemaRaw, chunkOutlineSchema] = await Promise.all([
+      loadSchemaRegistryEntry(svc as any, "assistant.agent"),
+      loadSchemaRegistryEntry(svc as any, "assistant.chunk_outline"),
+    ]);
+    const agentSchema = withToolEnum(agentSchemaRaw, TOOL_NAMES);
 
     // 3.7) Rate limit: keep assistant calls bounded per user to protect reliability.
     // Uses a DB bucketed counter so it works across instances.
@@ -1298,7 +1387,7 @@ async function handler(req: Request) {
     let aiErrorEnvelope: AiErrorEnvelope | null = null;
     let loggedAiFailure = false;
 
-    const responseFormat = buildAgentResponseFormat();
+    const responseFormat = buildResponseFormatFromSchema(agentSchema);
     const plugins = capabilitySummary.combined.plugins ? [{ id: "response-healing" }] : undefined;
 
     const MAX_TOOL_LOOPS = Number(behavior?.tool_loop?.max_loops ?? 3);
@@ -1585,10 +1674,46 @@ async function handler(req: Request) {
         finalUsage = completion.usage ?? null;
         routingPayloadVariant = (completion as any)?.variant ?? null;
 
-        const agent = parseAgentJson(completion.content);
+        let agent = parseAgentJson(completion.content);
+        let agentValidation = agent ? isSchemaValid(agentSchema, agent) : { ok: false, errors: [] };
 
-        // If the model didn't comply, treat it as final text.
-        if (!agent) {
+        if (!agentValidation.ok && outputPolicy.autoHeal) {
+          const healed = await maybeRepairStructuredOutput({
+            models,
+            plugins,
+            schemaEntry: agentSchema,
+            raw: completion.content ?? "",
+            parse: parseAgentJson,
+            defaults: {
+              ...(assistantSettings.params ?? {}),
+              stream: false,
+              instructions: "Fix the JSON output to match the schema exactly.",
+              base_url: baseUrl,
+              timeout_ms: llmTimeoutMs(preferredTimeout ?? 12_000),
+            },
+            timeLeftMs,
+            usageLogger: (entry) => {
+              void logOpenRouterUsage({ completion: entry.completion, stage: entry.stage });
+            },
+            stage: "agent_output_repair",
+          });
+
+          if (healed.value) {
+            agent = healed.value;
+            agentValidation = isSchemaValid(agentSchema, agent);
+          }
+        }
+
+        if (!agentValidation.ok) {
+          if (outputPolicy.mode === "strict") {
+            logWarn(logCtx, "Assistant output failed schema validation", {
+              errors: agentValidation.errors.slice(0, 4),
+              requestId,
+            });
+            finalReplyText = "I ran into a formatting error while preparing your answer. Please try again.";
+            break;
+          }
+
           finalReplyText = sanitizeReply(completion.content, sanitizeOpts);
           break;
         }
@@ -1663,6 +1788,8 @@ async function handler(req: Request) {
                 assistantName,
                 userRequest: latestUserText,
                 toolTrace,
+                outputPolicy,
+                outlineSchema: chunkOutlineSchema,
                 usageLogger: (entry) => {
                   void logOpenRouterUsage({ completion: entry.completion, stage: entry.stage });
                 },
@@ -2306,49 +2433,6 @@ function toolProtocolPrompt() {
     'Action button example: {"id":"...","label":"...","type":"button","payload":{"tool":"list_add_item","args":{...}}}',
     `Tools: ${TOOL_NAMES.join(", ")}`,
   ].join("\n");
-}
-
-function buildAgentResponseFormat() {
-  return {
-    type: "json_schema" as const,
-    json_schema: {
-      name: "MoviNestaAssistantAgent",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          type: { type: "string", enum: ["tool", "final"] },
-          calls: {
-            type: "array",
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                tool: { type: "string", enum: TOOL_NAMES as unknown as string[] },
-                args: { type: "object", additionalProperties: true },
-              },
-              required: ["tool"],
-            },
-          },
-          text: { type: "string" },
-          ui: { type: "object", additionalProperties: true },
-          actions: { type: "array", items: { type: "object", additionalProperties: true } },
-        },
-        required: ["type"],
-        oneOf: [
-          {
-            properties: { type: { const: "tool" }, calls: { type: "array" } },
-            required: ["type", "calls"],
-          },
-          {
-            properties: { type: { const: "final" }, text: { type: "string" } },
-            required: ["type", "text"],
-          },
-        ],
-      },
-    },
-  };
 }
 
 function findLatestUserMessageId(
