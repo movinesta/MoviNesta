@@ -340,9 +340,35 @@ export type AssistantProviderTestResp = {
   };
 };
 
+export type AssistantRoutingTestResp = {
+  ok: true;
+  requestId?: string | null;
+  test: {
+    ok: boolean;
+    durationMs?: number;
+    baseUrl?: string | null;
+    usedModel?: string | null;
+    usedVariant?: string | null;
+    usedProvider?: string | null;
+    policyMode?: string | null;
+    contentPreview?: string | null;
+    userMessage?: string | null;
+    envelope?: any;
+    culprit?: any;
+    modelCandidates?: string[];
+    routing?: any;
+  };
+};
+
 export async function testAssistantProvider(payload?: { prompt?: string; model_key?: string; model?: string }) {
   return invoke<AssistantProviderTestResp>("admin-assistant-settings", {
     body: { action: "test_provider", test: payload ?? {} },
+  });
+}
+
+export async function testAssistantRouting(payload?: { prompt?: string; mode?: "current" | "auto" | "fallback" }) {
+  return invoke<AssistantRoutingTestResp>("admin-assistant-settings", {
+    body: { action: "test_routing", routing_test: payload ?? {} },
   });
 }
 
@@ -413,6 +439,16 @@ export type AssistantHealthSnapshot = {
 
 export async function getAssistantHealthSnapshot() {
   return invoke<AssistantHealthSnapshot>("admin-assistant-health", { body: {} });
+}
+
+export type OpenRouterRequestLogResp = {
+  ok: true;
+  rows: Array<Record<string, unknown>>;
+  next_before: string | null;
+};
+
+export async function getOpenRouterRequestLog(payload?: { limit?: number; before?: string | null; request_id?: string | null; fn?: string | null }) {
+  return invoke<OpenRouterRequestLogResp>("admin-openrouter-requests", { body: { ...(payload ?? {}) } });
 }
 
 /* =========================

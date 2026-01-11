@@ -169,3 +169,25 @@ export type AuditResponse = {
   rows: AuditLogRow[];
   next_before: string | null;
 };
+
+export type OpenRouterRequestLogRow = {
+  id: string;
+  created_at: string;
+  fn: string;
+  request_id?: string | null;
+  user_id?: string | null;
+  conversation_id?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  base_url?: string | null;
+  usage?: Record<string, unknown> | null;
+  upstream_request_id?: string | null;
+  variant?: string | null;
+  meta?: Record<string, unknown> | null;
+};
+
+export type OpenRouterRequestLogResponse = {
+  ok: true;
+  rows: OpenRouterRequestLogRow[];
+  next_before: string | null;
+};

@@ -209,6 +209,19 @@ function hasProviderRoutingConfig(provider?: AssistantBehavior["router"]["policy
   return false;
 }
 
+function extractRoutingProvider(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = (raw as any).provider ?? (raw as any).provider_name ?? (raw as any).providerName ?? null;
+  if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  if (candidate && typeof candidate === "object") {
+    const name = (candidate as any).name ?? (candidate as any).id ?? (candidate as any).provider ?? null;
+    if (typeof name === "string" && name.trim()) return name.trim();
+  }
+  const metaCandidate = (raw as any)?.metadata?.provider ?? (raw as any)?.meta?.provider ?? null;
+  if (typeof metaCandidate === "string" && metaCandidate.trim()) return metaCandidate.trim();
+  return null;
+}
+
 function buildChunkOutlineResponseFormat() {
   return {
     type: "json_schema" as const,
@@ -1197,18 +1210,29 @@ async function handler(req: Request) {
     const logOpenRouterUsage = async (entry: { completion: any; stage: string; meta?: Record<string, unknown> }) => {
       try {
         const completion = entry.completion ?? {};
+        const resolvedProvider = extractRoutingProvider(completion.raw);
         await safeInsertOpenRouterUsageLog(svc, {
           fn: FN_NAME,
           request_id: requestId,
           user_id: myUserId,
           conversation_id: conversationId ?? null,
-          provider: "openrouter",
+          provider: resolvedProvider ?? "openrouter",
           model: completion.model ?? null,
           base_url: baseUrl,
           usage: completion.usage ?? null,
           upstream_request_id: extractUpstreamRequestId(completion.raw),
           variant: completion.variant ?? null,
-          meta: { stage: entry.stage, runner_job_id: runnerJobId ?? null, ...(entry.meta ?? {}) },
+          meta: {
+            stage: entry.stage,
+            runner_job_id: runnerJobId ?? null,
+            routing: routingMeta,
+            decision: {
+              provider: resolvedProvider,
+              model: completion.model ?? null,
+              variant: completion.variant ?? null,
+            },
+            ...(entry.meta ?? {}),
+          },
         });
       } catch {
         // best-effort only
@@ -1247,6 +1271,16 @@ async function handler(req: Request) {
       ...baseModels,
       ...policyFallbacks,
     ]);
+    const routingMeta = {
+      policy: {
+        mode: policyMode,
+        auto_model: policyAutoModel,
+        fallback_models: policyFallbacks,
+        provider: routingProvider,
+        variants: routingVariants ?? [],
+      },
+      model_candidates: models,
+    };
 
     const capabilitySummary = models.length
       ? await getOpenRouterCapabilities({ models, base_url: baseUrl })
