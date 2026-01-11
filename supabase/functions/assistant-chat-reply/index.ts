@@ -35,6 +35,7 @@ import {
 } from "../_shared/openrouter.ts";
 import { getOpenRouterCapabilities } from "../_shared/openrouterCapabilities.ts";
 import { safeInsertOpenRouterUsageLog } from "../_shared/openrouterUsageLog.ts";
+import { resolveZdrRouting } from "../_shared/openrouterZdr.ts";
 import {
   executeAssistantTool,
   type AssistantToolCall,
@@ -1291,10 +1292,19 @@ async function handler(req: Request) {
 
     // Allow env-based configuration (OPENROUTER_MODEL_*, OPENROUTER_BASE_URL) to act as a fallback
     // in case the assistant_settings row is missing/empty (common after schema resets).
-    const baseUrl =
+    const baseUrlFallback =
       assistantSettings.openrouter_base_url ??
       cfg.openrouterBaseUrl ??
       "https://openrouter.ai/api/v1";
+    const {
+      base_url: baseUrl,
+      meta: zdrMeta,
+    } = await resolveZdrRouting({
+      svc,
+      base_url: baseUrlFallback,
+      behavior,
+      sensitive: Boolean(latestUserText?.trim()),
+    });
 
     const logOpenRouterUsage = async (entry: { completion: any; stage: string; meta?: Record<string, unknown> }) => {
       try {
@@ -1314,7 +1324,7 @@ async function handler(req: Request) {
           meta: {
             stage: entry.stage,
             runner_job_id: runnerJobId ?? null,
-            routing: routingMeta,
+            routing: { ...routingMeta, zdr: zdrMeta },
             decision: {
               provider: resolvedProvider,
               model: completion.model ?? null,
@@ -1369,6 +1379,7 @@ async function handler(req: Request) {
         variants: routingVariants ?? [],
       },
       model_candidates: models,
+      zdr: zdrMeta,
     };
 
     const capabilitySummary = models.length
@@ -2044,6 +2055,7 @@ async function handler(req: Request) {
         models,
         base_url: baseUrl,
       },
+      zdr: zdrMeta,
       decision: {
         kind: routed ? "deterministic" : "openrouter",
         model: finalModel ?? null,

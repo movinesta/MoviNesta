@@ -8,6 +8,7 @@ import {
   testAssistantProvider,
   testAssistantRouting,
   getOpenRouterRequestLog,
+  getOpenRouterEndpoints,
   type AssistantHealthSnapshot,
 } from "../lib/api";
 import type { OpenRouterRequestLogRow } from "../lib/types";
@@ -138,6 +139,14 @@ function readRoutingMeta(meta: AnyJson): { routing: AnyJson | null; decision: An
   return { routing, decision };
 }
 
+function readZdrMeta(meta: AnyJson): AnyJson | null {
+  if (!isPlainObject(meta)) return null;
+  const routing = isPlainObject(meta.routing) ? meta.routing : null;
+  const zdrFromRouting = routing && isPlainObject(routing.zdr) ? routing.zdr : null;
+  if (zdrFromRouting) return zdrFromRouting;
+  return isPlainObject(meta.zdr) ? meta.zdr : null;
+}
+
 type DiffRow = { path: string; a: AnyJson; b: AnyJson };
 
 function diffJson(a: AnyJson, b: AnyJson, prefix = ""): DiffRow[] {
@@ -247,6 +256,15 @@ export default function Assistant() {
     enabled: tab === "diagnostics",
   });
 
+  const endpointsQ = useQuery({
+    queryKey: ["openrouter-endpoints", settingsForm?.openrouter_base_url ?? null],
+    queryFn: () =>
+      getOpenRouterEndpoints({
+        base_url: settingsForm?.openrouter_base_url?.trim() || null,
+      }),
+    enabled: tab === "settings",
+  });
+
   const saveSettings = useMutation({
     mutationFn: (payload: any) => setAssistantSettings(payload),
     onSuccess: () => {
@@ -295,10 +313,29 @@ export default function Assistant() {
   const assistantSettings = settingsData?.assistant_settings;
   const defaultSettings = settingsData?.defaults?.settings;
   const routingRows = (routingLogQ.data?.rows ?? []) as OpenRouterRequestLogRow[];
+  const endpointsData = endpointsQ.data as any;
+  const zdrEndpoints = Array.isArray(endpointsData?.zdr_endpoints) ? endpointsData.zdr_endpoints : [];
   const selectedRoutingRow = useMemo(
     () => routingRows.find((r) => String(r.id) === String(routingLogSelectedId)) ?? null,
     [routingRows, routingLogSelectedId],
   );
+  const routingZdrSummary = useMemo(() => {
+    let requested = 0;
+    let used = 0;
+    let sensitive = 0;
+    let fallback = 0;
+
+    for (const row of routingRows) {
+      const zdr = readZdrMeta(row.meta as any);
+      if (!zdr) continue;
+      if (zdr.requested) requested += 1;
+      if (zdr.used) used += 1;
+      if (zdr.requested && !zdr.used) fallback += 1;
+      if (zdr.sensitive) sensitive += 1;
+    }
+
+    return { requested, used, fallback, sensitive };
+  }, [routingRows]);
 
   const defaultBehavior: AnyJson = defaultSettings?.behavior ?? {};
   const parsedBehavior = useMemo(() => {
@@ -353,6 +390,10 @@ export default function Assistant() {
     "behavior.diagnostics.user_error_show_culprit_value": "field-behavior-user_error_show_culprit_value",
     "behavior.diagnostics.user_error_show_status_model": "field-behavior-user_error_show_status_model",
     "behavior.diagnostics.user_error_show_trace_ids": "field-behavior-user_error_show_trace_ids",
+    "behavior.router.zdr.enabled": "field-zdr-enabled",
+    "behavior.router.zdr.mode": "field-zdr-mode",
+    "behavior.router.zdr.allow_fallback": "field-zdr-allow-fallback",
+    "behavior.router.zdr.base_url": "field-zdr-base-url",
     "assistant_settings.test_provider": "field-provider_test",
   };
 
@@ -887,6 +928,24 @@ export default function Assistant() {
                 </Button>
               </div>
 
+              <div className="mt-2 text-xs text-zinc-500">
+                ZDR coverage:{" "}
+                <span className="font-mono">{routingZdrSummary.used}</span> /{" "}
+                <span className="font-mono">{routingZdrSummary.requested}</span> requested
+                {routingZdrSummary.fallback ? (
+                  <>
+                    {" "}
+                    · fallback <span className="font-mono">{routingZdrSummary.fallback}</span>
+                  </>
+                ) : null}
+                {routingZdrSummary.sensitive ? (
+                  <>
+                    {" "}
+                    · sensitive <span className="font-mono">{routingZdrSummary.sensitive}</span>
+                  </>
+                ) : null}
+              </div>
+
               {routingLogQ.isLoading ? (
                 <div className="mt-3 text-xs text-zinc-500">Loading routing logs…</div>
               ) : routingLogQ.isError ? (
@@ -902,6 +961,7 @@ export default function Assistant() {
                       <Th>Mode</Th>
                       <Th>Model</Th>
                       <Th>Variant</Th>
+                      <Th>ZDR</Th>
                       <Th>Provider</Th>
                       <Th>Function</Th>
                     </tr>
@@ -912,6 +972,8 @@ export default function Assistant() {
                         const { routing, decision } = readRoutingMeta(r.meta);
                         const mode = String(routing?.policy?.mode ?? "—");
                         const provider = String(decision?.provider ?? r.provider ?? "—");
+                        const zdr = readZdrMeta(r.meta as any);
+                        const zdrLabel = zdr?.used ? "used" : zdr?.requested ? "miss" : "—";
                         return (
                           <tr
                             key={r.id}
@@ -923,6 +985,7 @@ export default function Assistant() {
                             <Td className="font-mono text-xs">{mode}</Td>
                             <Td className="font-mono text-xs">{r.model ?? "—"}</Td>
                             <Td className="font-mono text-xs">{r.variant ?? "—"}</Td>
+                            <Td className="font-mono text-xs">{zdrLabel}</Td>
                             <Td className="font-mono text-xs">{provider}</Td>
                             <Td className="font-mono text-xs">{r.fn}</Td>
                           </tr>
@@ -930,7 +993,7 @@ export default function Assistant() {
                       })
                     ) : (
                       <tr>
-                        <Td colSpan={7} className="p-6">
+                        <Td colSpan={8} className="p-6">
                           <EmptyState title="No routing logs" message="No OpenRouter request logs match this filter." className="border-0 bg-transparent p-0" />
                         </Td>
                       </tr>
@@ -1472,6 +1535,81 @@ export default function Assistant() {
                         <div className="mt-2 text-[11px] text-zinc-500">
                           Stored at <span className="font-mono">behavior.rate_limit.chat_reply</span>.
                         </div>
+                      </div>
+
+                      <div className="rounded-lg border border-zinc-200 bg-white p-3 md:col-span-2">
+                        <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-600">
+                          <span>Zero Data Retention (ZDR) routing</span>
+                          <HintIcon title="Details" onClick={() => openHint("behavior.router.zdr.enabled")} />
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                          <label id="field-zdr-enabled" className="flex items-center gap-2 text-xs text-zinc-700">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(getIn(parsedBehavior.value, ["router", "zdr", "enabled"], false))}
+                              onChange={(e) => updateBehaviorJson((b) => setIn(b, ["router", "zdr", "enabled"], e.target.checked))}
+                            />
+                            <span>Enable ZDR routing</span>
+                          </label>
+
+                          <label id="field-zdr-mode" className="flex flex-col gap-1 text-xs text-zinc-700">
+                            <span className="text-[11px] text-zinc-500">Mode</span>
+                            <select
+                              value={String(getIn(parsedBehavior.value, ["router", "zdr", "mode"], "sensitive_only"))}
+                              onChange={(e) => updateBehaviorJson((b) => setIn(b, ["router", "zdr", "mode"], e.target.value))}
+                              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                            >
+                              <option value="sensitive_only">Sensitive only</option>
+                              <option value="all">All requests</option>
+                            </select>
+                          </label>
+
+                          <label id="field-zdr-allow-fallback" className="flex items-center gap-2 text-xs text-zinc-700">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(getIn(parsedBehavior.value, ["router", "zdr", "allow_fallback"], true))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) => setIn(b, ["router", "zdr", "allow_fallback"], e.target.checked))
+                              }
+                            />
+                            <span>Allow fallback</span>
+                          </label>
+
+                          <label id="field-zdr-base-url" className="flex flex-col gap-1 text-xs text-zinc-700 md:col-span-2">
+                            <span className="text-[11px] text-zinc-500">ZDR base URL override</span>
+                            <input
+                              type="text"
+                              value={String(getIn(parsedBehavior.value, ["router", "zdr", "base_url"], ""))}
+                              onChange={(e) => updateBehaviorJson((b) => setIn(b, ["router", "zdr", "base_url"], e.target.value))}
+                              placeholder="Leave blank to use discovered ZDR endpoints"
+                              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="mt-3 text-xs text-zinc-500">
+                          Uses cached OpenRouter endpoint discovery. Refresh the <span className="font-mono">openrouter-refresh</span> job to update.
+                        </div>
+                        {endpointsQ.isLoading ? (
+                          <div className="mt-2 text-xs text-zinc-500">Loading ZDR endpoints…</div>
+                        ) : endpointsQ.isError ? (
+                          <div className="mt-2 text-xs text-red-600">Failed to load endpoints.</div>
+                        ) : (
+                          <div className="mt-2">
+                            {zdrEndpoints.length ? (
+                              <ul className="space-y-1 text-xs text-zinc-700">
+                                {zdrEndpoints.map((endpoint: any) => (
+                                  <li key={endpoint.base_url} className="flex flex-wrap gap-2">
+                                    <span className="font-mono">{endpoint.base_url}</span>
+                                    {endpoint.name ? <span className="text-zinc-500">({endpoint.name})</span> : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <div className="text-xs text-zinc-500">No ZDR endpoints found in cache.</div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="rounded-lg border border-zinc-200 bg-white p-3 md:col-span-2">

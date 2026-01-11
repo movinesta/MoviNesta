@@ -199,6 +199,14 @@ export type AdminOverviewResp = {
   job_state: Array<{ job_name: string; cursor: string | null; updated_at: string | null }>;
   recent_errors: Array<{ id: string | number; created_at?: string; started_at?: string; job_name: string; error_code?: string | null; error_message?: string | null }>;
   last_job_runs: Array<{ id: string | number; started_at: string; finished_at?: string | null; job_name: string; ok: boolean }>;
+  zdr_coverage?: {
+    total: number;
+    requested: number;
+    used: number;
+    fallback: number;
+    sensitive: number;
+    coverage_rate: number;
+  };
 };
 
 export async function getOverview() {
@@ -311,6 +319,11 @@ export async function getOpenRouterCredits(payload?: { base_url?: string | null 
 export async function getOpenRouterUsage(payload?: { base_url?: string | null }) {
   const qs = payload?.base_url ? `?base_url=${encodeURIComponent(payload.base_url)}` : "";
   return invoke<any>(`admin-openrouter-usage${qs}`, { method: "GET" });
+}
+
+export async function getOpenRouterEndpoints(payload?: { base_url?: string | null }) {
+  const qs = payload?.base_url ? `?base_url=${encodeURIComponent(payload.base_url)}` : "";
+  return invoke<any>(`admin-openrouter-endpoints${qs}`, { method: "GET" });
 }
 
 /* =========================

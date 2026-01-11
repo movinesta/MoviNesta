@@ -92,6 +92,12 @@ export type AssistantBehavior = {
       http_referer: string;
       x_title: string;
     };
+    zdr: {
+      enabled: boolean;
+      mode: "sensitive_only" | "all";
+      allow_fallback: boolean;
+      base_url?: string | null;
+    };
     policy: {
       mode: "fallback" | "auto";
       auto_model: string;
@@ -267,6 +273,12 @@ const DEFAULT_BEHAVIOR: AssistantBehavior = {
     attribution: {
       http_referer: "https://movinesta.app",
       x_title: "MoviNesta Assistant",
+    },
+    zdr: {
+      enabled: false,
+      mode: "sensitive_only",
+      allow_fallback: true,
+      base_url: null,
     },
     policy: {
       mode: "fallback",
@@ -577,6 +589,18 @@ export function resolveAssistantBehavior(input?: unknown | null): AssistantBehav
           DEFAULT_BEHAVIOR.router.attribution.x_title,
           220,
         ),
+      },
+      zdr: {
+        enabled: clampBool((router as any)?.zdr?.enabled, DEFAULT_BEHAVIOR.router.zdr.enabled),
+        mode: (() => {
+          const raw = String((router as any)?.zdr?.mode ?? "").trim().toLowerCase();
+          return raw === "all" ? "all" : "sensitive_only";
+        })(),
+        allow_fallback: clampBool((router as any)?.zdr?.allow_fallback, DEFAULT_BEHAVIOR.router.zdr.allow_fallback),
+        base_url: (() => {
+          const raw = String((router as any)?.zdr?.base_url ?? "").trim();
+          return raw || null;
+        })(),
       },
       policy: (() => {
         const modeRaw = String(routerPolicy.mode ?? "").trim().toLowerCase();

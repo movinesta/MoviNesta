@@ -826,6 +826,61 @@ export const SETTING_HINTS: Record<string, SettingHint> = {
     related: ["behavior.diagnostics.user_error_detail"],
   },
 
+  "behavior.router.zdr.enabled": {
+    title: "ZDR routing toggle",
+    details:
+      "When enabled, privacy-sensitive assistant requests are routed to OpenRouter endpoints flagged as Zero Data Retention (ZDR).",
+    examples: [
+      { scenario: "Disabled", effect: "Uses the standard OpenRouter base URL." },
+      { scenario: "Enabled", effect: "Routes sensitive traffic to ZDR endpoints when available." },
+    ],
+    recommended_why: "Enable for privacy-sensitive workloads when ZDR endpoints are configured.",
+    impacts: { safety: "data retention" },
+    related: [
+      "behavior.router.zdr.mode",
+      "behavior.router.zdr.allow_fallback",
+      "behavior.router.zdr.base_url",
+    ],
+  },
+  "behavior.router.zdr.mode": {
+    title: "ZDR routing mode",
+    details:
+      "Controls whether ZDR routing applies only to privacy-sensitive requests or to all assistant calls.",
+    examples: [
+      { scenario: "Sensitive only", effect: "Only user-personal requests try ZDR endpoints." },
+      { scenario: "All", effect: "Every request attempts ZDR routing." },
+    ],
+    recommended: "sensitive_only",
+    recommended_why: "Limits ZDR use to the most sensitive traffic.",
+    impacts: { safety: "data retention", cost: "endpoint selection" },
+    related: ["behavior.router.zdr.enabled", "behavior.router.zdr.allow_fallback"],
+  },
+  "behavior.router.zdr.allow_fallback": {
+    title: "Allow ZDR fallback",
+    details:
+      "When enabled, the assistant falls back to the default OpenRouter base URL if no ZDR endpoint is discovered.",
+    examples: [
+      { scenario: "True", effect: "Ensures the assistant still responds even without ZDR coverage." },
+      { scenario: "False", effect: "Hard-requires ZDR endpoints; requests may fail if none are available." },
+    ],
+    recommended: true,
+    recommended_why: "Keeps the assistant available while you validate ZDR coverage.",
+    impacts: { ops: "availability", safety: "data retention" },
+    related: ["behavior.router.zdr.enabled", "behavior.router.zdr.mode"],
+  },
+  "behavior.router.zdr.base_url": {
+    title: "ZDR base URL override",
+    details:
+      "Optional override for a dedicated ZDR endpoint. Leave blank to use discovered ZDR endpoints from the OpenRouter endpoints cache.",
+    examples: [
+      { scenario: "Blank", effect: "Uses the first discovered ZDR endpoint." },
+      { scenario: "Custom URL", effect: "Routes ZDR traffic to the specified endpoint." },
+    ],
+    recommended_why: "Leave blank unless you operate a dedicated ZDR proxy.",
+    impacts: { ops: "routing control", safety: "data retention" },
+    related: ["behavior.router.zdr.enabled", "behavior.router.zdr.mode"],
+  },
+
 };
 
 // ---- Runtime hint stubs ----

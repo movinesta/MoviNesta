@@ -23,6 +23,8 @@ if (q.error) return <ErrorBox error={q.error} />;
   const active = d.active_profile
     ? `${d.active_profile.provider} / ${d.active_profile.model} (${d.active_profile.dimensions})`
     : "—";
+  const zdr = d.zdr_coverage;
+  const zdrRate = zdr ? `${Math.round((zdr.coverage_rate ?? 0) * 100)}%` : "—";
 
   // Coverage rows are distinct provider/model pairs; include the model in the chart label to avoid collisions.
   const covChart = d.coverage.map((r) => ({ name: `${r.provider} / ${r.model}`, count: r.count }));
@@ -31,10 +33,15 @@ if (q.error) return <ErrorBox error={q.error} />;
     <div className="space-y-6">
       <Title>Overview</Title>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard title="Active embeddings" value={active} subtitle={d.active_profile ? `task=${d.active_profile.task}` : undefined} />
         <StatCard title="Providers stored" value={d.coverage.length} subtitle="Distinct provider/model pairs" />
         <StatCard title="Job cursors" value={d.job_state.length} subtitle="Saved pagination states" />
+        <StatCard
+          title="ZDR coverage (24h)"
+          value={zdrRate}
+          subtitle={zdr ? `${fmtInt(zdr.used)} used / ${fmtInt(zdr.requested)} requested` : "No routing logs yet"}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

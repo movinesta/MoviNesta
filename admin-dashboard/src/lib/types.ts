@@ -92,6 +92,14 @@ export type OverviewResponse = {
   last_job_runs: OverviewLastRun[];
   recent_errors: OverviewRecentError[];
   job_state: JobStateRow[];
+  zdr_coverage?: {
+    total: number;
+    requested: number;
+    used: number;
+    fallback: number;
+    sensitive: number;
+    coverage_rate: number;
+  };
 };
 
 export type EmbeddingsResponse = {

@@ -15,6 +15,8 @@ import { getAssistantSettings } from "./assistantSettings.ts";
 import { openrouterChatWithFallback } from "./openrouter.ts";
 import { log } from "./logger.ts";
 import { normalizeListName, normalizeToolArgs } from "./assistantToolArgs.ts";
+import { getAdminClient } from "./supabase.ts";
+import { resolveZdrRouting } from "./openrouterZdr.ts";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
 export type AssistantContentType = "movie" | "series" | "anime";
@@ -473,6 +475,7 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
     if (!cfg.openrouterApiKey) return null;
 
     const settings = await getAssistantSettings();
+    const admin = getAdminClient();
     const models: string[] = [
       settings.model_planner,
       settings.model_maker,
@@ -481,6 +484,14 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
       ...settings.fallback_models,
     ].filter(Boolean) as string[];
     if (!models.length) return null;
+
+    const baseUrlFallback = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
+    const { base_url: baseUrl } = await resolveZdrRouting({
+      svc: admin,
+      base_url: baseUrlFallback,
+      behavior: (settings as any)?.behavior ?? null,
+      sensitive: true,
+    });
 
     const liked = likedTitleNames.filter(Boolean).slice(0, 5);
 
@@ -523,7 +534,7 @@ export async function planWatchPlanCopy(likedTitleNames: string[]): Promise<{
       defaults: {
         ...(settings.params ?? {}),
         instructions: (settings.params as any)?.instructions ?? settings.default_instructions ?? undefined,
-        base_url: settings.openrouter_base_url ?? undefined,
+        base_url: baseUrl ?? undefined,
       },
     });
 

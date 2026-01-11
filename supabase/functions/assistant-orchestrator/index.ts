@@ -11,6 +11,7 @@ import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { getConfig } from "../_shared/config.ts";
 import { getAssistantSettings, resolveAssistantBehavior, type AssistantBehavior } from "../_shared/assistantSettings.ts";
 import { openrouterChatWithFallback } from "../_shared/openrouter.ts";
+import { resolveZdrRouting, type ZdrRoutingMeta } from "../_shared/openrouterZdr.ts";
 import { type ActiveGoal, type AssistantPlaybookId } from "../_shared/assistantPlaybooks.ts";
 import { buildRewriteSystemPrompt, type AssistantSurface } from "./promptPacks.ts";
 import { safeInsertOpenRouterUsageLog } from "../_shared/openrouterUsageLog.ts";
@@ -522,7 +523,14 @@ async function maybeRewriteCopy(
   if (!drafts.length) return null;
 
   const settings = await getAssistantSettings();
-  const baseUrl = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
+  const admin = getAdminClient();
+  const baseUrlFallback = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
+  const { base_url: baseUrl, meta: zdrMeta } = await resolveZdrRouting({
+    svc: admin,
+    base_url: baseUrlFallback,
+    behavior: (settings as any)?.behavior ?? resolveAssistantBehavior(null),
+    sensitive: true,
+  });
   const role = opts?.role ?? "rewriter";
   const primary =
     role === "maker"
@@ -616,6 +624,7 @@ async function maybeRewriteCopy(
       completion: res,
       stage: role === "maker" ? "maker" : "rewriter",
       baseUrl,
+      zdr: zdrMeta,
     });
     const parsed = safeJsonParse<{ s: string[][] }>(res.content);
     if (!parsed?.s?.length) return null;
@@ -733,7 +742,7 @@ type PlannerResponse = { suggestions: Array<{ kind?: string; title?: string; bod
 
 const OR_PLUGINS = [{ id: "response-healing" }];
 
-type UsageLogger = (entry: { completion: any; stage: string; baseUrl?: string | null }) => void;
+type UsageLogger = (entry: { completion: any; stage: string; baseUrl?: string | null; zdr?: ZdrRoutingMeta | null }) => void;
 
 function extractUpstreamRequestId(raw: unknown): string | null {
   if (!raw || typeof raw !== "object") return null;
@@ -765,7 +774,14 @@ async function maybePlanExtraDraftsWithPlanner(args: {
 
   // Keep planner calls cheap + rare (only when we have fewer deterministic drafts).
   const settings = await getAssistantSettings();
-  const baseUrl = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
+  const admin = getAdminClient();
+  const baseUrlFallback = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
+  const { base_url: baseUrl, meta: zdrMeta } = await resolveZdrRouting({
+    svc: admin,
+    base_url: baseUrlFallback,
+    behavior: (settings as any)?.behavior ?? resolveAssistantBehavior(null),
+    sensitive: true,
+  });
   const models: string[] = [
     settings.model_planner,
     settings.model_fast,
@@ -866,7 +882,7 @@ async function maybePlanExtraDraftsWithPlanner(args: {
         base_url: baseUrl ?? undefined,
       },
     });
-    args.usageLogger?.({ completion: res, stage: "planner", baseUrl });
+    args.usageLogger?.({ completion: res, stage: "planner", baseUrl, zdr: zdrMeta });
 
     const parsedV2 = safeJsonParse<PlannerResponseV2>(res.content);
     const parsedLegacy = safeJsonParse<PlannerResponse>(res.content);
@@ -921,6 +937,14 @@ async function maybeCriticRankDrafts(args: {
   if (args.drafts.length < 2) return null;
 
   const settings = await getAssistantSettings();
+  const admin = getAdminClient();
+  const baseUrlFallback = settings.openrouter_base_url ?? cfg.openrouterBaseUrl ?? null;
+  const { base_url: baseUrl, meta: zdrMeta } = await resolveZdrRouting({
+    svc: admin,
+    base_url: baseUrlFallback,
+    behavior: (settings as any)?.behavior ?? resolveAssistantBehavior(null),
+    sensitive: true,
+  });
   const models: string[] = [
     settings.model_critic,
     settings.model_fast,
@@ -986,7 +1010,7 @@ async function maybeCriticRankDrafts(args: {
         base_url: baseUrl ?? undefined,
       },
     });
-    args.usageLogger?.({ completion: res, stage: "critic", baseUrl });
+    args.usageLogger?.({ completion: res, stage: "critic", baseUrl, zdr: zdrMeta });
 
     const parsedV2 = safeJsonParse<CriticResponseV2>(res.content);
     const parsedLegacy = safeJsonParse<CriticResponse>(res.content);
@@ -1362,7 +1386,7 @@ Deno.serve(async (req) => {
         usage: completion.usage ?? null,
         upstream_request_id: extractUpstreamRequestId(completion.raw),
         variant: completion.variant ?? null,
-        meta: { stage: entry.stage },
+        meta: { stage: entry.stage, zdr: entry.zdr ?? null },
       });
     } catch {
       // best-effort

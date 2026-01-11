@@ -38,6 +38,13 @@ serve(async (req) => {
       svc.from("media_job_state").select("job_name, cursor, updated_at").order("job_name"),
     ]);
 
+    const { data: routingLogs } = await svc
+      .from("openrouter_request_log")
+      .select("id, created_at, meta")
+      .gte("created_at", since24hIso())
+      .order("created_at", { ascending: false })
+      .limit(500);
+
     const { data: recentErrors } = await svc
       .from("job_run_log")
       .select("id, created_at, started_at, job_name, error_code, error_message")
@@ -61,6 +68,31 @@ serve(async (req) => {
         }
       : null;
 
+    const zdrStats = (() => {
+      const rows = routingLogs ?? [];
+      let total = 0;
+      let requested = 0;
+      let used = 0;
+      let fallback = 0;
+      let sensitive = 0;
+
+      for (const row of rows) {
+        total += 1;
+        const meta = (row as any)?.meta ?? {};
+        const zdr =
+          (meta?.routing && typeof meta.routing === "object" ? (meta as any).routing.zdr : null) ??
+          (meta?.zdr ?? null);
+        if (!zdr || typeof zdr !== "object") continue;
+        if ((zdr as any).requested) requested += 1;
+        if ((zdr as any).used) used += 1;
+        if ((zdr as any).requested && !(zdr as any).used) fallback += 1;
+        if ((zdr as any).sensitive) sensitive += 1;
+      }
+
+      const coverage_rate = requested > 0 ? used / requested : 0;
+      return { total, requested, used, fallback, sensitive, coverage_rate };
+    })();
+
     return json(req, 200, {
       ok: true,
       active_profile,
@@ -68,6 +100,7 @@ serve(async (req) => {
       job_state: jobState ?? [],
       recent_errors: recentErrors ?? [],
       last_job_runs: lastRuns ?? [],
+      zdr_coverage: zdrStats,
     });
   } catch (e) {
     return jsonError(req, e);
