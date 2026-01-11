@@ -59,3 +59,54 @@ export async function fetchJsonWithTimeout(
     clearTimeout(id);
   }
 }
+
+export async function fetchStreamWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort("timeout"), timeoutMs);
+  try {
+    let res: Response;
+    try {
+      res = await fetch(url, { ...init, signal: controller.signal });
+    } catch (e: any) {
+      const err: any = e instanceof Error ? e : new Error(String(e ?? "fetch_failed"));
+      err.url = url;
+      err.timeoutMs = timeoutMs;
+      if (controller.signal.aborted) {
+        err.aborted = true;
+        err.abortReason = controller.signal.reason ?? null;
+      }
+      throw err;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      let data: unknown = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
+      const err: any = new Error(`upstream_error_${res.status}`);
+      err.status = res.status;
+      err.data = data;
+      err.url = url;
+      err.timeoutMs = timeoutMs;
+      err.statusText = res.statusText;
+      err.upstreamRequestId =
+        res.headers.get("x-request-id") ??
+        res.headers.get("request-id") ??
+        res.headers.get("openai-request-id") ??
+        res.headers.get("cf-ray") ??
+        null;
+      throw err;
+    }
+
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}

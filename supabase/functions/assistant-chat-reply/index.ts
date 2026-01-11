@@ -14,6 +14,7 @@ import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import {
   getRequestId,
   handleOptions,
+  corsHeadersFor,
   jsonError,
   jsonResponse,
   validateRequest,
@@ -49,6 +50,60 @@ const ASSISTANT_MEDIA_SIGNED_URL_TTL_SECONDS = 60 * 60;
 // Legacy defaults; overridden by assistant_settings.behavior.chunking
 const CHUNK_MODE_MAX_TOTAL_CHARS = 14_000;
 const CHUNK_MODE_MAX_SECTIONS = 6;
+const STREAM_CHUNK_SIZE = 24;
+
+function chunkText(text: string, size: number): string[] {
+  if (!text) return [];
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += size) {
+    out.push(text.slice(i, i + size));
+  }
+  return out;
+}
+
+function sseResponse(req: Request, body: Record<string, unknown>, replyText?: string): Response {
+  const encoder = new TextEncoder();
+  const chunks = chunkText(replyText ?? "", STREAM_CHUNK_SIZE);
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const sendEvent = (event: string, data: Record<string, unknown>) => {
+        const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+        controller.enqueue(encoder.encode(payload));
+      };
+
+      for (const chunk of chunks) {
+        sendEvent("delta", { text: chunk });
+      }
+      sendEvent("done", body);
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      ...corsHeadersFor(req),
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+      "x-request-id": getRequestId(req),
+    },
+  });
+}
+
+function finalizeResponse(
+  req: Request,
+  payload: RequestPayload,
+  body: Record<string, unknown>,
+  status = 200,
+  replyText?: string,
+): Response {
+  if (payload.stream) {
+    return sseResponse(req, body, replyText);
+  }
+  return jsonResponse(body, status, undefined, req);
+}
 
 /**
  * Avoid chunk mode for strict-format requests ("reply exactly", "format each line exactly", etc).
@@ -417,6 +472,7 @@ const RequestPayloadSchema = z
     // If the client cannot provide messageId (rare), it may provide raw text.
     userText: z.string().min(1).max(4000).optional(),
     maxContextMessages: z.number().int().min(4).max(40).optional(),
+    stream: z.boolean().optional(),
 
     // Internal job mode (x-job-token) can provide a userId explicitly.
     // This enables durable background execution when the client disconnects.
@@ -908,7 +964,7 @@ async function handler(req: Request) {
         } catch {
           // ignore
         }
-        return jsonResponse({ ok: true, reused: true, messageId: existing.id }, 200, undefined, req);
+        return finalizeResponse(req, payload, { ok: true, reused: true, messageId: existing.id }, 200);
       }
     }
 
@@ -945,11 +1001,11 @@ async function handler(req: Request) {
           // ignore
         }
 
-        return jsonResponse(
+        return finalizeResponse(
+          req,
+          payload,
           { ok: true, superseded: true, latestMessageId: latestUserMsg.id },
           200,
-          undefined,
-          req,
         );
       }
     }
@@ -1936,7 +1992,7 @@ async function handler(req: Request) {
                   // ignore
                 }
               }
-              return jsonResponse({ ok: true, reused: true, messageId: r1.data.id }, 200, undefined, req);
+              return finalizeResponse(req, payload, { ok: true, reused: true, messageId: r1.data.id }, 200);
             }
           }
 
@@ -1953,7 +2009,7 @@ async function handler(req: Request) {
               .limit(1)
               .maybeSingle();
             if (!r2.error && r2.data?.id) {
-              return jsonResponse({ ok: true, reused: true, messageId: r2.data.id }, 200, undefined, req);
+              return finalizeResponse(req, payload, { ok: true, reused: true, messageId: r2.data.id }, 200);
             }
           }
 
@@ -1967,7 +2023,7 @@ async function handler(req: Request) {
             .limit(1)
             .maybeSingle();
           if (!r3.error && r3.data?.id) {
-            return jsonResponse({ ok: true, reused: true, messageId: r3.data.id }, 200, undefined, req);
+            return finalizeResponse(req, payload, { ok: true, reused: true, messageId: r3.data.id }, 200);
           }
         } catch {
           // ignore
@@ -2013,7 +2069,9 @@ async function handler(req: Request) {
       }
     }
 
-    return jsonResponse(
+    return finalizeResponse(
+      req,
+      payload,
       {
         ok: true,
         conversationId,
@@ -2023,8 +2081,7 @@ async function handler(req: Request) {
         aiError: aiErrorEnvelope ?? null,
       },
       200,
-      undefined,
-      req,
+      finalReplyText ?? undefined,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
