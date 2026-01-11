@@ -29,6 +29,7 @@ import { classifyOpenRouterError, type AiCulprit, type AiErrorEnvelope } from ".
 import {
   openrouterChatWithFallback,
   type OpenRouterMessage,
+  type OpenRouterProviderRouting,
 } from "../_shared/openrouter.ts";
 import { getOpenRouterCapabilities } from "../_shared/openrouterCapabilities.ts";
 import {
@@ -84,6 +85,25 @@ function shouldUseChunkMode(txt: string, behavior: AssistantBehavior): boolean {
     const cue = String(c ?? "").trim().toLowerCase();
     return cue ? low.includes(cue) : false;
   });
+}
+
+function uniqStrings(list: Array<string | null | undefined>): string[] {
+  const out: string[] = [];
+  for (const item of list) {
+    const v = String(item ?? "").trim();
+    if (!v) continue;
+    if (!out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+function hasProviderRoutingConfig(provider?: AssistantBehavior["router"]["policy"]["provider"] | null): boolean {
+  if (!provider) return false;
+  const lists = [provider.order, provider.require, provider.allow, provider.ignore];
+  if (lists.some((arr) => Array.isArray(arr) && arr.length > 0)) return true;
+  if (provider.allow_fallbacks === false) return true;
+  if (provider.sort && provider.sort !== "price") return true;
+  return false;
 }
 
 function buildChunkOutlineResponseFormat() {
@@ -1059,19 +1079,38 @@ async function handler(req: Request) {
       cfg.openrouterBaseUrl ??
       "https://openrouter.ai/api/v1";
 
-    const models = Array.from(
-      new Set(
-        [
-          assistantSettings.model_fast ?? cfg.openrouterModelFast ?? null,
-          assistantSettings.model_creative ?? cfg.openrouterModelCreative ?? null,
-          assistantSettings.model_planner ?? cfg.openrouterModelPlanner ?? null,
-          assistantSettings.model_maker ?? cfg.openrouterModelMaker ?? null,
-          assistantSettings.model_critic ?? cfg.openrouterModelCritic ?? null,
-          ...assistantSettings.fallback_models,
-          ...assistantSettings.model_catalog,
-        ].filter(Boolean) as string[],
-      ),
-    );
+    const routingPolicy = behavior?.router?.policy ?? null;
+    const policyMode = routingPolicy?.mode === "auto" ? "auto" : "fallback";
+    const policyAutoModel = String(routingPolicy?.auto_model ?? "").trim() || null;
+    const policyFallbacks = Array.isArray(routingPolicy?.fallback_models) ? routingPolicy.fallback_models : [];
+    const routingProvider: OpenRouterProviderRouting | null = hasProviderRoutingConfig(routingPolicy?.provider)
+      ? {
+        order: routingPolicy?.provider.order ?? [],
+        require: routingPolicy?.provider.require ?? [],
+        allow: routingPolicy?.provider.allow ?? [],
+        ignore: routingPolicy?.provider.ignore ?? [],
+        allow_fallbacks: routingPolicy?.provider.allow_fallbacks ?? true,
+        sort: routingPolicy?.provider.sort ?? "price",
+      }
+      : null;
+    const routingVariants =
+      Array.isArray(routingPolicy?.variants) && routingPolicy.variants.length ? routingPolicy.variants : null;
+
+    const baseModels = uniqStrings([
+      assistantSettings.model_fast ?? cfg.openrouterModelFast ?? null,
+      assistantSettings.model_creative ?? cfg.openrouterModelCreative ?? null,
+      assistantSettings.model_planner ?? cfg.openrouterModelPlanner ?? null,
+      assistantSettings.model_maker ?? cfg.openrouterModelMaker ?? null,
+      assistantSettings.model_critic ?? cfg.openrouterModelCritic ?? null,
+      ...assistantSettings.fallback_models,
+      ...assistantSettings.model_catalog,
+    ]);
+
+    const models = uniqStrings([
+      ...(policyMode === "auto" && policyAutoModel ? [policyAutoModel] : []),
+      ...baseModels,
+      ...policyFallbacks,
+    ]);
 
     const capabilitySummary = models.length
       ? await getOpenRouterCapabilities({ models, base_url: baseUrl })
@@ -1101,6 +1140,7 @@ async function handler(req: Request) {
     let finalModel: string | null = null;
     let finalUsage: unknown = null;
     let navigateTo: string | null = null;
+    let routingPayloadVariant: string | null = null;
 
     // Capability router: if the model tries to answer personal-data questions without evidence,
     // we force a minimal snapshot read once to anchor replies in ground truth.
@@ -1249,6 +1289,8 @@ async function handler(req: Request) {
             messages: orMessages,
             response_format: responseFormat,
             plugins,
+            provider: routingProvider ?? undefined,
+            payload_variants: routingVariants ?? undefined,
             defaults: {
               ...(assistantSettings.params ?? {}),
               stream: false,
@@ -1366,6 +1408,7 @@ async function handler(req: Request) {
 
         finalModel = completion.model ?? null;
         finalUsage = completion.usage ?? null;
+        routingPayloadVariant = (completion as any)?.variant ?? null;
 
         const agent = parseAgentJson(completion.content);
 
@@ -1675,6 +1718,35 @@ async function handler(req: Request) {
     // Never allow an empty reply to crash the DM thread.
     // If the model returns nothing (or strict override returns an empty string), fall back to a safe token.
     const replyText = ((finalReplyText ?? "").trim() || "NO_RESULTS").trim();
+    const primaryModel = models[0] ?? null;
+    const usedFallback =
+      finalModel && primaryModel
+        ? finalModel === primaryModel
+          ? false
+          : models.includes(finalModel)
+          ? true
+          : null
+        : null;
+    const routingTelemetry = {
+      policy: {
+        mode: policyMode,
+        auto_model: policyAutoModel,
+        fallback_models: policyFallbacks,
+        provider: routingProvider ?? null,
+        variants: routingVariants ?? null,
+      },
+      resolved: {
+        models,
+        base_url: baseUrl,
+      },
+      decision: {
+        kind: routed ? "deterministic" : "openrouter",
+        model: finalModel ?? null,
+        used_fallback: routed ? null : usedFallback,
+        payload_variant: routed ? null : routingPayloadVariant,
+        auto_router: policyMode === "auto" && !routed,
+      },
+    };
 
     // 6) Insert assistant message.
     const clientId = `assistant_${crypto.randomUUID()}`;
@@ -1706,6 +1778,7 @@ async function handler(req: Request) {
           ).slice(0, 50),
           model: finalModel ?? null,
           usage: finalUsage ?? null,
+          routing: routingTelemetry,
           ui: finalUi ?? null,
           actions: finalActions ?? null,
           toolTrace: toolTrace.map((t) => ({
