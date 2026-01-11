@@ -307,6 +307,19 @@ export const APP_SETTINGS_REGISTRY = {
     },
   },
 
+  "assistant.output_validation.mode": {
+    scope: "server_only",
+    description: "Structured output validation policy for assistant responses (strict rejects invalid output).",
+    schema: z.enum(["strict", "lenient"]),
+    default: "lenient",
+  },
+  "assistant.output_validation.auto_heal": {
+    scope: "server_only",
+    description: "Attempt auto-healing when structured output validation fails.",
+    schema: z.boolean(),
+    default: true,
+  },
+
 
   // Assistant reply runner knobs (server-only, non-secret)
   "assistant.reply_runner.claim_limit_default": {
