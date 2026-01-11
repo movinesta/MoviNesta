@@ -6,8 +6,11 @@ import {
   getAssistantSettings,
   setAssistantSettings,
   testAssistantProvider,
+  testAssistantRouting,
+  getOpenRouterRequestLog,
   type AssistantHealthSnapshot,
 } from "../lib/api";
+import type { OpenRouterRequestLogRow } from "../lib/types";
 import { StatCard } from "../components/StatCard";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -29,6 +32,13 @@ function Title(props: { children: React.ReactNode }) {
 function pct(x: number) {
   if (!isFinite(x)) return "0%";
   return `${Math.round(x * 100)}%`;
+}
+
+function fmtTs(ts?: string | null) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (!isFinite(d.getTime())) return String(ts);
+  return d.toISOString().replace("T", " ").slice(0, 16);
 }
 
 type ParamField =
@@ -66,6 +76,8 @@ const parseList = (value: string) =>
     .filter(Boolean);
 
 type AnyJson = any;
+
+const formatList = (value: AnyJson): string => (Array.isArray(value) ? value.join("\n") : "");
 
 function isPlainObject(v: AnyJson): v is Record<string, AnyJson> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -119,6 +131,13 @@ function triBoolToMaybe(v: string): boolean | undefined {
   return undefined;
 }
 
+function readRoutingMeta(meta: AnyJson): { routing: AnyJson | null; decision: AnyJson | null } {
+  if (!isPlainObject(meta)) return { routing: null, decision: null };
+  const routing = isPlainObject(meta.routing) ? meta.routing : null;
+  const decision = isPlainObject(meta.decision) ? meta.decision : null;
+  return { routing, decision };
+}
+
 type DiffRow = { path: string; a: AnyJson; b: AnyJson };
 
 function diffJson(a: AnyJson, b: AnyJson, prefix = ""): DiffRow[] {
@@ -169,6 +188,12 @@ export default function Assistant() {
   const [providerTestResult, setProviderTestResult] = useState<any>(null);
   const [providerTestError, setProviderTestError] = useState<string | null>(null);
 
+  // Routing policy test
+  const [routingTestPrompt, setRoutingTestPrompt] = useState<string>("Reply with exactly: OK");
+  const [routingTestMode, setRoutingTestMode] = useState<"current" | "auto" | "fallback">("current");
+  const [routingTestResult, setRoutingTestResult] = useState<any>(null);
+  const [routingTestError, setRoutingTestError] = useState<string | null>(null);
+
   // Hint drawer (assistant settings)
   const [hintOpen, setHintOpen] = useState(false);
   const [hintKey, setHintKey] = useState<string | null>(null);
@@ -177,6 +202,12 @@ export default function Assistant() {
   const [aiFailureOpen, setAiFailureOpen] = useState(false);
   type AiFailureRow = NonNullable<AssistantHealthSnapshot["recentAiFailures"]>[number];
   const [selectedAiFailure, setSelectedAiFailure] = useState<AiFailureRow | null>(null);
+
+  // Routing request log details drawer
+  const [routingLogSelectedId, setRoutingLogSelectedId] = useState<string | null>(null);
+  const [routingLogLimit, setRoutingLogLimit] = useState<number>(50);
+  const [routingLogRequestId, setRoutingLogRequestId] = useState<string>("");
+  const [routingLogFn, setRoutingLogFn] = useState<string>("assistant-chat-reply");
 
   const closeAiFailureDrawer = () => {
     setAiFailureOpen(false);
@@ -202,6 +233,20 @@ export default function Assistant() {
     enabled: tab === "settings",
   });
 
+  const routingLogQ = useQuery({
+    queryKey: [
+      "openrouter-request-log",
+      { limit: routingLogLimit, requestId: routingLogRequestId, fn: routingLogFn },
+    ],
+    queryFn: () =>
+      getOpenRouterRequestLog({
+        limit: routingLogLimit,
+        request_id: routingLogRequestId.trim() || null,
+        fn: routingLogFn.trim() || null,
+      }),
+    enabled: tab === "diagnostics",
+  });
+
   const saveSettings = useMutation({
     mutationFn: (payload: any) => setAssistantSettings(payload),
     onSuccess: () => {
@@ -222,6 +267,18 @@ export default function Assistant() {
     },
   });
 
+  const runRoutingTest = useMutation({
+    mutationFn: (payload: { prompt?: string; mode?: "current" | "auto" | "fallback" }) => testAssistantRouting(payload),
+    onSuccess: (resp) => {
+      setRoutingTestError(null);
+      setRoutingTestResult(resp);
+    },
+    onError: (err: any) => {
+      setRoutingTestResult(null);
+      setRoutingTestError(err?.message ?? "Routing test failed");
+    },
+  });
+
   const data = metricsQ.data as any;
 
   const series = useMemo(() => (data?.series ?? []).map((r: any) => ({ ...r, day: String(r.day).slice(5) })), [data]);
@@ -237,6 +294,11 @@ export default function Assistant() {
   const settingsData = settingsQ.data as any;
   const assistantSettings = settingsData?.assistant_settings;
   const defaultSettings = settingsData?.defaults?.settings;
+  const routingRows = (routingLogQ.data?.rows ?? []) as OpenRouterRequestLogRow[];
+  const selectedRoutingRow = useMemo(
+    () => routingRows.find((r) => String(r.id) === String(routingLogSelectedId)) ?? null,
+    [routingRows, routingLogSelectedId],
+  );
 
   const defaultBehavior: AnyJson = defaultSettings?.behavior ?? {};
   const parsedBehavior = useMemo(() => {
@@ -459,6 +521,11 @@ export default function Assistant() {
     setSettingsInitialized(true);
   }, [assistantSettings, defaultSettings, settingsInitialized]);
 
+  useEffect(() => {
+    if (!routingLogSelectedId) return;
+    if (!selectedRoutingRow) setRoutingLogSelectedId(null);
+  }, [routingLogSelectedId, selectedRoutingRow]);
+
   function fmtSec(s: number) {
     const sec = Math.max(0, Math.floor(Number(s) || 0));
     const m = Math.floor(sec / 60);
@@ -468,14 +535,6 @@ export default function Assistant() {
     const mm = m % 60;
     if (h <= 0) return `${m}m ${r}s`;
     return `${h}h ${mm}m`;
-  }
-
-  function fmtTs(ts?: string | null) {
-    if (!ts) return "";
-    // Keep it compact: YYYY-MM-DD HH:MM
-    const d = new Date(ts);
-    if (!isFinite(d.getTime())) return String(ts);
-    return d.toISOString().replace("T", " ").slice(0, 16);
   }
 
   const content = (() => {
@@ -770,6 +829,117 @@ export default function Assistant() {
               ) : null}
             </Card>
           </div>
+
+          <div className="mt-6">
+            <Card>
+              <div className="mb-2 text-sm font-semibold">Routing decision log</div>
+              <div className="text-xs text-zinc-500">
+                Recent OpenRouter requests with routing policy details (per request ID).
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-500">Rows</span>
+                  <input
+                    type="number"
+                    min={10}
+                    max={200}
+                    value={String(routingLogLimit)}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (!raw) return;
+                      const n = Number(raw);
+                      if (!Number.isFinite(n)) return;
+                      setRoutingLogLimit(Math.max(10, Math.min(200, Math.trunc(n))));
+                    }}
+                    className="w-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-500">Function</span>
+                  <select
+                    value={routingLogFn}
+                    onChange={(e) => setRoutingLogFn(e.target.value)}
+                    className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  >
+                    <option value="">All</option>
+                    <option value="assistant-chat-reply">assistant-chat-reply</option>
+                    <option value="assistant-orchestrator">assistant-orchestrator</option>
+                    <option value="admin-assistant-settings">admin-assistant-settings</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-500">Request ID</span>
+                  <input
+                    value={routingLogRequestId}
+                    onChange={(e) => setRoutingLogRequestId(e.target.value)}
+                    placeholder="req_..."
+                    className="w-64 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs"
+                  onClick={() => routingLogQ.refetch()}
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {routingLogQ.isLoading ? (
+                <div className="mt-3 text-xs text-zinc-500">Loading routing logs…</div>
+              ) : routingLogQ.isError ? (
+                <div className="mt-3">
+                  <ErrorBox error={routingLogQ.error} />
+                </div>
+              ) : (
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th>When</Th>
+                      <Th>Request ID</Th>
+                      <Th>Mode</Th>
+                      <Th>Model</Th>
+                      <Th>Variant</Th>
+                      <Th>Provider</Th>
+                      <Th>Function</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routingRows.length ? (
+                      routingRows.map((r) => {
+                        const { routing, decision } = readRoutingMeta(r.meta);
+                        const mode = String(routing?.policy?.mode ?? "—");
+                        const provider = String(decision?.provider ?? r.provider ?? "—");
+                        return (
+                          <tr
+                            key={r.id}
+                            className="border-t border-zinc-100 cursor-pointer hover:bg-zinc-50"
+                            onClick={() => setRoutingLogSelectedId(String(r.id))}
+                          >
+                            <Td>{fmtTs(r.created_at)}</Td>
+                            <Td className="font-mono text-xs">{r.request_id ?? "—"}</Td>
+                            <Td className="font-mono text-xs">{mode}</Td>
+                            <Td className="font-mono text-xs">{r.model ?? "—"}</Td>
+                            <Td className="font-mono text-xs">{r.variant ?? "—"}</Td>
+                            <Td className="font-mono text-xs">{provider}</Td>
+                            <Td className="font-mono text-xs">{r.fn}</Td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <Td colSpan={7} className="p-6">
+                          <EmptyState title="No routing logs" message="No OpenRouter request logs match this filter." className="border-0 bg-transparent p-0" />
+                        </Td>
+                      </tr>
+                    )}
+                  </tbody>
+                </Table>
+              )}
+            </Card>
+          </div>
         </>
       );
     }
@@ -931,6 +1101,141 @@ export default function Assistant() {
                                 variant="ghost"
                                 className="ml-2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px]"
                                 onClick={() => openHint(String(providerTestResult.test.culprit.var), { scroll: true })}
+                              >
+                                Open culprit
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </Card>
+            </div>
+
+            <div className="mt-4">
+              <Card>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">Routing policy test</div>
+                </div>
+                <div className="text-xs text-zinc-500">
+                  Runs a tiny request using the current routing policy and captures the selected model/provider/variant.
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
+                  <label className="flex flex-col gap-1 md:col-span-1">
+                    <span className="text-xs font-semibold text-zinc-600">Policy mode</span>
+                    <select
+                      value={routingTestMode}
+                      onChange={(e) => setRoutingTestMode(e.target.value as any)}
+                      className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                    >
+                      <option value="current">Use saved policy</option>
+                      <option value="auto">Force auto</option>
+                      <option value="fallback">Force fallback</option>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 md:col-span-3">
+                    <span className="text-xs font-semibold text-zinc-600">Prompt</span>
+                    <input
+                      value={routingTestPrompt}
+                      onChange={(e) => setRoutingTestPrompt(e.target.value)}
+                      placeholder="Reply with exactly: OK"
+                      className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                    />
+                  </label>
+
+                  <div className="flex items-end md:col-span-1">
+                    <Button
+                      type="button"
+                      className="w-full rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white"
+                      disabled={runRoutingTest.isPending}
+                      onClick={async () => {
+                        setRoutingTestError(null);
+                        setRoutingTestResult(null);
+                        try {
+                          await runRoutingTest.mutateAsync({ prompt: routingTestPrompt, mode: routingTestMode });
+                        } catch {
+                          // handled in onError
+                        }
+                      }}
+                    >
+                      {runRoutingTest.isPending ? "Running…" : "Run test"}
+                    </Button>
+                  </div>
+                </div>
+
+                {routingTestError ? (
+                  <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{routingTestError}</div>
+                ) : null}
+
+                {routingTestResult ? (
+                  <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-semibold text-zinc-900">
+                        {routingTestResult?.test?.ok ? "✅ Test ok" : "⚠ Test failed"}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-xs text-zinc-500 font-mono">
+                          {routingTestResult?.requestId ? `req ${routingTestResult.requestId}` : ""}
+                        </div>
+                        <CopyButton
+                          label="Copy debug bundle"
+                          className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs"
+                          text={JSON.stringify(
+                            {
+                              requestId: routingTestResult?.requestId ?? null,
+                              test: routingTestResult?.test ?? null,
+                              selected: {
+                                mode: routingTestMode,
+                                prompt: routingTestPrompt,
+                                base_url: settingsForm?.openrouter_base_url ?? null,
+                              },
+                            },
+                            null,
+                            2,
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {routingTestResult?.test?.ok ? (
+                      <div className="mt-2 space-y-2 text-sm text-zinc-700">
+                        <div>
+                          Used model: <span className="font-mono text-xs">{routingTestResult.test.usedModel ?? ""}</span>
+                          {typeof routingTestResult.test.durationMs === "number" ? (
+                            <span className="ml-2 text-xs text-zinc-500">({routingTestResult.test.durationMs}ms)</span>
+                          ) : null}
+                        </div>
+                        <div>
+                          Provider: <span className="font-mono text-xs">{routingTestResult.test.usedProvider ?? "—"}</span>
+                          <span className="ml-2 text-zinc-500">·</span>
+                          <span className="ml-2 text-zinc-500">Variant:</span>{" "}
+                          <span className="font-mono text-xs">{routingTestResult.test.usedVariant ?? "—"}</span>
+                        </div>
+                        {routingTestResult.test.contentPreview ? (
+                          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 font-mono text-xs">
+                            {routingTestResult.test.contentPreview}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        <div className="text-sm text-zinc-800">{routingTestResult?.test?.userMessage ?? "Routing test failed."}</div>
+                        {routingTestResult?.test?.envelope ? (
+                          <div className="text-xs text-zinc-500">
+                            Code: <span className="font-mono">{routingTestResult.test.envelope.code}</span>
+                            {routingTestResult.test.culprit?.var ? (
+                              <span className="ml-2">Culprit: <span className="font-mono">{routingTestResult.test.culprit.var}</span></span>
+                            ) : null}
+                            {routingTestResult.test.culprit?.var ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="ml-2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px]"
+                                onClick={() => openHint(String(routingTestResult.test.culprit.var), { scroll: true })}
                               >
                                 Open culprit
                               </Button>
@@ -1168,7 +1473,154 @@ export default function Assistant() {
                           Stored at <span className="font-mono">behavior.rate_limit.chat_reply</span>.
                         </div>
                       </div>
-                    <div className="rounded-lg border border-zinc-200 bg-white p-3">
+
+                      <div className="rounded-lg border border-zinc-200 bg-white p-3 md:col-span-2">
+                        <div className="mb-2 text-[11px] font-semibold text-zinc-600">Routing policy</div>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Mode</span>
+                            <select
+                              value={String(getIn(parsedBehavior.value, ["router", "policy", "mode"], "fallback"))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) => setIn(b, ["router", "policy", "mode"], e.target.value || "fallback"))
+                              }
+                              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                            >
+                              <option value="fallback">Fallback</option>
+                              <option value="auto">Auto</option>
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Provider sort</span>
+                            <select
+                              value={String(getIn(parsedBehavior.value, ["router", "policy", "provider", "sort"], "price"))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) => setIn(b, ["router", "policy", "provider", "sort"], e.target.value || "price"))
+                              }
+                              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                            >
+                              <option value="price">Price</option>
+                              <option value="throughput">Throughput</option>
+                              <option value="latency">Latency</option>
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Allow provider fallbacks</span>
+                            <select
+                              value={String(getIn(parsedBehavior.value, ["router", "policy", "provider", "allow_fallbacks"], true))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) =>
+                                  setIn(b, ["router", "policy", "provider", "allow_fallbacks"], e.target.value === "true"),
+                                )
+                              }
+                              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                            >
+                              <option value="true">True</option>
+                              <option value="false">False</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Auto model</span>
+                            <input
+                              type="text"
+                              value={String(getIn(parsedBehavior.value, ["router", "policy", "auto_model"], ""))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) => setIn(b, ["router", "policy", "auto_model"], e.target.value))
+                              }
+                              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                              placeholder={String(getIn(defaultBehavior, ["router", "policy", "auto_model"], ""))}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Fallback models (one per line)</span>
+                            <textarea
+                              value={formatList(getIn(parsedBehavior.value, ["router", "policy", "fallback_models"], []))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) =>
+                                  setIn(b, ["router", "policy", "fallback_models"], parseList(e.target.value)),
+                                )
+                              }
+                              className="h-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-mono"
+                              placeholder={formatList(getIn(defaultBehavior, ["router", "policy", "fallback_models"], []))}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Provider order (one per line)</span>
+                            <textarea
+                              value={formatList(getIn(parsedBehavior.value, ["router", "policy", "provider", "order"], []))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) => setIn(b, ["router", "policy", "provider", "order"], parseList(e.target.value)))
+                              }
+                              className="h-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-mono"
+                              placeholder={formatList(getIn(defaultBehavior, ["router", "policy", "provider", "order"], []))}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Provider require (one per line)</span>
+                            <textarea
+                              value={formatList(getIn(parsedBehavior.value, ["router", "policy", "provider", "require"], []))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) =>
+                                  setIn(b, ["router", "policy", "provider", "require"], parseList(e.target.value)),
+                                )
+                              }
+                              className="h-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-mono"
+                              placeholder={formatList(getIn(defaultBehavior, ["router", "policy", "provider", "require"], []))}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Provider allow (one per line)</span>
+                            <textarea
+                              value={formatList(getIn(parsedBehavior.value, ["router", "policy", "provider", "allow"], []))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) =>
+                                  setIn(b, ["router", "policy", "provider", "allow"], parseList(e.target.value)),
+                                )
+                              }
+                              className="h-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-mono"
+                              placeholder={formatList(getIn(defaultBehavior, ["router", "policy", "provider", "allow"], []))}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Provider ignore (one per line)</span>
+                            <textarea
+                              value={formatList(getIn(parsedBehavior.value, ["router", "policy", "provider", "ignore"], []))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) =>
+                                  setIn(b, ["router", "policy", "provider", "ignore"], parseList(e.target.value)),
+                                )
+                              }
+                              className="h-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-mono"
+                              placeholder={formatList(getIn(defaultBehavior, ["router", "policy", "provider", "ignore"], []))}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="mt-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Payload variants (one per line)</span>
+                            <textarea
+                              value={formatList(getIn(parsedBehavior.value, ["router", "policy", "variants"], []))}
+                              onChange={(e) =>
+                                updateBehaviorJson((b) => setIn(b, ["router", "policy", "variants"], parseList(e.target.value)))
+                              }
+                              className="h-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-mono"
+                              placeholder={formatList(getIn(defaultBehavior, ["router", "policy", "variants"], []))}
+                            />
+                          </label>
+                          <div className="mt-2 text-[11px] text-zinc-500">
+                            Stored at <span className="font-mono">behavior.router.policy.*</span>.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-zinc-200 bg-white p-3">
                         <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-600">
                           <div>User-facing AI error detail</div>
                           <HintIcon title="Details" onClick={() => openHint("behavior.diagnostics.user_error_detail", { scroll: false })} />
@@ -2136,6 +2588,125 @@ export default function Assistant() {
         </div>
       ) : null}
 
+      <RoutingLogDetailsDrawer
+        open={Boolean(selectedRoutingRow)}
+        row={selectedRoutingRow}
+        onClose={() => setRoutingLogSelectedId(null)}
+      />
+
+    </div>
+  );
+}
+
+function RoutingLogDetailsDrawer(props: { open: boolean; row: OpenRouterRequestLogRow | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!props.open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") props.onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [props.open, props.onClose]);
+
+  if (!props.open || !props.row) return null;
+
+  const r = props.row;
+  const { routing, decision } = readRoutingMeta(r.meta);
+  const provider = String(decision?.provider ?? r.provider ?? "—");
+  const metaText = (() => {
+    try {
+      return JSON.stringify(r.meta ?? {}, null, 2);
+    } catch {
+      return String(r.meta ?? "{}");
+    }
+  })();
+
+  const routingText = (() => {
+    try {
+      return JSON.stringify(routing ?? {}, null, 2);
+    } catch {
+      return String(routing ?? "{}");
+    }
+  })();
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-zinc-200 bg-white p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-lg font-semibold tracking-tight text-zinc-900">Routing request details</div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500 font-mono">
+              <span>{r.request_id ?? r.id}</span>
+              <CopyButton text={String(r.request_id ?? r.id)} label="Copy request id" className="h-8 px-2 py-1 text-xs" />
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            type="button"
+            className="rounded-xl px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100"
+            onClick={props.onClose}
+            aria-label="Close"
+          >
+            Close
+          </Button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <div className="text-xs font-medium text-zinc-500">When</div>
+            <div className="text-zinc-700">{fmtTs(r.created_at)}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Function</div>
+            <div className="font-mono text-xs text-zinc-700">{r.fn}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Model</div>
+            <div className="font-mono text-xs text-zinc-700">{r.model ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Variant</div>
+            <div className="font-mono text-xs text-zinc-700">{r.variant ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Provider</div>
+            <div className="font-mono text-xs text-zinc-700">{provider}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Upstream request</div>
+            <div className="font-mono text-xs text-zinc-700">{r.upstream_request_id ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Base URL</div>
+            <div className="font-mono text-xs text-zinc-700">{r.base_url ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Policy mode</div>
+            <div className="font-mono text-xs text-zinc-700">{String(routing?.policy?.mode ?? "—")}</div>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-medium text-zinc-500">Routing policy</div>
+            <CopyButton text={routingText} label="Copy routing JSON" className="h-8 px-2 py-1 text-xs" />
+          </div>
+          <pre className="mt-2 max-h-[24vh] overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+            {routingText}
+          </pre>
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-medium text-zinc-500">Meta</div>
+            <CopyButton text={metaText} label="Copy JSON" className="h-8 px-2 py-1 text-xs" />
+          </div>
+          <pre className="mt-2 max-h-[24vh] overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+            {metaText}
+          </pre>
+        </div>
+      </div>
     </div>
   );
 }

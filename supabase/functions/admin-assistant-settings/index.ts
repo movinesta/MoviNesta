@@ -62,7 +62,7 @@ function extractUpstreamRequestId(raw: unknown): string | null {
 
 const BodySchema = z
   .object({
-    action: z.enum(["get", "set", "test_provider"]).default("get"),
+    action: z.enum(["get", "set", "test_provider", "test_routing"]).default("get"),
     settings: z
       .object({
         openrouter_base_url: z.string().url().nullable().optional(),
@@ -85,6 +85,12 @@ const BodySchema = z
         model: z.string().min(1).optional(),
       })
       .optional(),
+    routing_test: z
+      .object({
+        prompt: z.string().min(1).max(4000).optional(),
+        mode: z.enum(["current", "auto", "fallback"]).optional(),
+      })
+      .optional(),
   })
   .optional();
 
@@ -96,6 +102,33 @@ function uniqStrings(list: Array<string | null | undefined>): string[] {
     if (!out.includes(v)) out.push(v);
   }
   return out;
+}
+
+function hasProviderRoutingConfig(provider?: Record<string, unknown> | null): boolean {
+  if (!provider) return false;
+  const lists = [
+    (provider as any).order,
+    (provider as any).require,
+    (provider as any).allow,
+    (provider as any).ignore,
+  ];
+  if (lists.some((arr) => Array.isArray(arr) && arr.length > 0)) return true;
+  if ((provider as any).allow_fallbacks === false) return true;
+  if ((provider as any).sort && (provider as any).sort !== "price") return true;
+  return false;
+}
+
+function extractRoutingProvider(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = (raw as any).provider ?? (raw as any).provider_name ?? (raw as any).providerName ?? null;
+  if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  if (candidate && typeof candidate === "object") {
+    const name = (candidate as any).name ?? (candidate as any).id ?? (candidate as any).provider ?? null;
+    if (typeof name === "string" && name.trim()) return name.trim();
+  }
+  const metaCandidate = (raw as any)?.metadata?.provider ?? (raw as any)?.meta?.provider ?? null;
+  if (typeof metaCandidate === "string" && metaCandidate.trim()) return metaCandidate.trim();
+  return null;
 }
 
 serve(async (req) => {
@@ -310,6 +343,225 @@ serve(async (req) => {
           culprit = explicitModel
             ? { var: "admin_test.model", source: "request", value_preview: explicitModel }
             : { var: modelVarForKey[modelKey] ?? "assistant_settings.model_fast", source: "assistant_settings", value_preview: attemptedModel };
+        } else if (status === 404 || lower.includes("not found")) {
+          culprit = baseUrlCulprit;
+        }
+
+        const classified = classifyOpenRouterError({
+          userFacing,
+          err: e,
+          requestId,
+          runnerJobId: null,
+          baseUrl,
+          timeoutMs,
+          attemptedModel,
+          payloadVariant,
+          upstreamRequestId,
+          modelsTried,
+          culprit,
+        });
+
+        return json(req, 200, {
+          ok: true,
+          requestId,
+          test: {
+            ok: false,
+            durationMs,
+            baseUrl,
+            usedModel: attemptedModel,
+            userMessage: classified.userMessage,
+            envelope: classified.envelope,
+            culprit,
+          },
+        }, { "x-request-id": requestId });
+      }
+    }
+
+    if (action === "test_routing") {
+      const requestId = (req.headers.get("x-request-id") ?? req.headers.get("x-correlation-id") ?? "").trim() ||
+        (() => {
+          try {
+            return crypto.randomUUID();
+          } catch {
+            return `req_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+          }
+        })();
+
+      let settings;
+      try {
+        settings = await getAssistantSettings(svc);
+      } catch (err: any) {
+        const msg = String(err?.message ?? err ?? "");
+        return json(req, 503, {
+          ok: false,
+          message: msg.includes("assistant_settings")
+            ? "assistant_settings table is missing. Apply the migration before using this endpoint."
+            : "Failed to load assistant settings.",
+        }, { "x-request-id": requestId });
+      }
+
+      const routingTest = body?.routing_test ?? {};
+      const prompt = String(routingTest.prompt ?? "Reply with exactly: OK").trim();
+      const modeOverride = String(routingTest.mode ?? "current").trim().toLowerCase();
+
+      const behavior = (settings as any)?.behavior ?? {};
+      const routingPolicy = (behavior as any)?.router?.policy ?? {};
+      const defaultMode = String(routingPolicy?.mode ?? "").trim().toLowerCase() === "auto" ? "auto" : "fallback";
+      const effectiveMode = modeOverride === "auto" || modeOverride === "fallback" ? modeOverride : defaultMode;
+      const policyAutoModel = String(routingPolicy?.auto_model ?? "").trim() || null;
+      const policyFallbacks = Array.isArray(routingPolicy?.fallback_models) ? routingPolicy.fallback_models : [];
+      const policyVariants =
+        Array.isArray(routingPolicy?.variants) && routingPolicy.variants.length ? routingPolicy.variants : null;
+      const policyProvider = hasProviderRoutingConfig(routingPolicy?.provider ?? null)
+        ? {
+          order: routingPolicy?.provider?.order ?? [],
+          require: routingPolicy?.provider?.require ?? [],
+          allow: routingPolicy?.provider?.allow ?? [],
+          ignore: routingPolicy?.provider?.ignore ?? [],
+          allow_fallbacks: routingPolicy?.provider?.allow_fallbacks ?? true,
+          sort: routingPolicy?.provider?.sort ?? "price",
+        }
+        : null;
+
+      const baseModels = uniqStrings([
+        settings.model_fast ?? null,
+        settings.model_creative ?? null,
+        settings.model_planner ?? null,
+        settings.model_maker ?? null,
+        settings.model_critic ?? null,
+        ...(settings.fallback_models ?? []),
+        ...(settings.model_catalog ?? []),
+      ]);
+
+      const models = uniqStrings([
+        ...(effectiveMode === "auto" && policyAutoModel ? [policyAutoModel] : []),
+        ...baseModels,
+        ...policyFallbacks,
+      ]);
+
+      const baseUrl = (settings.openrouter_base_url ?? "").trim() || null;
+      const timeoutMs = Number((settings as any)?.params?.timeout_ms ?? 12_000);
+
+      const diagnostics = ((settings as any)?.behavior?.diagnostics ?? {}) as any;
+      const userFacing = {
+        mode: diagnostics?.user_error_detail ?? "friendly",
+        showCulpritVar: diagnostics?.user_error_show_culprit_var,
+        showCulpritValue: diagnostics?.user_error_show_culprit_value,
+        showStatusModel: diagnostics?.user_error_show_status_model,
+        showTraceIds: diagnostics?.user_error_show_trace_ids,
+      };
+
+      const t0 = Date.now();
+      try {
+        if (!models.length) {
+          throw new Error("No models selected (assistant_settings.* is empty)");
+        }
+
+        const messages: OpenRouterMessage[] = [
+          { role: "system", content: "You are an API routing test. Reply very briefly." },
+          { role: "user", content: prompt },
+        ];
+
+        const attribution = (behavior as any)?.router?.attribution ?? undefined;
+
+        const res = await openrouterChatWithFallback({
+          models,
+          messages,
+          base_url: baseUrl ?? undefined,
+          timeout_ms: Number.isFinite(timeoutMs) ? timeoutMs : 12_000,
+          max_output_tokens: 64,
+          temperature: 0,
+          stream: false,
+          plugins: [],
+          tools: [],
+          tool_choice: "none" as any,
+          parallel_tool_calls: false,
+          attribution,
+          provider: policyProvider ?? undefined,
+          payload_variants: policyVariants ?? undefined,
+        });
+
+        const resolvedProvider = extractRoutingProvider((res as any)?.raw ?? null);
+        const durationMs = Date.now() - t0;
+        void safeInsertOpenRouterUsageLog(svc, {
+          fn: "admin-assistant-settings",
+          request_id: requestId,
+          user_id: userId,
+          conversation_id: null,
+          provider: resolvedProvider ?? "openrouter",
+          model: res?.model ?? null,
+          base_url: baseUrl ?? null,
+          usage: res?.usage ?? null,
+          upstream_request_id: extractUpstreamRequestId((res as any)?.raw),
+          variant: (res as any)?.variant ?? null,
+          meta: {
+            stage: "routing_test",
+            routing: {
+              policy: {
+                mode: effectiveMode,
+                auto_model: policyAutoModel,
+                fallback_models: policyFallbacks,
+                provider: policyProvider,
+                variants: policyVariants ?? [],
+              },
+              model_candidates: models,
+            },
+            decision: {
+              provider: resolvedProvider,
+              model: res?.model ?? null,
+              variant: (res as any)?.variant ?? null,
+            },
+          },
+        });
+
+        return json(req, 200, {
+          ok: true,
+          requestId,
+          test: {
+            ok: true,
+            durationMs,
+            baseUrl,
+            usedModel: res?.model ?? null,
+            usedVariant: (res as any)?.variant ?? null,
+            usedProvider: resolvedProvider,
+            policyMode: effectiveMode,
+            contentPreview: typeof res?.content === "string" ? res.content.slice(0, 200) : null,
+            modelCandidates: models,
+            routing: {
+              policy: {
+                mode: effectiveMode,
+                auto_model: policyAutoModel,
+                fallback_models: policyFallbacks,
+                provider: policyProvider,
+                variants: policyVariants ?? [],
+              },
+            },
+          },
+        }, { "x-request-id": requestId });
+      } catch (e: any) {
+        const durationMs = Date.now() - t0;
+        const attemptedModel: string | null =
+          (e as any)?.attemptedModel ?? (e as any)?.openrouter?.model ?? (models[0] || null);
+        const payloadVariant: string | null = (e as any)?.openrouter?.variant ?? null;
+        const upstreamRequestId: string | null =
+          (e as any)?.upstreamRequestId ?? (e as any)?.openrouter?.upstreamRequestId ?? null;
+        const modelsTried = (e as any)?.modelsTried ?? undefined;
+
+        const baseUrlCulprit: AiCulprit = {
+          var: "assistant_settings.openrouter_base_url",
+          source: "assistant_settings",
+          value_preview: baseUrl ?? null,
+        };
+
+        const status = Number((e as any)?.status ?? 0);
+        const msg = e instanceof Error ? e.message : String(e ?? "OpenRouter error");
+        const lower = msg.toLowerCase();
+
+        let culprit: AiCulprit = baseUrlCulprit;
+        if (status === 401 || status === 403 || lower.includes("api key") || lower.includes("unauthorized")) {
+          culprit = { var: "env.OPENROUTER_API_KEY", source: "env", value_preview: null };
+        } else if (lower.includes("no model") || lower.includes("no models") || lower.includes("model is required")) {
+          culprit = { var: "assistant_settings.model_fast", source: "assistant_settings", value_preview: attemptedModel };
         } else if (status === 404 || lower.includes("not found")) {
           culprit = baseUrlCulprit;
         }
