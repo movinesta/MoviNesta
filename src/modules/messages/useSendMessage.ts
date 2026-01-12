@@ -36,6 +36,14 @@ type SendMessageContext = {
   usedServerAnchor?: boolean;
   payload?: FailedMessagePayload;
 };
+const getInsertMessageType = (payloadType: string) => {
+  if (payloadType === "text") return "text";
+  if (payloadType === "system") return "system";
+  if (payloadType === "image") return "image";
+  if (payloadType.startsWith("text+")) return "text+image";
+  return "image";
+};
+
 const buildMessagePayload = (
   text: string,
   attachmentPath: string | null,
@@ -48,7 +56,8 @@ const buildMessagePayload = (
     return { payload: null, trimmed } as const;
   }
 
-  const kind = attachmentKind ?? (attachmentPath ? getAttachmentKindFromPath(attachmentPath) : null);
+  const kind =
+    attachmentKind ?? (attachmentPath ? getAttachmentKindFromPath(attachmentPath) : null);
   const attachmentType = kind ?? "image";
 
   if (attachmentPath && trimmed) {
@@ -114,7 +123,7 @@ export const useSendMessage = (
           sender_id: userId,
 
           body: payload,
-          message_type: payload.type,
+          message_type: getInsertMessageType(payload.type),
           text: (payload as any).text ?? null,
           client_id: (payload as any).clientId ?? null,
           meta: payload,
