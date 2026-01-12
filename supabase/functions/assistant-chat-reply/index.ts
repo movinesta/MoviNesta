@@ -1793,7 +1793,7 @@ async function handler(req: Request) {
             ...(typeof paramsForRouter.metadata === "object" && paramsForRouter.metadata ? paramsForRouter.metadata : {}),
             request_id: requestId,
             conversation_id: conversationId,
-            stream_passthrough: true,
+            stream_passthrough: "true",
           };
 
           const routingTelemetryBase = {
