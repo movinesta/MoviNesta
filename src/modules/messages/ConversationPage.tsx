@@ -574,6 +574,18 @@ const ConversationPage: React.FC = () => {
                   : null;
 
                 const messageRow = (parsed as any)?.messageRow;
+                const messageId =
+                  typeof (messageRow as any)?.id === "string"
+                    ? (messageRow as any).id
+                    : typeof (parsed as any)?.messageId === "string"
+                      ? (parsed as any).messageId
+                      : null;
+                if (messageId || citations) {
+                  setAssistantStreamMeta({
+                    messageId,
+                    citations: citations ? (citations as any) : null,
+                  });
+                }
                 if (
                   messageRow &&
                   typeof messageRow === "object" &&
@@ -583,7 +595,6 @@ const ConversationPage: React.FC = () => {
                   if (inserted) {
                     // Stream bubble is no longer needed once we've inserted the saved message.
                     setAssistantStreamText(null);
-                    setAssistantStreamMeta(null);
                     return;
                   }
                   // Cache insertion failed; fall back to showing the stream bubble until a refetch sees the saved row.
@@ -594,14 +605,6 @@ const ConversationPage: React.FC = () => {
                     // ignore
                   }
                 }
-
-                setAssistantStreamMeta({
-                  messageId:
-                    typeof (parsed as any)?.messageId === "string"
-                      ? (parsed as any).messageId
-                      : null,
-                  citations: citations ? (citations as any) : null,
-                });
               } catch {
                 setAssistantStreamMeta(null);
               }
