@@ -1064,6 +1064,8 @@ const ConversationPage: React.FC = () => {
   const visibleMessagesRef = useRef(visibleMessages);
   const hasMoreMessagesRef = useRef(hasMoreMessages);
   const streamingScrollFrameRef = useRef<number | null>(null);
+  const streamingPinnedRef = useRef(false);
+  const streamingActiveRef = useRef(false);
 
   const displayMessages = useMemo(() => {
     return streamingAssistantMessage
@@ -1250,8 +1252,19 @@ const ConversationPage: React.FC = () => {
   }, [lastVisibleMessageId, scrollBehavior, scrollToBottom]);
 
   useEffect(() => {
+    const isStreaming = assistantStreamText !== null;
+    if (isStreaming && !streamingActiveRef.current) {
+      streamingPinnedRef.current = isPinnedToBottomRef.current;
+    }
+    if (!isStreaming && streamingActiveRef.current) {
+      streamingPinnedRef.current = false;
+    }
+    streamingActiveRef.current = isStreaming;
+  }, [assistantStreamText]);
+
+  React.useLayoutEffect(() => {
     if (!assistantStreamText) return;
-    if (!isPinnedToBottomRef.current) return;
+    if (!streamingPinnedRef.current) return;
 
     if (streamingScrollFrameRef.current !== null) {
       cancelAnimationFrame(streamingScrollFrameRef.current);
