@@ -1,0 +1,5 @@
+# supabase/functions/catalog-backfill/config.toml
+
+# This function runs as a system/cron job.
+# It should not require a user JWT; we call it with the anon key from other edge functions.
+verify_jwt = false

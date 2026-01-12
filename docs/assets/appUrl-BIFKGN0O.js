@@ -1,0 +1,1 @@
+function i(s){if(typeof window>"u")return s;const t="/MoviNesta/",r=t.endsWith("/")?t.slice(0,-1):t,e=s.startsWith("/")?s:`/${s}`;return`${window.location.origin}${r}${e}`}function n(){return i("/auth/reset-password")}export{i as a,n as b};
