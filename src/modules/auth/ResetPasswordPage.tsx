@@ -100,13 +100,15 @@ const ResetPasswordPage: React.FC = () => {
       }
     >
       {checking ? (
-        <p className="text-sm text-muted-foreground">Checking your reset link…</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Checking your reset link…
+        </p>
       ) : (
         <>
           {error && (
             <div
               role="alert"
-              className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              className="rounded-2xl border border-red-200/70 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
             >
               {error}
             </div>
@@ -115,7 +117,7 @@ const ResetPasswordPage: React.FC = () => {
           {info && (
             <div
               role="status"
-              className="rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-800"
+              className="rounded-2xl border border-emerald-200/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100"
             >
               {info}
             </div>
@@ -123,10 +125,10 @@ const ResetPasswordPage: React.FC = () => {
 
           {!info && (
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label
                   htmlFor="reset-password"
-                  className="text-xs font-medium text-muted-foreground"
+                  className="text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
                   New password
                 </label>
@@ -139,17 +141,18 @@ const ResetPasswordPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={submitting}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   At least {MIN_PASSWORD_LENGTH} characters.
                 </p>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label
                   htmlFor="reset-confirm"
-                  className="text-xs font-medium text-muted-foreground"
+                  className="text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
                   Confirm new password
                 </label>
@@ -162,11 +165,16 @@ const ResetPasswordPage: React.FC = () => {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   disabled={submitting}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  placeholder="Re-enter your password"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button
+                type="submit"
+                className="w-full rounded-2xl text-sm font-semibold shadow-lg shadow-primary/30"
+                disabled={submitting}
+              >
                 {submitting ? "Updating password…" : "Update password"}
               </Button>
             </form>

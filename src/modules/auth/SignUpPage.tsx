@@ -153,231 +153,302 @@ const SignUpPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col">
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 px-4 pb-2 pt-4 backdrop-blur-md dark:bg-background-dark/80">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
-            aria-label="Go back"
-          >
-            <MaterialIcon name="arrow_back" className="text-[24px]" ariaLabel="Back" />
-          </button>
-          <div className="text-sm font-medium opacity-0">Sign Up</div>
-          <div className="h-12 w-12" />
-        </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-10 sm:px-6 lg:px-12">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(124,58,237,0.12),_transparent_45%)] dark:bg-[radial-gradient(circle_at_top,_rgba(124,58,237,0.2),_transparent_50%)]" />
+        <div className="w-full max-w-xl rounded-3xl border border-slate-200/80 bg-white/90 p-6 shadow-xl shadow-slate-200/60 backdrop-blur sm:p-8 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-none">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-700 transition-colors hover:border-slate-200 hover:bg-white dark:text-slate-200 dark:hover:border-white/10 dark:hover:bg-slate-800"
+              aria-label="Go back"
+            >
+              <MaterialIcon name="arrow_back" className="text-[20px]" ariaLabel="Back" />
+            </button>
+            <span className="rounded-full border border-slate-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:border-white/10 dark:text-slate-300">
+              Create account
+            </span>
+          </div>
 
-        <div className="flex flex-1 flex-col px-6 pb-8">
-          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
-            Join the Fan Hub
-          </h1>
-          <p className="pb-6 text-center text-sm font-normal leading-normal text-[#ad92c9]">
-            Connect with fellow movie enthusiasts and share your passion.
-          </p>
+          <div className="pt-6 text-center">
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">
+              Join the fan hub
+            </h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Build your profile and start sharing your favorite titles.
+            </p>
+          </div>
 
           {error && (
             <div
               role="alert"
-              className="mb-4 rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+              className="mt-6 flex items-start gap-2 rounded-2xl border border-red-200/70 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
             >
-              {error}
+              <MaterialIcon name="error" className="text-[18px]" ariaLabel="Error" />
+              <span>{error}</span>
             </div>
           )}
 
           {info && (
             <div
               role="status"
-              className="mb-4 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100"
+              className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-200/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-100"
             >
-              {info}
+              <MaterialIcon name="check_circle" className="text-[18px]" ariaLabel="Info" />
+              <span>{info}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-2" noValidate>
-            <div className="flex items-start gap-4">
-              <div className="flex flex-col items-center justify-center pt-2">
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4" noValidate>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="flex flex-col items-center gap-3 sm:w-[160px]">
                 <div className="group relative cursor-pointer">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-[#ad92c9]/50 bg-[#362348] transition-all group-hover:border-primary group-hover:bg-primary/5">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 transition-all group-hover:border-primary group-hover:bg-primary/5 dark:border-white/10 dark:bg-slate-900">
                     <MaterialIcon
                       name="add_a_photo"
-                      className="text-[32px] text-[#ad92c9] group-hover:text-primary"
+                      className="text-[28px] text-slate-400 group-hover:text-primary dark:text-slate-500"
                     />
                   </div>
-                  <div className="absolute bottom-0 right-0 flex items-center justify-center rounded-full border-2 border-background-light bg-primary p-1 text-white shadow-lg dark:border-background-dark">
-                    <MaterialIcon name="add" className="text-[16px]" />
+                  <div className="absolute -bottom-2 -right-2 flex items-center justify-center rounded-full border-2 border-white bg-primary p-1 text-white shadow-md dark:border-slate-900">
+                    <MaterialIcon name="add" className="text-[14px]" />
                   </div>
                 </div>
-                <p className="mt-1 text-xs font-medium text-[#ad92c9]">Profile Pic</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                  Profile
+                </p>
               </div>
 
-              <div className="flex flex-1 flex-col gap-2">
-                <label className="relative flex items-center">
-                  <MaterialIcon name="person" className="absolute left-5 z-10 text-[#ad92c9]" />
-                  <input
-                    className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                    placeholder="Full Name"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => {
-                      setFullName(e.target.value);
-                      if (fieldErrors.fullName) {
-                        setFieldErrors((prev) => ({ ...prev, fullName: undefined }));
-                      }
-                    }}
-                    onBlur={() => {
-                      const errors = validateSignUp(email, password, confirm, fullName, username);
-                      if (errors.fullName) {
-                        setFieldErrors((prev) => ({ ...prev, fullName: errors.fullName }));
-                      }
-                    }}
-                    disabled={submitting}
-                  />
+              <div className="flex flex-1 flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Full name
+                  <span className="relative flex items-center">
+                    <MaterialIcon
+                      name="person"
+                      className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                    />
+                    <input
+                      className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                      placeholder="Jordan Lee"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => {
+                        setFullName(e.target.value);
+                        if (fieldErrors.fullName) {
+                          setFieldErrors((prev) => ({ ...prev, fullName: undefined }));
+                        }
+                      }}
+                      onBlur={() => {
+                        const errors = validateSignUp(
+                          email,
+                          password,
+                          confirm,
+                          fullName,
+                          username,
+                        );
+                        if (errors.fullName) {
+                          setFieldErrors((prev) => ({ ...prev, fullName: errors.fullName }));
+                        }
+                      }}
+                      disabled={submitting}
+                    />
+                  </span>
                 </label>
                 {fieldErrors.fullName && (
-                  <p className="text-xs text-red-300">{fieldErrors.fullName}</p>
+                  <p className="text-xs text-red-500">{fieldErrors.fullName}</p>
                 )}
 
-                <label className="relative flex items-center">
-                  <MaterialIcon
-                    name="alternate_email"
-                    className="absolute left-5 z-10 text-[#ad92c9]"
-                  />
-                  <input
-                    className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                    placeholder="Username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => {
-                      setUsername(e.target.value);
-                      if (fieldErrors.username) {
-                        setFieldErrors((prev) => ({ ...prev, username: undefined }));
-                      }
-                    }}
-                    onBlur={() => {
-                      const errors = validateSignUp(email, password, confirm, fullName, username);
-                      if (errors.username) {
-                        setFieldErrors((prev) => ({ ...prev, username: errors.username }));
-                      }
-                    }}
-                    disabled={submitting}
-                  />
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Username
+                  <span className="relative flex items-center">
+                    <MaterialIcon
+                      name="alternate_email"
+                      className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                    />
+                    <input
+                      className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                      placeholder="movienesta_fan"
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (fieldErrors.username) {
+                          setFieldErrors((prev) => ({ ...prev, username: undefined }));
+                        }
+                      }}
+                      onBlur={() => {
+                        const errors = validateSignUp(
+                          email,
+                          password,
+                          confirm,
+                          fullName,
+                          username,
+                        );
+                        if (errors.username) {
+                          setFieldErrors((prev) => ({ ...prev, username: errors.username }));
+                        }
+                      }}
+                      disabled={submitting}
+                    />
+                  </span>
                 </label>
                 {fieldErrors.username && (
-                  <p className="text-xs text-red-300">{fieldErrors.username}</p>
+                  <p className="text-xs text-red-500">{fieldErrors.username}</p>
                 )}
               </div>
             </div>
 
-            <label className="relative flex items-center">
-              <MaterialIcon name="mail" className="absolute left-5 z-10 text-[#ad92c9]" />
-              <input
-                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                placeholder="Email Address"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (fieldErrors.email) {
-                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
-                  }
-                }}
-                onBlur={() => {
-                  const errors = validateSignUp(email, password, confirm, fullName, username);
-                  if (errors.email) {
-                    setFieldErrors((prev) => ({ ...prev, email: errors.email }));
-                  }
-                }}
-                disabled={submitting}
-              />
-            </label>
-            {fieldErrors.email && <p className="text-xs text-red-300">{fieldErrors.email}</p>}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                Email address
+                <span className="relative flex items-center">
+                  <MaterialIcon
+                    name="mail"
+                    className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                  />
+                  <input
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                    placeholder="name@example.com"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) {
+                        setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      }
+                    }}
+                    onBlur={() => {
+                      const errors = validateSignUp(
+                        email,
+                        password,
+                        confirm,
+                        fullName,
+                        username,
+                      );
+                      if (errors.email) {
+                        setFieldErrors((prev) => ({ ...prev, email: errors.email }));
+                      }
+                    }}
+                    disabled={submitting}
+                  />
+                </span>
+              </label>
+              {fieldErrors.email && <p className="text-xs text-red-500">{fieldErrors.email}</p>}
 
-            <label className="relative flex items-center">
-              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
-              <input
-                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-12 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                placeholder="Password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (fieldErrors.password) {
-                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
-                  }
-                }}
-                onBlur={() => {
-                  const errors = validateSignUp(email, password, confirm, fullName, username);
-                  if (errors.password) {
-                    setFieldErrors((prev) => ({ ...prev, password: errors.password }));
-                  }
-                }}
-                disabled={submitting}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 z-10 text-[#ad92c9] transition-colors hover:text-white"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                <MaterialIcon name={showPassword ? "visibility" : "visibility_off"} />
-              </button>
-            </label>
-            {fieldErrors.password && <p className="text-xs text-red-300">{fieldErrors.password}</p>}
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                Password
+                <span className="relative flex items-center">
+                  <MaterialIcon
+                    name="lock"
+                    className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                  />
+                  <input
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-12 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (fieldErrors.password) {
+                        setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      }
+                    }}
+                    onBlur={() => {
+                      const errors = validateSignUp(
+                        email,
+                        password,
+                        confirm,
+                        fullName,
+                        username,
+                      );
+                      if (errors.password) {
+                        setFieldErrors((prev) => ({ ...prev, password: errors.password }));
+                      }
+                    }}
+                    disabled={submitting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 z-10 rounded-full p-1 text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-white"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    <MaterialIcon name={showPassword ? "visibility" : "visibility_off"} />
+                  </button>
+                </span>
+              </label>
+              {fieldErrors.password && (
+                <p className="text-xs text-red-500">{fieldErrors.password}</p>
+              )}
 
-            <label className="relative flex items-center">
-              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
-              <input
-                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                placeholder="Confirm Password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(e) => {
-                  setConfirm(e.target.value);
-                  if (fieldErrors.confirm) {
-                    setFieldErrors((prev) => ({ ...prev, confirm: undefined }));
-                  }
-                }}
-                onBlur={() => {
-                  const errors = validateSignUp(email, password, confirm, fullName, username);
-                  if (errors.confirm) {
-                    setFieldErrors((prev) => ({ ...prev, confirm: errors.confirm }));
-                  }
-                }}
-                disabled={submitting}
-              />
-            </label>
-            {fieldErrors.confirm && <p className="text-xs text-red-300">{fieldErrors.confirm}</p>}
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+                Confirm password
+                <span className="relative flex items-center">
+                  <MaterialIcon
+                    name="lock"
+                    className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                  />
+                  <input
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                    placeholder="Re-enter your password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(e) => {
+                      setConfirm(e.target.value);
+                      if (fieldErrors.confirm) {
+                        setFieldErrors((prev) => ({ ...prev, confirm: undefined }));
+                      }
+                    }}
+                    onBlur={() => {
+                      const errors = validateSignUp(
+                        email,
+                        password,
+                        confirm,
+                        fullName,
+                        username,
+                      );
+                      if (errors.confirm) {
+                        setFieldErrors((prev) => ({ ...prev, confirm: errors.confirm }));
+                      }
+                    }}
+                    disabled={submitting}
+                  />
+                </span>
+              </label>
+              {fieldErrors.confirm && (
+                <p className="text-xs text-red-500">{fieldErrors.confirm}</p>
+              )}
+            </div>
 
             <button
               type="submit"
               disabled={submitting || !isFormValid}
-              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Creating account…" : "Create Account"}
-              <MaterialIcon name="arrow_forward" className="text-[20px]" ariaLabel="Submit" />
+              <MaterialIcon name="arrow_forward" className="text-[18px]" ariaLabel="Submit" />
             </button>
           </form>
 
           <div className="relative flex items-center py-6">
-            <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
-            <span className="mx-4 flex-shrink text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
+            <div className="flex-grow border-t border-slate-200 dark:border-white/10" />
+            <span className="mx-4 flex-shrink text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
               Or join with
             </span>
-            <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
+            <div className="flex-grow border-t border-slate-200 dark:border-white/10" />
           </div>
 
-          <div className="flex justify-center gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              className="relative flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="relative flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"
               aria-label="Sign up with Google"
             >
               <svg
-                className="h-7 w-7"
+                className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 48 48"
                 xmlns="http://www.w3.org/2000/svg"
@@ -402,11 +473,11 @@ const SignUpPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"
               aria-label="Sign up with Apple"
             >
               <svg
-                className="h-8 w-8 text-white"
+                className="h-6 w-6 text-slate-800 dark:text-white"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
@@ -414,8 +485,8 @@ const SignUpPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="mt-auto flex flex-col items-center gap-4 pt-8">
-            <p className="text-sm font-medium text-[#ad92c9]">
+          <div className="mt-8 flex flex-col items-center gap-4 text-center">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Already have an account?{" "}
               <Link to="/auth/signin" className="font-semibold text-primary hover:underline">
                 Sign in
