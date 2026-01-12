@@ -54,7 +54,9 @@ export default function AssistantMessageUI({
 }) {
   const payload = useMemo(() => coerceUiPayload(ui), [ui]);
   const citations = useMemo(() => {
-    const raw = Array.isArray((payload as any)?.citations) ? ((payload as any).citations as any[]) : [];
+    const raw = Array.isArray((payload as any)?.citations)
+      ? ((payload as any).citations as any[])
+      : [];
     const out: AssistantUrlCitation[] = [];
     const seen = new Set<string>();
     for (const c of raw) {
@@ -106,7 +108,7 @@ export default function AssistantMessageUI({
             {citations.map((c) => {
               const label = c.title
                 ? `${c.domain ? `${c.domain} — ` : ""}${c.title}`
-                : c.domain ?? c.url;
+                : (c.domain ?? c.url);
               return (
                 <li key={c.url} className="min-w-0">
                   <a
@@ -201,7 +203,8 @@ export default function AssistantMessageUI({
     .filter((id) => isNonEmptyString(id) && !usedActionIds.has(id));
 
   // If there are no cards/headings but there are actions/sources, show the extras.
-  if (!payload.heading && cards.length === 0 && extraActionIds.length === 0 && !citations.length) return null;
+  if (!payload.heading && cards.length === 0 && extraActionIds.length === 0 && !citations.length)
+    return null;
 
   return (
     <div className="mt-2 space-y-2">

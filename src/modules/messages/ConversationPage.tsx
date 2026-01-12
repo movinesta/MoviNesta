@@ -509,7 +509,10 @@ const ConversationPage: React.FC = () => {
               const inserted = safeUpsertMessageRow(messageRow as any, { allowAppend: true });
               if (!inserted) {
                 // If the function only returned a messageId or cache insertion failed, refetch soon.
-                const mid = typeof (payload as any)?.messageId === "string" ? (payload as any).messageId : null;
+                const mid =
+                  typeof (payload as any)?.messageId === "string"
+                    ? (payload as any).messageId
+                    : null;
                 if (mid) {
                   const key = conversationMessagesQueryKey(conversationId);
                   queryClient.invalidateQueries({ queryKey: key });
@@ -549,7 +552,11 @@ const ConversationPage: React.FC = () => {
                   : null;
 
                 const messageRow = (parsed as any)?.messageRow;
-                if (messageRow && typeof messageRow === "object" && typeof (messageRow as any).id === "string") {
+                if (
+                  messageRow &&
+                  typeof messageRow === "object" &&
+                  typeof (messageRow as any).id === "string"
+                ) {
                   const inserted = safeUpsertMessageRow(messageRow as any, { allowAppend: true });
                   if (inserted) {
                     // Stream bubble is no longer needed once we've inserted the saved message.
@@ -567,7 +574,10 @@ const ConversationPage: React.FC = () => {
                 }
 
                 setAssistantStreamMeta({
-                  messageId: typeof (parsed as any)?.messageId === "string" ? (parsed as any).messageId : null,
+                  messageId:
+                    typeof (parsed as any)?.messageId === "string"
+                      ? (parsed as any).messageId
+                      : null,
                   citations: citations ? (citations as any) : null,
                 });
               } catch {
@@ -984,7 +994,6 @@ const ConversationPage: React.FC = () => {
 
     return () => window.clearTimeout(timer);
   }, [assistantStreamMeta?.messageId, messages]);
-
 
   const streamingAssistantMessage = useMemo(() => {
     if (!assistantStreamText) return null;
