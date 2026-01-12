@@ -880,10 +880,38 @@ const ConversationPage: React.FC = () => {
     setShowEmojiPicker,
   } = useConversationLayoutState({ showComposer });
   const [hasMeasuredAtBottom, setHasMeasuredAtBottom] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      setKeyboardOffset(0);
+      return;
+    }
+
+    const updateOffset = () => {
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setKeyboardOffset(offset);
+    };
+
+    updateOffset();
+    viewport.addEventListener("resize", updateOffset);
+    viewport.addEventListener("scroll", updateOffset);
+    window.addEventListener("orientationchange", updateOffset);
+
+    return () => {
+      viewport.removeEventListener("resize", updateOffset);
+      viewport.removeEventListener("scroll", updateOffset);
+      window.removeEventListener("orientationchange", updateOffset);
+    };
+  }, []);
 
   // Reserve space so the last message stays visible above the fixed composer.
   // We apply this as bottom padding on the scroll container.
-  const reservedBottomPx = showComposer ? Math.max(composerHeight, 0) + 24 : 40;
+  const reservedBottomPx = showComposer
+    ? Math.max(composerHeight, 0) + 24 + keyboardOffset
+    : 40 + keyboardOffset;
   const messageListBottomPadding = `${reservedBottomPx}px`;
 
   // Consider the user "at bottom" (pinned) when within the reserved spacer, plus a
