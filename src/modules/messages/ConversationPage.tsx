@@ -367,6 +367,8 @@ const ConversationPage: React.FC = () => {
   const [assistantInvokeInFlight, setAssistantInvokeInFlight] = useState(false);
   const [assistantStreamText, setAssistantStreamText] = useState<string | null>(null);
   const assistantStreamAbortRef = useRef<AbortController | null>(null);
+  const assistantStreamBufferRef = useRef("");
+  const assistantStreamFlushRef = useRef<number | null>(null);
 
   const [assistantStreamMeta, setAssistantStreamMeta] = useState<{
     messageId?: string | null;
@@ -525,6 +527,7 @@ const ConversationPage: React.FC = () => {
           }
 
           setAssistantStreamText("");
+          assistantStreamBufferRef.current = "";
           setAssistantStreamMeta(null);
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
@@ -538,13 +541,32 @@ const ConversationPage: React.FC = () => {
                 const parsed = JSON.parse(data);
                 const text = typeof parsed?.text === "string" ? parsed.text : "";
                 if (text) {
-                  setAssistantStreamText((prev) => `${prev ?? ""}${text}`);
+                  assistantStreamBufferRef.current += text;
+                  if (assistantStreamFlushRef.current === null) {
+                    assistantStreamFlushRef.current = requestAnimationFrame(() => {
+                      const buffered = assistantStreamBufferRef.current;
+                      assistantStreamBufferRef.current = "";
+                      assistantStreamFlushRef.current = null;
+                      if (buffered) {
+                        setAssistantStreamText((prev) => `${prev ?? ""}${buffered}`);
+                      }
+                    });
+                  }
                 }
               } catch {
                 // ignore malformed chunk
               }
             }
             if (event === "done") {
+              if (assistantStreamFlushRef.current !== null) {
+                cancelAnimationFrame(assistantStreamFlushRef.current);
+                assistantStreamFlushRef.current = null;
+              }
+              if (assistantStreamBufferRef.current) {
+                const buffered = assistantStreamBufferRef.current;
+                assistantStreamBufferRef.current = "";
+                setAssistantStreamText((prev) => `${prev ?? ""}${buffered}`);
+              }
               try {
                 const parsed = JSON.parse(data);
                 const citations = Array.isArray((parsed as any)?.citations)
@@ -630,6 +652,11 @@ const ConversationPage: React.FC = () => {
           await requestAssistant(false);
         }
       } catch (e: any) {
+        if (assistantStreamFlushRef.current !== null) {
+          cancelAnimationFrame(assistantStreamFlushRef.current);
+          assistantStreamFlushRef.current = null;
+        }
+        assistantStreamBufferRef.current = "";
         setAssistantStreamText(null);
         setAssistantStreamMeta(null);
         setAssistantReplyFailed({ userMessageId, error: e?.message || "Assistant failed" });
