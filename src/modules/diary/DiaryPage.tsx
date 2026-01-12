@@ -49,24 +49,22 @@ const DiaryPage: React.FC = () => {
 
       {/* Tabs */}
       <section className="px-2">
-        <div className="flex flex-col gap-3">
-          <div className="w-full">
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DiaryTabKey)}>
-              <TabsList className="w-full">
-                {DIARY_TABS.map((tab) => (
-                  <TabsTrigger
-                    key={tab.key}
-                    value={tab.key}
-                    icon={<tab.icon className="h-3.5 w-3.5" aria-hidden="true" />}
-                  >
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
+        <div className="rounded-2xl border border-border/60 bg-card/80 p-3 shadow-sm">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DiaryTabKey)}>
+            <TabsList className="w-full">
+              {DIARY_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  icon={<tab.icon className="h-3.5 w-3.5" aria-hidden="true" />}
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <p className="mt-2 px-1 text-xs text-muted-foreground">{activeConfig.description}</p>
         </div>
-        <p className="mt-1 px-1 text-xs text-muted-foreground">{activeConfig.description}</p>
       </section>
       {/* Content */}
       <section aria-live="polite" className="flex-1">

@@ -40,7 +40,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
     return (
       <header
         ref={ref}
-        className="sticky top-0 z-30 w-full border-b border-border bg-background/95 backdrop-blur"
+        className="sticky top-0 z-30 w-full border-b border-border/60 bg-background/95 shadow-sm backdrop-blur"
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col">
           <div className="relative flex items-center justify-between gap-2 px-4 py-2">
@@ -49,7 +49,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   aria-label="Go back"
                 >
                   <ArrowLeft className="h-5 w-5" aria-hidden />
@@ -72,7 +72,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
                         key={action.label}
                         type="button"
                         onClick={action.onClick}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-muted"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         aria-label={action.label}
                         disabled={action.disabled}
                       >

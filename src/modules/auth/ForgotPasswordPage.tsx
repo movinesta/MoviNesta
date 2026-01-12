@@ -5,6 +5,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { supabase } from "../../lib/supabase";
 import AuthLayout from "./AuthLayout";
 import { buildPasswordResetRedirectUrl } from "@/lib/appUrl";
+import { MaterialIcon } from "@/components/ui/material-icon";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -95,17 +96,27 @@ const ForgotPasswordPage: React.FC = () => {
           >
             Email address
           </label>
-          <input
-            id="forgot-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={submitting}
-            placeholder="name@example.com"
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
-          />
+          <div className="relative flex items-center">
+            <MaterialIcon
+              name="mail"
+              className="absolute left-4 text-[18px] text-slate-400 dark:text-slate-500"
+              ariaLabel="Email"
+            />
+            <input
+              id="forgot-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
+              placeholder="name@example.com"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-11 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+            />
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            We&apos;ll send a secure link that expires shortly.
+          </p>
         </div>
 
         <Button
@@ -114,6 +125,7 @@ const ForgotPasswordPage: React.FC = () => {
           disabled={submitting || !email}
         >
           {submitting ? "Sending reset link…" : "Send reset link"}
+          <MaterialIcon name="arrow_forward" className="text-[18px]" ariaLabel="Submit" />
         </Button>
       </form>
     </AuthLayout>

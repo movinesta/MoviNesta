@@ -916,114 +916,116 @@ const HomePage: React.FC = () => {
       </header>
 
       {/* Happening Now */}
-      <section>
-        <div className="px-4 pb-2">
-          <h3 className="text-xs font-bold tracking-wider text-muted-foreground/80">
-            HAPPENING NOW
-          </h3>
-        </div>
+      <section className="px-4">
+        <div className="rounded-3xl border border-border/60 bg-card/70 py-4 shadow-sm">
+          <div className="px-4 pb-2">
+            <h3 className="text-xs font-bold tracking-wider text-muted-foreground/80">
+              HAPPENING NOW
+            </h3>
+          </div>
 
-        <div className="no-scrollbar flex w-full gap-4 overflow-x-auto px-4 py-1">
-          <button
-            type="button"
-            onClick={() => navigate("/me?createHighlight=1")}
-            className="flex min-w-[72px] flex-col items-center gap-2"
-            aria-label="Add new highlight"
-          >
-            <span className="grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-muted-foreground/50">
-              <MaterialIcon name="add" className="text-[22px] text-muted-foreground" />
-            </span>
-            <span className="w-[72px] truncate text-center text-xs font-medium text-muted-foreground">
-              Add New
-            </span>
-          </button>
+          <div className="no-scrollbar flex w-full gap-4 overflow-x-auto px-4 py-1">
+            <button
+              type="button"
+              onClick={() => navigate("/me?createHighlight=1")}
+              className="flex min-w-[72px] flex-col items-center gap-2 rounded-2xl p-1 transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              aria-label="Add new highlight"
+            >
+              <span className="grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-muted-foreground/50">
+                <MaterialIcon name="add" className="text-[22px] text-muted-foreground" />
+              </span>
+              <span className="w-[72px] truncate text-center text-xs font-medium text-muted-foreground">
+                Add New
+              </span>
+            </button>
 
-          {isStoriesLoading ? (
-            Array.from({ length: 5 }).map((_, idx) => (
-              <div
-                key={`story-skel-${idx}`}
-                className="flex min-w-[72px] flex-col items-center gap-2"
-              >
-                <div className="h-16 w-16 animate-pulse rounded-full bg-muted" />
-                <div className="h-3 w-16 animate-pulse rounded bg-muted" />
-              </div>
-            ))
-          ) : storyItems.length ? (
-            storyItems.map((s) => {
-              const primaryLabel = s.displayName || s.username || "Someone";
-              const secondaryLabel = s.listName || "";
-              const to = s.listId ? `/lists/${s.listId}` : s.username ? `/u/${s.username}` : "/me";
-              const aria = secondaryLabel ? `${primaryLabel} • ${secondaryLabel}` : primaryLabel;
-
-              return (
-                <button
-                  key={`${s.userId}:${s.listId ?? "none"}`}
-                  type="button"
-                  onClick={() => navigate(to)}
-                  className="flex w-[92px] shrink-0 flex-col items-center gap-2"
-                  aria-label={aria}
+            {isStoriesLoading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <div
+                  key={`story-skel-${idx}`}
+                  className="flex min-w-[72px] flex-col items-center gap-2"
                 >
-                  <span className="rounded-full bg-gradient-to-tr from-primary to-fuchsia-400 p-[2px]">
-                    <span className="relative inline-flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full border-2 border-background bg-muted">
-                      {s.coverPosterUrl ? (
-                        <img
-                          src={s.coverPosterUrl}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : s.avatarUrl ? (
-                        <img
-                          src={s.avatarUrl}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {getInitials(s.displayName, s.username)}
-                        </span>
-                      )}
+                  <div className="h-16 w-16 animate-pulse rounded-full bg-muted" />
+                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+                </div>
+              ))
+            ) : storyItems.length ? (
+              storyItems.map((s) => {
+                const primaryLabel = s.displayName || s.username || "Someone";
+                const secondaryLabel = s.listName || "";
+                const to = s.listId ? `/lists/${s.listId}` : s.username ? `/u/${s.username}` : "/me";
+                const aria = secondaryLabel ? `${primaryLabel} • ${secondaryLabel}` : primaryLabel;
 
-                      <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-
-                      <span className="absolute bottom-0 right-0 inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-background bg-muted">
-                        {s.avatarUrl ? (
+                return (
+                  <button
+                    key={`${s.userId}:${s.listId ?? "none"}`}
+                    type="button"
+                    onClick={() => navigate(to)}
+                    className="flex w-[92px] shrink-0 flex-col items-center gap-2 rounded-2xl p-1 transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    aria-label={aria}
+                  >
+                    <span className="rounded-full bg-gradient-to-tr from-primary to-fuchsia-400 p-[2px]">
+                      <span className="relative inline-flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full border-2 border-background bg-muted">
+                        {s.coverPosterUrl ? (
+                          <img
+                            src={s.coverPosterUrl}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : s.avatarUrl ? (
                           <img
                             src={s.avatarUrl}
                             alt=""
                             loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <span className="grid h-full w-full place-items-center text-[10px] font-semibold text-muted-foreground">
+                          <span className="text-xs font-semibold text-muted-foreground">
                             {getInitials(s.displayName, s.username)}
                           </span>
                         )}
-                      </span>
-                    </span>
-                  </span>
 
-                  <span className="w-[92px]">
-                    <span className="block truncate text-center text-xs font-semibold text-foreground">
-                      {primaryLabel}
-                    </span>
-                    {secondaryLabel ? (
-                      <span className="block truncate text-center text-[10px] text-muted-foreground">
-                        {secondaryLabel}
+                        <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+
+                        <span className="absolute bottom-0 right-0 inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-background bg-muted">
+                          {s.avatarUrl ? (
+                            <img
+                              src={s.avatarUrl}
+                              alt=""
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="grid h-full w-full place-items-center text-[10px] font-semibold text-muted-foreground">
+                              {getInitials(s.displayName, s.username)}
+                            </span>
+                          )}
+                        </span>
                       </span>
-                    ) : null}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <div className="flex items-center text-xs text-muted-foreground">
-              Follow people to see highlights.
-            </div>
-          )}
+                    </span>
+
+                    <span className="w-[92px]">
+                      <span className="block truncate text-center text-xs font-semibold text-foreground">
+                        {primaryLabel}
+                      </span>
+                      {secondaryLabel ? (
+                        <span className="block truncate text-center text-[10px] text-muted-foreground">
+                          {secondaryLabel}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="flex items-center text-xs text-muted-foreground">
+                Follow people to see highlights.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -1080,6 +1082,7 @@ const HomePage: React.FC = () => {
                 className={cn(
                   "flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-base font-bold text-primary-foreground shadow-lg",
                   "transition-all hover:bg-primary/90 active:scale-[0.98]",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 )}
                 disabled={!heroPoster?.id}
               >
@@ -1093,6 +1096,7 @@ const HomePage: React.FC = () => {
                 className={cn(
                   "flex h-12 w-32 items-center justify-center gap-1 rounded-full bg-white/10 text-white shadow-lg backdrop-blur",
                   "transition-colors hover:bg-white/20",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 )}
               >
                 <MaterialIcon name="add" className="text-[22px]" ariaLabel="Add" />
@@ -1258,7 +1262,7 @@ const HomePage: React.FC = () => {
                       setFeedVisibleCount(next);
                     }
                   }}
-                  className="inline-flex items-center justify-center rounded-full bg-white/5 px-4 py-2 text-xs font-bold text-foreground ring-1 ring-border/50 transition hover:bg-white/10 disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-full bg-white/5 px-4 py-2 text-xs font-bold text-foreground ring-1 ring-border/50 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
                   disabled={isFeedLoadingMore}
                 >
                   {isFeedLoadingMore ? "Loading…" : "Load more"}
@@ -1268,7 +1272,7 @@ const HomePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate("/activity")}
-                className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
+                className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 See all
               </button>

@@ -7,7 +7,7 @@ import { MOVINESTA_LOGO_URL } from "../constants/brand";
 import { useAuth } from "../modules/auth/AuthProvider";
 
 const HEADER_BASE_CLASSNAME =
-  "sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-3 py-2";
+  "sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/60 bg-background/95 px-3 py-2 shadow-sm backdrop-blur";
 
 export const HeaderSurface: React.FC<{
   className?: string;
@@ -125,8 +125,8 @@ export const PageSection: React.FC<PageSectionProps> = ({
 }) => {
   const surfaceClassName =
     tone === "muted"
-      ? "rounded-lg border border-dashed bg-muted"
-      : "rounded-lg border bg-card shadow-sm";
+      ? "rounded-2xl border border-dashed border-border/60 bg-muted/60"
+      : "rounded-2xl border border-border/60 bg-card/80 shadow-sm";
 
   return (
     <section className={[surfaceClassName, padded ? "p-4" : "p-0"].join(" ")}>

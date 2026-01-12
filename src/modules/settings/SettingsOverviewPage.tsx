@@ -58,7 +58,7 @@ const SettingsOverviewPage: React.FC = () => {
               <li key={item.to}>
                 <Link
                   to={item.to}
-                  className="flex items-center gap-3 px-3 py-3 transition hover:bg-background/60"
+                  className="flex items-center gap-3 px-3 py-3 transition hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   aria-label={item.label}
                 >
                   <span className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-border/50">

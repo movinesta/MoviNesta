@@ -80,8 +80,10 @@ const Chip: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`flex h-9 shrink-0 items-center justify-center rounded-2xl px-5 text-sm font-medium transition-transform active:scale-95 ${
-      active ? "bg-primary text-primary-foreground" : "bg-muted/70 text-foreground hover:bg-muted"
+    className={`flex h-9 shrink-0 items-center justify-center rounded-full px-5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 ${
+      active
+        ? "bg-primary text-primary-foreground shadow-sm"
+        : "bg-muted/60 text-foreground hover:bg-muted"
     }`}
   >
     {label}
@@ -93,11 +95,11 @@ const FilterPill: React.FC<{
   onClick?: () => void;
   onClear?: () => void;
 }> = ({ label, onClick, onClear }) => (
-  <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-card/70 pl-3 pr-1 py-1 text-xs font-semibold text-foreground">
+  <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/70 bg-card/80 pl-3 pr-1 py-1 text-xs font-semibold text-foreground shadow-sm">
     <button
       type="button"
       onClick={onClick}
-      className="max-w-[220px] truncate text-left text-xs font-semibold"
+      className="max-w-[220px] truncate text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       title={label}
     >
       {label}
@@ -106,7 +108,7 @@ const FilterPill: React.FC<{
       <button
         type="button"
         onClick={onClear}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         aria-label={`Clear ${label}`}
       >
         <X className="h-3.5 w-3.5" />
@@ -120,18 +122,26 @@ const SectionHeader: React.FC<{
   actionLabel?: string;
   onAction?: () => void;
 }> = ({ title, actionLabel, onAction }) => (
-  <div className="flex items-center justify-between px-4 pb-4">
-    <h2 className="text-xl font-semibold leading-tight tracking-tight">{title}</h2>
+  <div className="flex items-center justify-between gap-4 pb-4">
+    <h2 className="text-lg font-semibold leading-tight tracking-tight text-foreground sm:text-xl">
+      {title}
+    </h2>
     {actionLabel && onAction ? (
       <button
         type="button"
         onClick={onAction}
-        className="text-sm font-medium text-primary hover:text-primary/80"
+        className="inline-flex items-center rounded-full border border-transparent px-3 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {actionLabel}
       </button>
     ) : null}
   </div>
+);
+
+const SectionContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <section className="rounded-3xl border border-border/60 bg-card/40 p-4 shadow-sm sm:p-6">
+    {children}
+  </section>
 );
 
 const RatingPill: React.FC<{ label: string | null }> = ({ label }) => {
@@ -174,9 +184,12 @@ const DiscoverPosterCard: React.FC<{
   }
 
   return (
-    <Link to={`/title/${id}`} className="group flex flex-col gap-2">
+    <Link
+      to={`/title/${id}`}
+      className="group flex flex-col gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
       <div
-        className="relative aspect-[2/3] w-full overflow-hidden rounded-[20px] bg-muted shadow-lg transition-transform duration-300 group-hover:scale-[1.02]"
+        className="relative aspect-[2/3] w-full overflow-hidden rounded-[20px] bg-muted shadow-sm ring-1 ring-border/50 transition-transform duration-300 group-hover:scale-[1.02] group-hover:shadow-lg"
         style={
           imageUrl
             ? {
@@ -223,7 +236,7 @@ const CuratedListCard: React.FC<{
 }> = ({ id, name, description, coverUrl, ownerLabel, ownerAvatarUrl }) => (
   <Link
     to={`/lists/${id}`}
-    className="flex items-center gap-3 rounded-3xl border border-border bg-card/70 p-3 shadow-sm transition-colors hover:bg-card"
+    className="flex items-center gap-3 rounded-3xl border border-border/70 bg-card/80 p-3 shadow-sm transition-all hover:bg-card hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
   >
     <div className="h-16 w-14 overflow-hidden rounded-2xl bg-muted">
       {coverUrl ? (
@@ -915,9 +928,30 @@ const SearchPage: React.FC = () => {
       </Dialog>
 
       {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
-        <div className="flex flex-col gap-4">
-          <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-input bg-card px-4 shadow-sm focus-within:ring-2 focus-within:ring-primary">
+      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-3 pt-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Discover
+              </p>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                Search
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Find movies, series, and people with tailored recommendations.
+              </p>
+            </div>
+            <div className="hidden items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground sm:inline-flex">
+              <span>Shortcut</span>
+              <span className="rounded-full border border-border/70 bg-background px-2 py-0.5 font-mono text-[11px] text-foreground">
+                /
+              </span>
+              <span>to search</span>
+            </div>
+          </div>
+
+          <label className="flex h-12 w-full items-center gap-3 rounded-2xl border border-border/70 bg-card/80 px-4 shadow-sm transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30">
             <MaterialIcon
               name="search"
               className="text-[20px] text-muted-foreground"
@@ -951,7 +985,7 @@ const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={clearQuery}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
@@ -962,7 +996,7 @@ const SearchPage: React.FC = () => {
               type="button"
               onClick={openFilterSheet}
               disabled={effectiveTab === "people"}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40"
               aria-label="Filters"
             >
               <span className="relative inline-flex">
@@ -1040,24 +1074,24 @@ const SearchPage: React.FC = () => {
 
       {/* Content */}
       {isDiscover ? (
-        <div className="flex flex-col pt-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-10 pt-6 sm:px-6">
           {recentSearches.length ? (
-            <div className="flex flex-col pb-8">
+            <SectionContainer>
               <SectionHeader
                 title="Recent searches"
                 actionLabel="Clear"
                 onAction={clearRecentSearches}
               />
-              <div className="flex flex-wrap gap-2 px-4">
+              <div className="flex flex-wrap gap-2">
                 {recentSearches.map((entry) => (
                   <div
                     key={entry.term}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 pl-3 pr-1 py-1 text-sm"
+                    className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 pl-3 pr-1 py-1 text-sm shadow-sm"
                   >
                     <button
                       type="button"
                       onClick={() => applyRecentSearch(entry.term)}
-                      className="max-w-[220px] truncate text-sm font-medium text-foreground"
+                      className="max-w-[220px] truncate text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       title={entry.term}
                     >
                       {entry.term}
@@ -1065,7 +1099,7 @@ const SearchPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => removeRecentSearch(entry.term)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       aria-label={`Remove ${entry.term}`}
                     >
                       <X className="h-4 w-4" />
@@ -1073,15 +1107,15 @@ const SearchPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </SectionContainer>
           ) : null}
 
-          <SectionHeader
-            title="Suggested People"
-            actionLabel="See All"
-            onAction={() => navigate("/suggested-people")}
-          />
-          <div className="px-4 pb-6">
+          <SectionContainer>
+            <SectionHeader
+              title="Suggested People"
+              actionLabel="See All"
+              onAction={() => navigate("/suggested-people")}
+            />
             {suggestedPeople.isLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, idx) => (
@@ -1126,14 +1160,15 @@ const SearchPage: React.FC = () => {
                   : "Sign in to get personalized people suggestions."}
               </div>
             )}
-          </div>
+          </SectionContainer>
 
-          <SectionHeader
-            title="Friends Are Watching"
-            actionLabel="See All"
-            onAction={seeAllFriends}
-          />
-          <div className="grid grid-cols-2 gap-4 px-4">
+          <SectionContainer>
+            <SectionHeader
+              title="Friends Are Watching"
+              actionLabel="See All"
+              onAction={seeAllFriends}
+            />
+            <div className="grid grid-cols-2 gap-4">
             {friendsWatching.isLoading ? (
               Array.from({ length: 4 }).map((_, idx) => (
                 <div key={idx} className="flex flex-col gap-2">
@@ -1151,11 +1186,12 @@ const SearchPage: React.FC = () => {
                   : "Sign in to see what your friends are watching."}
               </div>
             )}
-          </div>
+            </div>
+          </SectionContainer>
 
-          <div className="flex flex-col pt-8">
+          <SectionContainer>
             <SectionHeader title="Trending Now" actionLabel="See All" onAction={seeAllTrending} />
-            <div className="flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-4 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {trendingNow.isLoading ? (
                 Array.from({ length: 6 }).map((_, idx) => (
                   <div key={idx} className="w-36 shrink-0">
@@ -1214,11 +1250,11 @@ const SearchPage: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          </SectionContainer>
 
-          <div className="flex flex-col pt-8">
+          <SectionContainer>
             <SectionHeader title="Curated by Experts & Friends" />
-            <div className="flex flex-col gap-3 px-4">
+            <div className="flex flex-col gap-3">
               {curatedLists.isLoading ? (
                 Array.from({ length: 3 }).map((_, idx) => (
                   <div key={idx} className="h-20 animate-pulse rounded-3xl bg-muted" />
@@ -1241,11 +1277,11 @@ const SearchPage: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          </SectionContainer>
 
-          <div className="flex flex-col pt-8">
+          <SectionContainer>
             <SectionHeader title="Browse by Category" />
-            <div className="grid grid-cols-3 gap-3 px-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {discoverGenres.map((g) => (
                 <button
                   key={g.key}
@@ -1263,16 +1299,16 @@ const SearchPage: React.FC = () => {
                       { replace: false },
                     );
                   }}
-                  className="flex h-20 items-center justify-center rounded-3xl border border-border bg-card/70 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-card"
+                  className="flex h-20 items-center justify-center rounded-3xl border border-border/70 bg-card/80 text-sm font-semibold text-foreground shadow-sm transition-all hover:bg-card hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   {g.label}
                 </button>
               ))}
             </div>
-          </div>
+          </SectionContainer>
         </div>
       ) : (
-        <div className="px-4 pt-4">
+        <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-4 sm:px-6">
           {/* Search results */}
           {effectiveTab === "people" ? (
             trimmedQuery.length === 0 ? (

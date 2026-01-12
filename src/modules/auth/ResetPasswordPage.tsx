@@ -4,6 +4,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { supabase } from "../../lib/supabase";
 import AuthLayout from "./AuthLayout";
 import { Button } from "@/components/ui/button";
+import { MaterialIcon } from "@/components/ui/material-icon";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -100,9 +101,10 @@ const ResetPasswordPage: React.FC = () => {
       }
     >
       {checking ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <MaterialIcon name="autorenew" className="text-[18px] animate-spin" ariaLabel="Loading" />
           Checking your reset link…
-        </p>
+        </div>
       ) : (
         <>
           {error && (
@@ -132,18 +134,25 @@ const ResetPasswordPage: React.FC = () => {
                 >
                   New password
                 </label>
-                <input
-                  id="reset-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={MIN_PASSWORD_LENGTH}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={submitting}
-                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
-                />
+                <div className="relative flex items-center">
+                  <MaterialIcon
+                    name="lock"
+                    className="absolute left-4 text-[18px] text-slate-400 dark:text-slate-500"
+                    ariaLabel="Password"
+                  />
+                  <input
+                    id="reset-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={submitting}
+                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-11 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                  />
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   At least {MIN_PASSWORD_LENGTH} characters.
                 </p>
@@ -156,18 +165,25 @@ const ResetPasswordPage: React.FC = () => {
                 >
                   Confirm new password
                 </label>
-                <input
-                  id="reset-confirm"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={MIN_PASSWORD_LENGTH}
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  disabled={submitting}
-                  placeholder="Re-enter your password"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
-                />
+                <div className="relative flex items-center">
+                  <MaterialIcon
+                    name="lock_reset"
+                    className="absolute left-4 text-[18px] text-slate-400 dark:text-slate-500"
+                    ariaLabel="Confirm password"
+                  />
+                  <input
+                    id="reset-confirm"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    disabled={submitting}
+                    placeholder="Re-enter your password"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-11 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                  />
+                </div>
               </div>
 
               <Button
@@ -176,6 +192,7 @@ const ResetPasswordPage: React.FC = () => {
                 disabled={submitting}
               >
                 {submitting ? "Updating password…" : "Update password"}
+                <MaterialIcon name="arrow_forward" className="text-[18px]" ariaLabel="Submit" />
               </Button>
             </form>
           )}

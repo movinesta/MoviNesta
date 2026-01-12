@@ -130,7 +130,7 @@ const ConversationListRow: React.FC<{
       <Link
         to={`/messages/${conversation.id}`}
         className={
-          "group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-muted/60" +
+          "group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background" +
           (dimmed ? " opacity-70" : "")
         }
         onPointerDown={startLongPress}

@@ -94,7 +94,7 @@ function PosterTile({
     <button
       type="button"
       onClick={onClick}
-      className="group relative aspect-[2/3] overflow-hidden rounded-xl bg-muted/40 text-left"
+      className="group relative aspect-[2/3] overflow-hidden rounded-2xl bg-muted/40 text-left shadow-sm ring-1 ring-border/50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       {imageUrl ? (
         <img
@@ -143,11 +143,11 @@ function SuggestedPersonCard({
         : "Similar taste";
 
   return (
-    <div className="snap-start min-w-[140px] rounded-2xl border border-white/5 bg-card p-3">
+    <div className="snap-start min-w-[140px] rounded-2xl border border-border/60 bg-card/80 p-3 shadow-sm">
       <button
         type="button"
         onClick={() => onOpen(username)}
-        className="flex w-full flex-col items-center gap-3"
+        className="flex w-full flex-col items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {avatarUrl ? (
           <img

@@ -76,7 +76,7 @@ const NotificationRow: React.FC<{
   const name = item.actor.displayName || item.actor.username || "Someone";
 
   return (
-    <div className="flex items-center gap-3 px-3 py-3">
+    <div className="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-muted/40">
       <button
         type="button"
         onClick={onOpen}
@@ -134,8 +134,8 @@ const NotificationRow: React.FC<{
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="border-b border-border">
-    <h2 className="px-3 pb-1 pt-4 text-sm font-semibold text-foreground">{title}</h2>
+  <section className="rounded-2xl border border-border/60 bg-card/80 shadow-sm">
+    <h2 className="px-4 pb-1 pt-4 text-sm font-semibold text-foreground">{title}</h2>
     {children}
   </section>
 );
@@ -173,14 +173,14 @@ const ActivityPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-1 flex-col bg-background pb-4 text-foreground">
+    <div className="flex flex-1 flex-col gap-4 bg-background pb-4 text-foreground">
       <TopBar title="Activity" />
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col gap-3 px-2">
         {/* Follow requests (placeholder) */}
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-4 text-left"
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/60 bg-card/80 px-4 py-4 text-left shadow-sm transition hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           onClick={() => navigate("/activity/requests")}
         >
           <div className="flex items-center gap-3">
