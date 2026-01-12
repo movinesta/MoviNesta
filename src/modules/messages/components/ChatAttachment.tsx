@@ -116,15 +116,7 @@ const AttachmentSkeleton = () => (
 
 const AttachmentWrapper: React.FC<{
   children: React.ReactNode;
-}> = ({ children }) => (
-  <div
-    className="mt-1"
-    onClick={(event) => event.stopPropagation()}
-    onContextMenu={(event) => event.stopPropagation()}
-  >
-    {children}
-  </div>
-);
+}> = ({ children }) => <div className="mt-1">{children}</div>;
 
 const AttachmentAudio: React.FC<{
   url: string;
@@ -137,7 +129,16 @@ const AttachmentAudio: React.FC<{
         <Music2 className="h-4 w-4" aria-hidden="true" />
         <span className="font-semibold text-foreground">{name}</span>
       </div>
-      <audio controls src={url} className="w-full" onError={onError} />
+      <audio
+        controls
+        src={url}
+        className="w-full"
+        onError={onError}
+        onClick={(event) => event.stopPropagation()}
+        onContextMenu={(event) => event.stopPropagation()}
+      >
+        <track kind="captions" srcLang="en" label="Captions" />
+      </audio>
     </div>
   </AttachmentWrapper>
 );
@@ -150,6 +151,7 @@ const AttachmentDocument: React.FC<{ url: string; name: string }> = ({ url, name
       rel="noreferrer"
       className="inline-flex items-center gap-3 rounded-xl border border-border bg-background/80 px-3 py-2 text-xs text-foreground hover:bg-muted/60"
       onClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.stopPropagation()}
     >
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/70">
         <FileText className="h-4 w-4" aria-hidden="true" />
@@ -165,13 +167,12 @@ const AttachmentDocument: React.FC<{ url: string; name: string }> = ({ url, name
 
 export const ChatAttachment: React.FC<{ path: string }> = ({ path }) => {
   const kind = useMemo(() => getAttachmentKindFromPath(path), [path]);
+  const { url, error, retryIfNeeded } = useResolvedAttachmentUrl(path);
+  const name = useMemo(() => getAttachmentNameFromPath(path), [path]);
 
   if (kind === "image") {
     return <ChatImage path={path} />;
   }
-
-  const { url, error, retryIfNeeded } = useResolvedAttachmentUrl(path);
-  const name = useMemo(() => getAttachmentNameFromPath(path), [path]);
 
   if (error) {
     return <div className="mt-1 text-xs text-muted-foreground">Attachment unavailable.</div>;

@@ -280,11 +280,9 @@ export const ConversationComposerBar: React.FC<Props> = ({
                 {attachmentStatusLabel ? ` • ${attachmentStatusLabel}` : ""}
               </p>
               {pendingAttachment.kind === "audio" && pendingAttachment.previewUrl ? (
-                <audio
-                  controls
-                  src={pendingAttachment.previewUrl}
-                  className="mt-2 w-52"
-                />
+                <audio controls src={pendingAttachment.previewUrl} className="mt-2 w-52">
+                  <track kind="captions" srcLang="en" label="Captions" />
+                </audio>
               ) : null}
             </div>
           </div>

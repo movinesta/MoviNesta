@@ -926,10 +926,11 @@ const ConversationPage: React.FC = () => {
   const visibleMessagesRef = useRef(visibleMessages);
   const hasMoreMessagesRef = useRef(hasMoreMessages);
 
-  const displayMessages = useMemo(
-    () => (streamingAssistantMessage ? [...visibleMessages, streamingAssistantMessage] : visibleMessages),
-    [streamingAssistantMessage, visibleMessages],
-  );
+  const displayMessages = useMemo(() => {
+    return streamingAssistantMessage
+      ? [...visibleMessages, streamingAssistantMessage]
+      : visibleMessages;
+  }, [streamingAssistantMessage, visibleMessages]);
 
   const scrollBehavior: "auto" | "smooth" = prefersReducedMotion ? "auto" : "smooth";
 
