@@ -84,5 +84,9 @@ verify_jwt = true
 verify_jwt = true
 
 
-[functions.admin-openrouter-request-log]
+[functions.admin-openrouter-requests]
+verify_jwt = true
+
+
+[functions.admin-openrouter-parameters-refresh]
 verify_jwt = true
