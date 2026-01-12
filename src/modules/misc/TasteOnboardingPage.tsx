@@ -163,8 +163,8 @@ const TasteOnboardingPage: React.FC = () => {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-10">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Pick a few titles you like</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="type-heading text-foreground">Pick a few titles you like</h1>
+        <p className="type-body text-muted-foreground">
           Choose at least {MIN_PICKS}. This helps MoviNesta personalize your “For you” deck
           immediately.
         </p>
@@ -177,9 +177,9 @@ const TasteOnboardingPage: React.FC = () => {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">Selected:</span>
+        <span className="type-caption text-muted-foreground">Selected:</span>
         {selectedCount === 0 ? (
-          <span className="text-sm">None yet</span>
+          <span className="type-caption text-foreground">None yet</span>
         ) : (
           Object.values(selected)
             .slice(0, 12)
@@ -193,7 +193,7 @@ const TasteOnboardingPage: React.FC = () => {
             ))
         )}
         {selectedCount > 12 && (
-          <span className="text-xs text-muted-foreground">+{selectedCount - 12} more</span>
+          <span className="type-caption text-muted-foreground">+{selectedCount - 12} more</span>
         )}
       </div>
 
@@ -219,22 +219,22 @@ const TasteOnboardingPage: React.FC = () => {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Popular picks</h2>
-          <span className="text-xs text-muted-foreground">
+          <h2 className="type-subheading text-foreground">Popular picks</h2>
+          <span className="type-caption text-muted-foreground">
             Tap to {selectedCount ? "toggle" : "select"}
           </span>
         </div>
 
         {popularLoading ? (
           <div className="rounded-2xl border border-border bg-card/50 p-4 text-sm text-muted-foreground">
-            Loading suggestions…
+            <span className="type-caption">Loading suggestions…</span>
           </div>
         ) : popularError ? (
           <div className="rounded-2xl border border-border bg-card/50 p-4 text-sm text-muted-foreground">
-            {popularError}
+            <span className="type-caption">{popularError}</span>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3">
             {popular.map((p) => {
               const isSelected = !!selected[p.id];
               return (
@@ -257,7 +257,9 @@ const TasteOnboardingPage: React.FC = () => {
                     </div>
                   )}
                   <div className="p-2">
-                    <div className="line-clamp-2 text-xs font-medium">{p.title}</div>
+                    <div className="line-clamp-2 type-caption font-medium text-foreground">
+                      {p.title}
+                    </div>
                   </div>
 
                   <div className="absolute right-2 top-2 rounded-full bg-background/80 p-1 shadow">
@@ -275,7 +277,7 @@ const TasteOnboardingPage: React.FC = () => {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold">Search</h2>
+        <h2 className="type-subheading text-foreground">Search</h2>
 
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -288,12 +290,12 @@ const TasteOnboardingPage: React.FC = () => {
         </div>
 
         {search.isLoading ? (
-          <div className="rounded-2xl border border-border bg-card/50 p-4 text-sm text-muted-foreground">
-            Searching…
+          <div className="rounded-2xl border border-border bg-card/50 p-4 text-muted-foreground">
+            <span className="type-caption">Searching…</span>
           </div>
         ) : debouncedQuery.trim().length > 0 && results.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card/50 p-4 text-sm text-muted-foreground">
-            No results.
+          <div className="rounded-2xl border border-border bg-card/50 p-4 text-muted-foreground">
+            <span className="type-caption">No results.</span>
           </div>
         ) : (
           <div className="space-y-2">
@@ -320,8 +322,8 @@ const TasteOnboardingPage: React.FC = () => {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{pick.title}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="truncate type-label text-foreground">{pick.title}</div>
+                    <div className="type-caption text-muted-foreground">
                       {r.type ?? "title"} {typeof r.year === "number" ? `• ${r.year}` : ""}
                     </div>
                   </div>

@@ -16,7 +16,7 @@ const ToastProvider: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed left-1/2 top-4 z-50 flex w-full max-w-xl -translate-x-1/2 flex-col gap-2 px-4 sm:left-auto sm:right-4 sm:translate-x-0 sm:px-0">
+    <div className="fixed inset-x-0 top-4 z-50 mx-auto flex w-full max-w-xl flex-col gap-2 px-4">
       {toasts.map((toast) => (
         <div
           key={toast.id}

@@ -161,7 +161,7 @@ const DiaryLibraryTab: React.FC<DiaryLibraryTabProps> = ({
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3">
         {entries.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center py-12 text-center text-sm text-muted-foreground">
             <p className="font-medium text-foreground">

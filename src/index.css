@@ -18,6 +18,75 @@ body {
   min-height: 100vh;
 }
 
+@layer base {
+  html {
+    font-size: 16px;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply font-body text-base leading-relaxed text-foreground antialiased;
+  }
+
+  h1 {
+    @apply font-heading text-3xl font-semibold leading-tight tracking-tight;
+  }
+
+  h2 {
+    @apply font-heading text-2xl font-semibold leading-tight tracking-tight;
+  }
+
+  h3 {
+    @apply font-heading text-xl font-semibold leading-snug;
+  }
+
+  h4 {
+    @apply font-heading text-lg font-semibold leading-snug;
+  }
+
+  h5 {
+    @apply font-heading text-base font-semibold leading-snug;
+  }
+
+  h6 {
+    @apply font-heading text-sm font-semibold leading-snug;
+  }
+}
+
+@layer utilities {
+  .type-display {
+    @apply font-heading text-3xl font-semibold leading-tight tracking-tight;
+  }
+
+  .type-title {
+    @apply font-heading text-2xl font-semibold leading-tight tracking-tight;
+  }
+
+  .type-heading {
+    @apply font-heading text-xl font-semibold leading-snug;
+  }
+
+  .type-subheading {
+    @apply font-heading text-lg font-semibold leading-snug;
+  }
+
+  .type-label {
+    @apply text-sm font-semibold leading-snug;
+  }
+
+  .type-body {
+    @apply text-base leading-relaxed;
+  }
+
+  .type-caption {
+    @apply text-sm leading-snug;
+  }
+
+  .type-overline {
+    @apply text-xs font-semibold uppercase tracking-[0.18em];
+  }
+}
+
 /*
   Tailwind v4 config in this repo doesn't enable @tailwindcss/line-clamp.
   Swipe UI relies heavily on clamping to prevent text overlap.

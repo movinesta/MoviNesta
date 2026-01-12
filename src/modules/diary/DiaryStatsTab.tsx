@@ -83,7 +83,7 @@ const DiaryStatsTab: React.FC = () => {
   return (
     <div className="space-y-3 px-2 pb-4">
       {/* Overview */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-border bg-card/80 p-3 shadow-lg">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">Watched</span>
@@ -106,7 +106,7 @@ const DiaryStatsTab: React.FC = () => {
           </p>
         </div>
 
-        <div className="col-span-2 rounded-2xl border border-border bg-card/80 p-3 text-xs text-muted-foreground shadow-lg sm:col-span-1">
+        <div className="col-span-2 rounded-2xl border border-border bg-card/80 p-3 text-xs text-muted-foreground shadow-lg">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">Average rating</span>
             <PieChart className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />

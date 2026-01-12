@@ -23,8 +23,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           {icon}
         </div>
       ) : null}
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      {subtitle ? <p className="max-w-md text-[12px] text-muted-foreground">{subtitle}</p> : null}
+      <h3 className="type-heading text-foreground">{title}</h3>
+      {subtitle ? <p className="max-w-md type-caption text-muted-foreground">{subtitle}</p> : null}
       {actionLabel ? (
         <Button size="sm" onClick={onAction} className="mt-1">
           {actionLabel}

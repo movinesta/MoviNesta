@@ -54,17 +54,17 @@ const AppShell: React.FC = () => {
 
   const shellContentClassName =
     isConversationRoute || isAssistantRoute
-      ? "relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0 sm:px-0 sm:pb-0"
+      ? "relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0"
       : isSwipeRoute
         ? // Swipe route: no extra bottom padding; let SwipePage handle internal spacing.
-          "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0 sm:px-0 sm:pt-0 sm:pb-0"
+          "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-0 pt-0 pb-0"
         : // Default layout (other tabs): keep padding so content clears bottom nav.
-          "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pb-[calc(6rem+env(safe-area-inset-bottom))]";
+          "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4";
 
   const bottomNavInnerClassName =
     isConversationRoute || isAssistantRoute
-      ? "flex items-center justify-between gap-1 px-3 py-1.5 sm:px-4"
-      : "mx-auto flex max-w-5xl items-center justify-between gap-1 px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:px-5";
+      ? "flex items-center justify-between gap-1 px-3 py-1.5"
+      : "mx-auto flex max-w-5xl items-center justify-between gap-1 px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]";
 
   const handleTabClick = (key: (typeof bottomTabs)[number]["key"]) => {
     setLastVisitedTab(key);
@@ -114,7 +114,7 @@ const AppShell: React.FC = () => {
                   className={({ isActive }) => {
                     const active = manualActive ?? isActive;
                     return [
-                      "group flex min-h-11 flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-1 text-xs font-medium transition sm:min-h-0",
+                      "group flex min-h-11 flex-1 flex-col items-center gap-0.5 rounded-md px-2 py-1 text-xs font-medium transition",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       active ? "text-primary" : "text-muted-foreground hover:text-muted-foreground",
                     ].join(" ");

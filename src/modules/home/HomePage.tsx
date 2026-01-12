@@ -186,12 +186,12 @@ const SectionHeader: React.FC<{
   onAction?: () => void;
 }> = ({ title, actionLabel = "See All", onAction }) => (
   <div className="flex items-center justify-between px-4 pb-3">
-    <h2 className="text-xl font-bold tracking-tight text-foreground">{title}</h2>
+    <h2 className="type-heading text-foreground">{title}</h2>
     {onAction ? (
       <button
         type="button"
         onClick={onAction}
-        className="text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+        className="type-caption font-semibold text-primary transition-colors hover:text-primary/80"
       >
         {actionLabel}
       </button>
@@ -865,7 +865,7 @@ const HomePage: React.FC = () => {
     <div className="flex flex-col gap-6">
       {/* Sticky header (keeps AppShell bottom nav untouched) */}
       <header className="sticky top-0 z-30 -mx-4 -mt-4 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3 sm:px-5">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
           <button
             type="button"
             onClick={() => navigate("/me")}
@@ -1205,7 +1205,7 @@ const HomePage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-4 pt-6 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-4 pt-6">
           {isTrendingLoading
             ? Array.from({ length: 6 }).map((_, idx) => (
                 <div
@@ -1314,7 +1314,7 @@ const HomePage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-4 pt-6 pb-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-4 pt-6 pb-2">
           {isForYouLoading
             ? Array.from({ length: 6 }).map((_, idx) => (
                 <div

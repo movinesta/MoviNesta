@@ -31,9 +31,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <Icon className={`h-16 w-16 ${iconColors[variant]} mb-4`} aria-hidden />
-      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground text-center max-w-md mb-4">{description}</p>
+      <Icon className={`mb-4 h-16 w-16 ${iconColors[variant]}`} aria-hidden />
+      <h3 className="mb-2 type-heading text-foreground">{title}</h3>
+      <p className="mb-4 max-w-md text-center type-body text-muted-foreground">{description}</p>
       {action && (
         <Button onClick={action.onClick} variant="default">
           {action.label}

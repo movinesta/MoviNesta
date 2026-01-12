@@ -38,26 +38,26 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   return (
     <div className="relative min-h-screen bg-background text-foreground">
       <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-4 py-10">
-        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="flex flex-col gap-6">
           <div className="space-y-6 rounded-3xl border border-border bg-card/90 p-6 shadow-lg backdrop-blur">
-            <div className="space-y-2 text-center sm:text-left">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="space-y-2 text-left">
+              <p className="type-overline text-muted-foreground">
                 {kicker}
               </p>
-              <h1 className="text-xl font-heading font-semibold text-foreground">{title}</h1>
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <h1 className="type-heading text-foreground">{title}</h1>
+              <p className="type-body text-muted-foreground">{description}</p>
             </div>
 
             {children}
 
             {footer && (
-              <div className="border-t border-border pt-3 text-center text-xs text-muted-foreground">
+              <div className="border-t border-border pt-3 text-left type-caption text-muted-foreground">
                 {footer}
               </div>
             )}
           </div>
 
-          <aside className="hidden flex-col justify-between gap-4 rounded-3xl border border-border bg-card/60 p-6 shadow-md backdrop-blur lg:flex">
+          <section className="flex flex-col gap-4 rounded-3xl border border-border bg-card/60 p-6 shadow-md backdrop-blur">
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background/60 ring-2 ring-primary/30">
                 <img
@@ -67,15 +67,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                 />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="type-overline text-muted-foreground">
                   Cinematic, cozy, connected
                 </p>
-                <p className="text-sm text-foreground">Your movie life in one glowing nest.</p>
+                <p className="type-body text-foreground">Your movie life in one glowing nest.</p>
               </div>
             </div>
 
             <div className="space-y-3 rounded-2xl border border-border bg-background/60 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="type-overline text-muted-foreground">
                 Why MoviNesta
               </p>
               <div className="space-y-3">
@@ -85,22 +85,22 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                       <Icon className="h-4 w-4 text-primary" aria-hidden />
                     </span>
                     <div className="space-y-0.5">
-                      <p className="text-sm font-semibold text-foreground">{itemTitle}</p>
-                      <p className="text-[11.5px] leading-relaxed text-muted-foreground">{copy}</p>
+                      <p className="type-label text-foreground">{itemTitle}</p>
+                      <p className="type-caption text-muted-foreground">{copy}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-dashed border-border bg-background/40 p-4 text-xs text-muted-foreground">
-              <p className="font-semibold text-foreground">Privacy-first sessions</p>
-              <p className="mt-1 leading-relaxed">
+            <div className="rounded-2xl border border-dashed border-border bg-background/40 p-4 type-caption text-muted-foreground">
+              <p className="type-label text-foreground">Privacy-first sessions</p>
+              <p className="mt-1">
                 Secure authentication powered by Supabase. Passwords stay encrypted and session
                 recovery links expire quickly for your safety.
               </p>
             </div>
-          </aside>
+          </section>
         </div>
       </div>
     </div>
