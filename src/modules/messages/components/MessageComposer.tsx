@@ -17,6 +17,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   ...formProps
 }) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [keyboardOffset, setKeyboardOffset] = React.useState(0);
 
   React.useEffect(() => {
     if (!onHeightChange || !containerRef.current) return;
@@ -31,11 +32,40 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     return () => resizeObserver.disconnect();
   }, [onHeightChange]);
 
+  React.useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      setKeyboardOffset(0);
+      return;
+    }
+
+    const updateOffset = () => {
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setKeyboardOffset(offset);
+    };
+
+    updateOffset();
+    viewport.addEventListener("resize", updateOffset);
+    viewport.addEventListener("scroll", updateOffset);
+    window.addEventListener("orientationchange", updateOffset);
+
+    return () => {
+      viewport.removeEventListener("resize", updateOffset);
+      viewport.removeEventListener("scroll", updateOffset);
+      window.removeEventListener("orientationchange", updateOffset);
+    };
+  }, []);
+
   return (
     // NOTE: Don't use `pointer-events-none` on the wrapper. In HTML hit-testing,
     // a `pointer-events: none` ancestor can prevent descendants from receiving
     // pointer/keyboard focus events in many browsers.
-    <div ref={containerRef} className="fixed inset-x-0 bottom-0 z-40 w-full">
+    <div
+      ref={containerRef}
+      className="fixed inset-x-0 bottom-0 z-40 w-full"
+      style={{ transform: `translateY(-${keyboardOffset}px)` }}
+    >
       <div className="w-full">
         <form
           {...formProps}
