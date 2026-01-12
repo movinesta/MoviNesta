@@ -1393,7 +1393,13 @@ async function handler(req: Request) {
       findLatestUserText(chronological, myUserId) ||
       "";
 
-    const useChunkMode = shouldUseChunkMode(latestUserText, behavior) && timeLeftMs() > 25_000;
+    const wantsSse = Boolean(payload.stream) && (req.headers.get("accept") ?? "").includes("text/event-stream");
+    const streamPassthroughEnabled = Boolean((assistantSettings.params as any)?.stream_passthrough);
+    const streamPassthroughRequested = wantsSse && streamPassthroughEnabled;
+    const useChunkMode =
+      shouldUseChunkMode(latestUserText, behavior) &&
+      timeLeftMs() > 25_000 &&
+      !streamPassthroughRequested;
     const prefetchCalls = inferPrefetchCalls(latestUserText).slice(0, 3);
     if (prefetchCalls.length) {
       const anchorMessageId =
@@ -1745,8 +1751,7 @@ async function handler(req: Request) {
         // Optional: true streaming passthrough from OpenRouter.
         // This mode is intentionally conservative (opt-in) because tool-loop streaming
         // would otherwise leak JSON/tool-argument deltas to the UI.
-        const wantsSse = Boolean(payload.stream) && (req.headers.get("accept") ?? "").includes("text/event-stream");
-        const streamPassthrough = Boolean((assistantSettings.params as any)?.stream_passthrough);
+        const streamPassthrough = streamPassthroughRequested;
         const nativeToolCallingEnabled = Boolean((assistantSettings.params as any)?.native_tool_calling);
 
         if (
