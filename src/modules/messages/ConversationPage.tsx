@@ -1093,6 +1093,7 @@ const ConversationPage: React.FC = () => {
   const streamingScrollFrameRef = useRef<number | null>(null);
   const streamingPinnedRef = useRef(false);
   const streamingActiveRef = useRef(false);
+  const streamingAutoScrollActiveRef = useRef(false);
 
   const displayMessages = useMemo(() => {
     if (!streamingAssistantMessage) return visibleMessages;
@@ -1299,16 +1300,21 @@ const ConversationPage: React.FC = () => {
     if (!assistantStreamText) return;
     if (!streamingPinnedRef.current) return;
 
+    streamingAutoScrollActiveRef.current = true;
+
+    const tick = () => {
+      if (!streamingAutoScrollActiveRef.current) return;
+      scrollToBottom("auto");
+      streamingScrollFrameRef.current = requestAnimationFrame(tick);
+    };
+
     if (streamingScrollFrameRef.current !== null) {
       cancelAnimationFrame(streamingScrollFrameRef.current);
     }
-
-    streamingScrollFrameRef.current = requestAnimationFrame(() => {
-      scrollToBottom("auto");
-      streamingScrollFrameRef.current = null;
-    });
+    streamingScrollFrameRef.current = requestAnimationFrame(tick);
 
     return () => {
+      streamingAutoScrollActiveRef.current = false;
       if (streamingScrollFrameRef.current !== null) {
         cancelAnimationFrame(streamingScrollFrameRef.current);
         streamingScrollFrameRef.current = null;
