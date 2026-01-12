@@ -61,6 +61,68 @@ type OutputValidationPolicy = {
   autoHeal: boolean;
 };
 
+const FALLBACK_AGENT_SCHEMA: SchemaRegistryEntry = {
+  id: 0,
+  key: "assistant.agent",
+  version: 0,
+  name: "assistant.agent",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      type: { type: "string", enum: ["final", "tool"] },
+      text: { type: "string" },
+      ui: { type: ["object", "null"] },
+      actions: { type: ["array", "null"], items: { type: "object" } },
+      calls: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            tool: { type: "string" },
+            args: { type: "object" },
+          },
+          required: ["tool"],
+        },
+      },
+    },
+    required: ["type"],
+    anyOf: [
+      { properties: { type: { const: "final" } }, required: ["type", "text"] },
+      { properties: { type: { const: "tool" } }, required: ["type", "calls"] },
+    ],
+    additionalProperties: true,
+  },
+};
+
+const FALLBACK_CHUNK_OUTLINE_SCHEMA: SchemaRegistryEntry = {
+  id: 0,
+  key: "assistant.chunk_outline",
+  version: 0,
+  name: "assistant.chunk_outline",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      intro: { type: "string" },
+      sections: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            bullets: { type: "array", items: { type: "string" } },
+          },
+          required: ["title"],
+          additionalProperties: true,
+        },
+      },
+    },
+    required: ["sections"],
+    additionalProperties: true,
+  },
+};
+
 function resolveOutputValidationPolicy(settings: Record<string, unknown>): OutputValidationPolicy {
   const rawMode = String(settings["assistant.output_validation.mode"] ?? "lenient").trim().toLowerCase();
   const mode: OutputValidationMode = rawMode === "strict" ? "strict" : "lenient";
@@ -1155,8 +1217,14 @@ async function handler(req: Request) {
     }
 
     const [agentSchemaRaw, chunkOutlineSchema] = await Promise.all([
-      loadSchemaRegistryEntry(svc as any, "assistant.agent"),
-      loadSchemaRegistryEntry(svc as any, "assistant.chunk_outline"),
+      loadSchemaRegistryEntry(svc as any, "assistant.agent").catch((error) => {
+        logWarn(logCtx, "Schema registry fallback (assistant.agent)", { error: (error as Error)?.message ?? String(error) });
+        return FALLBACK_AGENT_SCHEMA;
+      }),
+      loadSchemaRegistryEntry(svc as any, "assistant.chunk_outline").catch((error) => {
+        logWarn(logCtx, "Schema registry fallback (assistant.chunk_outline)", { error: (error as Error)?.message ?? String(error) });
+        return FALLBACK_CHUNK_OUTLINE_SCHEMA;
+      }),
     ]);
     const agentSchema = withToolEnum(agentSchemaRaw, TOOL_NAMES);
 
