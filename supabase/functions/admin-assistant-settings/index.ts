@@ -60,12 +60,21 @@ function extractUpstreamRequestId(raw: unknown): string | null {
   return typeof candidate === "string" && candidate.trim() ? candidate : null;
 }
 
+const NullableUrlSchema = z.preprocess((val) => {
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    return trimmed;
+  }
+  return val;
+}, z.string().url().nullable());
+
 const BodySchema = z
   .object({
     action: z.enum(["get", "set", "test_provider", "test_routing"]).default("get"),
     settings: z
       .object({
-        openrouter_base_url: z.string().url().nullable().optional(),
+        openrouter_base_url: NullableUrlSchema.optional(),
         model_fast: z.string().min(1).nullable().optional(),
         model_creative: z.string().min(1).nullable().optional(),
         model_planner: z.string().min(1).nullable().optional(),
@@ -186,12 +195,15 @@ serve(async (req) => {
     if (action === "set") {
       const defaults = getDefaultAssistantSettings();
       const incoming = body?.settings ?? {};
+      const openrouterBaseUrl = typeof incoming.openrouter_base_url === "string" && !incoming.openrouter_base_url.trim()
+        ? null
+        : incoming.openrouter_base_url;
       const fallback_models = uniqStrings(incoming.fallback_models ?? defaults.fallback_models ?? []);
       const model_catalog = uniqStrings(incoming.model_catalog ?? defaults.model_catalog ?? []);
 
       const payload = {
         id: 1,
-        openrouter_base_url: incoming.openrouter_base_url ?? defaults.openrouter_base_url,
+        openrouter_base_url: openrouterBaseUrl ?? defaults.openrouter_base_url,
         model_fast: incoming.model_fast ?? defaults.model_fast,
         model_creative: incoming.model_creative ?? defaults.model_creative,
         model_planner: incoming.model_planner ?? defaults.model_planner,
