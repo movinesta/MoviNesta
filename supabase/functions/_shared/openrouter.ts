@@ -421,12 +421,51 @@ function extractResponseText(data: any): string {
 
 function extractStreamDelta(data: any): string | null {
   if (!data) return null;
+
+  const readContentText = (content: any): string | null => {
+    if (!content) return null;
+    const out: string[] = [];
+    const pushText = (value: any) => {
+      if (typeof value === "string" && value) out.push(value);
+    };
+    const visitItem = (item: any) => {
+      if (!item || typeof item !== "object") return;
+      pushText(item.text);
+      pushText(item?.text?.value);
+      pushText(item?.output_text);
+      if (typeof item?.content === "string") pushText(item.content);
+      if (Array.isArray(item?.content)) {
+        for (const part of item.content) visitItem(part);
+      }
+    };
+    if (Array.isArray(content)) {
+      for (const item of content) visitItem(item);
+    } else {
+      visitItem(content);
+    }
+    return out.length ? out.join("") : null;
+  };
+
   // Responses API streaming emits many event types (including tool-call arguments).
   // We only forward *user-visible text* deltas.
   if (typeof data?.type === "string") {
-    if (data.type === "response.output_text.delta" && typeof data?.delta === "string") return data.delta;
-    if (data.type === "response.content_part.delta" && typeof data?.delta === "string") return data.delta;
-    if (data.type === "response.output_text" && typeof data?.text === "string") return data.text;
+    if (data.type === "response.output_text.delta") {
+      if (typeof data?.delta === "string") return data.delta;
+      if (typeof data?.delta?.text === "string") return data.delta.text;
+      const nested = readContentText(data?.delta?.content ?? data?.delta);
+      if (nested) return nested;
+    }
+    if (data.type === "response.content_part.delta") {
+      if (typeof data?.delta === "string") return data.delta;
+      if (typeof data?.delta?.text === "string") return data.delta.text;
+      const nested = readContentText(data?.delta?.content ?? data?.delta);
+      if (nested) return nested;
+    }
+    if (data.type === "response.output_text") {
+      if (typeof data?.text === "string") return data.text;
+      const nested = readContentText(data?.content ?? data?.text);
+      if (nested) return nested;
+    }
     // Anything else (e.g., tool-call streaming) is intentionally ignored.
     return null;
   }
