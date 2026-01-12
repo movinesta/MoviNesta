@@ -1462,15 +1462,6 @@ if (q.error) return <ErrorBox error={q.error} />;
               </Table>
             </div>
           </>
-        ) : null}
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </div>
         ) : (
           <div className="mt-3 text-xs text-zinc-500">
             {endpointsQ.isLoading ? "Loading cached endpoints…" : "No endpoints match the current filters."}
