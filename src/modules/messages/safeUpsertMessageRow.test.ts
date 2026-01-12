@@ -93,10 +93,8 @@ describe("safeUpsertMessageRowIntoCache", () => {
   it("does not retry after unmount", () => {
     vi.useFakeTimers();
 
-    let calls = 0;
     const queryClient = {
       setQueryData: vi.fn(() => {
-        calls += 1;
         throw new Error("boom");
       }),
       invalidateQueries: vi.fn(),
