@@ -85,137 +85,151 @@ const SignInPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background-light text-slate-900 dark:bg-background-dark dark:text-white">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col">
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 px-4 pb-2 pt-4 backdrop-blur-md dark:bg-background-dark/80">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-slate-900 transition-colors hover:bg-slate-200 dark:text-white dark:hover:bg-white/10"
-            aria-label="Go back"
-          >
-            <MaterialIcon name="arrow_back" className="text-[24px]" ariaLabel="Back" />
-          </button>
-          <div className="text-sm font-medium opacity-0">Sign In</div>
-          <div className="h-12 w-12" />
-        </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-10 sm:px-6 lg:px-12">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(124,58,237,0.12),_transparent_45%)] dark:bg-[radial-gradient(circle_at_top,_rgba(124,58,237,0.2),_transparent_50%)]" />
+        <div className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/90 p-6 shadow-xl shadow-slate-200/60 backdrop-blur sm:p-8 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-none">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-700 transition-colors hover:border-slate-200 hover:bg-white dark:text-slate-200 dark:hover:border-white/10 dark:hover:bg-slate-800"
+              aria-label="Go back"
+            >
+              <MaterialIcon name="arrow_back" className="text-[20px]" ariaLabel="Back" />
+            </button>
+            <span className="rounded-full border border-slate-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:border-white/10 dark:text-slate-300">
+              Sign in
+            </span>
+          </div>
 
-        <div className="flex flex-1 flex-col px-6 pb-8">
-          <h1 className="pb-2 pt-2 text-center text-[32px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
-            Welcome Back!
-          </h1>
-          <p className="pb-6 text-center text-sm font-normal leading-normal text-[#ad92c9]">
-            Glad to see you again at the fan hub!
-          </p>
+          <div className="pt-6 text-center">
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Sign in to continue managing your watchlist and recommendations.
+            </p>
+          </div>
 
           {formError && (
             <div
               role="alert"
-              className="mb-4 rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+              className="mt-6 flex items-start gap-2 rounded-2xl border border-red-200/70 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
             >
-              {formError}
+              <MaterialIcon name="error" className="text-[18px]" ariaLabel="Error" />
+              <span>{formError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-2" noValidate>
-            <label className="relative flex items-center">
-              <MaterialIcon
-                name="alternate_email"
-                className="absolute left-5 z-10 text-[#ad92c9]"
-              />
-              <input
-                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-4 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                placeholder="Email or Username"
-                type="text"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (fieldErrors.email) {
-                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
-                  }
-                }}
-                onBlur={() => {
-                  const errors = validateSignIn(email, password);
-                  if (errors.email) {
-                    setFieldErrors((prev) => ({ ...prev, email: errors.email }));
-                  }
-                }}
-                disabled={submitting}
-              />
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4" noValidate>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              Email address
+              <span className="relative flex items-center">
+                <MaterialIcon
+                  name="alternate_email"
+                  className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                />
+                <input
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                  placeholder="name@example.com"
+                  type="text"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (fieldErrors.email) {
+                      setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                    }
+                  }}
+                  onBlur={() => {
+                    const errors = validateSignIn(email, password);
+                    if (errors.email) {
+                      setFieldErrors((prev) => ({ ...prev, email: errors.email }));
+                    }
+                  }}
+                  disabled={submitting}
+                />
+              </span>
             </label>
-            {fieldErrors.email && <p className="text-xs text-red-300">{fieldErrors.email}</p>}
+            {fieldErrors.email && <p className="text-xs text-red-500">{fieldErrors.email}</p>}
 
-            <label className="relative flex items-center">
-              <MaterialIcon name="lock" className="absolute left-5 z-10 text-[#ad92c9]" />
-              <input
-                className="h-12 w-full rounded-full border-none bg-white pl-14 pr-12 text-base font-normal leading-normal text-slate-900 placeholder:text-[#ad92c9] shadow-sm transition-all focus:bg-white focus:ring-2 focus:ring-primary dark:bg-[#362348] dark:text-white dark:focus:bg-[#432c5a]"
-                placeholder="Password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (fieldErrors.password) {
-                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
-                  }
-                }}
-                onBlur={() => {
-                  const errors = validateSignIn(email, password);
-                  if (errors.password) {
-                    setFieldErrors((prev) => ({ ...prev, password: errors.password }));
-                  }
-                }}
-                disabled={submitting}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-4 z-10 text-[#ad92c9] transition-colors hover:text-white"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                <MaterialIcon name={showPassword ? "visibility" : "visibility_off"} />
-              </button>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              Password
+              <span className="relative flex items-center">
+                <MaterialIcon
+                  name="lock"
+                  className="absolute left-4 z-10 text-slate-400 dark:text-slate-500"
+                />
+                <input
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-12 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                  placeholder="Enter your password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password) {
+                      setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                    }
+                  }}
+                  onBlur={() => {
+                    const errors = validateSignIn(email, password);
+                    if (errors.password) {
+                      setFieldErrors((prev) => ({ ...prev, password: errors.password }));
+                    }
+                  }}
+                  disabled={submitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 z-10 rounded-full p-1 text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-white"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <MaterialIcon name={showPassword ? "visibility" : "visibility_off"} />
+                </button>
+              </span>
             </label>
             {fieldErrors.password && (
-              <p id="signin-password-error" className="text-xs text-red-300">
+              <p id="signin-password-error" className="text-xs text-red-500">
                 {fieldErrors.password}
               </p>
             )}
 
             <Link
               to="/auth/forgot-password"
-              className="mt-1 text-right text-xs font-medium text-[#ad92c9] transition-colors hover:text-primary"
+              className="text-right text-xs font-semibold text-slate-500 transition-colors hover:text-primary dark:text-slate-400"
             >
-              Forgot Password?
+              Forgot password?
             </Link>
 
             <button
               type="submit"
               disabled={submitting || !isFormValid}
-              className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-white shadow-[0_0_20px_rgba(127,19,236,0.3)] transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Signing you in…" : "Sign In"}
-              <MaterialIcon name="arrow_forward" className="text-[20px]" ariaLabel="Submit" />
+              <MaterialIcon name="arrow_forward" className="text-[18px]" ariaLabel="Submit" />
             </button>
           </form>
 
-          <div className="relative flex items-center py-8">
-            <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
-            <span className="mx-4 flex-shrink text-xs font-medium uppercase tracking-wider text-[#ad92c9]">
-              Or sign in with
+          <div className="relative flex items-center py-6">
+            <div className="flex-grow border-t border-slate-200 dark:border-white/10" />
+            <span className="mx-4 flex-shrink text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+              Or continue with
             </span>
-            <div className="flex-grow border-t border-slate-300 dark:border-[#362348]" />
+            <div className="flex-grow border-t border-slate-200 dark:border-white/10" />
           </div>
 
-          <div className="flex justify-center gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
-              className="relative flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="relative flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"
               aria-label="Sign in with Google"
             >
               <svg
-                className="h-9 w-9"
+                className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 48 48"
                 xmlns="http://www.w3.org/2000/svg"
@@ -240,11 +254,11 @@ const SignInPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"
               aria-label="Sign in with another provider"
             >
               <svg
-                className="h-9 w-9 text-white"
+                className="h-6 w-6 text-slate-800 dark:text-white"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
@@ -254,11 +268,11 @@ const SignInPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50 dark:border-transparent dark:bg-[#362348] dark:hover:bg-[#432c5a]"
+              className="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"
               aria-label="Sign in with Facebook"
             >
               <svg
-                className="h-9 w-9 text-[#0866FF]"
+                className="h-6 w-6 text-[#0866FF]"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
@@ -268,8 +282,8 @@ const SignInPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="mt-auto flex flex-col items-center gap-4 pt-8">
-            <p className="text-sm font-medium text-[#ad92c9]">
+          <div className="mt-8 flex flex-col items-center gap-4 text-center">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Don&apos;t have an account?{" "}
               <Link to="/auth/signup" className="font-semibold text-primary hover:underline">
                 Sign Up
