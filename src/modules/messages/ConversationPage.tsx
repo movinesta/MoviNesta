@@ -1095,10 +1095,16 @@ const ConversationPage: React.FC = () => {
   const streamingActiveRef = useRef(false);
 
   const displayMessages = useMemo(() => {
-    return streamingAssistantMessage
-      ? [...visibleMessages, streamingAssistantMessage]
-      : visibleMessages;
-  }, [streamingAssistantMessage, visibleMessages]);
+    if (!streamingAssistantMessage) return visibleMessages;
+    const streamedMessageId = assistantStreamMeta?.messageId ?? null;
+    if (
+      streamedMessageId &&
+      visibleMessages.some((item) => item.message.id === streamedMessageId)
+    ) {
+      return visibleMessages;
+    }
+    return [...visibleMessages, streamingAssistantMessage];
+  }, [assistantStreamMeta?.messageId, streamingAssistantMessage, visibleMessages]);
 
   const scrollBehavior: "auto" | "smooth" = prefersReducedMotion ? "auto" : "smooth";
 
