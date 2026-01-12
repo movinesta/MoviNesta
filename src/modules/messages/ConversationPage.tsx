@@ -1735,9 +1735,9 @@ const ConversationPage: React.FC = () => {
       isAssistantThread &&
       otherParticipant?.id &&
       (assistantInvokeInFlight ||
-        assistantStreamText !== null ||
         assistantReplyStatus?.is_typing ||
-        assistantReplyStatus?.is_queued);
+        assistantReplyStatus?.is_queued) &&
+      assistantStreamText === null;
 
     if (showAssistantTyping) {
       const already = out.some((u) => u.id === otherParticipant.id);
