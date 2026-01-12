@@ -1063,6 +1063,7 @@ const ConversationPage: React.FC = () => {
   const hasVisibleMessages = visibleMessages.length > 0;
   const visibleMessagesRef = useRef(visibleMessages);
   const hasMoreMessagesRef = useRef(hasMoreMessages);
+  const streamingScrollFrameRef = useRef<number | null>(null);
 
   const displayMessages = useMemo(() => {
     return streamingAssistantMessage
@@ -1247,6 +1248,27 @@ const ConversationPage: React.FC = () => {
 
     scrollToBottom(scrollBehavior);
   }, [lastVisibleMessageId, scrollBehavior, scrollToBottom]);
+
+  useEffect(() => {
+    if (!assistantStreamText) return;
+    if (!isPinnedToBottomRef.current) return;
+
+    if (streamingScrollFrameRef.current !== null) {
+      cancelAnimationFrame(streamingScrollFrameRef.current);
+    }
+
+    streamingScrollFrameRef.current = requestAnimationFrame(() => {
+      scrollToBottom("auto");
+      streamingScrollFrameRef.current = null;
+    });
+
+    return () => {
+      if (streamingScrollFrameRef.current !== null) {
+        cancelAnimationFrame(streamingScrollFrameRef.current);
+        streamingScrollFrameRef.current = null;
+      }
+    };
+  }, [assistantStreamText, scrollToBottom]);
 
   // Keep a reliable "pinned to bottom" signal based on the actual scroll container.
   // Virtuoso's internal atBottom can be thrown off by a fixed composer + reserved padding.
