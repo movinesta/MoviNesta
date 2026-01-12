@@ -367,6 +367,8 @@ const ConversationPage: React.FC = () => {
   const [assistantInvokeInFlight, setAssistantInvokeInFlight] = useState(false);
   const [assistantStreamText, setAssistantStreamText] = useState<string | null>(null);
   const assistantStreamAbortRef = useRef<AbortController | null>(null);
+  const assistantStreamBufferRef = useRef("");
+  const assistantStreamFlushRef = useRef<number | null>(null);
 
   const [assistantStreamMeta, setAssistantStreamMeta] = useState<{
     messageId?: string | null;
@@ -525,6 +527,7 @@ const ConversationPage: React.FC = () => {
           }
 
           setAssistantStreamText("");
+          assistantStreamBufferRef.current = "";
           setAssistantStreamMeta(null);
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
@@ -538,13 +541,32 @@ const ConversationPage: React.FC = () => {
                 const parsed = JSON.parse(data);
                 const text = typeof parsed?.text === "string" ? parsed.text : "";
                 if (text) {
-                  setAssistantStreamText((prev) => `${prev ?? ""}${text}`);
+                  assistantStreamBufferRef.current += text;
+                  if (assistantStreamFlushRef.current === null) {
+                    assistantStreamFlushRef.current = requestAnimationFrame(() => {
+                      const buffered = assistantStreamBufferRef.current;
+                      assistantStreamBufferRef.current = "";
+                      assistantStreamFlushRef.current = null;
+                      if (buffered) {
+                        setAssistantStreamText((prev) => `${prev ?? ""}${buffered}`);
+                      }
+                    });
+                  }
                 }
               } catch {
                 // ignore malformed chunk
               }
             }
             if (event === "done") {
+              if (assistantStreamFlushRef.current !== null) {
+                cancelAnimationFrame(assistantStreamFlushRef.current);
+                assistantStreamFlushRef.current = null;
+              }
+              if (assistantStreamBufferRef.current) {
+                const buffered = assistantStreamBufferRef.current;
+                assistantStreamBufferRef.current = "";
+                setAssistantStreamText((prev) => `${prev ?? ""}${buffered}`);
+              }
               try {
                 const parsed = JSON.parse(data);
                 const citations = Array.isArray((parsed as any)?.citations)
@@ -552,6 +574,18 @@ const ConversationPage: React.FC = () => {
                   : null;
 
                 const messageRow = (parsed as any)?.messageRow;
+                const messageId =
+                  typeof (messageRow as any)?.id === "string"
+                    ? (messageRow as any).id
+                    : typeof (parsed as any)?.messageId === "string"
+                      ? (parsed as any).messageId
+                      : null;
+                if (messageId || citations) {
+                  setAssistantStreamMeta({
+                    messageId,
+                    citations: citations ? (citations as any) : null,
+                  });
+                }
                 if (
                   messageRow &&
                   typeof messageRow === "object" &&
@@ -561,7 +595,6 @@ const ConversationPage: React.FC = () => {
                   if (inserted) {
                     // Stream bubble is no longer needed once we've inserted the saved message.
                     setAssistantStreamText(null);
-                    setAssistantStreamMeta(null);
                     return;
                   }
                   // Cache insertion failed; fall back to showing the stream bubble until a refetch sees the saved row.
@@ -572,14 +605,6 @@ const ConversationPage: React.FC = () => {
                     // ignore
                   }
                 }
-
-                setAssistantStreamMeta({
-                  messageId:
-                    typeof (parsed as any)?.messageId === "string"
-                      ? (parsed as any).messageId
-                      : null,
-                  citations: citations ? (citations as any) : null,
-                });
               } catch {
                 setAssistantStreamMeta(null);
               }
@@ -630,6 +655,11 @@ const ConversationPage: React.FC = () => {
           await requestAssistant(false);
         }
       } catch (e: any) {
+        if (assistantStreamFlushRef.current !== null) {
+          cancelAnimationFrame(assistantStreamFlushRef.current);
+          assistantStreamFlushRef.current = null;
+        }
+        assistantStreamBufferRef.current = "";
         setAssistantStreamText(null);
         setAssistantStreamMeta(null);
         setAssistantReplyFailed({ userMessageId, error: e?.message || "Assistant failed" });
@@ -850,10 +880,38 @@ const ConversationPage: React.FC = () => {
     setShowEmojiPicker,
   } = useConversationLayoutState({ showComposer });
   const [hasMeasuredAtBottom, setHasMeasuredAtBottom] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      setKeyboardOffset(0);
+      return;
+    }
+
+    const updateOffset = () => {
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setKeyboardOffset(offset);
+    };
+
+    updateOffset();
+    viewport.addEventListener("resize", updateOffset);
+    viewport.addEventListener("scroll", updateOffset);
+    window.addEventListener("orientationchange", updateOffset);
+
+    return () => {
+      viewport.removeEventListener("resize", updateOffset);
+      viewport.removeEventListener("scroll", updateOffset);
+      window.removeEventListener("orientationchange", updateOffset);
+    };
+  }, []);
 
   // Reserve space so the last message stays visible above the fixed composer.
   // We apply this as bottom padding on the scroll container.
-  const reservedBottomPx = showComposer ? Math.max(composerHeight, 0) + 24 : 40;
+  const reservedBottomPx = showComposer
+    ? Math.max(composerHeight, 0) + 24 + keyboardOffset
+    : 40 + keyboardOffset;
   const messageListBottomPadding = `${reservedBottomPx}px`;
 
   // Consider the user "at bottom" (pinned) when within the reserved spacer, plus a
@@ -1063,12 +1121,22 @@ const ConversationPage: React.FC = () => {
   const hasVisibleMessages = visibleMessages.length > 0;
   const visibleMessagesRef = useRef(visibleMessages);
   const hasMoreMessagesRef = useRef(hasMoreMessages);
+  const streamingScrollFrameRef = useRef<number | null>(null);
+  const streamingPinnedRef = useRef(false);
+  const streamingActiveRef = useRef(false);
+  const streamingAutoScrollActiveRef = useRef(false);
 
   const displayMessages = useMemo(() => {
-    return streamingAssistantMessage
-      ? [...visibleMessages, streamingAssistantMessage]
-      : visibleMessages;
-  }, [streamingAssistantMessage, visibleMessages]);
+    if (!streamingAssistantMessage) return visibleMessages;
+    const streamedMessageId = assistantStreamMeta?.messageId ?? null;
+    if (
+      streamedMessageId &&
+      visibleMessages.some((item) => item.message.id === streamedMessageId)
+    ) {
+      return visibleMessages;
+    }
+    return [...visibleMessages, streamingAssistantMessage];
+  }, [assistantStreamMeta?.messageId, streamingAssistantMessage, visibleMessages]);
 
   const scrollBehavior: "auto" | "smooth" = prefersReducedMotion ? "auto" : "smooth";
 
@@ -1247,6 +1315,43 @@ const ConversationPage: React.FC = () => {
 
     scrollToBottom(scrollBehavior);
   }, [lastVisibleMessageId, scrollBehavior, scrollToBottom]);
+
+  useEffect(() => {
+    const isStreaming = assistantStreamText !== null;
+    if (isStreaming && !streamingActiveRef.current) {
+      streamingPinnedRef.current = isPinnedToBottomRef.current;
+    }
+    if (!isStreaming && streamingActiveRef.current) {
+      streamingPinnedRef.current = false;
+    }
+    streamingActiveRef.current = isStreaming;
+  }, [assistantStreamText]);
+
+  React.useLayoutEffect(() => {
+    if (!assistantStreamText) return;
+    if (!streamingPinnedRef.current) return;
+
+    streamingAutoScrollActiveRef.current = true;
+
+    const tick = () => {
+      if (!streamingAutoScrollActiveRef.current) return;
+      scrollToBottom("auto");
+      streamingScrollFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    if (streamingScrollFrameRef.current !== null) {
+      cancelAnimationFrame(streamingScrollFrameRef.current);
+    }
+    streamingScrollFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      streamingAutoScrollActiveRef.current = false;
+      if (streamingScrollFrameRef.current !== null) {
+        cancelAnimationFrame(streamingScrollFrameRef.current);
+        streamingScrollFrameRef.current = null;
+      }
+    };
+  }, [assistantStreamText, scrollToBottom]);
 
   // Keep a reliable "pinned to bottom" signal based on the actual scroll container.
   // Virtuoso's internal atBottom can be thrown off by a fixed composer + reserved padding.
@@ -1658,9 +1763,9 @@ const ConversationPage: React.FC = () => {
       isAssistantThread &&
       otherParticipant?.id &&
       (assistantInvokeInFlight ||
-        assistantStreamText !== null ||
         assistantReplyStatus?.is_typing ||
-        assistantReplyStatus?.is_queued);
+        assistantReplyStatus?.is_queued) &&
+      assistantStreamText === null;
 
     if (showAssistantTyping) {
       const already = out.some((u) => u.id === otherParticipant.id);
