@@ -90,7 +90,7 @@ const AssistantDiagnosticsPage: React.FC = () => {
             <p className="text-sm text-destructive">Failed to load snapshot.</p>
           ) : (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3">
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Pending</p>
                   <p className="text-lg font-semibold text-foreground">{counts.pending ?? 0}</p>
@@ -109,7 +109,7 @@ const AssistantDiagnosticsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3">
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground">Oldest pending</p>
                   <p className="text-sm font-semibold text-foreground">

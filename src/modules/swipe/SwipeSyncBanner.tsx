@@ -18,7 +18,7 @@ const SwipeSyncBanner: React.FC<SwipeSyncBannerProps> = ({ message, onRetry, isR
     <div className="mx-3 mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-xs text-amber-50">
       <div className="flex items-start gap-2">
         <MaterialIcon name="error" className="mt-0.5 text-[18px]" ariaLabel="Error" />
-        <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 flex-col gap-1">
           <p className="leading-snug">{message}</p>
           <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
             <MaterialIcon name="refresh" className="text-[18px]" ariaLabel="Retry" />

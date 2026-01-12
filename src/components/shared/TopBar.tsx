@@ -60,9 +60,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
             </div>
 
             <div className="absolute left-1/2 flex max-w-[70%] -translate-x-1/2 items-center justify-center text-center">
-              {title ? (
-                <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
-              ) : null}
+              {title ? <h1 className="truncate type-label text-foreground">{title}</h1> : null}
             </div>
 
             <div className="flex min-w-[2.5rem] items-center justify-end gap-1">

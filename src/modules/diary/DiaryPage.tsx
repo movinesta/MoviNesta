@@ -49,8 +49,8 @@ const DiaryPage: React.FC = () => {
 
       {/* Tabs */}
       <section className="px-2">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:max-w-lg">
+        <div className="flex flex-col gap-3">
+          <div className="w-full">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DiaryTabKey)}>
               <TabsList className="w-full">
                 {DIARY_TABS.map((tab) => (

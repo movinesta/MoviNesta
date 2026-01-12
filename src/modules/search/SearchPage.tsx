@@ -893,11 +893,11 @@ const SearchPage: React.FC = () => {
               </div>
             </div>
           </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+          <DialogFooter className="flex-col gap-2">
             <Button type="button" variant="outline" onClick={resetFilters} className="rounded-full">
               Reset
             </Button>
-            <div className="flex w-full justify-end gap-2 sm:w-auto">
+            <div className="flex w-full justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"

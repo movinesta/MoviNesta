@@ -247,7 +247,7 @@ function ImageViewerDialog({
                 aria-label="Open image in new tab"
               >
                 <ExternalLink className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Open</span>
+                <span>Open</span>
               </button>
 
               <div className="inline-flex items-center gap-1 rounded-full bg-black/40 p-1 text-white">

@@ -1817,7 +1817,7 @@ const ConversationPage: React.FC = () => {
 
   return (
     <div className="conversation-page relative flex h-[100dvh] w-full flex-col items-stretch overflow-hidden bg-background text-foreground">
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background sm:rounded-2xl">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-1 min-h-0 flex-col items-stretch rounded-none border border-border bg-background">
         <div
           ref={headerRef}
           className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md"

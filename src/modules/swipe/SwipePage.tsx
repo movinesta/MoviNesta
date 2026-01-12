@@ -2252,7 +2252,7 @@ const SwipePage: React.FC = () => {
           : "Saved for ‘Not now’";
 
     return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:px-0">
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
         <div className="pointer-events-auto inline-flex items-center gap-3 rounded-md border border-border bg-background/95 px-3 py-2 text-[12px] text-foreground shadow-lg backdrop-blur">
           <span>{label}</span>
           <button
@@ -2271,7 +2271,7 @@ const SwipePage: React.FC = () => {
   const renderSmartHintToast = () => {
     if (!smartHint) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-4 sm:px-0">
+      <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-4">
         <div className="pointer-events-auto inline-flex max-w-md items-start gap-2 rounded-md border border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
           <MaterialIcon name="auto_awesome" className="mt-0.5 text-[18px] text-primary" />
           <span>{smartHint}</span>
@@ -2381,7 +2381,7 @@ const SwipePage: React.FC = () => {
   return (
     <div
       data-reduce-motion={prefersReducedMotion ? "1" : "0"}
-      className="relative flex flex-1 min-h-0 flex-col overflow-hidden overscroll-none h-[calc(100dvh-(5.5rem+env(safe-area-inset-bottom)))] sm:h-[calc(100dvh-(6rem+env(safe-area-inset-bottom)))]"
+      className="relative flex flex-1 min-h-0 flex-col overflow-hidden overscroll-none h-[calc(100dvh-(5.5rem+env(safe-area-inset-bottom)))]"
       style={SWIPE_LAYOUT_VARS}
     >
       <style>{MN_SWIPE_BURST_CSS}</style>
@@ -3314,7 +3314,7 @@ const SwipePage: React.FC = () => {
                                             name="share"
                                             className="text-[length:calc(var(--mn-swipe-chip)+0.2rem)]"
                                           />
-                                          <span className="hidden sm:inline">Share</span>
+                                          <span>Share</span>
                                         </button>
                                       </div>
                                     </div>

@@ -144,7 +144,7 @@ export const ConversationInfoSheet: React.FC<Props> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-auto bottom-0 translate-y-0 left-1/2 w-full max-w-3xl rounded-b-none sm:rounded-2xl sm:bottom-6 sm:rounded-b-2xl sm:translate-y-0">
+      <DialogContent className="top-auto bottom-0 translate-y-0 left-1/2 w-full max-w-3xl rounded-b-none">
         <div className="flex items-start justify-between gap-4">
           <div>
             <DialogTitle className="text-base">Conversation info</DialogTitle>

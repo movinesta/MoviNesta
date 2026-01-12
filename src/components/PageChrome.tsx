@@ -7,7 +7,7 @@ import { MOVINESTA_LOGO_URL } from "../constants/brand";
 import { useAuth } from "../modules/auth/AuthProvider";
 
 const HEADER_BASE_CLASSNAME =
-  "sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-3 py-2 sm:px-4";
+  "sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-3 py-2";
 
 export const HeaderSurface: React.FC<{
   className?: string;
@@ -90,8 +90,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             </span>
           )}
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-lg font-semibold text-foreground">{title}</p>
-            {description && <p className="truncate text-xs text-muted-foreground">{description}</p>}
+            <p className="truncate type-heading text-foreground">{title}</p>
+            {description && (
+              <p className="truncate type-caption text-muted-foreground">{description}</p>
+            )}
           </div>
         </div>
       </div>
@@ -129,12 +131,12 @@ export const PageSection: React.FC<PageSectionProps> = ({
   return (
     <section className={[surfaceClassName, padded ? "p-4" : "p-0"].join(" ")}>
       {(title || description || actions) && (
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-3 flex flex-col gap-2">
           <div className="space-y-1">
             {title && (
-              <h2 className="text-sm font-heading font-semibold text-foreground">{title}</h2>
+              <h2 className="type-label text-foreground">{title}</h2>
             )}
-            {description && <p className="text-xs text-muted-foreground">{description}</p>}
+            {description && <p className="type-caption text-muted-foreground">{description}</p>}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>

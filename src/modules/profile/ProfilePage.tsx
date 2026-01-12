@@ -551,7 +551,7 @@ const ProfilePage: React.FC = () => {
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-background" />
 
-        <div className="absolute left-0 top-0 z-20 flex w-full items-center justify-between p-4 pt-12 md:pt-6">
+        <div className="absolute left-0 top-0 z-20 flex w-full items-center justify-between p-4 pt-12">
           <button
             type="button"
             onClick={() => navigate(-1)}

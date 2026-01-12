@@ -7,7 +7,7 @@ const OnboardingPage: React.FC = () => {
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-foreground">
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">
-        <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="flex flex-col gap-8">
           <div className="space-y-8 rounded-3xl border border-border bg-card/80 p-8 shadow-lg backdrop-blur">
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background/70 ring-2 ring-primary/30">
@@ -18,35 +18,33 @@ const OnboardingPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="type-overline text-muted-foreground">
                   MoviNesta
                 </p>
-                <p className="text-sm text-muted-foreground">Cinematic, cozy, and connected.</p>
+                <p className="type-caption text-muted-foreground">Cinematic, cozy, and connected.</p>
               </div>
             </div>
 
             <div className="space-y-3">
-              <h1 className="text-3xl font-heading font-semibold leading-tight">
-                Your movie life, in one nest.
-              </h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="type-display text-foreground">Your movie life, in one nest.</h1>
+              <p className="type-body text-muted-foreground">
                 MoviNesta keeps your watchlist, recommendations, and movie memories in a single
                 cozy, cinematic space. Swipe to discover, log what you watch, and see what your
                 friends are into.
               </p>
             </div>
 
-            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col items-stretch gap-3">
               <Link
                 to="/auth/signup"
-                className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-black shadow-md transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-black shadow-md transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Get started
               </Link>
 
               <Link
                 to="/auth/signin"
-                className="text-sm font-medium text-muted-foreground underline-offset-4 transition hover:text-primary hover:underline"
+                className="w-full text-center text-sm font-medium text-muted-foreground underline-offset-4 transition hover:text-primary hover:underline"
               >
                 I already have an account
               </Link>
@@ -54,7 +52,7 @@ const OnboardingPage: React.FC = () => {
           </div>
 
           <div className="space-y-4 rounded-3xl border border-border bg-card/60 p-6 shadow-md backdrop-blur">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="type-overline text-muted-foreground">
               What you can do
             </p>
             <div className="space-y-3">
@@ -83,8 +81,8 @@ const OnboardingPage: React.FC = () => {
                     <Icon className="h-5 w-5 text-primary" aria-hidden />
                   </span>
                   <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{title}</p>
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">{copy}</p>
+                    <p className="type-label text-foreground">{title}</p>
+                    <p className="type-caption text-muted-foreground">{copy}</p>
                   </div>
                 </div>
               ))}
