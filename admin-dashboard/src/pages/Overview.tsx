@@ -41,10 +41,11 @@ export default function Overview() {
   });
 
   const q = useQuery({ queryKey: ["overview"], queryFn: getOverview });
+  const data = q.data;
 
   if (q.isLoading) return <LoadingState />;
   if (q.error) return <ErrorBox error={q.error} />;
-  const d = q.data!;
+  const d = data!;
 
   const active = d.active_profile
     ? `${d.active_profile.provider} / ${d.active_profile.model} (${d.active_profile.dimensions})`

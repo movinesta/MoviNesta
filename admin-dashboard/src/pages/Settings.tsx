@@ -148,6 +148,7 @@ export default function Settings() {
     queryFn: getAppSettingsPresets,
     staleTime: 30_000,
   });
+  const data = q.data;
 
   const [search, setSearch] = useState<string>("");
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -254,15 +255,15 @@ useEffect(() => {
 }, [favorites]);
 
 useEffect(() => {
-  if (!q.data) return;
-  const st = (q.data as any)?.favorites_storage;
+  if (!data) return;
+  const st = (data as any)?.favorites_storage;
   if (st === "db" || st === "fallback") setFavStorage(st);
-}, [q.data]);
+}, [data]);
 
 // Hydrate from server (and merge with local) when app-settings loads.
 useEffect(() => {
-  if (!q.data) return;
-  const serverFavs = (q.data as any)?.favorites;
+  if (!data) return;
+  const serverFavs = (data as any)?.favorites;
   if (!Array.isArray(serverFavs)) {
     if (!favoritesHydrated) setFavoritesHydrated(true);
     return;
@@ -283,12 +284,12 @@ useEffect(() => {
   const localHash = favHash(local);
   const serverHash = favHash(serverFavs);
   if (mergedHash !== localHash) setFavorites(merged);
-  const st = (q.data as any)?.favorites_storage;
+  const st = (data as any)?.favorites_storage;
   const storage: "db" | "fallback" = st === "db" ? "db" : "fallback";
   if (storage !== favStorage) setFavStorage(storage);
   setLastSavedFavHash(storage === "db" ? serverHash : mergedHash);
   setFavoritesHydrated(true);
-}, [q.data]);
+}, [data]);
 
 const mutFavSave = useMutation({
   mutationFn: async (favs: string[]) => {
@@ -308,7 +309,7 @@ const mutFavSave = useMutation({
 // Debounced server persistence (only when DB storage is available)
 useEffect(() => {
   if (!favoritesHydrated) return;
-  if (!q.data?.actor?.userId) return;
+  if (!data?.actor?.userId) return;
   if (favStorage !== "db") return;
   const h = favHash(favorites);
   if (h === lastSavedFavHash) return;
@@ -316,7 +317,7 @@ useEffect(() => {
     mutFavSave.mutate(favorites);
   }, 500);
   return () => clearTimeout(t);
-}, [favorites, favoritesHydrated, lastSavedFavHash, q.data?.actor?.userId, favStorage]);
+}, [favorites, favoritesHydrated, lastSavedFavHash, data?.actor?.userId, favStorage]);
 
 const favoritesServerSync = useMemo(() => {
   if (favStorage !== "db") return { state: "Offline" as const, detail: "Server storage not available" };
@@ -409,9 +410,9 @@ function openPreset(slug: string) {
   const [draftBool, setDraftBool] = useState<Record<string, boolean>>({});
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
 
-  const registry = q.data?.registry ?? ({} as Record<string, AppSettingsRegistryEntry>);
-  const rows = q.data?.rows ?? ([] as AppSettingsRow[]);
-  const version = q.data?.version ?? 0;
+  const registry = data?.registry ?? ({} as Record<string, AppSettingsRegistryEntry>);
+  const rows = data?.rows ?? ([] as AppSettingsRow[]);
+  const version = data?.version ?? 0;
 
   const rowByKey = useMemo(() => {
     const m = new Map<string, AppSettingsRow>();
@@ -438,7 +439,7 @@ function openPreset(slug: string) {
 
   // Initialize drafts once when data loads.
   useEffect(() => {
-    if (!q.data) return;
+    if (!data) return;
     const nextRaw: Record<string, string> = {};
     const nextBool: Record<string, boolean> = {};
     for (const [key, entry] of Object.entries(registry)) {
@@ -456,7 +457,7 @@ function openPreset(slug: string) {
     setDraftRaw(nextRaw);
     setDraftBool(nextBool);
     setDirty({});
-  }, [q.data]);
+  }, [data]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();

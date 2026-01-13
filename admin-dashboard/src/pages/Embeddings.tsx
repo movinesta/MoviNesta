@@ -17,8 +17,9 @@ function Title(props: { children: React.ReactNode }) {
 export default function Embeddings() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["embeddings"], queryFn: getEmbeddings });
+  const data = q.data;
 
-  const settings = q.data?.embedding_settings ?? null;
+  const settings = data?.embedding_settings ?? null;
 
   const activeProvider = settings?.active_provider ?? "—";
   const activeModel = settings?.active_model ?? "—";
@@ -77,6 +78,7 @@ if (q.error) return <ErrorBox error={q.error} />;
 
   // Avoid a controlled-input flash while we sync state from the loaded settings.
   if (settings && !isInitialized) return <LoadingState />;
+  const coverageRows = data?.coverage ?? [];
 
   return (
     <div className="space-y-6">
@@ -176,8 +178,8 @@ if (q.error) return <ErrorBox error={q.error} />;
             </tr>
           </thead>
           <tbody>
-            {(q.data?.coverage?.length ?? 0) ? (
-              q.data!.coverage.map((r, i) => (
+            {coverageRows.length ? (
+              coverageRows.map((r, i) => (
                 <tr key={i}>
                   <Td>{r.provider}</Td>
                   <Td className="font-mono text-xs">{r.model}</Td>

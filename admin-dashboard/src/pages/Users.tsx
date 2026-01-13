@@ -52,6 +52,7 @@ export default function Users() {
     queryKey: ["users", { search: searchApplied, page }],
     queryFn: () => listUsers({ search: searchApplied.trim() || null, page }),
   });
+  const data = q.data;
 
   const mutBan = useMutation({
     mutationFn: ({ user_id, banned }: { user_id: string; banned: boolean }) => banUser(user_id, banned),
@@ -73,12 +74,12 @@ export default function Users() {
     },
   });
 
-  const canNext = useMemo(() => Boolean(q.data?.next_page), [q.data?.next_page]);
+  const canNext = useMemo(() => Boolean(data?.next_page), [data?.next_page]);
 
   if (q.isLoading) return <LoadingState />;
 if (q.error) return <ErrorBox error={q.error} />;
 
-  const users = (q.data?.users ?? []) as any[];
+  const users = (data?.users ?? []) as any[];
 
   return (
     <div className="space-y-6">
@@ -212,7 +213,7 @@ if (q.error) return <ErrorBox error={q.error} />;
             First page
           </Button>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => setPage(q.data?.next_page ?? null)} disabled={!canNext}>
+            <Button variant="ghost" onClick={() => setPage(data?.next_page ?? null)} disabled={!canNext}>
               Next page
             </Button>
           </div>

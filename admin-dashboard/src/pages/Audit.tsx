@@ -40,8 +40,9 @@ export default function Audit() {
     queryKey: ["audit", { limit, search: searchApplied, before }],
     queryFn: () => getAudit({ limit, search: searchApplied.trim() || null, before }),
   });
+  const data = q.data;
 
-  const rows = (q.data?.rows ?? []) as AuditLogRow[];
+  const rows = (data?.rows ?? []) as AuditLogRow[];
   const selected = useMemo(() => rows.find((r: AuditLogRow) => String(r.id) === String(selectedId)) ?? null, [rows, selectedId]);
 
   useEffect(() => {
@@ -236,13 +237,13 @@ if (q.error) return <ErrorBox error={q.error} />;
             <Button variant="secondary" type="button"
               className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
               onClick={() => {
-                const next = q.data?.next_before ?? null;
+                const next = data?.next_before ?? null;
                 if (!next) return;
                 setHistory((h) => [...h, before]);
                 setBefore(next);
                 setSelectedId(null);
               }}
-              disabled={!q.data?.next_before}
+              disabled={!data?.next_before}
             >
               Next
             </Button>
