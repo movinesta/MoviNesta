@@ -3075,21 +3075,28 @@ export default function Assistant() {
                   <span className="rounded-full bg-zinc-100 px-2 py-1 font-mono">{selectedAiFailure.userId ?? ""}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <CopyButton
-                    label="Copy debug JSON"
-                    value={JSON.stringify(selectedAiFailure, null, 2)}
-                    className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs"
-                  />
-                  {selectedAiFailure.culprit?.var ? (
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs"
-                      onClick={() => openHint(String(selectedAiFailure.culprit.var), { scroll: true })}
-                    >
-                      Open culprit setting
-                    </Button>
-                  ) : null}
+                  {(() => {
+                    const culpritVar = selectedAiFailure.culprit?.var;
+                    return (
+                      <>
+                        <CopyButton
+                          label="Copy debug JSON"
+                          text={JSON.stringify(selectedAiFailure, null, 2)}
+                          className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs"
+                        />
+                        {culpritVar ? (
+                          <Button
+                            variant="ghost"
+                            type="button"
+                            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs"
+                            onClick={() => openHint(String(culpritVar), { scroll: true })}
+                          >
+                            Open culprit setting
+                          </Button>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

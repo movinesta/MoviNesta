@@ -222,7 +222,7 @@ export function ProviderPolicyEditor(props: {
 
         <div className="flex items-end justify-end gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => props.onChange(null)}
             title="Remove the provider policy section (OpenRouter defaults will apply)"
           >
