@@ -3,7 +3,9 @@ export type SettingExample = {
   effect: string;
 };
 
-export type SettingImpactHints = Partial<Record<"ux" | "performance" | "cost" | "safety" | "ops", string>>;
+export type SettingImpactHints = Partial<
+  Record<"ux" | "performance" | "cost" | "safety" | "ops" | "quality", string>
+>;
 
 export type SettingHint = {
   /** Human name shown in the hint drawer. */
@@ -1087,54 +1089,93 @@ export const SETTING_HINTS: Record<string, SettingHint> = {
 
   "behavior.router.policy.provider": {
     title: "Provider routing policy (OpenRouter)",
-    detail:
+    details:
       "Controls how OpenRouter selects a provider for a request. Use this to prefer specific providers, exclude providers, enforce parameter support, or bias toward lower latency/price/throughput. These settings map to OpenRouter's `provider` object on requests.",
     recommended:
       "Leave empty unless you have a clear reason (e.g., exclude an unstable provider, enforce ZDR, or require tools/JSON schema support). Start small: set `ignore` or `only` first, then add `order` if needed.",
     examples: [
-      "Force only OpenAI and Anthropic: only=[openai, anthropic]",
-      "Avoid a flaky provider: ignore=[together]",
-      "When using tools/response_format, enable require_parameters=true so OpenRouter only picks providers that support all requested params.",
+      {
+        scenario: "Force only OpenAI and Anthropic",
+        effect: "only=[openai, anthropic]",
+      },
+      {
+        scenario: "Avoid a flaky provider",
+        effect: "ignore=[together]",
+      },
+      {
+        scenario: "Use tools/response_format",
+        effect: "require_parameters=true (only providers that support requested params)",
+      },
     ],
   },
   "behavior.router.policy.provider.only": {
     title: "Provider allowlist (only)",
-    detail: "If set, OpenRouter will only route to these provider slugs.",
+    details: "If set, OpenRouter will only route to these provider slugs.",
     recommended: "Use sparingly. Prefer `ignore` unless you need hard restrictions.",
-    examples: ["only=[openai, anthropic]"],
+    examples: [
+      {
+        scenario: "Only OpenAI and Anthropic",
+        effect: "only=[openai, anthropic]",
+      },
+    ],
   },
   "behavior.router.policy.provider.ignore": {
     title: "Provider blocklist (ignore)",
-    detail: "Providers in this list will not be used for routing.",
+    details: "Providers in this list will not be used for routing.",
     recommended: "Good first step when one provider is unstable or undesired.",
-    examples: ["ignore=[together]"],
+    examples: [
+      {
+        scenario: "Avoid a flaky provider",
+        effect: "ignore=[together]",
+      },
+    ],
   },
   "behavior.router.policy.provider.order": {
     title: "Provider order",
-    detail: "If set, OpenRouter tries providers in this order (before load balancing).",
+    details: "If set, OpenRouter tries providers in this order (before load balancing).",
     recommended: "Use when you want a preferred provider but allow fallbacks.",
-    examples: ["order=[openai, anthropic, mistral]"],
+    examples: [
+      {
+        scenario: "Prefer a specific routing order",
+        effect: "order=[openai, anthropic, mistral]",
+      },
+    ],
   },
   "behavior.router.policy.provider.require_parameters": {
     title: "Require parameter support",
-    detail:
+    details:
       "If true, OpenRouter will only pick providers that support all parameters used in the request (tools, response_format, plugins, etc.).",
     recommended: "Turn ON if you use tools/JSON schema/web search plugins frequently.",
-    examples: ["require_parameters=true"],
+    examples: [
+      {
+        scenario: "Require full param support",
+        effect: "require_parameters=true",
+      },
+    ],
   },
   "behavior.router.policy.provider.zdr": {
     title: "ZDR routing (provider.zdr)",
-    detail:
+    details:
       "If true, OpenRouter will only route to providers that support ZDR (Zero Data Retention).",
     recommended: "Enable if you need strict data handling and you have compatible providers/models.",
-    examples: ["zdr=true"],
+    examples: [
+      {
+        scenario: "Force ZDR-capable providers",
+        effect: "zdr=true",
+      },
+    ],
   },
   "behavior.router.policy.provider.data_collection": {
     title: "Data collection filter",
-    detail:
+    details:
       "If set to deny, OpenRouter filters out providers that collect data. If allow, no filtering is applied (default).",
     recommended: "Set to deny only if it aligns with your compliance needs and supported providers exist.",
-    examples: ["data_collection=deny"],
+    examples: [
+      {
+        scenario: "Filter to providers that do not collect data",
+        effect: "data_collection=deny",
+      },
+    ],
   },
 
   "behavior.router.zdr.base_url": {

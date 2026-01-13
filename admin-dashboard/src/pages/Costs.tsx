@@ -75,6 +75,43 @@ function fmtUsd(n: number | null | undefined) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 4 }).format(n);
 }
 
+type OpenRouterDailyUsage = {
+  day: string;
+  tokens: number;
+  requests: number;
+  cost: number;
+};
+
+type OpenRouterUserUsage = {
+  user_id: string;
+  tokens: number;
+  requests: number;
+  cost: number;
+};
+
+type OpenRouterModelUsage = {
+  provider: string | null;
+  model: string;
+  tokens: number;
+  requests: number;
+  cost: number;
+};
+
+type OpenRouterUsage = {
+  daily: OpenRouterDailyUsage[];
+  byUser: OpenRouterUserUsage[];
+  byModel: OpenRouterModelUsage[];
+};
+
+type ModelUsageRow = {
+  provider: string | null;
+  model: string;
+  tokens: number;
+  runs: number;
+  errors: number;
+  last_started_at: string | null;
+};
+
 
 function fmtUptime(u: number | null | undefined) {
   if (u == null || !Number.isFinite(u)) return "—";
@@ -677,7 +714,7 @@ export default function Costs() {
       .sort((a: any, b: any) => b.tokens - a.tokens);
   }, [resp]);
 
-  const models = useMemo(() => {
+  const models = useMemo<ModelUsageRow[]>(() => {
     const raw: any = (resp as any)?.models;
     if (!Array.isArray(raw)) return [];
     return raw
@@ -769,9 +806,9 @@ export default function Costs() {
     return { day, totalTokens, byProvider };
   }, [resp]);
 
-  const openrouterUsage = useMemo(() => {
+  const openrouterUsage = useMemo<OpenRouterUsage>(() => {
     const raw: any = (resp as any)?.openrouter_usage;
-    const daily = Array.isArray(raw?.daily)
+    const daily: OpenRouterDailyUsage[] = Array.isArray(raw?.daily)
       ? raw.daily
           .filter(Boolean)
           .filter((r: any) => typeof r.day === "string")
@@ -782,7 +819,7 @@ export default function Costs() {
             cost: Number.isFinite(Number(r.cost)) ? Number(r.cost) : 0,
           }))
       : [];
-    const byUser = Array.isArray(raw?.by_user)
+    const byUser: OpenRouterUserUsage[] = Array.isArray(raw?.by_user)
       ? raw.by_user
           .filter(Boolean)
           .map((r: any) => ({
@@ -792,7 +829,7 @@ export default function Costs() {
             cost: Number.isFinite(Number(r.cost)) ? Number(r.cost) : 0,
           }))
       : [];
-    const byModel = Array.isArray(raw?.by_model)
+    const byModel: OpenRouterModelUsage[] = Array.isArray(raw?.by_model)
       ? raw.by_model
           .filter(Boolean)
           .map((r: any) => ({
@@ -1098,9 +1135,9 @@ if (q.error) return <ErrorBox error={q.error} />;
         }
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <StatCard title="Remaining" value={fmtUsd(keySummary?.remaining ?? null)} sub={<span className="text-xs text-zinc-500">Credit limit remaining</span>} />
-          <StatCard title="Used today" value={fmtUsd(keySummary?.usageDaily ?? null)} sub={<span className="text-xs text-zinc-500">UTC day usage</span>} />
-          <StatCard title="Used (all time)" value={fmtUsd(keySummary?.usage ?? null)} sub={<span className="text-xs text-zinc-500">Total usage</span>} />
+          <StatCard title="Remaining" value={fmtUsd(keySummary?.remaining ?? null)} subtitle={<span className="text-xs text-zinc-500">Credit limit remaining</span>} />
+          <StatCard title="Used today" value={fmtUsd(keySummary?.usageDaily ?? null)} subtitle={<span className="text-xs text-zinc-500">UTC day usage</span>} />
+          <StatCard title="Used (all time)" value={fmtUsd(keySummary?.usage ?? null)} subtitle={<span className="text-xs text-zinc-500">Total usage</span>} />
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
@@ -1198,11 +1235,11 @@ if (q.error) return <ErrorBox error={q.error} />;
           </div>
         </div>
 
-        {paramsError ? <div className="mt-3"><ErrorBox title="Parameters error" message={paramsError} /></div> : null}
+        {paramsError ? <div className="mt-3"><ErrorBox title="Parameters error" error={paramsError} /></div> : null}
 
         {paramsQ.isError ? (
           <div className="mt-3">
-            <ErrorBox title="Parameters error" message={(paramsQ.error as any)?.message ?? "Failed to load parameters"} />
+            <ErrorBox title="Parameters error" error={paramsQ.error} />
           </div>
         ) : null}
 
@@ -1364,7 +1401,7 @@ if (q.error) return <ErrorBox error={q.error} />;
 
         {endpointsQ.isError ? (
           <div className="mt-3">
-            <ErrorBox title="Endpoints error" message={(endpointsQ.error as any)?.message ?? "Failed to load /endpoints"} />
+            <ErrorBox title="Endpoints error" error={endpointsQ.error} />
           </div>
         ) : null}
 

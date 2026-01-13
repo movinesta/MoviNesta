@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOverview, resolveAllOpsAlerts, resolveOpsAlert } from "../lib/api";
 import { StatCard } from "../components/StatCard";
@@ -10,7 +10,6 @@ import { ErrorBox } from "../components/ErrorBox";
 import { LoadingState } from "../components/LoadingState";
 import { Button } from "../components/Button";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-
 
 function severityPill(sev: string) {
   const s = (sev || "warn").toLowerCase();
@@ -29,6 +28,7 @@ function Title(props: { children: React.ReactNode }) {
 
 export default function Overview() {
   const qc = useQueryClient();
+  const [confirm, setConfirm] = useState<null | { mode: "all" } | { mode: "one"; id: number }>(null);
 
   const resolveOne = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason?: string }) => resolveOpsAlert(id, reason),
@@ -43,7 +43,7 @@ export default function Overview() {
   const q = useQuery({ queryKey: ["overview"], queryFn: getOverview });
 
   if (q.isLoading) return <LoadingState />;
-if (q.error) return <ErrorBox error={q.error} />;
+  if (q.error) return <ErrorBox error={q.error} />;
   const d = q.data!;
 
   const active = d.active_profile
@@ -58,6 +58,37 @@ if (q.error) return <ErrorBox error={q.error} />;
   return (
     <div className="space-y-6">
       <Title>Overview</Title>
+
+      <ConfirmDialog
+        open={Boolean(confirm)}
+        title={confirm?.mode === "all" ? "Resolve all alerts?" : "Resolve this alert?"}
+        message={
+          confirm?.mode === "all"
+            ? "This will mark all active alerts as resolved."
+            : "This will mark the alert as resolved."
+        }
+        confirmText={
+          confirm?.mode === "all"
+            ? (resolveAll.isPending ? "Resolving…" : "Resolve all")
+            : (resolveOne.isPending ? "Resolving…" : "Resolve")
+        }
+        confirmDisabled={
+          confirm?.mode === "all"
+            ? resolveAll.isPending || !(d.ops_alerts?.length)
+            : resolveOne.isPending
+        }
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const mode = confirm?.mode;
+          const id = confirm && "id" in confirm ? confirm.id : null;
+          setConfirm(null);
+          if (mode === "all") {
+            resolveAll.mutate({ reason: "Resolved from admin dashboard" });
+          } else if (mode === "one" && id !== null) {
+            resolveOne.mutate({ id, reason: "Resolved from admin dashboard" });
+          }
+        }}
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard title="Active embeddings" value={active} subtitle={d.active_profile ? `task=${d.active_profile.task}` : undefined} />
@@ -141,23 +172,17 @@ if (q.error) return <ErrorBox error={q.error} />;
           </Table>
         </Card>
       </div>
-
-      
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Ops Alerts">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm text-zinc-600">Active operational alerts raised by scheduled health checks.</div>
-            <ConfirmDialog
-              title="Resolve all alerts?"
-              description="This will mark all active alerts as resolved."
-              confirmText={resolveAll.isPending ? "Resolving…" : "Resolve all"}
-              onConfirm={() => resolveAll.mutate({ reason: "Resolved from admin dashboard" })}
+            <Button
+              variant="secondary"
               disabled={resolveAll.isPending || !(d.ops_alerts?.length)}
+              onClick={() => setConfirm({ mode: "all" })}
             >
-              <Button variant="secondary" disabled={resolveAll.isPending || !(d.ops_alerts?.length)}>
-                Resolve all
-              </Button>
-            </ConfirmDialog>
+              Resolve all
+            </Button>
           </div>
 
           <Table>
@@ -181,17 +206,13 @@ if (q.error) return <ErrorBox error={q.error} />;
                     </Td>
                     <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(a.updated_at)}</Td>
                     <Td className="text-right">
-                      <ConfirmDialog
-                        title="Resolve this alert?"
-                        description="This will mark the alert as resolved."
-                        confirmText={resolveOne.isPending ? "Resolving…" : "Resolve"}
-                        onConfirm={() => resolveOne.mutate({ id: a.id, reason: "Resolved from admin dashboard" })}
+                      <Button
+                        variant="secondary"
                         disabled={resolveOne.isPending}
+                        onClick={() => setConfirm({ mode: "one", id: a.id })}
                       >
-                        <Button variant="secondary" size="sm" disabled={resolveOne.isPending}>
-                          Resolve
-                        </Button>
-                      </ConfirmDialog>
+                        Resolve
+                      </Button>
                     </Td>
                   </tr>
                 ))
