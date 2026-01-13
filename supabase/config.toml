@@ -1,0 +1,115 @@
+[functions.catalog-backfill]
+verify_jwt = false
+
+[functions.catalog-sync]
+verify_jwt = true
+
+[functions.media-swipe-deck]
+verify_jwt = true
+
+[functions.media-swipe-event]
+verify_jwt = true
+
+[functions.media-embed-backfill]
+verify_jwt = false
+
+[functions.media-trending-refresh]
+verify_jwt = false
+
+[functions.media-smart-backfill]
+verify_jwt = false
+
+[functions.assistant-orchestrator]
+verify_jwt = true
+
+[functions.assistant-chat-reply]
+verify_jwt = false
+
+[functions.assistant-chat-reply-runner]
+verify_jwt = false
+
+[functions.assistant-message-action]
+verify_jwt = true
+
+[functions.assistant-tool-result]
+verify_jwt = true
+
+[functions.assistant-suggestion-action]
+verify_jwt = true
+
+[functions.assistant-trigger-runner]
+verify_jwt = false
+
+[functions.assistant-goal-sweeper]
+verify_jwt = false
+
+[functions.assistant-metrics-rollup]
+verify_jwt = false
+
+[functions.admin-assistant-metrics]
+verify_jwt = true
+
+[functions.public-app-settings]
+verify_jwt = false
+
+[functions.tmdb-proxy]
+verify_jwt = true
+
+
+[functions.admin-app-settings]
+verify_jwt = false
+
+
+[functions.openrouter-refresh]
+verify_jwt = false
+
+
+[functions.admin-openrouter-key]
+verify_jwt = true
+
+
+[functions.admin-openrouter-parameters]
+verify_jwt = true
+
+
+[functions.admin-openrouter-models]
+verify_jwt = true
+
+
+[functions.admin-openrouter-credits]
+verify_jwt = true
+
+
+[functions.admin-openrouter-usage]
+verify_jwt = true
+
+
+[functions.admin-openrouter-endpoints]
+verify_jwt = true
+
+
+[functions.admin-openrouter-requests]
+verify_jwt = true
+
+
+[functions.admin-openrouter-parameters-refresh]
+verify_jwt = true
+
+
+[functions.admin-openrouter-circuit]
+verify_jwt = true
+
+
+[functions.admin-openrouter-refresh]
+verify_jwt = true
+
+
+[functions.openrouter-circuit-cleanup]
+verify_jwt = false
+
+
+[functions.openrouter-health-check]
+verify_jwt = false
+
+[functions.admin-ops-alerts]
+verify_jwt = true
