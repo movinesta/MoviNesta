@@ -159,7 +159,9 @@ export async function callSupabaseFunction<T>(
             details: e.details,
             requestId: e.requestId ?? echoedRequestId ?? requestId,
             retryAfterSeconds: clampRetryAfterSeconds(
-              (e as any).retryAfterSeconds ?? (e.details as any)?.retryAfterSeconds ?? retryAfterSecondsHeader,
+              (e as any).retryAfterSeconds ??
+                (e.details as any)?.retryAfterSeconds ??
+                retryAfterSecondsHeader,
             ),
           });
         }
