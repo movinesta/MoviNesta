@@ -12,6 +12,17 @@ function since24hIso() {
   return d.toISOString();
 }
 
+type SafeResult<T> = { data: T | null; error: { message?: string; code?: string } | null };
+
+async function safeQuery<T>(promise: Promise<SafeResult<T>>, fallback: T): Promise<T> {
+  const { data, error } = await promise;
+  if (error) {
+    console.warn("[admin-overview] query failed", error.message ?? error);
+    return fallback;
+  }
+  return (data ?? fallback) as T;
+}
+
 serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -22,50 +33,68 @@ serve(async (req) => {
     // Best-effort: use admin settings if available; otherwise keep current hard-coded behavior.
     let recentErrorsLimit = 50;
     let lastRunsLimit = 20;
-    
     let opsAlertsLimit = 25;
-try {
+    try {
       const env = await loadAppSettingsForScopes(svc as any, ["admin"], { cacheTtlMs: 60_000 });
       const s = (env.settings ?? {}) as Record<string, unknown>;
       recentErrorsLimit = clampInt(Number(s["admin.overview.recent_errors_limit"] ?? recentErrorsLimit), 1, 200);
       lastRunsLimit = clampInt(Number(s["admin.overview.last_job_runs_limit"] ?? lastRunsLimit), 1, 200);
-    
+
       opsAlertsLimit = clampInt(Number(s["admin.overview.ops_alerts_limit"] ?? opsAlertsLimit), 1, 200);
-} catch {
+    } catch {
       // ignore
     }
 
-    const [{ data: settings }, { data: coverage }, { data: jobState }] = await Promise.all([
-      svc.from("embedding_settings").select("*").eq("id", 1).maybeSingle(),
-      // `media_embeddings` has no `id` column in the schema; count media_item_id instead.
-      svc.from("media_embeddings").select("provider, model, count:media_item_id.count()"),
-      svc.from("media_job_state").select("job_name, cursor, updated_at").order("job_name"),
+    const [settings, coverage, jobState] = await Promise.all([
+      safeQuery(
+        svc.from("embedding_settings").select("*").eq("id", 1).maybeSingle(),
+        null,
+      ),
+      safeQuery(
+        // `media_embeddings` has no `id` column in the schema; count media_item_id instead.
+        svc.from("media_embeddings").select("provider, model, count:media_item_id.count()"),
+        [],
+      ),
+      safeQuery(
+        svc.from("media_job_state").select("job_name, cursor, updated_at").order("job_name"),
+        [],
+      ),
     ]);
 
-    const { data: routingLogs } = await svc
-      .from("openrouter_request_log")
-      .select("id, created_at, meta")
-      .gte("created_at", since24hIso())
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const routingLogs = await safeQuery(
+      svc
+        .from("openrouter_request_log")
+        .select("id, created_at, meta")
+        .gte("created_at", since24hIso())
+        .order("created_at", { ascending: false })
+        .limit(500),
+      [],
+    );
 
-    const { data: recentErrors } = await svc
-      .from("job_run_log")
-      .select("id, created_at, started_at, job_name, error_code, error_message")
-      .eq("ok", false)
-      .gte("started_at", since24hIso())
-      .order("started_at", { ascending: false })
-      .limit(recentErrorsLimit);
+    const recentErrors = await safeQuery(
+      svc
+        .from("job_run_log")
+        .select("id, created_at, started_at, job_name, error_code, error_message")
+        .eq("ok", false)
+        .gte("started_at", since24hIso())
+        .order("started_at", { ascending: false })
+        .limit(recentErrorsLimit),
+      [],
+    );
 
-    const { data: lastRuns } = await svc
-      .from("job_run_log")
-      .select("id, started_at, finished_at, job_name, ok")
-      .order("started_at", { ascending: false })
-      .limit(lastRunsLimit);
+    const lastRuns = await safeQuery(
+      svc
+        .from("job_run_log")
+        .select("id, started_at, finished_at, job_name, ok")
+        .order("started_at", { ascending: false })
+        .limit(lastRunsLimit),
+      [],
+    );
 
-    const { data: opsAlerts } = await svc
-      .rpc("ops_alert_list_active_v1", { p_limit: opsAlertsLimit })
-      .catch(() => ({ data: [] as any[] }));
+    const opsAlerts = await safeQuery(
+      svc.rpc("ops_alert_list_active_v1", { p_limit: opsAlertsLimit }),
+      [],
+    );
 
     const active_profile = settings
       ? {
@@ -104,7 +133,11 @@ try {
     return json(req, 200, {
       ok: true,
       active_profile,
-      coverage: (coverage ?? []).map((r: any) => ({ provider: r.provider, model: r.model, count: (Number.isFinite(Number(r.count)) ? Number(r.count) : 0) })),
+      coverage: (coverage ?? []).map((r: any) => ({
+        provider: r.provider,
+        model: r.model,
+        count: Number.isFinite(Number(r.count)) ? Number(r.count) : 0,
+      })),
       job_state: jobState ?? [],
       recent_errors: recentErrors ?? [],
       last_job_runs: lastRuns ?? [],
