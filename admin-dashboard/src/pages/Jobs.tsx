@@ -67,22 +67,26 @@ export default function Jobs() {
 
   const isBusy = mutReset.isPending || mutCronActive.isPending || mutSchedule.isPending || mutRunNow.isPending;
 
-  if (q.isLoading) return <LoadingState />;
-  if (q.error) return <ErrorBox error={q.error} />;
-
-  const d = q.data!;
+  const d = q.data;
 
   const filteredState = useMemo(() => {
+    if (!d) return [];
     const s = cursorSearch.trim().toLowerCase();
     if (!s) return d.job_state;
     return d.job_state.filter((r) => r.job_name.toLowerCase().includes(s) || (r.cursor ?? "").toLowerCase().includes(s));
-  }, [d.job_state, cursorSearch]);
+  }, [d, cursorSearch]);
 
   const filteredCron = useMemo(() => {
+    if (!d) return [];
     const s = cronSearch.trim().toLowerCase();
     if (!s) return d.cron_jobs;
     return d.cron_jobs.filter((r) => r.jobname.toLowerCase().includes(s) || String(r.jobid).includes(s));
-  }, [d.cron_jobs, cronSearch]);
+  }, [d, cronSearch]);
+
+  if (q.isLoading) return <LoadingState />;
+  if (q.error) return <ErrorBox error={q.error} />;
+
+  const data = d!;
 
   const applied = [
     cursorSearch.trim() ? `cursors: "${cursorSearch.trim()}"` : null,
@@ -186,10 +190,10 @@ export default function Jobs() {
           <div className="text-xs text-zinc-500">{filteredCron.length} rows</div>
         </div>
 
-        {d.cron_error ? (
+        {data.cron_error ? (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             <div className="font-semibold">Cron error</div>
-            <div className="mt-1 font-mono text-xs">{d.cron_error}</div>
+            <div className="mt-1 font-mono text-xs">{data.cron_error}</div>
           </div>
         ) : null}
 
