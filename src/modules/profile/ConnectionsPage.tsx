@@ -216,7 +216,9 @@ const ConnectionsPage: React.FC<{ mode: ConnectionMode }> = ({ mode }) => {
                       Scroll for more
                     </div>
                   ) : (
-                    <div className="p-[var(--card-pad)] text-center text-xs text-muted-foreground">End</div>
+                    <div className="p-[var(--card-pad)] text-center text-xs text-muted-foreground">
+                      End
+                    </div>
                   ),
               }}
             />

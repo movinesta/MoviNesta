@@ -62,7 +62,7 @@ const ListDetailPage: React.FC = () => {
               <button
                 key={item.titleId}
                 type="button"
-                aria-label={`Open ${(item.title ?? "title")}`}
+                aria-label={`Open ${item.title ?? "title"}`}
                 className="group relative overflow-hidden rounded-xl border border-border bg-muted/30 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 onClick={() => navigate(`/title/${item.titleId}`)}
               >

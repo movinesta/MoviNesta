@@ -55,7 +55,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         ? "text-amber-500"
         : "text-primary";
 
-  const confirmVariant: "default" | "destructive" = variant === "danger" ? "destructive" : "default";
+  const confirmVariant: "default" | "destructive" =
+    variant === "danger" ? "destructive" : "default";
   const confirmClassName =
     variant === "warning"
       ? "bg-amber-500 text-white hover:bg-amber-500/90 focus-visible:ring-amber-500"
@@ -72,7 +73,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <div className="card-pad flex items-start justify-between gap-3 border-b border-border/60">
           <div className="flex min-w-0 items-start gap-3">
             {variant !== "default" ? (
-              <span className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-muted ${iconTone}`}>
+              <span
+                className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-muted ${iconTone}`}
+              >
                 <AlertTriangle className="h-5 w-5" aria-hidden />
               </span>
             ) : null}

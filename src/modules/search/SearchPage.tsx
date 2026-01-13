@@ -1169,23 +1169,23 @@ const SearchPage: React.FC = () => {
               onAction={seeAllFriends}
             />
             <div className="grid grid-cols-2 gap-3">
-            {friendsWatching.isLoading ? (
-              Array.from({ length: 4 }).map((_, idx) => (
-                <div key={idx} className="flex flex-col gap-2">
-                  <div className="aspect-[2/3] w-full animate-pulse rounded-[20px] bg-muted" />
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+              {friendsWatching.isLoading ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="flex flex-col gap-2">
+                    <div className="aspect-[2/3] w-full animate-pulse rounded-[20px] bg-muted" />
+                    <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+                  </div>
+                ))
+              ) : friendsWatching.data?.length ? (
+                friendsWatching.data.map((item) => <DiscoverPosterCard key={item.id} {...item} />)
+              ) : (
+                <div className="col-span-2 rounded-3xl border border-dashed border-border bg-card/50 card-pad text-sm text-muted-foreground">
+                  {user?.id
+                    ? "Your friends’ activity will show up here once they start rating, watching, or adding to watchlists."
+                    : "Sign in to see what your friends are watching."}
                 </div>
-              ))
-            ) : friendsWatching.data?.length ? (
-              friendsWatching.data.map((item) => <DiscoverPosterCard key={item.id} {...item} />)
-            ) : (
-              <div className="col-span-2 rounded-3xl border border-dashed border-border bg-card/50 card-pad text-sm text-muted-foreground">
-                {user?.id
-                  ? "Your friends’ activity will show up here once they start rating, watching, or adding to watchlists."
-                  : "Sign in to see what your friends are watching."}
-              </div>
-            )}
+              )}
             </div>
           </SectionContainer>
 

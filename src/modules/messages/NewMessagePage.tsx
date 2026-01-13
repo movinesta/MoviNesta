@@ -366,53 +366,53 @@ const NewMessagePage: React.FC = () => {
                     aria-label={`Select ${person.displayName}`}
                     className="soft-row-card soft-row-card-interactive flex cursor-pointer items-center justify-between gap-4 row-pad min-h-11"
                   >
-                  <div className="flex flex-1 items-center gap-4 overflow-hidden">
-                    <div className="h-12 w-12 overflow-hidden rounded-full bg-muted shadow-sm">
-                      {person.avatarUrl ? (
-                        <img
-                          src={person.avatarUrl}
-                          alt={person.displayName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-foreground">
-                          {person.displayName.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-base font-medium">{person.displayName}</p>
-                        {person.matchLabel && (
-                          <span className="text-sm font-semibold text-primary">
-                            {person.matchLabel}
-                          </span>
+                    <div className="flex flex-1 items-center gap-4 overflow-hidden">
+                      <div className="h-12 w-12 overflow-hidden rounded-full bg-muted shadow-sm">
+                        {person.avatarUrl ? (
+                          <img
+                            src={person.avatarUrl}
+                            alt={person.displayName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-foreground">
+                            {person.displayName.slice(0, 1).toUpperCase()}
+                          </div>
                         )}
                       </div>
-                      {person.subtitle && (
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                          {person.subtitle}
-                        </p>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-base font-medium">{person.displayName}</p>
+                          {person.matchLabel && (
+                            <span className="text-sm font-semibold text-primary">
+                              {person.matchLabel}
+                            </span>
+                          )}
+                        </div>
+                        {person.subtitle && (
+                          <p className="mt-1 truncate text-sm text-muted-foreground">
+                            {person.subtitle}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="pl-4">
-                    <div className="relative flex h-7 w-7 items-center justify-center">
-                      <input
-                        id={inputId}
-                        type="checkbox"
-                        checked={selectedIds.includes(person.id)}
-                        onChange={() => toggleSelection(person.id)}
-                        className="h-6 w-6 cursor-pointer appearance-none rounded-full border-2 border-border bg-transparent checked:border-primary checked:bg-primary"
-                      />
-                      <MaterialIcon
-                        name="check"
-                        className={`absolute text-[16px] text-primary-foreground transition-opacity ${
-                          selectedIds.includes(person.id) ? "opacity-100" : "opacity-0"
-                        }`}
-                      />
+                    <div className="pl-4">
+                      <div className="relative flex h-7 w-7 items-center justify-center">
+                        <input
+                          id={inputId}
+                          type="checkbox"
+                          checked={selectedIds.includes(person.id)}
+                          onChange={() => toggleSelection(person.id)}
+                          className="h-6 w-6 cursor-pointer appearance-none rounded-full border-2 border-border bg-transparent checked:border-primary checked:bg-primary"
+                        />
+                        <MaterialIcon
+                          name="check"
+                          className={`absolute text-[16px] text-primary-foreground transition-opacity ${
+                            selectedIds.includes(person.id) ? "opacity-100" : "opacity-0"
+                          }`}
+                        />
+                      </div>
                     </div>
-                  </div>
                   </label>
                 );
               })}

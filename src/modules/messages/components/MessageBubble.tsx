@@ -22,7 +22,12 @@ export const MessageBubble = React.memo(function MessageBubble({
   tabIndex,
   ...bubbleProps
 }: MessageBubbleProps) {
-  const { bubbleColors, bubbleShape } = getBubbleAppearance({ isSelf, isDeleted, startsGroup, endsGroup });
+  const { bubbleColors, bubbleShape } = getBubbleAppearance({
+    isSelf,
+    isDeleted,
+    startsGroup,
+    endsGroup,
+  });
 
   return (
     <div

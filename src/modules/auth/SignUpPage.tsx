@@ -239,13 +239,7 @@ const SignUpPage: React.FC = () => {
                         }
                       }}
                       onBlur={() => {
-                        const errors = validateSignUp(
-                          email,
-                          password,
-                          confirm,
-                          fullName,
-                          username,
-                        );
+                        const errors = validateSignUp(email, password, confirm, fullName, username);
                         if (errors.fullName) {
                           setFieldErrors((prev) => ({ ...prev, fullName: errors.fullName }));
                         }
@@ -277,13 +271,7 @@ const SignUpPage: React.FC = () => {
                         }
                       }}
                       onBlur={() => {
-                        const errors = validateSignUp(
-                          email,
-                          password,
-                          confirm,
-                          fullName,
-                          username,
-                        );
+                        const errors = validateSignUp(email, password, confirm, fullName, username);
                         if (errors.username) {
                           setFieldErrors((prev) => ({ ...prev, username: errors.username }));
                         }
@@ -319,13 +307,7 @@ const SignUpPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => {
-                      const errors = validateSignUp(
-                        email,
-                        password,
-                        confirm,
-                        fullName,
-                        username,
-                      );
+                      const errors = validateSignUp(email, password, confirm, fullName, username);
                       if (errors.email) {
                         setFieldErrors((prev) => ({ ...prev, email: errors.email }));
                       }
@@ -356,13 +338,7 @@ const SignUpPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => {
-                      const errors = validateSignUp(
-                        email,
-                        password,
-                        confirm,
-                        fullName,
-                        username,
-                      );
+                      const errors = validateSignUp(email, password, confirm, fullName, username);
                       if (errors.password) {
                         setFieldErrors((prev) => ({ ...prev, password: errors.password }));
                       }
@@ -403,13 +379,7 @@ const SignUpPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => {
-                      const errors = validateSignUp(
-                        email,
-                        password,
-                        confirm,
-                        fullName,
-                        username,
-                      );
+                      const errors = validateSignUp(email, password, confirm, fullName, username);
                       if (errors.confirm) {
                         setFieldErrors((prev) => ({ ...prev, confirm: errors.confirm }));
                       }
@@ -418,9 +388,7 @@ const SignUpPage: React.FC = () => {
                   />
                 </span>
               </label>
-              {fieldErrors.confirm && (
-                <p className="text-xs text-red-500">{fieldErrors.confirm}</p>
-              )}
+              {fieldErrors.confirm && <p className="text-xs text-red-500">{fieldErrors.confirm}</p>}
             </div>
 
             <button

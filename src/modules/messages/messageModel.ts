@@ -125,7 +125,6 @@ export const getBubbleAppearance = ({
   return { bubbleColors, bubbleShape: `${baseShape} ${tail} ${connectTop}` };
 };
 
-
 export const formatMessageTime = (iso: string): string => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";

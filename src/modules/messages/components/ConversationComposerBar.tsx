@@ -191,7 +191,11 @@ const safeLoadRecents = (): RecentFile[] => {
 
 const safeSaveRecents = (items: RecentFileUI[]) => {
   try {
-    const serializable = items.map(({ previewUrl, ...rest }) => rest);
+    const serializable = items.map((item) => {
+      const { previewUrl, ...rest } = item;
+      void previewUrl;
+      return rest;
+    });
     localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(serializable.slice(0, MAX_RECENTS)));
   } catch {
     // ignore
@@ -243,7 +247,6 @@ export const ConversationComposerBar: React.FC<Props> = ({
   const [showAttachmentSheet, setShowAttachmentSheet] = useState(false);
   // Hybrid recent files layout: horizontal strip by default; "See all" expands to a vertical list.
   const [showAllRecents, setShowAllRecents] = useState(false);
-
 
   const [recents, setRecents] = useState<RecentFileUI[]>([]);
   const recentObjectUrlsRef = useRef<Set<string>>(new Set());
@@ -362,7 +365,6 @@ export const ConversationComposerBar: React.FC<Props> = ({
     };
   }, [recents.length, showAllRecents, showAttachmentSheet, updateRecentStripUI]);
 
-
   const handleDraftChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const nextRaw = event.target.value;
@@ -425,7 +427,6 @@ export const ConversationComposerBar: React.FC<Props> = ({
   );
 
   const sendButtonDisabled = disableSend || !draft.trim() || isUploadingAttachment;
-
 
   const handleImageSelected = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -715,11 +716,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
               <Paperclip className="h-4 w-4" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="center"
-            className="soft-popover w-auto p-2"
-          >
+          <PopoverContent side="top" align="center" className="soft-popover w-auto p-2">
             <div className="flex items-center gap-2">
               {attachmentMenuItems.map((item) => (
                 <Button
@@ -747,9 +744,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
             if (!open) setShowAllRecents(false);
           }}
         >
-          <DialogContent
-            className="fixed left-1/2 bottom-4 top-auto -translate-x-1/2 translate-y-0 w-[calc(100%-2rem)] max-w-lg rounded-3xl border border-border/70 bg-card p-4 shadow-2xl"
-          >
+          <DialogContent className="fixed left-1/2 bottom-4 top-auto -translate-x-1/2 translate-y-0 w-[calc(100%-2rem)] max-w-lg rounded-3xl border border-border/70 bg-card p-4 shadow-2xl">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-muted/70" aria-hidden="true" />
             <DialogHeader className="flex-row items-center justify-between space-y-0">
               <DialogTitle className="text-base">Attach</DialogTitle>
@@ -850,48 +845,60 @@ export const ConversationComposerBar: React.FC<Props> = ({
                     {recents.length === 0 ? (
                       <div className="soft-row-card flex w-[260px] shrink-0 items-center justify-between gap-3 px-3 py-2">
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-foreground">No recent files yet</p>
-                          <p className="text-[11px] text-muted-foreground">Attach something to see it here.</p>
+                          <p className="text-[13px] font-semibold text-foreground">
+                            No recent files yet
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Attach something to see it here.
+                          </p>
                         </div>
                       </div>
                     ) : (
                       recents.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="listitem"
-                          className="soft-row-card soft-row-card-interactive flex w-[220px] shrink-0 items-center gap-3 px-3 py-2 text-left disabled:pointer-events-none disabled:opacity-50"
-                          onClick={() => {
-                            setShowAttachmentSheet(false);
-                            if (item.kind === "image") openCameraPicker();
-                            else openAttachmentPicker();
-                          }}
-                          disabled={attachDisabled as any}
-                          aria-label={`Attach ${item.name}`}
-                          title={item.name}
-                        >
-                          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted/60 text-foreground">
-                            {item.kind === "image" && item.previewUrl ? (
-                              <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
-                            ) : item.kind === "audio" ? (
-                              <Volume2 className="h-5 w-5" aria-hidden="true" />
-                            ) : (
-                              <FileText className="h-5 w-5" aria-hidden="true" />
-                            )}
-                          </div>
+                        <div key={item.id} role="listitem">
+                          <button
+                            type="button"
+                            className="soft-row-card soft-row-card-interactive flex w-[220px] shrink-0 items-center gap-3 px-3 py-2 text-left disabled:pointer-events-none disabled:opacity-50"
+                            onClick={() => {
+                              setShowAttachmentSheet(false);
+                              if (item.kind === "image") openCameraPicker();
+                              else openAttachmentPicker();
+                            }}
+                            disabled={attachDisabled as any}
+                            aria-label={`Attach ${item.name}`}
+                            title={item.name}
+                          >
+                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted/60 text-foreground">
+                              {item.kind === "image" && item.previewUrl ? (
+                                <img
+                                  src={item.previewUrl}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : item.kind === "audio" ? (
+                                <Volume2 className="h-5 w-5" aria-hidden="true" />
+                              ) : (
+                                <FileText className="h-5 w-5" aria-hidden="true" />
+                              )}
+                            </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="min-w-0 truncate text-[13px] font-semibold">{item.name}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="min-w-0 truncate text-[13px] font-semibold">
+                                  {item.name}
+                                </span>
+                              </div>
+                              <div className="mt-0.5 flex items-center gap-2">
+                                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {item.badge}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {item.sizeLabel}
+                                </span>
+                              </div>
                             </div>
-                            <div className="mt-0.5 flex items-center gap-2">
-                              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                {item.badge}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground">{item.sizeLabel}</span>
-                            </div>
-                          </div>
-                        </button>
+                          </button>
+                        </div>
                       ))
                     )}
                   </div>
@@ -931,7 +938,9 @@ export const ConversationComposerBar: React.FC<Props> = ({
                   {recents.length === 0 ? (
                     <div className="soft-row-card px-3 py-3">
                       <p className="text-sm font-semibold">No recent files yet</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">Attach something and it will appear here.</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Attach something and it will appear here.
+                      </p>
                     </div>
                   ) : (
                     recents.map((item) => (
@@ -951,7 +960,11 @@ export const ConversationComposerBar: React.FC<Props> = ({
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted/60 text-foreground">
                             {item.kind === "image" && item.previewUrl ? (
-                              <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+                              <img
+                                src={item.previewUrl}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
                             ) : item.kind === "audio" ? (
                               <Volume2 className="h-5 w-5" aria-hidden="true" />
                             ) : (
@@ -959,7 +972,9 @@ export const ConversationComposerBar: React.FC<Props> = ({
                             )}
                           </div>
                           <div className="flex min-w-0 flex-col text-left">
-                            <span className="min-w-0 truncate text-sm font-semibold">{item.name}</span>
+                            <span className="min-w-0 truncate text-sm font-semibold">
+                              {item.name}
+                            </span>
                             <span className="mt-0.5 text-xs text-muted-foreground">
                               {item.badge} • {item.sizeLabel}
                             </span>
@@ -1005,7 +1020,7 @@ export const ConversationComposerBar: React.FC<Props> = ({
               event.preventDefault();
               onRequestScrollToBottom?.();
               recordRecentFile(file);
-        onAttachmentFile(file);
+              onAttachmentFile(file);
             }}
             onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
               if (event.key === "Enter" && !event.shiftKey) {

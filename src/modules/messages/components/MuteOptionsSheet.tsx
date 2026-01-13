@@ -80,12 +80,7 @@ export const MuteOptionsSheet: React.FC<Props> = ({
               {conversationTitle ? conversationTitle : "Choose a duration"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={close}
-            className="icon-hit"
-            aria-label="Close"
-          >
+          <button type="button" onClick={close} className="icon-hit" aria-label="Close">
             <MaterialIcon name="close" />
           </button>
         </div>

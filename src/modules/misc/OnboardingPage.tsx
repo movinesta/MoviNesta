@@ -18,10 +18,10 @@ const OnboardingPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-1">
-                <p className="type-overline text-muted-foreground">
-                  MoviNesta
+                <p className="type-overline text-muted-foreground">MoviNesta</p>
+                <p className="type-caption text-muted-foreground">
+                  Cinematic, cozy, and connected.
                 </p>
-                <p className="type-caption text-muted-foreground">Cinematic, cozy, and connected.</p>
               </div>
             </div>
 
@@ -52,9 +52,7 @@ const OnboardingPage: React.FC = () => {
           </div>
 
           <div className="space-y-4 rounded-3xl border border-border bg-card/60 p-6 shadow-md backdrop-blur">
-            <p className="type-overline text-muted-foreground">
-              What you can do
-            </p>
+            <p className="type-overline text-muted-foreground">What you can do</p>
             <div className="space-y-3">
               {[
                 {

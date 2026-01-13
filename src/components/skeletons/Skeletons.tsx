@@ -7,10 +7,7 @@ export const SearchSkeleton: React.FC<{ count?: number }> = ({ count = 6 }) => {
   return (
     <div className="flex flex-col stack-gap">
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="soft-row-card flex items-center gap-3 row-pad animate-pulse"
-        >
+        <div key={i} className="soft-row-card flex items-center gap-3 row-pad animate-pulse">
           {/* Poster skeleton */}
           <div className="h-20 w-14 shrink-0 rounded-xl bg-muted" />
 

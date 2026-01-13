@@ -687,7 +687,9 @@ export default function TitleReviewsPageV2() {
           <p className="truncate text-sm font-semibold text-foreground">
             {titleQuery.isLoading ? "" : titleName}
           </p>
-          <p className="truncate text-xs text-muted-foreground">{titleSubtitle || "Ratings & reviews"}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {titleSubtitle || "Ratings & reviews"}
+          </p>
         </div>
 
         <CircleIconButton label="More" onClick={handleShare}>

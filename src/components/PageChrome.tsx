@@ -131,15 +131,11 @@ export const PageSection: React.FC<PageSectionProps> = ({
       : "rounded-2xl border border-border/60 bg-card/80 shadow-sm";
 
   return (
-    <section
-      className={[surfaceClassName, padded ? "p-[var(--card-pad)]" : "p-0"].join(" ")}
-    >
+    <section className={[surfaceClassName, padded ? "p-[var(--card-pad)]" : "p-0"].join(" ")}>
       {(title || description || actions) && (
         <div className="mb-2 flex flex-col gap-1.5">
           <div className="space-y-1">
-            {title && (
-              <h2 className="type-label text-foreground">{title}</h2>
-            )}
+            {title && <h2 className="type-label text-foreground">{title}</h2>}
             {description && <p className="type-caption text-muted-foreground">{description}</p>}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}

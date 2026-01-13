@@ -953,7 +953,11 @@ const HomePage: React.FC = () => {
               storyItems.map((s) => {
                 const primaryLabel = s.displayName || s.username || "Someone";
                 const secondaryLabel = s.listName || "";
-                const to = s.listId ? `/lists/${s.listId}` : s.username ? `/u/${s.username}` : "/me";
+                const to = s.listId
+                  ? `/lists/${s.listId}`
+                  : s.username
+                    ? `/u/${s.username}`
+                    : "/me";
                 const aria = secondaryLabel ? `${primaryLabel} • ${secondaryLabel}` : primaryLabel;
 
                 return (

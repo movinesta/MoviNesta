@@ -127,18 +127,16 @@ const ProfileForm: React.FC<{
         />
 
         <div className="space-y-1.5">
-          <label
-            htmlFor="displayName"
-            className="block type-overline text-muted-foreground"
-          >
+          <label htmlFor="displayName" className="block type-overline text-muted-foreground">
             Display name
           </label>
-          <Input id="displayName"
+          <Input
+            id="displayName"
             type="text"
             value={form.displayName}
             onChange={handleChange("displayName")}
             maxLength={80}
-            className="text-sm" 
+            className="text-sm"
             placeholder="How should we show your name?"
           />
           <p className="text-xs text-muted-foreground">
@@ -147,10 +145,7 @@ const ProfileForm: React.FC<{
         </div>
 
         <div className="space-y-1.5">
-          <label
-            htmlFor="bio"
-            className="block type-overline text-muted-foreground"
-          >
+          <label htmlFor="bio" className="block type-overline text-muted-foreground">
             Bio
           </label>
           <Textarea

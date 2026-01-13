@@ -60,7 +60,13 @@ export const ConversationHeader = React.forwardRef<HTMLElement, ConversationHead
         className="fixed inset-x-0 top-[env(safe-area-inset-top,0)] z-50 w-full border-b border-border bg-card/90 page-pad pb-3 pt-3 backdrop-blur"
       >
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to messages" className="icon-hit text-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBack}
+            aria-label="Back to messages"
+            className="icon-hit text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" aria-hidden />
           </Button>
 

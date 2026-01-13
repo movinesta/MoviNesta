@@ -57,10 +57,7 @@ const DiaryTimelineTab: React.FC<DiaryTimelineTabProps> = ({
       <div className="page-pad pb-[var(--page-pad-y)]">
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="soft-row-card flex gap-3 row-pad animate-pulse"
-            >
+            <div key={idx} className="soft-row-card flex gap-3 row-pad animate-pulse">
               <div className="h-12 w-8 rounded bg-background/60" />
               <div className="flex flex-1 flex-col gap-2">
                 <div className="h-3 w-1/3 rounded bg-background/70" />

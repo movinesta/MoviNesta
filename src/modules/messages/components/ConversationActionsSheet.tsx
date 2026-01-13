@@ -79,12 +79,7 @@ export const ConversationActionsSheet: React.FC<Props> = ({
             </DialogTitle>
             <p className="mt-1 text-center text-xs text-muted-foreground">Quick actions</p>
           </div>
-          <button
-            type="button"
-            onClick={close}
-            className="icon-hit"
-            aria-label="Close"
-          >
+          <button type="button" onClick={close} className="icon-hit" aria-label="Close">
             <MaterialIcon name="close" />
           </button>
         </div>

@@ -144,7 +144,11 @@ export const AssistantHintChip: React.FC<Props> = ({ surface, context, className
         }}
       >
         <PopoverTrigger asChild>
-          <button type="button" aria-label="Open assistant hints" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+          <button
+            type="button"
+            aria-label="Open assistant hints"
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             <Chip
               variant={suggestions.length ? "accent" : "default"}
               className={cn(
