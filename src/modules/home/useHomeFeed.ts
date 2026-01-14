@@ -322,7 +322,6 @@ function mergeWatchedAndRating(items: HomeFeedItem[]): HomeFeedItem[] {
   return out;
 }
 
-
 async function enrichFeedUsersWithVerification(items: HomeFeedItem[]): Promise<HomeFeedItem[]> {
   // If items already have verification, no need to fetch.
   const missing = new Set<string>();

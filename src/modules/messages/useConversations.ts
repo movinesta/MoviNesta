@@ -43,6 +43,11 @@ type RpcParticipant = {
   username: string | null;
   avatarUrl: string | null;
   isSelf: boolean;
+  isVerified?: boolean | null;
+  verifiedType?: string | null;
+  verifiedLabel?: string | null;
+  verifiedAt?: string | null;
+  verifiedByOrg?: string | null;
 };
 
 type RpcReadReceipt = {
@@ -57,6 +62,11 @@ export interface ConversationParticipant {
   username: string | null;
   avatarUrl: string | null;
   isSelf: boolean;
+  isVerified?: boolean | null;
+  verifiedType?: string | null;
+  verifiedLabel?: string | null;
+  verifiedAt?: string | null;
+  verifiedByOrg?: string | null;
 }
 
 export interface ConversationListItem {
@@ -203,6 +213,11 @@ export const fetchConversationSummaries = async (
         username: p.username,
         avatarUrl: p.avatarUrl,
         isSelf: p.isSelf,
+        isVerified: p.isVerified ?? null,
+        verifiedType: p.verifiedType ?? null,
+        verifiedLabel: p.verifiedLabel ?? null,
+        verifiedAt: p.verifiedAt ?? null,
+        verifiedByOrg: p.verifiedByOrg ?? null,
       })),
       lastMessageId: summary.last_message_id ?? null,
       lastMessagePreview,
@@ -325,7 +340,6 @@ export const fetchConversationSummaries = async (
     }),
   }));
 };
-
 
 export const useConversations = () => {
   const { user } = useAuth();

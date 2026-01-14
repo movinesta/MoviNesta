@@ -304,7 +304,9 @@ const ActivityPage: React.FC = () => {
                         <ActorAvatar actor={actor} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 truncate text-sm font-semibold">
-                            <span className="truncate">{actor.displayName || actor.username || "User"}</span>
+                            <span className="truncate">
+                              {actor.displayName || actor.username || "User"}
+                            </span>
                             {actor.isVerified ? (
                               <VerifiedBadge
                                 isVerified={actor.isVerified ?? null}

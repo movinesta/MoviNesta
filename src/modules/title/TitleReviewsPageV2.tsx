@@ -187,19 +187,19 @@ function ReviewCard({
           )}
           <div>
             <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-foreground">
-              {profile?.display_name ?? profile?.username ?? "User"}
-            </p>
-            {profile?.is_verified ? (
-              <VerifiedBadge
-                isVerified={profile?.is_verified ?? null}
-                type={(profile.verified_type as any) ?? null}
-                label={profile.verified_label ?? null}
-                verifiedAt={profile.verified_at ?? null}
-                org={profile.verified_by_org ?? null}
-              />
-            ) : null}
-          </div>
+              <p className="text-sm font-semibold text-foreground">
+                {profile?.display_name ?? profile?.username ?? "User"}
+              </p>
+              {profile?.is_verified ? (
+                <VerifiedBadge
+                  isVerified={profile?.is_verified ?? null}
+                  type={(profile.verified_type as any) ?? null}
+                  label={profile.verified_label ?? null}
+                  verifiedAt={profile.verified_at ?? null}
+                  org={profile.verified_by_org ?? null}
+                />
+              ) : null}
+            </div>
             <p className="text-xs text-muted-foreground">{timeAgo(review.created_at)}</p>
           </div>
         </div>
@@ -603,7 +603,9 @@ export default function TitleReviewsPageV2() {
       if (userIds.length) {
         const { data: profiles, error: pe } = await supabase
           .from("profiles_public")
-          .select("id,username,display_name,avatar_url,is_verified,verified_type,verified_label,verified_at,verified_by_org")
+          .select(
+            "id,username,display_name,avatar_url,is_verified,verified_type,verified_label,verified_at,verified_by_org",
+          )
           .in("id", userIds);
         if (!pe) {
           for (const p of (profiles as any as ProfilePublicRow[]) ?? []) profilesById.set(p.id, p);

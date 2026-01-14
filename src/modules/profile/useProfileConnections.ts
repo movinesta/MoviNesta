@@ -73,7 +73,9 @@ export function useProfileConnections(profileId: string | null | undefined, mode
 
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles_public")
-        .select("id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org")
+        .select(
+          "id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org",
+        )
         .in("id", ids);
 
       if (profilesError) {

@@ -114,7 +114,9 @@ export const useSuggestedPeople = () => {
 
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles_public")
-        .select("id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org")
+        .select(
+          "id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org",
+        )
         .in("id", candidateIds)
         .limit(40);
 

@@ -2,11 +2,7 @@ import { BadgeCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type VerifiedBadgeType =
-  | "identity"
-  | "official"
-  | "trusted_verifier"
-  | "subscription";
+export type VerifiedBadgeType = "identity" | "official" | "trusted_verifier" | "subscription";
 
 export interface VerifiedBadgeProps {
   isVerified?: boolean | null;

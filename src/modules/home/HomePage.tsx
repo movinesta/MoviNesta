@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import CreateActionSheet from "@/components/shared/CreateActionSheet";
 import { MaterialIcon } from "@/components/ui/material-icon";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
