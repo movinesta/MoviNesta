@@ -1,0 +1,56 @@
+name: Recsys - Train & Publish ALS CF
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 2 * * *" # daily 02:15 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recsys-train-als
+  cancel-in-progress: true
+
+jobs:
+  train-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies (Node)
+        run: npm ci --legacy-peer-deps
+
+      - name: Install dependencies (Python)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ml/requirements.txt
+
+      - name: Export interactions
+        run: |
+          mkdir -p ml/data
+          node scripts/recsys/export_interactions.mjs --out ml/data/media_events.jsonl
+
+      - name: Train ALS model
+        run: |
+          python ml/als/train_als.py --events ml/data/media_events.jsonl --out ml/data/als_model.npz
+
+      - name: Publish CF recos to Supabase
+        run: |
+          python ml/als/publish_cf_recos.py --events ml/data/media_events.jsonl --model ml/data/als_model.npz --model_version als_v1 --k 200

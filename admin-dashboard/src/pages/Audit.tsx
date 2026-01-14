@@ -1,0 +1,326 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAudit } from "../lib/api";
+import type { AuditLogRow } from "../lib/types";
+import { Card } from "../components/Card";
+import { Table, Th, Td } from "../components/Table";
+import { fmtDateTime } from "../lib/ui";
+import { Input } from "../components/Input";
+import { ErrorBox } from "../components/ErrorBox";
+import { LoadingState } from "../components/LoadingState";
+import { EmptyState } from "../components/EmptyState";
+import { CopyButton } from "../components/CopyButton";
+import { Button } from "../components/Button";
+
+function Title(props: { children: React.ReactNode }) {
+  return <div className="mb-4 text-xl font-semibold tracking-tight">{props.children}</div>;
+}
+
+function downloadText(filename: string, content: string, mime = "text/plain") {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export default function Audit() {
+  const [limit, setLimit] = useState(100);
+  const [searchDraft, setSearchDraft] = useState("");
+  const [searchApplied, setSearchApplied] = useState("");
+  const [before, setBefore] = useState<string | null>(null);
+  const [history, setHistory] = useState<(string | null)[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const q = useQuery({
+    queryKey: ["audit", { limit, search: searchApplied, before }],
+    queryFn: () => getAudit({ limit, search: searchApplied.trim() || null, before }),
+  });
+  const data = q.data;
+
+  const rows = (data?.rows ?? []) as AuditLogRow[];
+  const selected = useMemo(() => rows.find((r: AuditLogRow) => String(r.id) === String(selectedId)) ?? null, [rows, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    if (!selected) setSelectedId(null);
+  }, [selectedId, selected]);
+
+  useEffect(() => {
+    // Changing filters or page size should restart pagination.
+    setBefore(null);
+    setHistory([]);
+    setSelectedId(null);
+  }, [limit, searchApplied]);
+
+  const applySearch = () => {
+    setSelectedId(null);
+    setBefore(null);
+    setHistory([]);
+    setSearchApplied(searchDraft.trim());
+  };
+
+  const clearFilters = () => {
+    setLimit(100);
+    setSelectedId(null);
+    setBefore(null);
+    setHistory([]);
+    setSearchDraft("");
+    setSearchApplied("");
+  };
+
+  const exportCsv = () => {
+    const header = ["id", "created_at", "admin_user_id", "admin_email", "action", "target", "details"].join(",");
+    const lines = rows.map((r) => {
+      const details = (() => {
+        try {
+          return JSON.stringify(r.details ?? {});
+        } catch {
+          return "{}";
+        }
+      })();
+      return [
+        JSON.stringify(r.id ?? ""),
+        JSON.stringify(r.created_at ?? ""),
+        JSON.stringify(r.admin_user_id ?? ""),
+        JSON.stringify(r.admin_email ?? ""),
+        JSON.stringify(r.action ?? ""),
+        JSON.stringify(r.target ?? ""),
+        JSON.stringify(details),
+      ].join(",");
+    });
+    const suffix = before ? "paged" : "latest";
+    downloadText(`audit_${suffix}_${rows.length}.csv`, [header, ...lines].join("\n"), "text/csv");
+  };
+
+  if (q.isLoading) return <LoadingState />;
+if (q.error) return <ErrorBox error={q.error} />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Title>Audit log</Title>
+          {(() => {
+            const applied = [
+              limit !== 100 ? `limit=${limit}` : null,
+              searchApplied ? `q="${searchApplied}"` : null,
+              before ? `before=${before}` : null,
+            ].filter(Boolean) as string[];
+            return applied.length ? (
+              <div className="text-xs text-zinc-500">
+                Applied: <span className="font-mono">{applied.join(" • ")}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500">No filters applied.</div>
+            );
+          })()}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" type="button" onClick={exportCsv} disabled={!rows.length}>
+            Export CSV
+          </Button>
+          <Button variant="ghost" type="button" onClick={clearFilters}>
+            Reset filters
+          </Button>
+        </div>
+      </div>
+
+      <Card title="Filters">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="w-40">
+            <Input type="number" value={String(limit)} min={10} max={500} onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") return;
+                const n = Number(raw);
+                if (!Number.isFinite(n)) return;
+                const clamped = Math.max(10, Math.min(500, Math.trunc(n)));
+                setLimit(clamped);
+              }} />
+          </div>
+          <div className="flex-1">
+            <Input
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applySearch();
+              }}
+              placeholder="Search action/target (e.g., ban, reset_cursor, embedding_settings)"
+            />
+          </div>
+          <Button type="button" onClick={applySearch}>Apply</Button>
+          <Button variant="ghost" type="button" onClick={clearFilters}>Clear</Button>
+        </div>
+      </Card>
+
+      <Card title="Recent admin actions">
+        <Table>
+          <thead>
+            <tr>
+              <Th>At</Th>
+              <Th>Admin</Th>
+              <Th>Action</Th>
+              <Th>Target</Th>
+              <Th>Details</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length ? (
+              rows.map((r) => {
+                const admin = r.admin_email ?? r.admin_user_id ?? "—";
+                const detailsPreview = (() => {
+                  try {
+                    const s = JSON.stringify(r.details ?? {});
+                    return s.length > 120 ? s.slice(0, 120) + "…" : s;
+                  } catch {
+                    return "{…}";
+                  }
+                })();
+
+                return (
+                  <tr
+                    key={r.id}
+                    className={
+                      "cursor-pointer hover:bg-zinc-100 " +
+                      (String(selectedId) === String(r.id) ? "bg-zinc-200" : "")
+                    }
+                    onClick={() => setSelectedId(String(r.id))}
+                  >
+                    <Td className="whitespace-nowrap text-xs text-zinc-600">{fmtDateTime(r.created_at)}</Td>
+                    <Td className="max-w-[16rem] truncate text-xs text-zinc-600">{admin}</Td>
+                    <Td className="font-mono text-xs">{r.action}</Td>
+                    <Td className="font-mono text-xs"><div className="flex items-center gap-2"><span className="truncate">{r.target}</span>{r.target ? <CopyButton text={String(r.target)} label="Copy" className="h-8 px-2 py-1 text-xs" /> : null}</div></Td>
+                    <Td className="max-w-[22rem] truncate text-xs text-zinc-600">{detailsPreview}</Td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <Td colSpan={5} className="p-6">
+                  <EmptyState title="No audit events" message="No audit rows yet for this range." className="border-0 bg-transparent p-0" />
+                </Td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
+
+        <div className="mt-4 flex items-center justify-between">
+            <Button variant="secondary" type="button"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
+              onClick={() => {
+                setBefore(null);
+                setHistory([]);
+                setSelectedId(null);
+              }}
+              disabled={!before && history.length === 0}
+            >
+              First page
+            </Button>
+
+          <div className="flex gap-2">
+            <Button variant="secondary" type="button"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
+              onClick={() => {
+                const prev = history[history.length - 1] ?? null;
+                setHistory((h) => h.slice(0, -1));
+                setBefore(prev);
+                setSelectedId(null);
+              }}
+              disabled={history.length === 0}
+            >
+              Prev
+            </Button>
+            <Button variant="secondary" type="button"
+              className="rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-200 disabled:opacity-50"
+              onClick={() => {
+                const next = data?.next_before ?? null;
+                if (!next) return;
+                setHistory((h) => [...h, before]);
+                setBefore(next);
+                setSelectedId(null);
+              }}
+              disabled={!data?.next_before}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <AuditDetailsDrawer open={Boolean(selected)} row={selected} onClose={() => setSelectedId(null)} />
+    </div>
+  );
+}
+
+function AuditDetailsDrawer(props: { open: boolean; row: AuditLogRow | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!props.open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") props.onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [props.open, props.onClose]);
+
+  if (!props.open || !props.row) return null;
+
+  const r = props.row;
+  const detailsText = (() => {
+    try {
+      return JSON.stringify(r.details ?? {}, null, 2);
+    } catch {
+      return String(r.details ?? "{}");
+    }
+  })();
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-zinc-200 bg-white p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-lg font-semibold tracking-tight text-zinc-900">Audit details</div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500 font-mono"><span>{r.id}</span><CopyButton text={String(r.id)} label="Copy id" className="h-8 px-2 py-1 text-xs" /></div>
+          </div>
+          <Button variant="ghost" type="button"
+            className="rounded-xl px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100"
+            onClick={props.onClose}
+            aria-label="Close"
+          >
+            Close
+          </Button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <div className="text-xs font-medium text-zinc-500">At</div>
+            <div className="text-zinc-700">{fmtDateTime(r.created_at)}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Admin</div>
+            <div className="text-zinc-700">{r.admin_email ?? r.admin_user_id ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Action</div>
+            <div className="font-mono text-xs text-zinc-700">{r.action}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-zinc-500">Target</div>
+            <div className="font-mono text-xs text-zinc-700">{r.target}</div>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-2"><div className="text-xs font-medium text-zinc-500">Details</div><CopyButton text={detailsText} label="Copy JSON" className="h-8 px-2 py-1 text-xs" /></div>
+          <pre className="mt-2 max-h-[65vh] overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+            {detailsText}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
