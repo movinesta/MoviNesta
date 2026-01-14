@@ -80,18 +80,6 @@ function SliderField(props: {
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-medium text-zinc-700">{label}</div>
         <div className="flex items-center gap-2">
-
-<Button
-  variant="secondary"
-  onClick={() => {
-    setImportError(null);
-    setImportOpen(true);
-  }}
-  disabled={mut.isPending || q.isLoading}
-  title="Paste JSON to update multipliers/weights (e.g., output of suggest_blend_calibration)"
->
-  Import JSON
-</Button>
           <Input
             className="h-8 w-24"
             type="number"
@@ -139,52 +127,52 @@ export function RecsysBlendEditor() {
 
   const [draft, setDraft] = useState<BlendCfg | null>(null);
 
-const [importOpen, setImportOpen] = useState(false);
-const [importText, setImportText] = useState("");
-const [importError, setImportError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
 
-const applyImportJson = () => {
-  setImportError(null);
-  if (!importText.trim()) {
-    setImportError("Paste JSON first.");
-    return;
-  }
-  try {
-    const parsed = JSON.parse(importText);
+  const applyImportJson = () => {
+    setImportError(null);
+    if (!importText.trim()) {
+      setImportError("Paste JSON first.");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(importText);
 
-    // Accept either:
-    // 1) { weights, source_multipliers, enabled?, skip_when_mix_active? }
-    // 2) { ranking: { swipe: { blend: {...} } } }
-    // 3) { suggested_source_multipliers: {...} } (from suggest tool output)
-    const maybe =
-      parsed?.ranking?.swipe?.blend ??
-      parsed?.["ranking.swipe.blend"] ??
-      parsed?.blend ??
-      parsed;
+      // Accept either:
+      // 1) { weights, source_multipliers, enabled?, skip_when_mix_active? }
+      // 2) { ranking: { swipe: { blend: {...} } } }
+      // 3) { suggested_source_multipliers: {...} } (from suggest tool output)
+      const maybe =
+        parsed?.ranking?.swipe?.blend ??
+        parsed?.["ranking.swipe.blend"] ??
+        parsed?.blend ??
+        parsed;
 
-    const nextCfg = {
-      enabled: Boolean(maybe?.enabled ?? draft?.enabled ?? true),
-      skip_when_mix_active: Boolean(maybe?.skip_when_mix_active ?? draft?.skip_when_mix_active ?? true),
-      weights: {
-        position: Number(maybe?.weights?.position ?? draft?.weights.position ?? 1),
-        popularity: Number(maybe?.weights?.popularity ?? draft?.weights.popularity ?? 0.15),
-        vote_avg: Number(maybe?.weights?.vote_avg ?? draft?.weights.vote_avg ?? 0.2),
-        cf_score: Number(maybe?.weights?.cf_score ?? draft?.weights.cf_score ?? 1),
-      },
-      source_multipliers: {
-        ...(draft?.source_multipliers ?? registryDefault.source_multipliers),
-        ...(maybe?.source_multipliers ?? {}),
-        ...(maybe?.suggested_source_multipliers ?? {}),
-      },
-    } satisfies BlendCfg;
+      const nextCfg = {
+        enabled: Boolean(maybe?.enabled ?? draft?.enabled ?? true),
+        skip_when_mix_active: Boolean(maybe?.skip_when_mix_active ?? draft?.skip_when_mix_active ?? true),
+        weights: {
+          position: Number(maybe?.weights?.position ?? draft?.weights.position ?? 1),
+          popularity: Number(maybe?.weights?.popularity ?? draft?.weights.popularity ?? 0.15),
+          vote_avg: Number(maybe?.weights?.vote_avg ?? draft?.weights.vote_avg ?? 0.2),
+          cf_score: Number(maybe?.weights?.cf_score ?? draft?.weights.cf_score ?? 1),
+        },
+        source_multipliers: {
+          ...(draft?.source_multipliers ?? registryDefault.source_multipliers),
+          ...(maybe?.source_multipliers ?? {}),
+          ...(maybe?.suggested_source_multipliers ?? {}),
+        },
+      } satisfies BlendCfg;
 
-    setDraft(coerceBlend(nextCfg as any));
-    setImportOpen(false);
-    setImportText("");
-  } catch (e: any) {
-    setImportError(e?.message ? String(e.message) : "Invalid JSON.");
-  }
-};
+      setDraft(coerceBlend(nextCfg as any));
+      setImportOpen(false);
+      setImportText("");
+    } catch (e: any) {
+      setImportError(e?.message ? String(e.message) : "Invalid JSON.");
+    }
+  };
 
   useEffect(() => {
     if (!draft && q.data) setDraft(currentValue);
@@ -222,18 +210,17 @@ const applyImportJson = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-
-<Button
-  variant="secondary"
-  onClick={() => {
-    setImportError(null);
-    setImportOpen(true);
-  }}
-  disabled={mut.isPending || q.isLoading}
-  title="Paste JSON to update multipliers/weights (e.g., output of suggest_blend_calibration)"
->
-  Import JSON
-</Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setImportError(null);
+              setImportOpen(true);
+            }}
+            disabled={mut.isPending || q.isLoading}
+            title="Paste JSON to update multipliers/weights (e.g., output of suggest_blend_calibration)"
+          >
+            Import JSON
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setDraft(currentValue)}
@@ -251,37 +238,35 @@ const applyImportJson = () => {
         </div>
       </div>
 
+      {importOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setImportOpen(false)} />
+          <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
+            <div className="text-lg font-semibold tracking-tight text-zinc-900">Import blend JSON</div>
+            <div className="mt-2 text-sm text-zinc-600">
+              Paste either <span className="font-mono">{`{"weights":..., "source_multipliers":...}`}</span> or the full{" "}
+              <span className="font-mono">ranking.swipe.blend</span> object, or the output of{" "}
+              <span className="font-mono">suggest_blend_calibration.mjs</span>.
+            </div>
 
+            <textarea
+              className="mt-4 h-56 w-full rounded-xl border border-zinc-200 bg-white p-3 font-mono text-xs text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-300"
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder='{"suggested_source_multipliers": {"cf": 1.1, "trending": 0.95}}'
+            />
 
-{importOpen ? (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-    <div className="absolute inset-0 bg-black/40" onClick={() => setImportOpen(false)} />
-    <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-      <div className="text-lg font-semibold tracking-tight text-zinc-900">Import blend JSON</div>
-      <div className="mt-2 text-sm text-zinc-600">
-        Paste either <span className="font-mono">{`{"weights":..., "source_multipliers":...}`}</span> or the full{" "}
-        <span className="font-mono">ranking.swipe.blend</span> object, or the output of{" "}
-        <span className="font-mono">suggest_blend_calibration.mjs</span>.
-      </div>
+            {importError ? <div className="mt-3 text-sm text-red-700">{importError}</div> : null}
 
-      <textarea
-        className="mt-4 h-56 w-full rounded-xl border border-zinc-200 bg-white p-3 font-mono text-xs text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-300"
-        value={importText}
-        onChange={(e) => setImportText(e.target.value)}
-        placeholder='{"suggested_source_multipliers": {"cf": 1.1, "trending": 0.95}}'
-      />
-
-      {importError ? <div className="mt-3 text-sm text-red-700">{importError}</div> : null}
-
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={() => setImportOpen(false)}>
-          Cancel
-        </Button>
-        <Button onClick={applyImportJson}>Apply</Button>
-      </div>
-    </div>
-  </div>
-) : null}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setImportOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={applyImportJson}>Apply</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {q.isError ? <div className="p-4"><ErrorBox title="Failed to load app settings" error={q.error as any} /></div> : null}
 
       <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
