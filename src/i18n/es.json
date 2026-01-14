@@ -1,0 +1,43 @@
+{
+  "nav.home": "Inicio",
+  "nav.swipe": "Descubrir",
+  "nav.messages": "Mensajes",
+  "nav.search": "Buscar",
+  "nav.diary": "Diario",
+  "nav.profile": "Perfil",
+
+  "settings.app.title": "Aplicación",
+  "settings.app.subtitle": "Personaliza cómo se comporta MoviNesta en este dispositivo.",
+
+  "settings.start.title": "Pantalla inicial",
+  "settings.start.description": "Elige la pestaña que ves al abrir MoviNesta.",
+  "settings.start.note": "Se guarda localmente. Más adelante podrás conectarlo a la navegación.",
+
+  "assistant.settings.title": "Asistente",
+  "assistant.settings.description": "Sugerencias proactivas que pueden crear listas, actualizar tu Diario y ayudar en Mensajes.",
+  "assistant.settings.enabled": "Activar asistente",
+  "assistant.settings.enabledDetail": "Si lo desactivas, el botón flotante de Sugerencias desaparecerá.",
+  "assistant.settings.proactivity": "Proactividad",
+  "assistant.settings.proactivityBalanced": "Equilibrado",
+  "assistant.settings.proactivityBold": "Atrevido",
+  "assistant.settings.proactivityNote": "Equilibrado aparece menos. Atrevido muestra ideas con más frecuencia.",
+  "assistant.settings.paused": "Sugerencias en pausa hasta",
+  "assistant.settings.resume": "Reanudar",
+
+  "settings.language.title": "Idioma",
+  "settings.language.description": "El selector de idioma llegará pronto. Empezamos con inglés y español mientras añadimos más traducciones.",
+  "settings.language.matchSystem": "Seguir el sistema",
+  "settings.language.english": "Inglés",
+  "settings.language.spanish": "Español",
+  "settings.language.note": "Guardaremos esta preferencia a medida que ampliemos la localización.",
+  "settings.language.comingSoon": "Próximamente: el selector de idioma solo se guarda localmente mientras añadimos traducciones completas.",
+
+  "settings.motion.title": "Movimiento",
+  "settings.motion.description": "Reduce algunas animaciones cinemáticas.",
+  "settings.motion.reduceMotion": "Reducir movimiento",
+  "settings.motion.detail": "Menos transiciones y efectos sutiles. Ideal si prefieres una interfaz tranquila.",
+
+  "settings.save.success": "Configuración guardada en este dispositivo.",
+  "settings.save.error": "No se pudo guardar la configuración. Inténtalo de nuevo.",
+  "settings.save.cta": "Guardar configuración"
+}

@@ -1,0 +1,23 @@
+/// <reference path="../_shared/deno.d.ts" />
+// Supabase Edge Function: admin-whoami
+//
+// Returns the current user identity + admin status.
+
+import { handleCors, json, jsonError, getUserIdFromRequest, getSupabaseServiceClient } from "../_shared/admin.ts";
+
+Deno.serve(async (req) => {
+  const cors = handleCors(req);
+  if (cors) return cors;
+
+  try {
+    const { userId, email } = await getUserIdFromRequest(req);
+    const svc = getSupabaseServiceClient();
+
+    const { data, error } = await svc.from("app_admins").select("user_id").eq("user_id", userId).maybeSingle();
+    if (error) return json(req, 500, { ok: false, code: "DB_ERROR", message: error.message });
+
+    return json(req, 200, { ok: true, is_admin: !!data, user: { id: userId, email } });
+  } catch (e) {
+    return jsonError(req, e);
+  }
+});
