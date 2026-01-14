@@ -141,6 +141,10 @@ async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<T> {
   return data as T;
 }
 
+async function invokeGet<T>(fn: string): Promise<T> {
+  return invoke<T>(fn, { method: "GET" });
+}
+
 async function parseFunctionsHttpError(error: unknown): Promise<AdminApiError | null> {
   if (!error || typeof error !== "object") return null;
   const err = error as { name?: string; context?: any; message?: string };
