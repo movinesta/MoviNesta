@@ -74,21 +74,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Wait for active Pages deployment
+      - name: Cancel active Pages deployments
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          for attempt in {1..30}; do
-            in_progress_count=$(gh api "repos/${{ github.repository }}/pages/deployments" --jq 'map(select(.status == "in_progress")) | length')
-            if [ "$in_progress_count" -eq 0 ]; then
-              exit 0
-            fi
-            echo "Pages deployment in progress ($in_progress_count). Waiting before retrying..."
-            sleep 20
-          done
-          echo "Timed out waiting for existing Pages deployments to finish."
-          exit 1
+          in_progress_ids=$(gh api "repos/${{ github.repository }}/pages/deployments" --jq 'map(select(.status == "in_progress")) | .[].id')
+          if [ -n "$in_progress_ids" ]; then
+            echo "Canceling in-progress Pages deployments: $in_progress_ids"
+            for deployment_id in $in_progress_ids; do
+              gh api -X POST "repos/${{ github.repository }}/pages/deployments/${deployment_id}/cancel"
+            done
+          else
+            echo "No in-progress Pages deployments found."
+          fi
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
