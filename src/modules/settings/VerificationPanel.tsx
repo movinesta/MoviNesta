@@ -11,6 +11,7 @@ import type { Database } from "@/types/supabase";
 
 type BadgeType = Database["public"]["Enums"]["verification_badge_type"];
 type RequestRow = Database["public"]["Tables"]["verification_requests"]["Row"];
+type VerificationStatus = RequestRow["status"] | "needs_more_info" | "rejected";
 
 const badgeTypeOptions: Array<{ key: BadgeType; label: string; hint: string }> = [
   {
@@ -105,7 +106,9 @@ export const VerificationPanel: React.FC<{
               <div className="text-xs text-muted-foreground">
                 {profile.verifiedLabel ?? "Verified"}
                 {profile.verifiedByOrg ? ` · ${profile.verifiedByOrg}` : ""}
-                {profile.verifiedAt ? ` · ${new Date(profile.verifiedAt).toLocaleDateString()}` : ""}
+                {profile.verifiedAt
+                  ? ` · ${new Date(profile.verifiedAt).toLocaleDateString()}`
+                  : ""}
               </div>
             </div>
           </div>
@@ -133,22 +136,23 @@ export const VerificationPanel: React.FC<{
 
     if (!latestRequest) return null;
 
-    const pretty = prettyStatus(latestRequest.status);
+    const status = latestRequest.status as VerificationStatus | null;
+    const pretty = prettyStatus(status);
     const submitted = latestRequest.submitted_at
       ? new Date(latestRequest.submitted_at).toLocaleDateString()
       : null;
 
     const tone =
-      latestRequest.status === "pending"
+      status === "pending"
         ? "bg-muted/70"
-        : latestRequest.status === "needs_more_info"
+        : status === "needs_more_info"
           ? "bg-amber-500/10"
           : "bg-destructive/10";
 
     const iconColor =
-      latestRequest.status === "pending"
+      status === "pending"
         ? "text-muted-foreground"
-        : latestRequest.status === "needs_more_info"
+        : status === "needs_more_info"
           ? "text-amber-500"
           : "text-destructive";
 
@@ -157,34 +161,40 @@ export const VerificationPanel: React.FC<{
         <div className="flex items-start gap-2">
           <AlertCircle className={`mt-0.5 h-4 w-4 ${iconColor}`} aria-hidden="true" />
           <div>
-            <div className="text-xs font-semibold text-foreground">Verification request: {pretty}</div>
+            <div className="text-xs font-semibold text-foreground">
+              Verification request: {pretty}
+            </div>
             <div className="text-xs text-muted-foreground">
               {submitted ? `Submitted on ${submitted}.` : ""}{" "}
-              {latestRequest.status === "pending"
+              {status === "pending"
                 ? "Our team will review it."
-                : latestRequest.status === "needs_more_info"
+                : status === "needs_more_info"
                   ? "Please update your evidence and resubmit."
-                  : latestRequest.status === "rejected" || latestRequest.status === "revoked"
+                  : status === "rejected" || status === "revoked"
                     ? "You can submit a new request with stronger evidence."
                     : ""}
             </div>
-            {(latestRequest as any).reviewer_note && latestRequest.status === "needs_more_info" && (
+            {(latestRequest as any).reviewer_note && status === "needs_more_info" && (
               <div className="mt-1 text-xs text-muted-foreground">
-                <span className="font-semibold">Requested:</span> {(latestRequest as any).reviewer_note}
+                <span className="font-semibold">Requested:</span>{" "}
+                {(latestRequest as any).reviewer_note}
               </div>
             )}
-            {(latestRequest as any).reviewer_note && (latestRequest.status === "rejected" || latestRequest.status === "revoked") && (
-              <div className="mt-1 text-xs text-muted-foreground">
-                <span className="font-semibold">Reason:</span> {(latestRequest as any).reviewer_note}
-              </div>
-            )}
+            {(latestRequest as any).reviewer_note &&
+              (status === "rejected" || status === "revoked") && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  <span className="font-semibold">Reason:</span>{" "}
+                  {(latestRequest as any).reviewer_note}
+                </div>
+              )}
           </div>
         </div>
       </div>
     );
   })();
 
-  const canSubmit = !profile.isVerified && (latestRequest?.status !== "pending");
+  const canSubmit =
+    !profile.isVerified && (latestRequest?.status as VerificationStatus | null) !== "pending";
 
   return (
     <div className="space-y-3 rounded-2xl border border-border/60 bg-card/80 p-[var(--card-pad)] shadow-sm">
@@ -206,7 +216,8 @@ export const VerificationPanel: React.FC<{
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Verified accounts help reduce impersonation. The badge popover explains what your badge means.
+            Verified accounts help reduce impersonation. The badge popover explains what your badge
+            means.
           </p>
         </div>
       </div>
@@ -216,7 +227,9 @@ export const VerificationPanel: React.FC<{
       {!profile.isVerified && (
         <div className="space-y-3 pt-1">
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-foreground">Request a verification badge</div>
+            <div className="text-xs font-semibold text-foreground">
+              Request a verification badge
+            </div>
             <div className="grid grid-cols-3 gap-2 text-[12px]">
               {badgeTypeOptions.map((opt) => {
                 const isActive = badgeType === opt.key;
@@ -241,13 +254,21 @@ export const VerificationPanel: React.FC<{
           </div>
 
           <div className="space-y-1.5">
-            <label className="block type-overline text-muted-foreground">Evidence links</label>
+            <label
+              className="block type-overline text-muted-foreground"
+              htmlFor="verification-evidence"
+            >
+              Evidence links
+            </label>
             <Textarea
+              id="verification-evidence"
               value={evidenceText}
               onChange={(e) => setEvidenceText(e.target.value)}
               rows={4}
               className="text-sm resize-none"
-              placeholder={"Paste 1–8 links (one per line).\nExample: IMDb page, official website, social profile."}
+              placeholder={
+                "Paste 1–8 links (one per line).\nExample: IMDb page, official website, social profile."
+              }
               disabled={!canSubmit}
             />
             {evidenceLinks.length > 0 && (
@@ -265,15 +286,23 @@ export const VerificationPanel: React.FC<{
                   </a>
                 ))}
                 {evidenceLinks.length > 3 && (
-                  <div className="text-xs text-muted-foreground">+{evidenceLinks.length - 3} more</div>
+                  <div className="text-xs text-muted-foreground">
+                    +{evidenceLinks.length - 3} more
+                  </div>
                 )}
               </div>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <label className="block type-overline text-muted-foreground">Notes (optional)</label>
+            <label
+              className="block type-overline text-muted-foreground"
+              htmlFor="verification-notes"
+            >
+              Notes (optional)
+            </label>
             <Input
+              id="verification-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="text-sm"
@@ -308,7 +337,9 @@ export const VerificationPanel: React.FC<{
             <Button
               type="button"
               size="sm"
-              disabled={submit.isPending || !canSubmit || (evidenceLinks.length === 0 && !notes.trim())}
+              disabled={
+                submit.isPending || !canSubmit || (evidenceLinks.length === 0 && !notes.trim())
+              }
               onClick={() => submit.mutate()}
             >
               {submit.isPending ? (

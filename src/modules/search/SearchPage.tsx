@@ -1139,11 +1139,11 @@ const SearchPage: React.FC = () => {
                     followingCount: p.followingCount,
                     isFollowing: p.isFollowing,
                     matchPercent: p.matchPercent ?? null,
-                          isVerified: (p as any).isVerified ?? null,
-                          verifiedType: (p as any).verifiedType ?? null,
-                          verifiedLabel: (p as any).verifiedLabel ?? null,
-                          verifiedAt: (p as any).verifiedAt ?? null,
-                          verifiedByOrg: (p as any).verifiedByOrg ?? null,
+                    isVerified: (p as any).isVerified ?? null,
+                    verifiedType: (p as any).verifiedType ?? null,
+                    verifiedLabel: (p as any).verifiedLabel ?? null,
+                    verifiedAt: (p as any).verifiedAt ?? null,
+                    verifiedByOrg: (p as any).verifiedByOrg ?? null,
                   };
 
                   return (

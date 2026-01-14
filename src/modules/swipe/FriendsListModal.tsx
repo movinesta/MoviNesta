@@ -145,16 +145,18 @@ export default function FriendsListModal({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-1">
-                      <div className="truncate text-sm font-semibold text-foreground">{display}</div>
-                      <VerifiedBadge
-                        isVerified={verifMap[p.id]?.is_verified}
-                        type={verifMap[p.id]?.verified_type as any}
-                        label={verifMap[p.id]?.verified_label}
-                        verifiedAt={verifMap[p.id]?.verified_at}
-                        org={verifMap[p.id]?.verified_by_org}
-                        className="shrink-0 rounded-full p-0.5 text-primary/90 hover:text-primary"
-                      />
-                    </div>
+                        <div className="truncate text-sm font-semibold text-foreground">
+                          {display}
+                        </div>
+                        <VerifiedBadge
+                          isVerified={verifMap[p.id]?.is_verified}
+                          type={verifMap[p.id]?.verified_type as any}
+                          label={verifMap[p.id]?.verified_label}
+                          verifiedAt={verifMap[p.id]?.verified_at}
+                          org={verifMap[p.id]?.verified_by_org}
+                          className="shrink-0 rounded-full p-0.5 text-primary/90 hover:text-primary"
+                        />
+                      </div>
                       {uname ? (
                         <div className="truncate text-xs text-muted-foreground">@{uname}</div>
                       ) : (

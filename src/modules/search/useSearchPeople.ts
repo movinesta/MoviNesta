@@ -62,7 +62,9 @@ export const useSearchPeople = (query: string) => {
 
       let builder = supabase
         .from("profiles_public")
-        .select("id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org")
+        .select(
+          "id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org",
+        )
         .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
         .limit(20);
 
@@ -196,12 +198,12 @@ export const useSearchPeople = (query: string) => {
           displayName: row.display_name,
           avatarUrl: row.avatar_url,
           bio: row.bio,
-            isVerified: (row as any).is_verified ?? null,
-            verifiedType: (row as any).verified_type ?? null,
-            verifiedLabel: (row as any).verified_label ?? null,
-            verifiedAt: (row as any).verified_at ?? null,
-            verifiedByOrg: (row as any).verified_by_org ?? null,
-            followersCount: stats?.followersCount ?? null,
+          isVerified: (row as any).is_verified ?? null,
+          verifiedType: (row as any).verified_type ?? null,
+          verifiedLabel: (row as any).verified_label ?? null,
+          verifiedAt: (row as any).verified_at ?? null,
+          verifiedByOrg: (row as any).verified_by_org ?? null,
+          followersCount: stats?.followersCount ?? null,
           followingCount: stats?.followingCount ?? null,
           isFollowing: followedIds.has(row.id),
           matchPercent: null,

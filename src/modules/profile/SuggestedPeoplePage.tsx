@@ -191,17 +191,17 @@ const SuggestedPeoplePage: React.FC = () => {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-                  {person.isVerified ? (
-                    <VerifiedBadge
-                      isVerified={person.isVerified ?? null}
-                      type={(person.verifiedType as any) ?? null}
-                      label={person.verifiedLabel ?? null}
-                      verifiedAt={person.verifiedAt ?? null}
-                      org={person.verifiedByOrg ?? null}
-                    />
-                  ) : null}
-                </div>
+                    <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+                    {person.isVerified ? (
+                      <VerifiedBadge
+                        isVerified={person.isVerified ?? null}
+                        type={(person.verifiedType as any) ?? null}
+                        label={person.verifiedLabel ?? null}
+                        verifiedAt={person.verifiedAt ?? null}
+                        org={person.verifiedByOrg ?? null}
+                      />
+                    ) : null}
+                  </div>
                   <p className="truncate text-xs text-muted-foreground">{handle}</p>
                   <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{hint}</p>
                 </div>

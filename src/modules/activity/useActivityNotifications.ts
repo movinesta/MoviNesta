@@ -75,7 +75,9 @@ async function loadProfiles(ids: string[]): Promise<Map<string, ActivityActor>> 
 
   const { data, error } = await supabase
     .from("profiles_public")
-    .select("id, username, display_name, avatar_url, is_verified, verified_type, verified_label, verified_at, verified_by_org")
+    .select(
+      "id, username, display_name, avatar_url, is_verified, verified_type, verified_label, verified_at, verified_by_org",
+    )
     .in("id", ids);
 
   if (error) {

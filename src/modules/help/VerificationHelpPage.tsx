@@ -63,7 +63,8 @@ const VerificationHelpPage: React.FC = () => {
         <section className="rounded-3xl border border-border/50 bg-card/70 p-5 shadow-sm">
           <h2 className="text-base font-semibold text-foreground">How to request verification</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            If requests are enabled, go to <span className="font-semibold text-foreground">Settings → Profile → Verification</span>
+            If requests are enabled, go to{" "}
+            <span className="font-semibold text-foreground">Settings → Profile → Verification</span>
             and submit evidence links. You can only have one pending request at a time.
           </p>
         </section>

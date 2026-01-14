@@ -478,7 +478,7 @@ export default function Verification() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button
                   variant="primary"
-                  disabled={mutDirectVerify.isLoading}
+                  disabled={mutDirectVerify.isPending}
                   onClick={() => {
                     setConfirm({
                       title: dvSelected.is_verified ? "Update verification" : "Verify user",
