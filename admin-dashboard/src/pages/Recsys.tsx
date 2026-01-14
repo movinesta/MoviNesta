@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   getRecVariantMetrics,
@@ -7,6 +8,7 @@ import {
   getRecHealthMetrics,
   getRecPositionMetrics,
   getRecAlertsMetrics,
+  getRecsysDiagnostics,
   type RecVariantMetricRow,
   type RecSourceMetricRow,
   type RecGenreMetricRow,
@@ -15,11 +17,12 @@ import {
   type RecAlertsDailyMetricRow,
   type RecActiveAlertRow,
   type RecAlertsMetricsResponse,
+  type RecsysDiagnosticsRow,
 } from "../lib/api";
 import { Card } from "../components/Card";
 import { Table, Th, Td } from "../components/Table";
 import { ErrorBox } from "../components/ErrorBox";
-import { cn } from "../lib/ui";
+import { cn, fmtDate } from "../lib/ui";
 import { RecsysBlendEditor } from "../components/RecsysBlendEditor";
 import { StatCard } from "../components/StatCard";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
@@ -71,6 +74,14 @@ export default function Recsys() {
     enabled: tab === "health",
   });
 
+  const qDiagnostics = useQuery({
+    queryKey: useMemo(() => ["rec_diagnostics"], []),
+    queryFn: async () => getRecsysDiagnostics(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    enabled: tab === "health",
+  });
+
   const qPositions = useQuery({
     queryKey: useMemo(() => ["rec_position_metrics", days], [days]),
     queryFn: async () => getRecPositionMetrics({ days, max_position: 30 }),
@@ -92,6 +103,7 @@ export default function Recsys() {
   const rowsGenre = (qGenre.data?.rows ?? []) as RecGenreMetricRow[];
   const rowsHealth = (qHealth.data?.rows ?? []) as RecHealthMetricRow[];
   const rowsPos = (qPositions.data?.rows ?? []) as RecPositionMetricRow[];
+  const diagnostics = (qDiagnostics.data?.row ?? null) as RecsysDiagnosticsRow | null;
 
   const latestHealth = rowsHealth[0];
 
@@ -137,7 +149,19 @@ export default function Recsys() {
           <div className="text-sm text-zinc-600">Observe → diagnose → tune → roll out (metrics, composition, drift, and controls).</div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/recsys/experiments"
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm hover:bg-zinc-50"
+          >
+            Experiments
+          </Link>
+          <Link
+            to="/recsys/assignments"
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm hover:bg-zinc-50"
+          >
+            Assignments
+          </Link>
           <label className="text-xs font-medium text-zinc-700">Window</label>
           <select
             className={cn(
@@ -188,6 +212,7 @@ export default function Recsys() {
       {tab === "health" ? (
         <>
           {qHealth.isError ? <ErrorBox title="Failed to load health" error={qHealth.error as any} /> : null}
+          {qDiagnostics.isError ? <ErrorBox title="Failed to load diagnostics" error={qDiagnostics.error as any} /> : null}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <StatCard
               title="Decks (latest day)"
@@ -197,6 +222,35 @@ export default function Recsys() {
             <StatCard title="Impressions" value={latestHealth ? fmtInt(latestHealth.impressions) : "—"} subtitle="rec_impressions rows" />
             <StatCard title="Users" value={latestHealth ? fmtInt(latestHealth.users) : "—"} subtitle="unique users" />
           </div>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-zinc-900">Experiment tagging health (last 7 days)</div>
+                <div className="text-xs text-zinc-500">Tracks impressions missing experiment tags and outcomes without impressions.</div>
+              </div>
+              <div className="text-xs text-zinc-500">
+                Window start: {diagnostics?.window_start ? fmtDate(diagnostics.window_start) : "—"}
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <StatCard
+                title="Impressions (7d)"
+                value={diagnostics ? fmtInt(diagnostics.total_impressions) : "—"}
+                subtitle="Total impressions"
+              />
+              <StatCard
+                title="Missing experiments"
+                value={diagnostics ? fmtInt(diagnostics.missing_experiments) : "—"}
+                subtitle={diagnostics ? `${fmtPct(diagnostics.missing_ratio)} of impressions` : undefined}
+              />
+              <StatCard
+                title="Outcomes without impression"
+                value={diagnostics ? fmtInt(diagnostics.outcomes_without_impression) : "—"}
+                subtitle="Join gaps (7d)"
+              />
+            </div>
+          </Card>
 
           <Card className="p-0">
             <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">

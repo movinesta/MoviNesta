@@ -1012,3 +1012,99 @@ export type RecAlertsMetricsResponse = {
 export async function getRecAlertsMetrics(params: { days?: number } = {}): Promise<RecAlertsMetricsResponse> {
   return invoke<RecAlertsMetricsResponse>("admin-rec-alerts-metrics", { body: { days: params.days } });
 }
+
+export type RecsysDiagnosticsRow = {
+  window_start: string;
+  total_impressions: number;
+  missing_experiments: number;
+  missing_ratio: number;
+  outcomes_without_impression: number;
+};
+
+export type RecsysDiagnosticsResp = { ok: true; row: RecsysDiagnosticsRow | null };
+
+export async function getRecsysDiagnostics() {
+  return invoke<RecsysDiagnosticsResp>("admin-recsys-diagnostics", { body: {} });
+}
+
+export type RecsysExperimentAssignmentCountRow = {
+  experiment_key: string;
+  variant: string;
+  assignments: number;
+};
+
+export type RecsysExperimentAssignmentCountsResp = { ok: true; rows: RecsysExperimentAssignmentCountRow[] };
+
+export async function getRecsysExperimentAssignmentCounts() {
+  return invoke<RecsysExperimentAssignmentCountsResp>("admin-recsys-experiments-metrics", { body: {} });
+}
+
+/* =========================
+ * Recsys Experiments (Admin)
+ * ======================= */
+
+export type RecsysExperimentVariant = {
+  name: string;
+  weight: number;
+};
+
+export type RecsysExperimentRow = {
+  id: string;
+  key: string;
+  description?: string | null;
+  status: string;
+  variants?: RecsysExperimentVariant[] | null;
+  salt?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type RecsysExperimentsResp = { ok: true; rows: RecsysExperimentRow[] };
+
+export async function getRecsysExperiments() {
+  return invoke<RecsysExperimentsResp>("admin-recsys-experiments-list", { body: {} });
+}
+
+export async function upsertRecsysExperiment(payload: {
+  key: string;
+  description?: string | null;
+  status: "draft" | "active" | "ended";
+  started_at?: string | null;
+  ended_at?: string | null;
+  variants: RecsysExperimentVariant[];
+  salt?: string | null;
+}) {
+  return invoke<{ ok: true }>("admin-recsys-experiments-upsert", { body: payload });
+}
+
+export async function activateRecsysExperiment(payload: { key: string }) {
+  return invoke<{ ok: true }>("admin-recsys-experiments-activate", { body: payload });
+}
+
+export async function endRecsysExperiment(payload: { key: string }) {
+  return invoke<{ ok: true }>("admin-recsys-experiments-end", { body: payload });
+}
+
+export type RecsysAssignmentRow = {
+  user_id: string;
+  experiment_key: string;
+  variant: string;
+  assignment_mode?: string | null;
+  available_variants?: string[];
+};
+
+export type RecsysAssignmentsResp = { ok: true; rows: RecsysAssignmentRow[] };
+
+export async function getRecsysAssignments(payload: { user: string }) {
+  return invoke<RecsysAssignmentsResp>("admin-recsys-assignments-get", { body: payload });
+}
+
+export async function setRecsysAssignment(payload: { experiment_key: string; user_id: string; variant: string }) {
+  return invoke<{ ok: true }>("admin-recsys-assignments-set", { body: payload });
+}
+
+export async function resetRecsysAssignment(payload: { experiment_key: string; user_id: string }) {
+  return invoke<{ ok: true }>("admin-recsys-assignments-reset", { body: payload });
+}
