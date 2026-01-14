@@ -424,7 +424,10 @@ export async function sendOnboardingInitialLikes(
     sessionId: input.sessionId,
     mediaItemIds: Array.isArray(input.mediaItemIds) ? input.mediaItemIds : [],
     preferredGenres: Array.isArray(input.preferredGenres)
-      ? input.preferredGenres.map((g) => String(g).trim()).filter(Boolean).slice(0, 20)
+      ? input.preferredGenres
+          .map((g) => String(g).trim())
+          .filter(Boolean)
+          .slice(0, 20)
       : undefined,
   };
 

@@ -3578,7 +3578,10 @@ const SwipePage: React.FC = () => {
         </div>
 
         {/* Fine-grained feedback actions */}
-        <div className="mt-3 flex shrink-0 items-center justify-center gap-2" aria-label="Recommendation feedback">
+        <div
+          className="mt-3 flex shrink-0 items-center justify-center gap-2"
+          aria-label="Recommendation feedback"
+        >
           <button
             type="button"
             onClick={() => performSwipe("dislike", 0, "not_interested")}

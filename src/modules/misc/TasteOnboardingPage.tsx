@@ -272,7 +272,11 @@ const TasteOnboardingPage: React.FC = () => {
                 className={active ? "border-foreground/30 bg-foreground/10" : undefined}
               >
                 <span className="flex items-center gap-1">
-                  {active ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {active ? (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
                   {g}
                 </span>
               </Chip>

@@ -220,7 +220,7 @@ export function useMediaSwipeDeck(
         const assignments = await getOrFetchExperimentAssignments(
           ["swipe_pipeline_v1", "swipe_rerank_v1", "swipe_diversity_v1"],
           {
-          ttlMs: 1000 * 60 * 60 * 6, // 6h
+            ttlMs: 1000 * 60 * 60 * 6, // 6h
           },
         );
         if (!cancelled) experimentsRef.current = assignments;
@@ -249,7 +249,6 @@ export function useMediaSwipeDeck(
   });
 
   const [eventError, setEventError] = useState<{ payload: any; message: string } | null>(null);
-
 
   const setStateSafe = useCallback((updater: DeckState | ((prev: DeckState) => DeckState)) => {
     setState((prev) => (typeof updater === "function" ? (updater as any)(prev) : updater));

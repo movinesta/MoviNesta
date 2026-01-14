@@ -170,7 +170,7 @@ export const VerificationPanel: React.FC<{
                 ? "Our team will review it."
                 : status === "needs_more_info"
                   ? "Please update your evidence and resubmit."
-                  : status === "rejected" || status === "revoked"
+                  : status === "rejected"
                     ? "You can submit a new request with stronger evidence."
                     : ""}
             </div>
@@ -180,13 +180,12 @@ export const VerificationPanel: React.FC<{
                 {(latestRequest as any).reviewer_note}
               </div>
             )}
-            {(latestRequest as any).reviewer_note &&
-              (status === "rejected" || status === "revoked") && (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  <span className="font-semibold">Reason:</span>{" "}
-                  {(latestRequest as any).reviewer_note}
-                </div>
-              )}
+            {(latestRequest as any).reviewer_note && status === "rejected" && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                <span className="font-semibold">Reason:</span>{" "}
+                {(latestRequest as any).reviewer_note}
+              </div>
+            )}
           </div>
         </div>
       </div>
