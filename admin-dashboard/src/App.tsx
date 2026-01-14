@@ -21,6 +21,9 @@ const Assistant = lazy(() => import("./pages/Assistant"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Verification = lazy(() => import("./pages/Verification"));
 const Recsys = lazy(() => import("./pages/Recsys"));
+const RecsysExperiments = lazy(() => import("./pages/RecsysExperiments"));
+const RecsysExperimentDetail = lazy(() => import("./pages/RecsysExperimentDetail"));
+const RecsysAssignments = lazy(() => import("./pages/RecsysAssignments"));
 
 function FullscreenMsg(props: { title: string; body?: string; action?: React.ReactNode }) {
   return (
@@ -174,6 +177,9 @@ export default function App() {
             <Route path="/assistant" element={<Assistant />} />
             <Route path="/verification" element={<Verification />} />
             <Route path="/recsys" element={<Recsys />} />
+            <Route path="/recsys/experiments" element={<RecsysExperiments />} />
+            <Route path="/recsys/experiments/:key" element={<RecsysExperimentDetail />} />
+            <Route path="/recsys/assignments" element={<RecsysAssignments />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
             </Suspense>
