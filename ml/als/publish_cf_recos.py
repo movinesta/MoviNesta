@@ -1,222 +1,277 @@
+#!/usr/bin/env python3
+"""
+publish_cf_recos.py
+
+Publishes Top-K collaborative-filtering recommendations (ALS) into Supabase table `public.cf_recos`.
+
+Fixes common ALS npz serialization issues:
+- factors saved transposed (n_factors, n_entities) instead of (n_entities, n_factors)
+- users/items ids stored under different keys (users/user_ids, items/item_ids)
+- user_factors and item_factors accidentally swapped
+
+Usage:
+  python ml/als/publish_cf_recos.py \
+    --events ml/data/media_events.jsonl \
+    --model ml/data/als_model.npz \
+    --model_version als_v1 \
+    --k 200
+"""
 from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from tqdm import tqdm
 
-
-POSITIVE_TYPES = {"like", "watchlist"}
-
-
-def is_positive(ev: dict) -> bool:
-    t = str(ev.get("event_type") or "").strip()
-    if t in POSITIVE_TYPES:
-        return True
-    r = ev.get("rating_0_10")
-    if r is not None:
-        try:
-            n = float(r)
-            if math.isfinite(n) and n >= 7:
-                return True
-        except Exception:
-            pass
-    return False
+try:
+    from supabase import create_client  # type: ignore
+except Exception:
+    create_client = None  # handled in main()
 
 
-def load_events_jsonl(path: Path) -> List[dict]:
-    out: List[dict] = []
-    with path.open("r", encoding="utf8") as f:
+@dataclass(frozen=True)
+class Event:
+    user_id: str
+    media_item_id: str
+    event_type: str
+
+
+POSITIVE_EVENTS: Set[str] = {"like", "more_like_this", "watchlist_add", "rating_set"}
+
+
+def read_events_jsonl(path: Path) -> List[Event]:
+    events: List[Event] = []
+    with path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            try:
-                out.append(json.loads(line))
-            except Exception:
+            obj = json.loads(line)
+            # tolerate multiple schemas
+            user_id = str(obj.get("user_id") or obj.get("user") or obj.get("uid") or "").strip()
+            item_id = str(obj.get("media_item_id") or obj.get("item_id") or obj.get("mediaId") or "").strip()
+            event_type = str(obj.get("event_type") or obj.get("type") or "").strip()
+            if not user_id or not item_id or not event_type:
                 continue
-    return out
+            events.append(Event(user_id=user_id, media_item_id=item_id, event_type=event_type))
+    return events
+
+
+def _pick_first_existing(arr: np.lib.npyio.NpzFile, keys: Sequence[str]) -> Optional[np.ndarray]:
+    for k in keys:
+        if k in arr.files:
+            return arr[k]
+    return None
+
+
+def _as_str_list(x: np.ndarray) -> List[str]:
+    # npz may store dtype=object, bytes, or numeric
+    if x is None:
+        return []
+    x = np.asarray(x)
+    if x.dtype.kind in {"S", "a"}:
+        return [v.decode("utf-8", "ignore") for v in x.tolist()]
+    return [str(v) for v in x.tolist()]
+
+
+def _ensure_rows_first(mat: np.ndarray, n_expected: int, name: str) -> np.ndarray:
+    """Ensure matrix is shaped (n_entities, n_factors) rather than transposed."""
+    mat = np.asarray(mat)
+    if mat.ndim != 2:
+        raise ValueError(f"{name} must be 2D, got shape {mat.shape}")
+    r, c = mat.shape
+    if r == n_expected:
+        return mat
+    if c == n_expected:
+        return mat.T
+    return mat  # leave as-is; later we will attempt swap heuristic / raise
 
 
 def load_model_npz(path: Path) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
-    """Load ALS model artifacts.
+    """
+    Loads model factors and ids from a .npz file.
 
-    Expected keys (preferred):
-      - user_factors: (n_users, n_factors)
-      - item_factors: (n_items, n_factors)  OR sometimes saved as (n_factors, n_items)
-      - users: list[str]
-      - items: list[str]
-
-    Some older runs may use user_ids/item_ids instead of users/items.
-    This loader normalizes shapes so downstream scoring always uses:
+    Returns:
       user_factors: (n_users, n_factors)
       item_factors: (n_items, n_factors)
+      users: list[str] length n_users
+      items: list[str] length n_items
     """
-    z = np.load(path, allow_pickle=True)
+    arr = np.load(path, allow_pickle=True)
 
-    user_factors = z["user_factors"].astype(np.float32)
-    item_factors = z["item_factors"].astype(np.float32)
+    user_factors = _pick_first_existing(arr, ["user_factors", "U", "user_emb", "user_embeddings"])
+    item_factors = _pick_first_existing(arr, ["item_factors", "V", "item_emb", "item_embeddings"])
 
-    # Robust id arrays
-    if "users" in z:
-        users = [str(x) for x in z["users"].tolist()]
-    elif "user_ids" in z:
-        users = [str(x) for x in z["user_ids"].tolist()]
-    else:
-        raise KeyError("Model .npz missing 'users' (or 'user_ids')")
-
-    if "items" in z:
-        items = [str(x) for x in z["items"].tolist()]
-    elif "item_ids" in z:
-        items = [str(x) for x in z["item_ids"].tolist()]
-    else:
-        raise KeyError("Model .npz missing 'items' (or 'item_ids')")
-
-    # Normalize orientations:
-    # Some training code saves item_factors as (n_factors, n_items) instead of (n_items, n_factors).
-    # Detect and transpose safely.
-    if item_factors.ndim != 2 or user_factors.ndim != 2:
-        raise ValueError("Expected 2D factor matrices in model .npz")
-
-    # If item_factors is (n_factors, n_items), transpose it.
-    # Typical symptom: item_factors.shape[0] == n_factors and item_factors.shape[1] == n_items.
-    n_users = len(users)
-    n_items = len(items)
-
-    # If user_factors also accidentally saved transposed, fix it too.
-    if user_factors.shape[0] != n_users and user_factors.shape[1] == n_users:
-        user_factors = user_factors.T
-
-    n_factors = user_factors.shape[1]
-
-    if item_factors.shape[0] == n_factors and item_factors.shape[1] == n_items:
-        item_factors = item_factors.T
-    elif item_factors.shape[0] != n_items and item_factors.shape[1] == n_items and item_factors.shape[0] == n_factors:
-        # same as above, defensive
-        item_factors = item_factors.T
-
-    # Final sanity checks
-    if user_factors.shape[0] != n_users:
-        raise ValueError(f"user_factors shape {user_factors.shape} does not match users length {n_users}")
-    if item_factors.shape[0] != n_items:
-        raise ValueError(f"item_factors shape {item_factors.shape} does not match items length {n_items}")
-    if item_factors.shape[1] != user_factors.shape[1]:
+    if user_factors is None or item_factors is None:
         raise ValueError(
-            f"Factor dimension mismatch: item_factors {item_factors.shape} vs user_factors {user_factors.shape}"
+            f"Model npz must contain user_factors and item_factors (or aliases). Found keys: {arr.files}"
         )
 
-    return user_factors, item_factors, users, items
+    users_raw = _pick_first_existing(arr, ["users", "user_ids", "uids"])
+    items_raw = _pick_first_existing(arr, ["items", "item_ids", "iids"])
+
+    users = _as_str_list(users_raw) if users_raw is not None else []
+    items = _as_str_list(items_raw) if items_raw is not None else []
+
+    # If ids missing, infer sizes later; but we still need something stable for publishing.
+    # In that case, we will publish using index-based ids which is not ideal.
+    if not users:
+        users = [str(i) for i in range(int(np.asarray(user_factors).shape[0]))]
+    if not items:
+        items = [str(i) for i in range(int(np.asarray(item_factors).shape[0]))]
+
+    # First fix: transpose factors if saved with rows/cols swapped
+    user_factors = _ensure_rows_first(np.asarray(user_factors), len(users), "user_factors")
+    item_factors = _ensure_rows_first(np.asarray(item_factors), len(items), "item_factors")
+
+    # Second fix: sometimes user/item factors are accidentally swapped in the npz
+    # Heuristic: if user_factors rows match items length AND item_factors rows match users length, swap them.
+    if user_factors.shape[0] != len(users) and item_factors.shape[0] != len(items):
+        if user_factors.shape[0] == len(items) and item_factors.shape[0] == len(users):
+            user_factors, item_factors = item_factors, user_factors
+
+    # Final validation
+    if user_factors.shape[0] != len(users):
+        raise ValueError(
+            f"user_factors shape {user_factors.shape} does not match users length {len(users)} "
+            f"(npz keys: {arr.files})"
+        )
+    if item_factors.shape[0] != len(items):
+        raise ValueError(
+            f"item_factors shape {item_factors.shape} does not match items length {len(items)} "
+            f"(npz keys: {arr.files})"
+        )
+    if user_factors.shape[1] != item_factors.shape[1]:
+        raise ValueError(
+            f"Factor dimension mismatch: user_factors {user_factors.shape}, item_factors {item_factors.shape}"
+        )
+
+    return user_factors.astype(np.float32), item_factors.astype(np.float32), users, items
 
 
-
-def build_seen_sets(events: List[dict]) -> Dict[str, Set[str]]:
+def build_seen_map(events: Sequence[Event]) -> Dict[str, Set[str]]:
     seen: Dict[str, Set[str]] = {}
-    for ev in events:
-        if not is_positive(ev):
-            continue
-        u = str(ev.get("user_id") or "").strip()
-        it = str(ev.get("media_item_id") or "").strip()
-        if not u or not it:
-            continue
-        s = seen.setdefault(u, set())
-        s.add(it)
+    for e in events:
+        if e.user_id not in seen:
+            seen[e.user_id] = set()
+        seen[e.user_id].add(e.media_item_id)
     return seen
 
 
 def topk_recs(
     user_factors: np.ndarray,
     item_factors: np.ndarray,
-    users: List[str],
-    items: List[str],
+    users: Sequence[str],
+    items: Sequence[str],
     seen: Dict[str, Set[str]],
     k: int,
-) -> List[dict]:
-    # Pre-normalize item factors for cosine-like scoring, improves stability.
-    item_norm = np.linalg.norm(item_factors, axis=1) + 1e-8
-    item_unit = item_factors / item_norm[:, None]
+) -> List[Dict]:
+    """
+    Compute top-k dot-product recommendations per user, excluding already-seen items.
+    """
+    item_factors_t = item_factors.T  # (n_factors, n_items)
+    item_index: Dict[str, int] = {iid: j for j, iid in enumerate(items)}
 
-    rows: List[dict] = []
-    item_ids = np.array(items, dtype=object)
+    out_rows: List[Dict] = []
+    for ui, uid in enumerate(tqdm(users, desc="Generating recos")):
+        u = user_factors[ui]  # (n_factors,)
+        scores = u @ item_factors_t  # (n_items,)
 
-    for u_idx, u_id in enumerate(tqdm(users, desc="Generating recos")):
-        uvec = user_factors[u_idx]
-        u_norm = np.linalg.norm(uvec) + 1e-8
-        u_unit = uvec / u_norm
-        scores = item_unit @ u_unit
-        # Exclude seen items
-        seen_set = seen.get(u_id) or set()
-        if seen_set:
-            mask = np.isin(item_ids, np.array(list(seen_set), dtype=object))
-            scores = scores.copy()
+        # Exclude seen items for this user (mask over items axis)
+        if uid in seen and seen[uid]:
+            mask = np.zeros(scores.shape[0], dtype=bool)  # len(items)
+            for iid in seen[uid]:
+                j = item_index.get(iid)
+                if j is not None:
+                    mask[j] = True
             scores[mask] = -1e9
 
-        top_idx = np.argpartition(-scores, kth=min(k, len(scores) - 1))[:k]
-        top_idx = top_idx[np.argsort(-scores[top_idx])]
+        # Top-k indices
+        kk = min(int(k), scores.shape[0])
+        if kk <= 0:
+            continue
+        # argpartition for speed, then sort those
+        top = np.argpartition(-scores, kk - 1)[:kk]
+        top = top[np.argsort(-scores[top])]
 
-        for rank, i_idx in enumerate(top_idx.tolist()):
-            rows.append(
+        for rank, j in enumerate(top, start=1):
+            out_rows.append(
                 {
-                    "user_id": u_id,
-                    "media_item_id": str(items[i_idx]),
-                    "score": float(scores[i_idx]),
+                    "user_id": uid,
+                    "media_item_id": items[int(j)],
+                    "model_version": None,  # filled in main
                     "rank": int(rank),
+                    "score": float(scores[int(j)]),
                 }
             )
+    return out_rows
 
-    return rows
+
+def publish_to_supabase(rows: List[Dict], supabase_url: str, service_role_key: str) -> None:
+    if create_client is None:
+        raise RuntimeError("supabase-py is not installed in this environment.")
+    sb = create_client(supabase_url, service_role_key)
+
+    # Upsert in chunks
+    CHUNK = 1000
+    for i in tqdm(range(0, len(rows), CHUNK), desc="Upserting cf_recos"):
+        chunk = rows[i : i + CHUNK]
+        # public.cf_recos PK: (user_id, media_item_id, model_version)
+        res = sb.table("cf_recos").upsert(chunk, on_conflict="user_id,media_item_id,model_version").execute()
+        if getattr(res, "error", None):
+            raise RuntimeError(f"Supabase upsert error: {res.error}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--events", required=True, help="Path to media_events JSONL")
-    ap.add_argument("--model", required=True, help="Path to ALS model .npz")
-    ap.add_argument("--k", type=int, default=200)
-    ap.add_argument("--model_version", default="als_v1")
+    ap.add_argument("--events", required=True, help="Path to media_events.jsonl")
+    ap.add_argument("--model", required=True, help="Path to als_model.npz")
+    ap.add_argument("--model_version", required=True, help="Model version string to store (e.g. als_v1)")
+    ap.add_argument("--k", type=int, default=200, help="Top-k per user")
+    ap.add_argument("--dry_run", action="store_true", help="Compute rows but do not publish to Supabase")
     args = ap.parse_args()
 
-    supabase_url = os.environ.get("SUPABASE_URL")
-    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not supabase_url or not service_key:
-        raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars")
+    events_path = Path(args.events)
+    model_path = Path(args.model)
 
-    try:
-        from supabase import create_client
-    except Exception as e:
-        raise RuntimeError("Missing dependency 'supabase'. Install with: pip install -r ml/requirements.txt") from e
+    events = read_events_jsonl(events_path)
+    if not events:
+        raise SystemExit(f"No events read from {events_path}")
 
-    events = load_events_jsonl(Path(args.events))
-    seen = build_seen_sets(events)
-    user_factors, item_factors, users, items = load_model_npz(Path(args.model))
-    rows = topk_recs(user_factors, item_factors, users, items, seen, int(args.k))
+    # Use positives to define seen (exclude all interactions to avoid repeats)
+    seen = build_seen_map(events)
 
-    client = create_client(supabase_url, service_key)
+    user_factors, item_factors, users, items = load_model_npz(model_path)
 
-    # Upsert in manageable batches.
-    BATCH = 2000
-    total = 0
-    for i in range(0, len(rows), BATCH):
-        chunk = rows[i : i + BATCH]
-        payload = [
-            {
-                "user_id": r["user_id"],
-                "media_item_id": r["media_item_id"],
-                "score": r["score"],
-                "rank": r["rank"],
-                "model_version": str(args.model_version),
-            }
-            for r in chunk
-        ]
-        res = client.table("cf_recos").upsert(payload, on_conflict="user_id,media_item_id,model_version").execute()
-        if getattr(res, "error", None):
-            raise RuntimeError(str(res.error))
-        total += len(chunk)
+    # Filter users to those that exist in model ids (intersection)
+    # (events may include users not in model; ignore them here)
+    users_in_events = {e.user_id for e in events}
+    users_filtered = [u for u in users if u in users_in_events]
+    if not users_filtered:
+        # Fall back to all model users if events ids don't match (but still safe)
+        users_filtered = list(users)
 
-    print(f"Published {total} rows to public.cf_recos (model_version={args.model_version})")
+    rows = topk_recs(user_factors, item_factors, users_filtered, items, seen, int(args.k))
+    for r in rows:
+        r["model_version"] = args.model_version
+
+    print(f"Prepared {len(rows)} recommendations rows (users={len(users_filtered)}, items={len(items)})")
+
+    if args.dry_run:
+        return 0
+
+    supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("SUPABASE_PROJECT_URL")
+    service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not service_role_key:
+        raise SystemExit("Missing SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY environment variables.")
+
+    publish_to_supabase(rows, supabase_url, service_role_key)
+    print("✅ Published cf_recos successfully.")
     return 0
 
 
