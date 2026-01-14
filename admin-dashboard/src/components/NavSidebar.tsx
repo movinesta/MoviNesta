@@ -7,6 +7,8 @@ const items = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/assistant", label: "Assistant", icon: Sparkles },
   { to: "/recsys", label: "Recsys", icon: BarChart3 },
+  { to: "/recsys/experiments", label: "Recsys Experiments", icon: BarChart3 },
+  { to: "/recsys/assignments", label: "Recsys Assignments", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/embeddings", label: "Embeddings", icon: Cpu },
   { to: "/jobs", label: "Jobs", icon: CalendarClock },
