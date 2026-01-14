@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useCurrentProfile, type ProfileSummary } from "./useProfile";
 import TopBar from "@/components/shared/TopBar";
 
@@ -20,7 +19,9 @@ const MePage: React.FC = () => {
     if (!profile) return;
     if (profile.username) {
       navigate(`/u/${profile.username}`, { replace: true });
+      return;
     }
+    navigate("/settings/profile", { replace: true });
   }, [navigate, profile]);
 
   if (isLoading) {
@@ -50,21 +51,8 @@ const MePage: React.FC = () => {
     );
   }
 
-  // Logged in but no username configured.
-  return (
-    <div className="flex flex-1 flex-col">
-      <TopBar title="Profile" />
-      <div className="flex flex-1 items-center justify-center page-pad-all">
-        <div className="max-w-sm rounded-2xl border border-border bg-card/80 card-pad text-center text-xs text-muted-foreground shadow-lg">
-          <p className="font-heading text-sm font-semibold text-foreground">Finish setting up</p>
-          <p className="mt-1 text-xs">Add a username so we can create your profile link.</p>
-          <Button type="button" className="mt-4" onClick={() => navigate("/settings/profile")}>
-            Set username
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  // Logged in but no username configured; navigation effect will handle redirect.
+  return null;
 };
 
 export default MePage;
