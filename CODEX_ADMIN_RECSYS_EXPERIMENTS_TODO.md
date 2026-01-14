@@ -1,10 +1,3 @@
-Below is a complete **Codex-ready TODO plan** (copy/paste into a file named **`CODEX_ADMIN_RECSYS_EXPERIMENTS_TODO.md`**). It’s written as **instructions to an AI agent**, with checkboxes and clear acceptance criteria.
-
----
-
-# MoviNesta — Admin-Controlled Recsys Experiments (A/B) — Codex TODO Plan
-
-*Last updated: 2026-01-14 (Asia/Baghdad)*
 
 ## Goal
 
@@ -422,6 +415,4 @@ select *
 from rec_user_experiment_assignments
 order by assigned_at desc
 limit 20;
-```
 
----
