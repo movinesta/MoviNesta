@@ -14,7 +14,11 @@ function readCache(): Cached | null {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Cached;
-    if (parsed?.v !== 1 || typeof parsed.ts !== "number" || typeof parsed.assignments !== "object") {
+    if (
+      parsed?.v !== 1 ||
+      typeof parsed.ts !== "number" ||
+      typeof parsed.assignments !== "object"
+    ) {
       return null;
     }
     return parsed;
