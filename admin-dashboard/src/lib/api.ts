@@ -141,6 +141,10 @@ async function invoke<T>(fn: string, opts?: InvokeOpts): Promise<T> {
   return data as T;
 }
 
+async function invokeGet<T>(fn: string): Promise<T> {
+  return invoke<T>(fn, { method: "GET" });
+}
+
 async function parseFunctionsHttpError(error: unknown): Promise<AdminApiError | null> {
   if (!error || typeof error !== "object") return null;
   const err = error as { name?: string; context?: any; message?: string };
@@ -966,7 +970,7 @@ export async function getRecPositionMetrics(params: { days?: number; max_positio
   const qs = new URLSearchParams();
   if (params.days) qs.set("days", String(params.days));
   if (params.max_position) qs.set("max_position", String(params.max_position));
-  return await apiGet<RecPositionMetricsResp>(`/functions/v1/admin-rec-position-metrics?${qs.toString()}`);
+  return invokeGet<RecPositionMetricsResp>(`admin-rec-position-metrics?${qs.toString()}`);
 }
 
 export type RecAlertsDailyMetricRow = {
@@ -1009,5 +1013,5 @@ export type RecAlertsMetricsResponse = {
 export async function getRecAlertsMetrics(params: { days?: number } = {}): Promise<RecAlertsMetricsResponse> {
   const qs = new URLSearchParams();
   if (params.days) qs.set("days", String(params.days));
-  return invokeAdminFunction<RecAlertsMetricsResponse>(`/functions/v1/admin-rec-alerts-metrics?${qs.toString()}`);
+  return invokeGet<RecAlertsMetricsResponse>(`admin-rec-alerts-metrics?${qs.toString()}`);
 }
