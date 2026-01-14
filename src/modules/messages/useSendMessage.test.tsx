@@ -1,7 +1,7 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { useSendMessage } from "./useSendMessage";
 import { conversationMessagesQueryKey } from "./queryKeys";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -57,6 +57,10 @@ describe("useSendMessage", () => {
     mockSupabase.messageBuilder.update.mockClear();
     mockSupabase.messageBuilder.eq.mockClear();
     mockSupabase.blockedBuilder.or.mockClear();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
   const createWrapper = () => {
     const client = new QueryClient({
