@@ -44,12 +44,74 @@ def load_events_jsonl(path: Path) -> List[dict]:
 
 
 def load_model_npz(path: Path) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
+    """Load ALS model artifacts.
+
+    Expected keys (preferred):
+      - user_factors: (n_users, n_factors)
+      - item_factors: (n_items, n_factors)  OR sometimes saved as (n_factors, n_items)
+      - users: list[str]
+      - items: list[str]
+
+    Some older runs may use user_ids/item_ids instead of users/items.
+    This loader normalizes shapes so downstream scoring always uses:
+      user_factors: (n_users, n_factors)
+      item_factors: (n_items, n_factors)
+    """
     z = np.load(path, allow_pickle=True)
+
     user_factors = z["user_factors"].astype(np.float32)
     item_factors = z["item_factors"].astype(np.float32)
-    users = [str(x) for x in z["users"].tolist()]
-    items = [str(x) for x in z["items"].tolist()]
+
+    # Robust id arrays
+    if "users" in z:
+        users = [str(x) for x in z["users"].tolist()]
+    elif "user_ids" in z:
+        users = [str(x) for x in z["user_ids"].tolist()]
+    else:
+        raise KeyError("Model .npz missing 'users' (or 'user_ids')")
+
+    if "items" in z:
+        items = [str(x) for x in z["items"].tolist()]
+    elif "item_ids" in z:
+        items = [str(x) for x in z["item_ids"].tolist()]
+    else:
+        raise KeyError("Model .npz missing 'items' (or 'item_ids')")
+
+    # Normalize orientations:
+    # Some training code saves item_factors as (n_factors, n_items) instead of (n_items, n_factors).
+    # Detect and transpose safely.
+    if item_factors.ndim != 2 or user_factors.ndim != 2:
+        raise ValueError("Expected 2D factor matrices in model .npz")
+
+    # If item_factors is (n_factors, n_items), transpose it.
+    # Typical symptom: item_factors.shape[0] == n_factors and item_factors.shape[1] == n_items.
+    n_users = len(users)
+    n_items = len(items)
+
+    # If user_factors also accidentally saved transposed, fix it too.
+    if user_factors.shape[0] != n_users and user_factors.shape[1] == n_users:
+        user_factors = user_factors.T
+
+    n_factors = user_factors.shape[1]
+
+    if item_factors.shape[0] == n_factors and item_factors.shape[1] == n_items:
+        item_factors = item_factors.T
+    elif item_factors.shape[0] != n_items and item_factors.shape[1] == n_items and item_factors.shape[0] == n_factors:
+        # same as above, defensive
+        item_factors = item_factors.T
+
+    # Final sanity checks
+    if user_factors.shape[0] != n_users:
+        raise ValueError(f"user_factors shape {user_factors.shape} does not match users length {n_users}")
+    if item_factors.shape[0] != n_items:
+        raise ValueError(f"item_factors shape {item_factors.shape} does not match items length {n_items}")
+    if item_factors.shape[1] != user_factors.shape[1]:
+        raise ValueError(
+            f"Factor dimension mismatch: item_factors {item_factors.shape} vs user_factors {user_factors.shape}"
+        )
+
     return user_factors, item_factors, users, items
+
 
 
 def build_seen_sets(events: List[dict]) -> Dict[str, Set[str]]:
