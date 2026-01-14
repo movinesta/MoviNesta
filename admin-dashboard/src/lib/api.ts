@@ -967,10 +967,9 @@ export async function getRecHealthMetrics(payload?: { days?: number }) {
 }
 
 export async function getRecPositionMetrics(params: { days?: number; max_position?: number }) {
-  const qs = new URLSearchParams();
-  if (params.days) qs.set("days", String(params.days));
-  if (params.max_position) qs.set("max_position", String(params.max_position));
-  return invokeGet<RecPositionMetricsResp>(`admin-rec-position-metrics?${qs.toString()}`);
+  return invoke<RecPositionMetricsResp>("admin-rec-position-metrics", {
+    body: { days: params.days, max_position: params.max_position },
+  });
 }
 
 export type RecAlertsDailyMetricRow = {
@@ -1011,7 +1010,5 @@ export type RecAlertsMetricsResponse = {
 };
 
 export async function getRecAlertsMetrics(params: { days?: number } = {}): Promise<RecAlertsMetricsResponse> {
-  const qs = new URLSearchParams();
-  if (params.days) qs.set("days", String(params.days));
-  return invokeGet<RecAlertsMetricsResponse>(`admin-rec-alerts-metrics?${qs.toString()}`);
+  return invoke<RecAlertsMetricsResponse>("admin-rec-alerts-metrics", { body: { days: params.days } });
 }
