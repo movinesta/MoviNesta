@@ -61,7 +61,12 @@ type HomeDeck = {
 };
 
 const normalizeVerifiedType = (value?: string | null): VerifiedBadgeType | null => {
-  if (value === "identity" || value === "official" || value === "trusted_verifier" || value === "subscription") {
+  if (
+    value === "identity" ||
+    value === "official" ||
+    value === "trusted_verifier" ||
+    value === "subscription"
+  ) {
     return value;
   }
   return null;
@@ -398,12 +403,18 @@ const FriendsActivityCard: React.FC<{ item: HomeFeedItem }> = ({ item }) => {
   const posterUrl = item.title.posterUrl ?? null;
 
   const showSnippet =
-    item.kind === "friend-review" || item.kind === "friend-rating" ? item.reviewSnippet ?? null : null;
-  const showNote = item.kind === "watchlist-add" ? item.note ?? null : null;
-  const showReason = item.kind === "recommendation" ? item.reason ?? null : null;
+    item.kind === "friend-review" || item.kind === "friend-rating"
+      ? (item.reviewSnippet ?? null)
+      : null;
+  const showNote = item.kind === "watchlist-add" ? (item.note ?? null) : null;
+  const showReason = item.kind === "recommendation" ? (item.reason ?? null) : null;
 
   let ratingValue: number | null = null;
-  if (item.kind === "friend-rating" || item.kind === "friend-review" || item.kind === "friend-watched") {
+  if (
+    item.kind === "friend-rating" ||
+    item.kind === "friend-review" ||
+    item.kind === "friend-watched"
+  ) {
     ratingValue = typeof item.rating === "number" ? item.rating : null;
   }
 
@@ -772,7 +783,12 @@ const HomePage: React.FC = () => {
   const seedMediaId = recentWatchedId ?? heroId;
 
   const { data: seedItem } = useQuery<
-    { id: string; tmdb_title: string | null; tmdb_name: string | null; omdb_title: string | null } | null,
+    {
+      id: string;
+      tmdb_title: string | null;
+      tmdb_name: string | null;
+      omdb_title: string | null;
+    } | null,
     Error
   >({
     queryKey: ["home-v2", "seed-item", seedMediaId],
@@ -805,7 +821,11 @@ const HomePage: React.FC = () => {
 
   const deckCardsBySource = React.useMemo(() => {
     const cards = (combinedDeck?.cards ?? []) as any[];
-    const norm = (v: any) => String(v ?? "").trim().toLowerCase().replace(/-+/g, "_");
+    const norm = (v: any) =>
+      String(v ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/-+/g, "_");
 
     const trending: any[] = [];
     const forYou: any[] = [];
@@ -1087,9 +1107,7 @@ const HomePage: React.FC = () => {
             </div>
 
             <h2 className="mb-2 text-3xl font-bold leading-tight tracking-tight text-white">
-              {userId &&
-              !heroPoster?.title &&
-              isCombinedLoading ? (
+              {userId && !heroPoster?.title && isCombinedLoading ? (
                 <span className="block h-10 w-2/3 animate-pulse rounded bg-white/15" />
               ) : heroPoster?.title ? (
                 heroPoster.title

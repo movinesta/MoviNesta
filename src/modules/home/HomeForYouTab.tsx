@@ -2,7 +2,16 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight, Clock, Film, ListChecks, Loader2, Play, Sparkles, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Clock,
+  Film,
+  ListChecks,
+  Loader2,
+  Play,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { Chip } from "@/components/ui/chip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -153,12 +162,6 @@ const mapMediaItemToBasicRow = (row: MediaItemRow): TitleBasicRow => {
     imdbRating: summary.imdbRating,
     rtTomatoMeter: summary.rtTomatoMeter,
   };
-};
-
-const normalizeLibraryContentType = (type?: TitleType | null): "movie" | "series" | "anime" => {
-  if (type === "movie" || type === "series" || type === "anime") return type;
-  if (type === "episode") return "series";
-  return "movie";
 };
 
 interface FollowsRow {
@@ -618,18 +621,16 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
         return { already: true as const };
       }
 
-      const { error } = await supabase
-        .from("library_entries")
-        .upsert(
-          {
-            user_id: user.id,
-            title_id: pick.id,
-            status: "want_to_watch",
-            updated_at: new Date().toISOString(),
-            content_type: contentType,
-          },
-          { onConflict: "user_id,title_id" },
-        );
+      const { error } = await supabase.from("library_entries").upsert(
+        {
+          user_id: user.id,
+          title_id: pick.id,
+          status: "want_to_watch",
+          updated_at: new Date().toISOString(),
+          content_type: contentType,
+        },
+        { onConflict: "user_id,title_id" },
+      );
 
       if (error) {
         throw new Error(error.message);
@@ -791,7 +792,9 @@ const TonightPickCard: React.FC<TonightPickCardProps> = ({ pick }) => {
               <ul className="list-disc pl-4 space-y-1">
                 <li>Recent diary and Watchlist signals are weighted higher.</li>
                 <li>Friends’ recent ratings can surface titles you’re likely to enjoy.</li>
-                <li>We also bias toward titles with posters and strong public ratings when available.</li>
+                <li>
+                  We also bias toward titles with posters and strong public ratings when available.
+                </li>
               </ul>
             </div>
 
@@ -816,9 +819,9 @@ interface RecommendationSectionRowProps {
 }
 
 const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ section }) => {
-  if (!section.items.length) return null;
-
   const [isOpen, setIsOpen] = React.useState(false);
+
+  if (!section.items.length) return null;
 
   return (
     <section className="space-y-2">
@@ -876,7 +879,12 @@ const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ sec
               >
                 <div className="h-14 w-10 shrink-0 overflow-hidden rounded-xl bg-muted">
                   {item.posterUrl ? (
-                    <img src={item.posterUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    <img
+                      src={item.posterUrl}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="h-full w-full bg-gradient-to-br from-primary/40 via-background/20 to-primary/60" />
                   )}
@@ -888,7 +896,10 @@ const RecommendationSectionRow: React.FC<RecommendationSectionRowProps> = ({ sec
                     {item.matchReason ? ` • ${item.matchReason}` : ""}
                   </p>
                 </div>
-                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <ChevronRight
+                  className="ml-auto h-4 w-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
               </Link>
             ))}
           </div>

@@ -79,21 +79,18 @@ export const useConversationReactions = (conversationId: string | null) => {
       if (!conversationId) throw new Error("Missing conversation id.");
       if (!userId) throw new Error("You must be signed in to react to messages.");
 
-      const { error } = await supabase.from("message_reactions").insert(
-        {
+      const { error } = await supabase.from("message_reactions").insert({
         conversation_id: conversationId,
         message_id: messageId,
         user_id: userId,
         emoji,
-        },
-        { returning: "minimal" },
-      );
+      });
 
       if (error) {
         if ((error as PostgrestError)?.code === "23505") {
           const { error: deleteError } = await supabase
             .from("message_reactions")
-            .delete({ returning: "minimal" })
+            .delete()
             .eq("message_id", messageId)
             .eq("user_id", userId)
             .eq("emoji", emoji);
