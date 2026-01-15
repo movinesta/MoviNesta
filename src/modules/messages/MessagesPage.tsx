@@ -313,7 +313,7 @@ const MessagesPage: React.FC = () => {
       });
   }, [userId, queryClient]);
 
-const trimmedQuery = query.trim().toLowerCase();
+  const trimmedQuery = query.trim().toLowerCase();
 
   const conversationsByQuery = useMemo(
     () =>
@@ -853,6 +853,9 @@ const trimmedQuery = query.trim().toLowerCase();
                       conversation={conversation}
                       isMuted={conversation.isMuted}
                       onOpenActions={openActions}
+                      onOpenConversation={(conv) => {
+                        if (conv.hasUnread) void markAsRead(conv);
+                      }}
                       dimmed
                     />
                   ))}

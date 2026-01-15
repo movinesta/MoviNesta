@@ -247,7 +247,9 @@ export function useMediaSwipeDeck(
     if (!buf.length) return;
 
     const chunkSize = 25;
-    const toSend = forceAll ? buf.splice(0, buf.length) : buf.splice(0, Math.min(chunkSize, buf.length));
+    const toSend = forceAll
+      ? buf.splice(0, buf.length)
+      : buf.splice(0, Math.min(chunkSize, buf.length));
 
     // Track in-flight events so they can be persisted on hard unload.
     for (const ev of toSend as any[]) {
@@ -280,28 +282,33 @@ export function useMediaSwipeDeck(
         for (const ev of toSend) enqueueSwipeEvent(ev);
       }
       // Clear in-flight markers regardless of success; failures are persisted to queue.
-      for (const ev of toSend as any[]) if (ev.clientEventId) inFlightMapRef.current.delete(ev.clientEventId);
+      for (const ev of toSend as any[])
+        if (ev.clientEventId) inFlightMapRef.current.delete(ev.clientEventId);
     } catch {
       for (const ev of toSend) enqueueSwipeEvent(ev);
-      for (const ev of toSend as any[]) if (ev.clientEventId) inFlightMapRef.current.delete(ev.clientEventId);
+      for (const ev of toSend as any[])
+        if (ev.clientEventId) inFlightMapRef.current.delete(ev.clientEventId);
     }
   }, []);
 
-  const bufferEvent = useCallback((ev: any) => {
-    // Ensure clientEventId for idempotency + queue cleanup.
-    if (!ev.clientEventId) ev.clientEventId = nextClientEventId();
-    bufferRef.current.push(ev);
-    if (bufferRef.current.length >= 25) {
-      void flushBuffered();
-      return;
-    }
-    if (flushTimerRef.current == null) {
-      flushTimerRef.current = window.setTimeout(() => {
-        flushTimerRef.current = null;
+  const bufferEvent = useCallback(
+    (ev: any) => {
+      // Ensure clientEventId for idempotency + queue cleanup.
+      if (!ev.clientEventId) ev.clientEventId = nextClientEventId();
+      bufferRef.current.push(ev);
+      if (bufferRef.current.length >= 25) {
         void flushBuffered();
-      }, 1000);
-    }
-
+        return;
+      }
+      if (flushTimerRef.current == null) {
+        flushTimerRef.current = window.setTimeout(() => {
+          flushTimerRef.current = null;
+          void flushBuffered();
+        }, 1000);
+      }
+    },
+    [flushBuffered],
+  );
 
   const drainPendingToQueue = useCallback(() => {
     // Cancel scheduled flush and persist everything we might otherwise lose.
@@ -338,8 +345,6 @@ export function useMediaSwipeDeck(
       drainPendingToQueue();
     };
   }, [drainPendingToQueue]);
-
-  }, [flushBuffered]);
 
   // Best-effort flush when the tab becomes hidden (keeps queue smaller).
   useEffect(() => {

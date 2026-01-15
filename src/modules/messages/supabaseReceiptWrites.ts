@@ -40,7 +40,7 @@ export const writeDeliveryReceipt = async (row: DeliveryReceiptWrite): Promise<v
   if (deliveryReceiptsHaveConstraint !== false) {
     const { error } = await supabase
       .from("message_delivery_receipts")
-      .upsert(row, { onConflict: "conversation_id,message_id,user_id", returning: "minimal" });
+      .upsert(row, { onConflict: "conversation_id,message_id,user_id" });
 
     if (!error) {
       deliveryReceiptsHaveConstraint = true;
@@ -56,9 +56,7 @@ export const writeDeliveryReceipt = async (row: DeliveryReceiptWrite): Promise<v
     }
   }
 
-  const { error: insertError } = await supabase
-    .from("message_delivery_receipts")
-    .insert(row, { returning: "minimal" });
+  const { error: insertError } = await supabase.from("message_delivery_receipts").insert(row);
   if (insertError && !isDuplicateKey(insertError)) {
     console.error("[writeDeliveryReceipt] Failed to insert delivery receipt", insertError);
   }
@@ -75,7 +73,7 @@ export const writeReadReceipt = async (row: ReadReceiptWrite): Promise<void> => 
   if (readReceiptsHaveConstraint !== false) {
     const { error } = await supabase
       .from("message_read_receipts")
-      .upsert(row, { onConflict: "conversation_id,user_id", returning: "minimal" });
+      .upsert(row, { onConflict: "conversation_id,user_id" });
 
     if (!error) {
       readReceiptsHaveConstraint = true;
@@ -91,9 +89,7 @@ export const writeReadReceipt = async (row: ReadReceiptWrite): Promise<void> => 
     }
   }
 
-  const { error: insertError } = await supabase
-    .from("message_read_receipts")
-    .insert(row as any, { returning: "minimal" });
+  const { error: insertError } = await supabase.from("message_read_receipts").insert(row as any);
   if (insertError && !isDuplicateKey(insertError)) {
     console.error("[writeReadReceipt] Failed to insert read receipt", insertError);
   }
@@ -111,7 +107,7 @@ export const clearReadReceipt = async (
 ): Promise<{ ok: true } | { ok: false; error: PostgrestError }> => {
   const { error: deleteError } = await supabase
     .from("message_read_receipts")
-    .delete({ returning: "minimal" })
+    .delete()
     .eq("conversation_id", conversationId)
     .eq("user_id", userId);
 
@@ -127,14 +123,12 @@ export const clearReadReceipt = async (
 
   const { error: upsertError } = await supabase
     .from("message_read_receipts")
-    .upsert(epochRow, { onConflict: "conversation_id,user_id", returning: "minimal" });
+    .upsert(epochRow, { onConflict: "conversation_id,user_id" });
 
   if (!upsertError) return { ok: true };
 
   if (isMissingOnConflictConstraint(upsertError)) {
-    const { error: insertError } = await supabase
-      .from("message_read_receipts")
-      .insert(epochRow, { returning: "minimal" });
+    const { error: insertError } = await supabase.from("message_read_receipts").insert(epochRow);
     if (!insertError || isDuplicateKey(insertError)) return { ok: true };
     return { ok: false, error: insertError };
   }
