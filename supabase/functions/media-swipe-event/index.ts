@@ -675,7 +675,7 @@ if (er && typeof er.waitUntil === "function") {
 }
 
     return new Response(
-      JSON.stringify({ ok: true, sent: rows.length, items: bodies.length }),
+      JSON.stringify({ ok: true, sent: rows.length, items: items.length }),
       { headers: { ...corsHeaders(req), "Content-Type": "application/json" }, status: 200 },
     );
   } catch (e) {
