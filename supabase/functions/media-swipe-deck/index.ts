@@ -1,5 +1,4 @@
 /**
-import { getUserIdFromRequest } from "../_shared/jwt.ts";
  * media-swipe-deck (Brain v3) + OPTIONAL Voyage rerank (rerank-2.5)
  *
  * Base behavior (unchanged):
@@ -21,6 +20,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { handleCorsPreflight, jsonWithCors } from "../_shared/cors.ts";
+import { getUserIdFromRequest } from "../_shared/jwt.ts";
 
 import { voyageRerank, VOYAGE_API_KEY } from "../_shared/voyage.ts";
 import { buildRerankDocument, buildTasteQuery, summarizeTasteFromItems } from "../_shared/taste_match.ts";
