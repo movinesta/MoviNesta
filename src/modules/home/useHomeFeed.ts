@@ -9,6 +9,7 @@ import { mapMediaItemToSummary } from "@/lib/mediaItems";
 import { qk } from "@/lib/queryKeys";
 import { supabase } from "@/lib/supabase";
 import type { Database, Json } from "@/types/supabase";
+import type { ProfilePublicRow } from "@/types/schema-overrides";
 import { useAuth } from "../auth/AuthProvider";
 import { formatTimeAgo } from "../messages/formatTimeAgo";
 import type { AvatarColorKey, FeedTitle, FeedUser, HomeFeedItem } from "./homeFeedTypes";
@@ -69,6 +70,11 @@ type HomeFeedRow = {
   media_item?: Json | null;
   payload?: Json | null;
 };
+
+type ProfileVerificationRow = Pick<
+  ProfilePublicRow,
+  "id" | "is_verified" | "verified_type" | "verified_label" | "verified_at" | "verified_by_org"
+>;
 
 const PAGE_SIZE = 40;
 const AVATAR_COLORS: AvatarColorKey[] = ["teal", "violet", "orange"];
@@ -342,9 +348,10 @@ async function enrichFeedUsersWithVerification(items: HomeFeedItem[]): Promise<H
     .in("id", ids);
 
   if (error || !data) return items;
+  const rows = data as ProfileVerificationRow[];
 
-  const map = new Map<string, any>();
-  for (const row of data) {
+  const map = new Map<string, ProfileVerificationRow>();
+  for (const row of rows) {
     if (!row?.id) continue;
     map.set(row.id, row);
   }
