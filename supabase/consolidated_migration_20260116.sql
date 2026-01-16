@@ -1973,42 +1973,74 @@ begin
   friends as (select fe.media_item_id, sum(fe.w * exp(-extract(epoch from (now()-fe.created_at))/(7*24*3600.0)))::double precision as score, array_agg(distinct fe.friend_id) as friend_ids from friend_events fe where fe.w > 0 and not exists (select 1 from _blocked b where b.media_item_id=fe.media_item_id) group by fe.media_item_id order by score desc limit (v_limit * 30)),
   for_you_pool as (select anl.media_item_id, anl.score, 'for_you'::text as source, null::uuid[] as friend_ids, anl.anchor_media_id, anl.anchor_title from anchor_neighbors_labeled anl union all select fyc.media_item_id, (fyc.score * 0.95) as score, 'for_you'::text as source, null::uuid[] as friend_ids, null::uuid as anchor_media_id, null::text as anchor_title from for_you_centroid fyc union all select fl.media_item_id, (fl.score * 0.8) as score, 'for_you'::text as source, null::uuid[] as friend_ids, null::uuid as anchor_media_id, null::text as anchor_title from for_you_learning fl)
   insert into _cand(media_item_id, source, score, jit, final_score, friend_ids, anchor_media_id, anchor_title)
-  select x.media_item_id, x.source, x.score, 0.0 as jit, x.score as final_score, x.friend_ids, x.anchor_media_id, x.anchor_title from (select * from for_you_pool where v_mode in ('for_you', 'combined') union all select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text from trending_recent where v_mode in ('trending', 'combined') union all select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text from popular_catalog where v_mode in ('trending', 'combined') union all select media_item_id, score, 'friends'::text, friend_ids, null::uuid, null::text from friends where v_mode in ('friends', 'combined')) x
+  select distinct on (x.media_item_id)
+    x.media_item_id,
+    x.source,
+    x.score,
+    0.0 as jit,
+    x.score as final_score,
+    x.friend_ids,
+    x.anchor_media_id,
+    x.anchor_title
+  from (
+    select * from for_you_pool where v_mode in ('for_you', 'combined')
+    union all
+    select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text
+    from trending_recent
+    where v_mode in ('trending', 'combined')
+    union all
+    select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text
+    from popular_catalog
+    where v_mode in ('trending', 'combined')
+    union all
+    select media_item_id, score, 'friends'::text, friend_ids, null::uuid, null::text
+    from friends
+    where v_mode in ('friends', 'combined')
+  ) x
   where not exists (select 1 from _blocked b where b.media_item_id=x.media_item_id) and not exists (select 1 from _served30m s where s.media_item_id=x.media_item_id)
+  order by x.media_item_id, x.score desc
   on conflict (media_item_id) do update set score = greatest(_cand.score, excluded.score), source = case when excluded.score > _cand.score then excluded.source else _cand.source end, friend_ids = case when excluded.friend_ids is not null then excluded.friend_ids else _cand.friend_ids end;
 
-  update _cand set jit = ((((hashtext(v_seed || media_item_id::text))::bigint % 100000 + 100000) % 100000)::double precision / 100000.0);
-  update _cand set final_score = case when source='for_you' then score + (jit * 0.05) when source='friends' then score + (jit * 0.05) else score + (jit * 0.15) end;
+  update _cand
+  set jit = ((((hashtext(v_seed || media_item_id::text))::bigint % 100000 + 100000) % 100000)::double precision / 100000.0)
+  where true;
+  update _cand
+  set final_score = case when source='for_you' then score + (jit * 0.05) when source='friends' then score + (jit * 0.05) else score + (jit * 0.15) end
+  where true;
   if v_kind_filters is not null then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and not (lower(mi.kind::text) = any(v_kind_filters)); else delete from _cand c using public.media_items mi where c.media_item_id = mi.id and lower(mi.kind::text) in ('episode', 'other'); end if;
   if array_length(v_muted_genres, 1) > 0 then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and exists (select 1 from unnest(regexp_split_to_array(lower(coalesce(mi.omdb_genre,'')), '\s*,\s*')) t where t = any(v_muted_genres)); end if;
   update _cand set primary_genre = (regexp_split_to_array(mi.omdb_genre, ','))[1], collection_id = (mi.tmdb_belongs_to_collection ->> 'id') from public.media_items mi where _cand.media_item_id = mi.id;
-  insert into _take select * from _cand order by final_score desc limit (v_limit * 3);
+  insert into _take (media_item_id, source, final_score, primary_genre, collection_id, friend_ids, anchor_title)
+  select media_item_id, source, final_score, primary_genre, collection_id, friend_ids, anchor_title
+  from _cand
+  order by final_score desc
+  limit (v_limit * 3);
 
   declare
     _r record; _taken_ids uuid[] := '{}'; _genre_counts jsonb := '{}'::jsonb; _coll_counts jsonb := '{}'::jsonb; _g text; _c text; _ok boolean;
   begin
     for _r in (select * from _take order by final_score desc) loop
-      if array_length(_taken_ids,1) >= v_limit then exit; end if;
+      if coalesce(array_length(_taken_ids,1), 0) >= v_limit then exit; end if;
       _ok := true; _g := lower(coalesce(_r.primary_genre, 'unknown')); _c := _r.collection_id;
       if (_genre_counts->>_g)::int >= v_genre_cap then _ok := false; end if;
       if _c is not null and (_coll_counts->>_c)::int >= v_collection_cap then _ok := false; end if;
       if _ok then
-        insert into _picked(pos, media_item_id, source, final_score, friend_ids, anchor_title) values (array_length(_taken_ids,1)+1, _r.media_item_id, _r.source, _r.final_score, _r.friend_ids, _r.anchor_title);
+        insert into _picked(pos, media_item_id, source, final_score, friend_ids, anchor_title) values (coalesce(array_length(_taken_ids,1), 0)+1, _r.media_item_id, _r.source, _r.final_score, _r.friend_ids, _r.anchor_title);
         _taken_ids := _taken_ids || _r.media_item_id;
         _genre_counts := jsonb_set(_genre_counts, array[_g], ((coalesce(_genre_counts->>_g, '0')::int + 1)::text)::jsonb);
         if _c is not null then _coll_counts := jsonb_set(_coll_counts, array[_c], ((coalesce(_coll_counts->>_c, '0')::int + 1)::text)::jsonb); end if;
       end if;
     end loop;
-    if array_length(_taken_ids,1) < v_limit then
+    if coalesce(array_length(_taken_ids,1), 0) < v_limit then
       for _r in (select * from _take where not (media_item_id = any(_taken_ids)) order by final_score desc) loop
-        if array_length(_taken_ids,1) >= v_limit then exit; end if;
-        insert into _picked(pos, media_item_id, source, final_score, friend_ids, anchor_title) values (array_length(_taken_ids,1)+1, _r.media_item_id, _r.source, _r.final_score, _r.friend_ids, _r.anchor_title);
+        if coalesce(array_length(_taken_ids,1), 0) >= v_limit then exit; end if;
+        insert into _picked(pos, media_item_id, source, final_score, friend_ids, anchor_title) values (coalesce(array_length(_taken_ids,1), 0)+1, _r.media_item_id, _r.source, _r.final_score, _r.friend_ids, _r.anchor_title);
         _taken_ids := _taken_ids || _r.media_item_id;
       end loop;
     end if;
   end;
 
-  return query select mi.id as media_item_id, coalesce(mi.tmdb_title, mi.tmdb_name, mi.omdb_title) as title, coalesce(mi.tmdb_overview, mi.omdb_plot) as overview, mi.kind, mi.tmdb_release_date as release_date, mi.tmdb_first_air_date as first_air_date, mi.omdb_runtime, mi.tmdb_poster_path as poster_path, mi.tmdb_backdrop_path as backdrop_path, mi.tmdb_vote_average as vote_average, mi.tmdb_vote_count as vote_count, mi.tmdb_popularity as popularity, mi.completeness, p.source, case when p.source='friends' then 'Recommended by friends' when p.source='trending' then 'Trending on MoviNesta' when p.source='for_you' and p.anchor_title is not null then 'Because you liked ' || p.anchor_title else 'Recommended for you' end as why, p.friend_ids from _picked p join public.media_items mi on mi.id = p.media_item_id order by p.pos asc;
+  return query select mi.id as media_item_id, coalesce(mi.tmdb_title, mi.tmdb_name, mi.omdb_title) as title, coalesce(mi.tmdb_overview, mi.omdb_plot) as overview, mi.kind::text as kind, mi.tmdb_release_date as release_date, mi.tmdb_first_air_date as first_air_date, mi.omdb_runtime, mi.tmdb_poster_path as poster_path, mi.tmdb_backdrop_path as backdrop_path, mi.tmdb_vote_average as vote_average, mi.tmdb_vote_count as vote_count, mi.tmdb_popularity as popularity, mi.completeness, p.source, case when p.source='friends' then 'Recommended by friends' when p.source='trending' then 'Trending on MoviNesta' when p.source='for_you' and p.anchor_title is not null then 'Because you liked ' || p.anchor_title else 'Recommended for you' end as why, p.friend_ids from _picked p join public.media_items mi on mi.id = p.media_item_id order by p.pos asc;
 end;
 $function$;
 
@@ -2651,4 +2683,3 @@ BEGIN
 END $$;
 
 COMMIT;
-
