@@ -594,7 +594,7 @@ begin
   -- Populate metadata
   update _cand
   set primary_genre = (regexp_split_to_array(mi.omdb_genre, ','))[1],
-      collection_id = mi.tmdb_collection_id
+      collection_id = (mi.tmdb_belongs_to_collection ->> 'id')
   from public.media_items mi
   where _cand.media_item_id = mi.id;
 

@@ -132,7 +132,7 @@ begin
   where true;
   if v_kind_filters is not null then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and not (lower(mi.kind::text) = any(v_kind_filters)); else delete from _cand c using public.media_items mi where c.media_item_id = mi.id and lower(mi.kind::text) in ('episode', 'other'); end if;
   if array_length(v_muted_genres, 1) > 0 then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and exists (select 1 from unnest(regexp_split_to_array(lower(coalesce(mi.omdb_genre,'')), '\s*,\s*')) t where t = any(v_muted_genres)); end if;
-  update _cand set primary_genre = (regexp_split_to_array(mi.omdb_genre, ','))[1], collection_id = mi.tmdb_collection_id from public.media_items mi where _cand.media_item_id = mi.id;
+  update _cand set primary_genre = (regexp_split_to_array(mi.omdb_genre, ','))[1], collection_id = (mi.tmdb_belongs_to_collection ->> 'id') from public.media_items mi where _cand.media_item_id = mi.id;
   insert into _take select * from _cand order by final_score desc limit (v_limit * 3);
 
   declare
