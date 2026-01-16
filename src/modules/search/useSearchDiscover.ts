@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { fetchHomeFeedRows, type HomeFeedRow } from "@/lib/homeFeedRpc";
 import { supabase } from "@/lib/supabase";
 import { mapMediaItemToSummary } from "@/lib/mediaItems";
 import { tmdbImageUrl } from "@/lib/tmdb";
-import type { Json } from "@/types/supabase";
 
 import { useAuth } from "../auth/AuthProvider";
 import {
@@ -13,17 +13,6 @@ import {
   getOrCreateSwipeDeckSeedForMode,
   type MediaSwipeCard,
 } from "../swipe/mediaSwipeApi";
-
-type HomeFeedRow = {
-  id: string;
-  created_at: string;
-  user_id: string;
-  event_type: string;
-  actor_profile?: Json | null;
-  media_item?: Json | null;
-  media_item_id?: string | null;
-  payload?: Json | null;
-};
 
 export type DiscoverPoster = {
   id: string;
@@ -282,17 +271,6 @@ function normalizeActorProfile(raw: any): { id: string; avatarUrl: string | null
   return { id, avatarUrl };
 }
 
-function isHomeFeedRow(value: unknown): value is HomeFeedRow {
-  if (!value || typeof value !== "object") return false;
-  const row = value as Record<string, unknown>;
-  return (
-    typeof row.id === "string" &&
-    typeof row.created_at === "string" &&
-    typeof row.user_id === "string" &&
-    typeof row.event_type === "string"
-  );
-}
-
 export function useSearchFriendsAreWatching(limit = 8) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -304,15 +282,12 @@ export function useSearchFriendsAreWatching(limit = 8) {
     queryFn: async () => {
       if (!userId) return [] as DiscoverPoster[];
 
-      const { data, error } = await supabase.rpc("get_home_feed_v2", {
-        p_user_id: userId,
-        p_limit: 200,
-        p_cursor_created_at: null,
-        p_cursor_id: null,
+      const { rows } = await fetchHomeFeedRows({
+        userId,
+        limit: 200,
+        cursorCreatedAt: null,
+        cursorId: null,
       });
-
-      if (error) throw new Error(error.message);
-      const rows: HomeFeedRow[] = (Array.isArray(data) ? data : []).filter(isHomeFeedRow);
 
       // Only friends activity (exclude current user).
       const friendRows = rows.filter(
