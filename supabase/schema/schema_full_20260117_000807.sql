@@ -3300,15 +3300,15 @@ begin
     return true;
   end if;
 
-  -- Read the target user's privacy setting (bypasses user_settings RLS because row_security=off)
-  select us.privacy_profile
+  -- Read the target user's privacy setting (bypasses user_preferences RLS because row_security=off)
+  select coalesce((up.settings->>'privacy_profile')::public.privacy_level, 'public'::public.privacy_level)
     into v_privacy
-  from public.user_settings us
-  where us.user_id = target_user_id;
+  from public.user_preferences up
+  where up.user_id = target_user_id;
 
-  -- No settings row => treat as not visible
+  -- No preferences row => default to public visibility
   if v_privacy is null then
-    return false;
+    v_privacy := 'public'::public.privacy_level;
   end if;
 
   -- Public => visible to anyone (including anon)
@@ -4636,7 +4636,7 @@ begin
         end)
       ) as effective_media_item_id
     from public.activity_events e
-    left join public.user_settings us on us.user_id = e.user_id
+    left join public.user_preferences up on up.user_id = e.user_id
     left join public.follows f
       on f.follower_id = p_user_id
      and f.followed_id = e.user_id
@@ -4647,8 +4647,8 @@ begin
       )
       and (
         e.user_id = p_user_id
-        or us.privacy_profile = 'public'::public.privacy_level
-        or (us.privacy_profile = 'followers_only'::public.privacy_level and f.followed_id is not null)
+        or coalesce((up.settings->>'privacy_profile')::public.privacy_level, 'public'::public.privacy_level) = 'public'::public.privacy_level
+        or (coalesce((up.settings->>'privacy_profile')::public.privacy_level, 'public'::public.privacy_level) = 'followers_only'::public.privacy_level and f.followed_id is not null)
       )
       and (
         p_cursor_created_at is null
@@ -5844,15 +5844,11 @@ begin
         updated_at = now();
 
   -- These rows are REQUIRED for RLS visibility via profiles_public policies.
-  insert into public.user_settings (user_id)
-  values (new.id)
+  insert into public.user_preferences (user_id, settings)
+  values (new.id, jsonb_build_object('privacy_profile', 'public'))
   on conflict (user_id) do nothing;
 
   insert into public.user_stats (user_id)
-  values (new.id)
-  on conflict (user_id) do nothing;
-
-  insert into public.user_swipe_prefs (user_id)
   values (new.id)
   on conflict (user_id) do nothing;
 
