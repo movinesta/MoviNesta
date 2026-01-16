@@ -6,6 +6,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { supabase } from "@/lib/supabase";
 import { MaterialIcon } from "@/components/ui/material-icon";
 import type { FriendProfileLite } from "./useSwipeDeck";
+import type { ProfilePublicRow } from "@/types/schema-overrides";
 
 type FriendsListModalProps = {
   open: boolean;
@@ -46,6 +47,11 @@ export default function FriendsListModal({
       }
     >
   >({});
+  type ProfileVerificationRow = Pick<
+    ProfilePublicRow,
+    "id" | "is_verified" | "verified_type" | "verified_label" | "verified_at" | "verified_by_org"
+  >;
+  type ProfileVerificationMapEntry = Omit<ProfileVerificationRow, "id">;
 
   useEffect(() => {
     let cancelled = false;
@@ -61,8 +67,9 @@ export default function FriendsListModal({
       if (cancelled) return;
       if (error) return;
 
-      const next: any = {};
-      for (const row of data ?? []) {
+      const next: Record<string, ProfileVerificationMapEntry> = {};
+      const rows = (data ?? []) as ProfileVerificationRow[];
+      for (const row of rows) {
         if (!row?.id) continue;
         next[row.id] = {
           is_verified: row.is_verified ?? null,

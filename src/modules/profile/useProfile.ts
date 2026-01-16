@@ -28,6 +28,23 @@ export interface ProfileSummary {
 }
 
 type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
+type ProfilePublicLookupRow = Pick<
+  ProfilePublicRow,
+  | "id"
+  | "username"
+  | "display_name"
+  | "avatar_url"
+  | "bio"
+  | "is_verified"
+  | "verified_type"
+  | "verified_label"
+  | "verified_at"
+  | "verified_by_org"
+>;
+type ProfilePublicVerificationRow = Pick<
+  ProfilePublicRow,
+  "is_verified" | "verified_type" | "verified_label" | "verified_at" | "verified_by_org"
+>;
 
 const isNotFoundError = (error: PostgrestError | null) => error?.code === "PGRST116";
 
@@ -63,7 +80,7 @@ export const useProfileByUsername = (username: string | null | undefined) => {
       }
 
       // 1) Look up the profile row by username.
-      const { data: profileRow, error: profileError } = await supabase
+      const { data, error: profileError } = await supabase
         .from("profiles_public")
         .select(
           "id, username, display_name, avatar_url, bio, is_verified, verified_type, verified_label, verified_at, verified_by_org",
@@ -78,6 +95,8 @@ export const useProfileByUsername = (username: string | null | undefined) => {
         }
         throw profileError;
       }
+
+      const profileRow = data as ProfilePublicLookupRow | null;
 
       if (!profileRow) {
         throw new Error("Profile not found");
@@ -134,11 +153,11 @@ export const useProfileByUsername = (username: string | null | undefined) => {
         displayName: profileRow.display_name,
         avatarUrl,
         bio: profileRow.bio,
-        isVerified: !!(profileRow as ProfilePublicRow).is_verified,
-        verifiedType: (profileRow as ProfilePublicRow).verified_type ?? null,
-        verifiedLabel: (profileRow as ProfilePublicRow).verified_label ?? null,
-        verifiedAt: (profileRow as ProfilePublicRow).verified_at ?? null,
-        verifiedByOrg: (profileRow as ProfilePublicRow).verified_by_org ?? null,
+        isVerified: !!profileRow.is_verified,
+        verifiedType: profileRow.verified_type ?? null,
+        verifiedLabel: profileRow.verified_label ?? null,
+        verifiedAt: profileRow.verified_at ?? null,
+        verifiedByOrg: profileRow.verified_by_org ?? null,
         followersCount: followersCount ?? 0,
         followingCount: followingCount ?? 0,
         isFollowing,
@@ -184,7 +203,7 @@ export const useCurrentProfile = (): UseQueryResult<ProfileSummary | null, Error
       const avatarUrl = await resolveAvatarUrl(profileRow.avatar_url);
 
       // Pull verification mirror fields from profiles_public (safe, display-ready).
-      const { data: publicRow, error: publicError } = await supabase
+      const { data: publicData, error: publicError } = await supabase
         .from("profiles_public")
         .select("is_verified, verified_type, verified_label, verified_at, verified_by_org")
         .eq("id", profileId)
@@ -193,6 +212,7 @@ export const useCurrentProfile = (): UseQueryResult<ProfileSummary | null, Error
       if (publicError && !isNotFoundError(publicError)) {
         throw publicError;
       }
+      const publicRow = publicData as ProfilePublicVerificationRow | null;
 
       // 2) Pull stats for the current user.
       const { data: statsRow, error: statsError } = await supabase
@@ -215,7 +235,7 @@ export const useCurrentProfile = (): UseQueryResult<ProfileSummary | null, Error
         avatarUrl,
         bio: profileRow.bio,
         isVerified: !!publicRow?.is_verified,
-        verifiedType: (publicRow?.verified_type as any) ?? null,
+        verifiedType: publicRow?.verified_type ?? null,
         verifiedLabel: publicRow?.verified_label ?? null,
         verifiedAt: publicRow?.verified_at ?? null,
         verifiedByOrg: publicRow?.verified_by_org ?? null,
