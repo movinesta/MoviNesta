@@ -370,6 +370,7 @@ serve(async (req) => {
 
         const payload = sanitizePayload(ev.payload ?? body.payload ?? null);
         const occurredAtIso = new Date().toISOString();
+        const eventDay = occurredAtIso.slice(0, 10);
 
         // Special case: diary/status updates are sent as eventType="like" with payload.action="status".
         // We treat these as *status* operations and do NOT record them in media_events, so likes remain separate.
@@ -424,6 +425,7 @@ serve(async (req) => {
               client_event_id: synClientEventId,
               rating_0_10: null,
               in_watchlist: null,
+              event_day: eventDay,
               dedupe_key: synDedupeKey,
             });
           }
@@ -457,6 +459,7 @@ serve(async (req) => {
           client_event_id: clientEventId,
           rating_0_10: rating0_10,
           in_watchlist: inWatchlist,
+          event_day: eventDay,
           dedupe_key: dedupeKey,
         });
 
@@ -497,7 +500,7 @@ serve(async (req) => {
     if (rows.length) {
       const { error: upsertError } = await supabase
         .from("media_events")
-        .upsert(rows, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true });
+        .upsert(rows, { onConflict: "user_id,dedupe_key,event_day", ignoreDuplicates: true });
 
       if (upsertError) {
         return new Response(
