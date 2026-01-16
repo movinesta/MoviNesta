@@ -600,8 +600,11 @@ begin
 
 
   -- Take top N
-  insert into _take
-  select * from _cand order by final_score desc limit (v_limit * 3);
+  insert into _take (media_item_id, source, final_score, primary_genre, collection_id, friend_ids, anchor_title)
+  select media_item_id, source, final_score, primary_genre, collection_id, friend_ids, anchor_title
+  from _cand
+  order by final_score desc
+  limit (v_limit * 3);
 
 
   -- Diversity selection (simple greedy MM with collection/genre caps)

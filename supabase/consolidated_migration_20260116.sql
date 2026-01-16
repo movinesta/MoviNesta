@@ -2010,7 +2010,11 @@ begin
   if v_kind_filters is not null then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and not (lower(mi.kind::text) = any(v_kind_filters)); else delete from _cand c using public.media_items mi where c.media_item_id = mi.id and lower(mi.kind::text) in ('episode', 'other'); end if;
   if array_length(v_muted_genres, 1) > 0 then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and exists (select 1 from unnest(regexp_split_to_array(lower(coalesce(mi.omdb_genre,'')), '\s*,\s*')) t where t = any(v_muted_genres)); end if;
   update _cand set primary_genre = (regexp_split_to_array(mi.omdb_genre, ','))[1], collection_id = (mi.tmdb_belongs_to_collection ->> 'id') from public.media_items mi where _cand.media_item_id = mi.id;
-  insert into _take select * from _cand order by final_score desc limit (v_limit * 3);
+  insert into _take (media_item_id, source, final_score, primary_genre, collection_id, friend_ids, anchor_title)
+  select media_item_id, source, final_score, primary_genre, collection_id, friend_ids, anchor_title
+  from _cand
+  order by final_score desc
+  limit (v_limit * 3);
 
   declare
     _r record; _taken_ids uuid[] := '{}'; _genre_counts jsonb := '{}'::jsonb; _coll_counts jsonb := '{}'::jsonb; _g text; _c text; _ok boolean;
