@@ -351,25 +351,46 @@ export async function fetchMediaSwipeDeck(
   return { deckId, recRequestId, cards };
 }
 
-function normalizeEventType(type: any): any {
-  return type === "open" ? "detail_open" : type === "seen" ? "detail_close" : type;
+function normalizeEventType(
+  type: unknown,
+): MediaSwipeEventType | LegacyMediaSwipeEventType | null {
+  if (typeof type !== "string") return null;
+  const trimmed = type.trim();
+  if (!trimmed) return null;
+  if (trimmed === "open") return "detail_open";
+  if (trimmed === "seen") return "detail_close";
+  return trimmed as MediaSwipeEventType | LegacyMediaSwipeEventType;
 }
 
 export async function sendMediaSwipeEventsMulti(
   items: SendMediaSwipeEventsBatchInput[],
   opts?: { timeoutMs?: number },
 ): Promise<{ ok: true } | { ok: false; message?: string }> {
-  const payload = {
-    items: (Array.isArray(items) ? items : []).map((it: any) => ({
-      ...it,
-      source: normalizeMediaEventSource(it?.source) ?? it?.source ?? null,
-      events: (Array.isArray(it?.events) ? it.events : []).map((ev: any) => ({
-        ...ev,
-        eventType: normalizeEventType(ev?.eventType),
-        clientEventId: ensureClientEventId(ev?.clientEventId),
-      })),
-    })),
-  };
+  const normalizedItems = (Array.isArray(items) ? items : [])
+    .map((it: any) => {
+      const events = (Array.isArray(it?.events) ? it.events : [])
+        .map((ev: any) => {
+          const eventType = normalizeEventType(ev?.eventType);
+          if (!eventType) return null;
+          return {
+            ...ev,
+            eventType,
+            clientEventId: ensureClientEventId(ev?.clientEventId),
+          };
+        })
+        .filter(Boolean);
+
+      return {
+        ...it,
+        source: normalizeMediaEventSource(it?.source) ?? it?.source ?? null,
+        events,
+      };
+    })
+    .filter((it) => it.events.length > 0);
+
+  if (!normalizedItems.length) return { ok: true };
+
+  const payload = { items: normalizedItems };
 
   const run = supabase.functions.invoke("media-swipe-event", { body: payload });
   const res = await timeout(run, opts?.timeoutMs ?? 20000);
@@ -384,14 +405,24 @@ export async function sendMediaSwipeEventsBatch(
   input: SendMediaSwipeEventsBatchInput,
   opts?: { timeoutMs?: number },
 ): Promise<{ ok: true } | { ok: false; message?: string }> {
+  const events = (Array.isArray((input as any).events) ? (input as any).events : [])
+    .map((ev: any) => {
+      const eventType = normalizeEventType(ev?.eventType);
+      if (!eventType) return null;
+      return {
+        ...ev,
+        eventType,
+        clientEventId: ensureClientEventId(ev?.clientEventId),
+      };
+    })
+    .filter(Boolean);
+
+  if (!events.length) return { ok: true };
+
   const payload = {
     ...input,
     source: normalizeMediaEventSource((input as any).source) ?? (input as any).source ?? null,
-    events: (Array.isArray((input as any).events) ? (input as any).events : []).map((ev: any) => ({
-      ...ev,
-      eventType: normalizeEventType(ev?.eventType),
-      clientEventId: ensureClientEventId(ev?.clientEventId),
-    })),
+    events,
   };
 
   const run = supabase.functions.invoke("media-swipe-event", { body: payload });
@@ -414,6 +445,7 @@ export async function sendMediaSwipeEvent(
   }
 
   const eventType = normalizeEventType(anyInput.eventType);
+  if (!eventType) return { ok: true };
   const payload = {
     ...input,
     eventType,
