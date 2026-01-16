@@ -8484,6 +8484,8 @@ DECLARE
   next_epoch bigint;
   new_count integer;
   allowed boolean;
+  window_start_ts timestamptz;
+  stored_window_start timestamptz;
 BEGIN
   p_key := COALESCE(NULLIF(trim(p_key), ''), '');
   IF p_key = '' THEN
@@ -8499,14 +8501,26 @@ BEGIN
   now_epoch := floor(extract(epoch from now()))::bigint;
   bucket_start := (now_epoch / p_window_seconds) * p_window_seconds;
   next_epoch := bucket_start + p_window_seconds;
+  window_start_ts := to_timestamp(bucket_start);
 
-  INSERT INTO public.rate_limit_counters(key, window_start, count, updated_at)
-  VALUES (p_key, bucket_start, 1, now())
-  ON CONFLICT (key, window_start)
-  DO UPDATE SET count = public.rate_limit_counters.count + 1,
-               updated_at = now()
-  RETURNING count INTO new_count;
+  INSERT INTO public.rate_limits(key, action, window_start, count, updated_at)
+  VALUES (p_key, 'v1', window_start_ts, 1, now())
+  ON CONFLICT (key, action)
+  DO UPDATE SET window_start = CASE
+      WHEN public.rate_limits.window_start = window_start_ts
+        THEN public.rate_limits.window_start
+      ELSE window_start_ts
+    END,
+    count = CASE
+      WHEN public.rate_limits.window_start = window_start_ts
+        THEN public.rate_limits.count + 1
+      ELSE 1
+    END,
+    updated_at = now()
+  RETURNING count, window_start INTO new_count, stored_window_start;
 
+  bucket_start := floor(extract(epoch from stored_window_start))::bigint;
+  next_epoch := bucket_start + p_window_seconds;
   allowed := new_count <= p_limit;
 
   RETURN jsonb_build_object(
@@ -8536,8 +8550,9 @@ CREATE FUNCTION public.rate_limit_cleanup_v1(p_keep_hours integer DEFAULT 24) RE
     SET search_path TO 'public'
     AS $$
   WITH del AS (
-    DELETE FROM public.rate_limit_counters
-    WHERE updated_at < now() - make_interval(hours => GREATEST(1, COALESCE(p_keep_hours, 24)))
+    DELETE FROM public.rate_limits
+    WHERE action = 'v1'
+      AND updated_at < now() - make_interval(hours => GREATEST(1, COALESCE(p_keep_hours, 24)))
     RETURNING 1
   )
   SELECT count(*)::bigint FROM del;
