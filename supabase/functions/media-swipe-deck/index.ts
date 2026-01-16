@@ -157,7 +157,11 @@ function clamp01(n: number): number {
  * round-robin. This is intentionally lightweight and non-destructive: it never
  * drops items, it only reorders.
  */
-function applyMixVariant<T extends { source?: string | null }>(cards: T[], variant: string): { cards: T[]; applied: boolean } {
+function applyMixVariant<T extends { source?: string | null }>(
+  cards: T[],
+  variant: string,
+  cfg?: { enabled?: boolean },
+): { cards: T[]; applied: boolean } {
   const v = (String(variant || "control") as MixVariant) ?? "control";
   if (!cards?.length) return { cards: cards ?? [], applied: false };
   if (v === "control") return { cards, applied: false };
@@ -1945,7 +1949,7 @@ serve(async (req) => {
     // different source mixes without changing the underlying SQL RPC.
     let mixApplied = false;
     try {
-      const mixRes = applyMixVariant(cards as any, mixVariant);
+      const mixRes = applyMixVariant(cards as any, mixVariant, (deckCfg as any)?.mix);
       if (mixRes.applied) {
         (cards as any).splice(0, (cards as any).length, ...mixRes.cards);
         mixApplied = true;
