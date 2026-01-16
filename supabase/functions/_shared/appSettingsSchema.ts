@@ -443,6 +443,9 @@ export const APP_SETTINGS_REGISTRY = {
       seg_pop_quota: z.number().int().min(0).max(60),
       seg_pop_pool_limit: z.number().int().min(50).max(1000),
       apply_muted_genres: z.boolean(),
+      mix: z.object({
+        enabled: z.boolean(),
+      }),
     }),
     default: {
       default_limit: 60,
@@ -456,6 +459,9 @@ export const APP_SETTINGS_REGISTRY = {
       seg_pop_quota: 20,
       seg_pop_pool_limit: 200,
       apply_muted_genres: true,
+      mix: {
+        enabled: true,
+      },
     },
   },
 

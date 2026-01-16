@@ -95,12 +95,41 @@ begin
   friends as (select fe.media_item_id, sum(fe.w * exp(-extract(epoch from (now()-fe.created_at))/(7*24*3600.0)))::double precision as score, array_agg(distinct fe.friend_id) as friend_ids from friend_events fe where fe.w > 0 and not exists (select 1 from _blocked b where b.media_item_id=fe.media_item_id) group by fe.media_item_id order by score desc limit (v_limit * 30)),
   for_you_pool as (select anl.media_item_id, anl.score, 'for_you'::text as source, null::uuid[] as friend_ids, anl.anchor_media_id, anl.anchor_title from anchor_neighbors_labeled anl union all select fyc.media_item_id, (fyc.score * 0.95) as score, 'for_you'::text as source, null::uuid[] as friend_ids, null::uuid as anchor_media_id, null::text as anchor_title from for_you_centroid fyc union all select fl.media_item_id, (fl.score * 0.8) as score, 'for_you'::text as source, null::uuid[] as friend_ids, null::uuid as anchor_media_id, null::text as anchor_title from for_you_learning fl)
   insert into _cand(media_item_id, source, score, jit, final_score, friend_ids, anchor_media_id, anchor_title)
-  select x.media_item_id, x.source, x.score, 0.0 as jit, x.score as final_score, x.friend_ids, x.anchor_media_id, x.anchor_title from (select * from for_you_pool where v_mode in ('for_you', 'combined') union all select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text from trending_recent where v_mode in ('trending', 'combined') union all select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text from popular_catalog where v_mode in ('trending', 'combined') union all select media_item_id, score, 'friends'::text, friend_ids, null::uuid, null::text from friends where v_mode in ('friends', 'combined')) x
-  where not exists (select 1 from _blocked b where b.media_item_id=x.media_item_id) and not exists (select 1 from _served30m s where s.media_item_id=x.media_item_id)
+  select distinct on (x.media_item_id)
+    x.media_item_id,
+    x.source,
+    x.score,
+    0.0 as jit,
+    x.score as final_score,
+    x.friend_ids,
+    x.anchor_media_id,
+    x.anchor_title
+  from (
+    select * from for_you_pool where v_mode in ('for_you', 'combined')
+    union all
+    select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text
+    from trending_recent
+    where v_mode in ('trending', 'combined')
+    union all
+    select media_item_id, score, 'trending'::text, null::uuid[], null::uuid, null::text
+    from popular_catalog
+    where v_mode in ('trending', 'combined')
+    union all
+    select media_item_id, score, 'friends'::text, friend_ids, null::uuid, null::text
+    from friends
+    where v_mode in ('friends', 'combined')
+  ) x
+  where not exists (select 1 from _blocked b where b.media_item_id=x.media_item_id)
+    and not exists (select 1 from _served30m s where s.media_item_id=x.media_item_id)
+  order by x.media_item_id, x.score desc
   on conflict (media_item_id) do update set score = greatest(_cand.score, excluded.score), source = case when excluded.score > _cand.score then excluded.source else _cand.source end, friend_ids = case when excluded.friend_ids is not null then excluded.friend_ids else _cand.friend_ids end;
 
-  update _cand set jit = ((((hashtext(v_seed || media_item_id::text))::bigint % 100000 + 100000) % 100000)::double precision / 100000.0);
-  update _cand set final_score = case when source='for_you' then score + (jit * 0.05) when source='friends' then score + (jit * 0.05) else score + (jit * 0.15) end;
+  update _cand
+  set jit = ((((hashtext(v_seed || media_item_id::text))::bigint % 100000 + 100000) % 100000)::double precision / 100000.0)
+  where true;
+  update _cand
+  set final_score = case when source='for_you' then score + (jit * 0.05) when source='friends' then score + (jit * 0.05) else score + (jit * 0.15) end
+  where true;
   if v_kind_filters is not null then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and not (lower(mi.kind::text) = any(v_kind_filters)); else delete from _cand c using public.media_items mi where c.media_item_id = mi.id and lower(mi.kind::text) in ('episode', 'other'); end if;
   if array_length(v_muted_genres, 1) > 0 then delete from _cand c using public.media_items mi where c.media_item_id = mi.id and exists (select 1 from unnest(regexp_split_to_array(lower(coalesce(mi.omdb_genre,'')), '\s*,\s*')) t where t = any(v_muted_genres)); end if;
   update _cand set primary_genre = (regexp_split_to_array(mi.omdb_genre, ','))[1], collection_id = mi.tmdb_collection_id from public.media_items mi where _cand.media_item_id = mi.id;
