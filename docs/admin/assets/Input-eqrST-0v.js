@@ -1,0 +1,1 @@
+import{ao as o,j as r,i as s}from"./index-CRBf6KpQ.js";const i=o.forwardRef(function({className:n,...t},e){return r.jsx("input",{ref:e,...t,className:s("w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300",n)})});i.displayName="Input";export{i as I};

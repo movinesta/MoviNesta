@@ -1,0 +1,1 @@
+import{j as o}from"./index-n01z0Q-I.js";function s({name:i,className:r,filled:a,ariaLabel:e}){return o.jsx("span",{className:["material-symbols-rounded",a?"is-filled":"",r??""].filter(Boolean).join(" "),"aria-hidden":e?void 0:!0,"aria-label":e,children:i})}export{s as M};

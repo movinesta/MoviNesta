@@ -1,0 +1,203 @@
+[functions.admin-app-settings]
+verify_jwt = false
+
+[functions.admin-assistant-health]
+verify_jwt = true
+
+[functions.admin-assistant-metrics]
+verify_jwt = true
+
+[functions.admin-assistant-settings]
+verify_jwt = true
+
+[functions.admin-audit]
+verify_jwt = true
+
+[functions.admin-costs]
+verify_jwt = true
+
+[functions.admin-embeddings]
+verify_jwt = true
+
+[functions.admin-jobs]
+verify_jwt = true
+
+[functions.admin-logs]
+verify_jwt = true
+
+[functions.admin-openrouter-circuit]
+verify_jwt = true
+
+[functions.admin-openrouter-credits]
+verify_jwt = true
+
+[functions.admin-openrouter-endpoints]
+verify_jwt = true
+
+[functions.admin-openrouter-key]
+verify_jwt = true
+
+[functions.admin-openrouter-models]
+verify_jwt = true
+
+[functions.admin-openrouter-parameters]
+verify_jwt = true
+
+[functions.admin-openrouter-parameters-refresh]
+verify_jwt = true
+
+[functions.admin-openrouter-refresh]
+verify_jwt = true
+
+[functions.admin-openrouter-requests]
+verify_jwt = true
+
+[functions.admin-openrouter-usage]
+verify_jwt = true
+
+[functions.admin-ops-alerts]
+verify_jwt = true
+
+[functions.admin-overview]
+verify_jwt = true
+
+[functions.admin-rec-alerts-metrics]
+verify_jwt = true
+
+[functions.admin-rec-composition-metrics]
+verify_jwt = true
+
+[functions.admin-rec-genre-metrics]
+verify_jwt = true
+
+[functions.admin-rec-health-metrics]
+verify_jwt = true
+
+[functions.admin-rec-position-metrics]
+verify_jwt = true
+
+[functions.admin-rec-variant-metrics]
+verify_jwt = true
+
+[functions.admin-recsys-assignments-get]
+verify_jwt = true
+
+[functions.admin-recsys-assignments-reset]
+verify_jwt = true
+
+[functions.admin-recsys-assignments-set]
+verify_jwt = true
+
+[functions.admin-recsys-diagnostics]
+verify_jwt = true
+
+[functions.admin-recsys-experiments-activate]
+verify_jwt = true
+
+[functions.admin-recsys-experiments-end]
+verify_jwt = true
+
+[functions.admin-recsys-experiments-list]
+verify_jwt = true
+
+[functions.admin-recsys-experiments-metrics]
+verify_jwt = true
+
+[functions.admin-recsys-experiments-upsert]
+verify_jwt = true
+
+[functions.admin-users]
+verify_jwt = true
+
+[functions.admin-verification]
+verify_jwt = true
+
+[functions.admin-whoami]
+verify_jwt = true
+
+[functions.assistant-chat-reply]
+verify_jwt = false
+
+[functions.assistant-chat-reply-runner]
+verify_jwt = false
+
+[functions.assistant-get-conversation]
+verify_jwt = true
+
+[functions.assistant-goal-sweeper]
+verify_jwt = false
+
+[functions.assistant-message-action]
+verify_jwt = true
+
+[functions.assistant-metrics-rollup]
+verify_jwt = false
+
+[functions.assistant-orchestrator]
+verify_jwt = true
+
+[functions.assistant-suggestion-action]
+verify_jwt = true
+
+[functions.assistant-tool-result]
+verify_jwt = true
+
+[functions.assistant-trigger-runner]
+verify_jwt = false
+
+[functions.catalog-backfill]
+verify_jwt = false
+
+[functions.catalog-sync]
+verify_jwt = true
+
+[functions.catalog-sync-batch]
+verify_jwt = true
+
+[functions.create-direct-conversation]
+verify_jwt = true
+
+[functions.experiment-assign]
+verify_jwt = true
+
+[functions.media-embed-backfill]
+verify_jwt = false
+
+[functions.media-search]
+verify_jwt = true
+
+[functions.media-smart-backfill]
+verify_jwt = false
+
+[functions.media-swipe-deck]
+verify_jwt = true
+
+[functions.media-swipe-event]
+verify_jwt = true
+
+[functions.media-trending-refresh]
+verify_jwt = false
+
+[functions.onboarding-initial-likes]
+verify_jwt = true
+
+[functions.openrouter-circuit-cleanup]
+verify_jwt = false
+
+[functions.openrouter-health-check]
+verify_jwt = false
+
+[functions.openrouter-refresh]
+verify_jwt = false
+
+[functions.public-app-settings]
+verify_jwt = false
+
+[functions.request-verification]
+verify_jwt = true
+
+[functions.tmdb-proxy]
+verify_jwt = true
+
+[functions.update-notification-prefs]
+verify_jwt = true
