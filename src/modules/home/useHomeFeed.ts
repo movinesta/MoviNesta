@@ -5,10 +5,11 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
+import { fetchHomeFeedRows, type HomeFeedRow } from "@/lib/homeFeedRpc";
 import { mapMediaItemToSummary } from "@/lib/mediaItems";
 import { qk } from "@/lib/queryKeys";
 import { supabase } from "@/lib/supabase";
-import type { Database, Json } from "@/types/supabase";
+import type { Database } from "@/types/supabase";
 import type { ProfilePublicRow } from "@/types/schema-overrides";
 import { useAuth } from "../auth/AuthProvider";
 import { formatTimeAgo } from "../messages/formatTimeAgo";
@@ -59,16 +60,6 @@ type ActorProfileJson = {
   verified_label?: string | null;
   verified_at?: string | null;
   verified_by_org?: string | null;
-};
-
-type HomeFeedRow = {
-  id: string;
-  created_at: string;
-  user_id: string;
-  event_type: string;
-  actor_profile?: Json | null;
-  media_item?: Json | null;
-  payload?: Json | null;
 };
 
 type ProfileVerificationRow = Pick<
@@ -265,17 +256,6 @@ function rowToFeedItem(row: HomeFeedRow): HomeFeedItem | null {
   }
 }
 
-function isHomeFeedRow(value: unknown): value is HomeFeedRow {
-  if (!value || typeof value !== "object") return false;
-  const row = value as Record<string, unknown>;
-  return (
-    typeof row.id === "string" &&
-    typeof row.created_at === "string" &&
-    typeof row.user_id === "string" &&
-    typeof row.event_type === "string"
-  );
-}
-
 function mergeWatchedAndRating(items: HomeFeedItem[]): HomeFeedItem[] {
   const out: HomeFeedItem[] = [];
   const windowMs = 2 * 60 * 1000;
@@ -375,18 +355,13 @@ async function enrichFeedUsersWithVerification(items: HomeFeedItem[]): Promise<H
 }
 
 async function fetchHomeFeedPageV2(userId: string, cursor: FeedCursor | null) {
-  const { data, error } = await supabase.rpc("get_home_feed_v2", {
-    p_user_id: userId,
-    p_limit: PAGE_SIZE,
-    p_cursor_created_at: cursor?.createdAt ?? null,
-    p_cursor_id: cursor?.id ?? null,
+  const { rows } = await fetchHomeFeedRows({
+    userId,
+    limit: PAGE_SIZE,
+    cursorCreatedAt: cursor?.createdAt ?? null,
+    cursorId: cursor?.id ?? null,
+    includeExtraRow: true,
   });
-
-  if (error) {
-    throw error;
-  }
-
-  const rows: HomeFeedRow[] = (Array.isArray(data) ? data : []).filter(isHomeFeedRow);
 
   // The SQL function fetches `limit + 1` rows so we can detect if there is another page.
   const hasMore = rows.length > PAGE_SIZE;
