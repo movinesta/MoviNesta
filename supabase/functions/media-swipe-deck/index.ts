@@ -2004,6 +2004,8 @@ serve(async (req) => {
     }
 
 
+    const servedCards = (cards ?? []).slice(0, limit);
+
     // Best-effort: log ranking features for LTR training.
     // Prefer service-role (bypasses RLS), but fall back to the user client
     // if you have permissive insert policies.
@@ -2011,16 +2013,12 @@ serve(async (req) => {
     {
       const logClient = svc ?? supabase;
       try {
-        const servedCards = (cards ?? []).slice(0, limit);
         const featureRows = servedCards.map((c, idx) => ({
           user_id: userId,
           session_id: sessionId,
           deck_id: deckId,
           position: idx,
           mode,
-          cf_variant: cfVariant,
-          cf_added: cfAdded,
-          seg_pop_added: typeof segPopAdded === "number" ? segPopAdded : 0,
           kind_filter: kindFilter,
           source: c.source ?? mode,
           media_item_id: c.mediaItemId,
@@ -2058,7 +2056,7 @@ serve(async (req) => {
 
         const { error: featErr } = await logClient
           .from("media_rank_feature_log")
-          .insert(featureRows, { returning: "minimal" });
+          .insert(featureRows);
         void featErr;
       } catch {
         // ignore
@@ -2068,8 +2066,6 @@ serve(async (req) => {
     // Persist server-side impressions (best-effort). This ensures offline datasets
     // are based on what we actually served, even if the client drops events.
     try {
-      const servedCards = (cards ?? []).slice(0, limit);
-
       const impressionRows = servedCards.map((c: any, idx: number) => ({
         rec_request_id: recRequestId,
         user_id: userId,
@@ -2102,14 +2098,12 @@ serve(async (req) => {
       if (impressionRows.length) {
         const { error: impErr } = await supabase
           .from("rec_impressions")
-          .insert(impressionRows, { returning: "minimal" });
+          .insert(impressionRows);
         void impErr;
       }
     } catch {
       // ignore impression logging failures
     }
-
-    const servedCards = (cards ?? []).slice(0, limit);
 
     return json(req, 200, { ok: true, deckId, recRequestId, cards: servedCards });
   } catch (err) {
