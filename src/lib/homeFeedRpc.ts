@@ -76,8 +76,34 @@ async function enrichActivityRows(rows: ActivityEventRow[]): Promise<HomeFeedRow
 
   const [mediaResponse, profileResponse] = await Promise.all([
     mediaIds.length
-      ? supabase.from("media_items").select("*").in("id", mediaIds)
-      : Promise.resolve({ data: [] as MediaItemRow[] }),
+      ? supabase
+          .from("media_items")
+          .select(
+            `
+            id,
+            kind,
+            omdb_title,
+            omdb_year,
+            omdb_poster,
+            omdb_rated,
+            omdb_imdb_rating,
+            omdb_rating_rotten_tomatoes,
+            omdb_imdb_id,
+            omdb_language,
+            tmdb_id,
+            tmdb_title,
+            tmdb_name,
+            tmdb_original_title,
+            tmdb_original_name,
+            tmdb_poster_path,
+            tmdb_backdrop_path,
+            tmdb_release_date,
+            tmdb_first_air_date,
+            tmdb_original_language
+          `,
+          )
+          .in("id", mediaIds)
+      : Promise.resolve({ data: [] as MediaItemRow[], error: null }),
     userIds.length
       ? supabase
           .from("profiles_public")
@@ -85,18 +111,22 @@ async function enrichActivityRows(rows: ActivityEventRow[]): Promise<HomeFeedRow
             "id,username,display_name,avatar_url,is_verified,verified_type,verified_label,verified_at,verified_by_org",
           )
           .in("id", userIds)
-      : Promise.resolve({ data: [] as ProfilePublicRow[] }),
+      : Promise.resolve({ data: [] as ProfilePublicRow[], error: null }),
   ]);
 
   const mediaMap = new Map<string, MediaItemRow>();
-  for (const item of (mediaResponse.data ?? []) as MediaItemRow[]) {
-    if (item?.id) mediaMap.set(item.id, item);
+  if (!mediaResponse.error) {
+    for (const item of (mediaResponse.data ?? []) as MediaItemRow[]) {
+      if (item?.id) mediaMap.set(item.id, item);
+    }
   }
 
   const profileMap = new Map<string, ProfilePublicRow>();
-  for (const profile of (profileResponse.data ?? []) as ProfilePublicRow[]) {
-    if (profile?.id) {
-      profileMap.set(String(profile.id), profile);
+  if (!profileResponse.error) {
+    for (const profile of (profileResponse.data ?? []) as ProfilePublicRow[]) {
+      if (profile?.id) {
+        profileMap.set(String(profile.id), profile);
+      }
     }
   }
 
