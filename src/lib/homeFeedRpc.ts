@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { ProfilePublicRow } from "@/types/schema-overrides";
 import type { Database, Json } from "@/types/supabase";
 
 export type HomeFeedRow = {
@@ -14,7 +15,6 @@ export type HomeFeedRow = {
 
 type ActivityEventRow = Database["public"]["Tables"]["activity_events"]["Row"];
 type MediaItemRow = Database["public"]["Tables"]["media_items"]["Row"];
-type ProfilePublicRow = Database["public"]["Tables"]["profiles_public"]["Row"];
 
 type FetchHomeFeedRowsParams = {
   userId: string;
@@ -132,7 +132,7 @@ async function enrichActivityRows(rows: ActivityEventRow[]): Promise<HomeFeedRow
 
   return rows.map((row) => {
     const mediaItem =
-      typeof row.media_item_id === "string" ? mediaMap.get(row.media_item_id) ?? null : null;
+      typeof row.media_item_id === "string" ? (mediaMap.get(row.media_item_id) ?? null) : null;
     const profile = profileMap.get(row.user_id) ?? null;
 
     return {

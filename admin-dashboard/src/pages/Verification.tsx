@@ -21,6 +21,7 @@ import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
 import { useToast } from "../components/ToastProvider";
 import { fmtDateTime } from "../lib/ui";
+import type { ProfilePublicRow } from "../lib/types";
 
 function Title(props: { children: React.ReactNode }) {
   return <div className="mb-4 text-xl font-semibold tracking-tight">{props.children}</div>;
@@ -75,7 +76,7 @@ export default function Verification() {
   const [dvSearchApplied, setDvSearchApplied] = useState("");
   const [dvUserIdDraft, setDvUserIdDraft] = useState("");
   const [dvUserIdApplied, setDvUserIdApplied] = useState("");
-  const [dvSelected, setDvSelected] = useState<any | null>(null);
+  const [dvSelected, setDvSelected] = useState<ProfilePublicRow | null>(null);
   const [dvType, setDvType] = useState<BadgeType>("identity");
   const [dvLabel, setDvLabel] = useState("");
   const [dvOrg, setDvOrg] = useState("");
@@ -180,10 +181,10 @@ export default function Verification() {
     setDvUserIdApplied("");
   };
 
-  const qDirectUsers = useQuery({
+  const qDirectUsers = useQuery<ProfilePublicRow[]>({
     enabled: tab === "direct" && (Boolean(dvUserIdApplied.trim()) || Boolean(dvSearchApplied.trim())),
     queryKey: ["verification", "direct", { q: dvSearchApplied, user_id: dvUserIdApplied }],
-    queryFn: async () => {
+    queryFn: async (): Promise<ProfilePublicRow[]> => {
       const uid = dvUserIdApplied.trim();
       if (uid) {
         const { data, error } = await supabase
@@ -192,7 +193,7 @@ export default function Verification() {
           .eq("id", uid)
           .limit(1);
         if (error) throw new Error(error.message);
-        return data ?? [];
+        return (data ?? []) as ProfilePublicRow[];
       }
 
       const q = dvSearchApplied.trim();
@@ -203,7 +204,7 @@ export default function Verification() {
         .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
         .limit(20);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return (data ?? []) as ProfilePublicRow[];
     },
   });
 
@@ -234,7 +235,7 @@ export default function Verification() {
       toast.push({ title: "Saved", message: "Verification has been applied.", variant: "success" });
 
       // Refresh selected user from latest search results
-      const latest = (qDirectUsers.data ?? []).find((u: any) => u.id === dvSelected?.id);
+      const latest = (qDirectUsers.data ?? []).find((u) => u.id === dvSelected?.id);
       if (latest) setDvSelected(latest);
     },
   });

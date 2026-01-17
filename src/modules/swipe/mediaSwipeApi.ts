@@ -351,9 +351,7 @@ export async function fetchMediaSwipeDeck(
   return { deckId, recRequestId, cards };
 }
 
-function normalizeEventType(
-  type: unknown,
-): MediaSwipeEventType | LegacyMediaSwipeEventType | null {
+function normalizeEventType(type: unknown): MediaSwipeEventType | LegacyMediaSwipeEventType | null {
   if (typeof type !== "string") return null;
   const trimmed = type.trim();
   if (!trimmed) return null;

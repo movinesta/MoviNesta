@@ -3,6 +3,18 @@ export type AdminUser = {
   email?: string | null;
 };
 
+export type ProfilePublicRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_verified: boolean;
+  verified_type: string | null;
+  verified_label: string | null;
+  verified_at: string | null;
+  verified_by_org: string | null;
+};
+
 export type CoverageRow = {
   provider: string;
   model: string;
