@@ -217,6 +217,9 @@ function getApiKeyFromRequest(req: Request): string {
 
 function requireAdminApiKey(req: Request): void {
   const cfg = getConfig();
+  if (getJwtFromRequest(req)) {
+    return;
+  }
   const provided = getApiKeyFromRequest(req);
   if (!provided) throw new HttpError(401, "Missing apikey header");
 
