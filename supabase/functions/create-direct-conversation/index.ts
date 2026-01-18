@@ -43,7 +43,7 @@ export async function handler(req: Request) {
       });
     }
 
-    const apiKeyError = requireApiKeyHeader(req);
+    const apiKeyError = requireApiKeyHeader(req, { allowBearer: true });
     if (apiKeyError) return apiKeyError;
 
     const supabaseAuth = getUserClient(req);
