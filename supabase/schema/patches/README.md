@@ -34,5 +34,13 @@ This folder contains one-off SQL patches you can run in the Supabase SQL Editor.
 - `20260117_p37_admin_cursor_indexes.sql`
   - Adds keyset pagination indexes to speed up admin cursor-based logs.
 
-> Tip: Use Supabase Vault to store `project_url`, `publishable_key`, and `internal_job_token`, then reference them from cron commands.
+- `20260118_p38_schema_registry_assistant_chunk_outline.sql`
+  - Seeds the schema registry with the assistant.chunk_outline response schema.
 
+- `20260118_p39_schema_registry_assistant_agent.sql`
+  - Seeds the schema registry with the assistant.agent response schema.
+
+- `20260118_p40_assistant_health_ops_alerts_guard.sql`
+  - Guards assistant_health_snapshot_v1 when ops_alerts is missing.
+
+> Tip: Use Supabase Vault to store `project_url`, `publishable_key`, and `internal_job_token`, then reference them from cron commands.

@@ -18,16 +18,33 @@ export function sseResponse(req: Request, body: Record<string, unknown>, replyTe
   const chunks = chunkText(replyText ?? "", STREAM_CHUNK_SIZE);
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
+      let closed = false;
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          // ignore
+        }
+      };
+      req.signal?.addEventListener("abort", close);
+
       const sendEvent = (event: string, data: Record<string, unknown>) => {
+        if (closed || req.signal?.aborted) return;
         const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(payload));
+        try {
+          controller.enqueue(encoder.encode(payload));
+        } catch {
+          close();
+        }
       };
 
       for (const chunk of chunks) {
         sendEvent("delta", { text: chunk });
       }
       sendEvent("done", body);
-      controller.close();
+      close();
     },
   });
 
@@ -51,9 +68,26 @@ export function sseResponseAsync(
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let closed = false;
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          // ignore
+        }
+      };
+      req.signal?.addEventListener("abort", close);
+
       const sendEvent = (event: string, data: Record<string, unknown>) => {
+        if (closed || req.signal?.aborted) return;
         const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(payload));
+        try {
+          controller.enqueue(encoder.encode(payload));
+        } catch {
+          close();
+        }
       };
 
       try {
@@ -62,11 +96,7 @@ export function sseResponseAsync(
         const msg = err instanceof Error ? err.message : String(err ?? "stream_error");
         sendEvent("error", { ok: false, error: msg.slice(0, 600) });
       } finally {
-        try {
-          controller.close();
-        } catch {
-          // ignore
-        }
+        close();
       }
     },
   });
