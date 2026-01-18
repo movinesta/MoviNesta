@@ -41,9 +41,49 @@ function listFunctionDirs() {
   return dirs.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function resolveDenoBinary() {
+  const candidates = [];
+  if (process.env.DENO_BIN) candidates.push(process.env.DENO_BIN);
+
+  const localBinary = path.join(ROOT, "node_modules", ".bin", "deno");
+  if (fs.existsSync(localBinary)) candidates.push(localBinary);
+
+  candidates.push("deno");
+
+  for (const candidate of candidates) {
+    const res = spawnSync(candidate, ["--version"], { stdio: "ignore" });
+    if (res.error) {
+      if (res.error.code === "ENOENT") continue;
+      continue;
+    }
+
+    if (typeof res.status === "number" && res.status !== 0) continue;
+    return candidate;
+  }
+
+  return null;
+}
+
+const DENO_BIN = resolveDenoBinary();
+if (!DENO_BIN) {
+  const message = [
+    "Deno is not installed or not on PATH.",
+    "Install Deno or set DENO_BIN to a valid binary, then re-run.",
+    "See: https://deno.com/",
+  ].join(" ");
+
+  if (process.env.CI) {
+    console.error(`\n${message}\n`);
+    process.exit(2);
+  }
+
+  console.warn(`\n${message}\nSkipping edge function typecheck in non-CI environments.\n`);
+  process.exit(0);
+}
+
 function runDenoCheck({ name, entry, cfg }) {
   const args = ["check", "--config", cfg, entry];
-  const res = spawnSync("deno", args, {
+  const res = spawnSync(DENO_BIN, args, {
     stdio: "inherit",
     env: {
       ...process.env,
@@ -52,11 +92,6 @@ function runDenoCheck({ name, entry, cfg }) {
   });
 
   if (res.error) {
-    if (res.error.code === "ENOENT") {
-      console.error("\nDeno is not installed or not on PATH. Install Deno, then re-run.");
-      console.error("See: https://deno.com/\n");
-      process.exit(2);
-    }
     console.error(`\nFailed running deno check for ${name}: ${String(res.error)}`);
     process.exit(2);
   }
