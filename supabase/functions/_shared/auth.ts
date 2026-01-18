@@ -27,9 +27,12 @@ export type ApiKeyRequirement = "public" | "secret" | "either";
  */
 export function requireApiKeyHeader(
   req: Request,
-  options?: { require?: ApiKeyRequirement },
+  options?: { require?: ApiKeyRequirement; allowBearer?: boolean },
 ): Response | null {
   const cfg = getConfig();
+  if (options?.allowBearer && getBearerToken(req)) {
+    return null;
+  }
   const provided = (
     req.headers.get("apikey") ??
     req.headers.get("x-api-key") ??
@@ -139,4 +142,3 @@ export async function requireUserFromRequest(
     return { data: null, errorResponse: jsonError(req, "Invalid session", 401, "INVALID_SESSION") };
   }
 }
-

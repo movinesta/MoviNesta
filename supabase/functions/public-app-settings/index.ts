@@ -19,7 +19,7 @@ const FN_NAME = "public-app-settings";
 export async function handler(req: Request): Promise<Response> {
   const optionsResponse = handleOptions(req);
   if (optionsResponse) return optionsResponse;
-  const apiKeyError = requireApiKeyHeader(req, { require: "public" });
+  const apiKeyError = requireApiKeyHeader(req, { require: "public", allowBearer: true });
   if (apiKeyError) return apiKeyError;
 
 
