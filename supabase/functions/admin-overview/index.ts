@@ -14,7 +14,7 @@ function since24hIso() {
 
 type SafeResult<T> = { data: T | null; error: { message?: string; code?: string } | null };
 
-async function safeQuery<T>(promise: Promise<SafeResult<T>>, fallback: T): Promise<T> {
+async function safeQuery<T>(promise: PromiseLike<SafeResult<T>>, fallback: T): Promise<T> {
   const { data, error } = await promise;
   if (error) {
     console.warn("[admin-overview] query failed", error.message ?? error);
@@ -46,22 +46,22 @@ serve(async (req) => {
     }
 
     const [settings, coverage, jobState] = await Promise.all([
-      safeQuery(
+      safeQuery<Record<string, unknown> | null>(
         svc.from("embedding_settings").select("*").eq("id", 1).maybeSingle(),
         null,
       ),
-      safeQuery(
+      safeQuery<any[]>(
         // `media_embeddings` has no `id` column in the schema; count media_item_id instead.
         svc.from("media_embeddings").select("provider, model, count:media_item_id.count()"),
         [],
       ),
-      safeQuery(
+      safeQuery<any[]>(
         svc.from("media_job_state").select("job_name, cursor, updated_at").order("job_name"),
         [],
       ),
     ]);
 
-    const routingLogs = await safeQuery(
+    const routingLogs = await safeQuery<any[]>(
       svc
         .from("openrouter_request_log")
         .select("id, created_at, meta")
@@ -71,7 +71,7 @@ serve(async (req) => {
       [],
     );
 
-    const recentErrors = await safeQuery(
+    const recentErrors = await safeQuery<any[]>(
       svc
         .from("job_run_log")
         .select("id, created_at, started_at, job_name, error_code, error_message")
@@ -82,7 +82,7 @@ serve(async (req) => {
       [],
     );
 
-    const lastRuns = await safeQuery(
+    const lastRuns = await safeQuery<any[]>(
       svc
         .from("job_run_log")
         .select("id, started_at, finished_at, job_name, ok")
@@ -91,17 +91,18 @@ serve(async (req) => {
       [],
     );
 
-    const opsAlerts = await safeQuery(
+    const opsAlerts = await safeQuery<any[]>(
       svc.rpc("ops_alert_list_active_v1", { p_limit: opsAlertsLimit }),
       [],
     );
 
-    const active_profile = settings
+    const settingsRow = settings as Record<string, unknown> | null;
+    const active_profile = settingsRow
       ? {
-          provider: settings.active_provider,
-          model: settings.active_model,
-          dimensions: settings.active_dimensions,
-          task: settings.active_task,
+          provider: (settingsRow as any).active_provider,
+          model: (settingsRow as any).active_model,
+          dimensions: (settingsRow as any).active_dimensions,
+          task: (settingsRow as any).active_task,
         }
       : null;
 

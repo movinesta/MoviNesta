@@ -245,6 +245,6 @@ serve(async (req) => {
       inserted,
     });
   } catch (e: any) {
-    return jsonError(req, e);
+    return jsonError(req, e instanceof Error ? e.message : String(e), 500, "INTERNAL_ERROR");
   }
 });

@@ -121,7 +121,9 @@ export async function handler(req: Request): Promise<Response> {
 
     return await respondWithLog(admin, { ok: true, request: effective }, 200);
   } catch (err) {
-    log({ fn: FN_NAME }, "Unhandled error", { error: String(err?.message ?? err), stack: err?.stack });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    log({ fn: FN_NAME }, "Unhandled error", { error: message, stack });
     const admin = getAdminClient();
     return await respondWithLog(admin, { ok: false, code: "INTERNAL_ERROR", error: "Internal error" }, 500);
   }

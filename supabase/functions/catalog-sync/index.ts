@@ -323,7 +323,7 @@ export async function handler(req: Request) {
     const hasTmdb = Boolean(existing.tmdb_raw);
     const hasOmdb = Boolean(existing.omdb_raw);
     if (hasTmdb && (!options.syncOmdb || hasOmdb)) {
-      return jsonResponse<SyncResponse>({
+      return jsonResponse({
         ok: true,
         media_item_id: existing.id,
         kind: existing.kind,
@@ -378,7 +378,7 @@ export async function handler(req: Request) {
 
 
   const genres = Array.isArray((tmdbDetails as any)?.genres) ? (tmdbDetails as any).genres : [];
-  const genreIds = genres.map((g: any) => Number(g.id)).filter((n) => Number.isFinite(n));
+  const genreIds = genres.map((g: any) => Number(g.id)).filter((n: number) => Number.isFinite(n));
 
   const tmdbRuntime = kind === "series"
     ? (Array.isArray((tmdbDetails as any)?.episode_run_time)
@@ -436,7 +436,7 @@ export async function handler(req: Request) {
     omdb_imdb_id: imdbId ?? omdb?.imdbID ?? null,
     omdb_imdb_rating: safeNum(omdb?.imdbRating),
     omdb_imdb_votes: omdb?.imdbVotes ?? null,
-    omdb_rating_rotten_tomatoes: extractOmdbRating(true, omdb) ?? null,
+    omdb_rating_rotten_tomatoes: omdb ? (extractOmdbRating(true, omdb) ?? null) : null,
     ...(tmdbId != null ? {
       tmdb_fetched_at: fetchedAt,
       tmdb_status: tmdbStatus,
@@ -452,7 +452,7 @@ export async function handler(req: Request) {
   const onConflict = tmdbId != null ? "kind,tmdb_id" : "omdb_imdb_id";
   const saved = await upsertMediaItem(adminClient, insert, onConflict);
 
-  return jsonResponse<SyncResponse>({
+  return jsonResponse({
     ok: true,
     media_item_id: saved.id,
     kind: saved.kind,

@@ -559,9 +559,9 @@ async function handleSearch(
   }
 
   builder = builder
-    .order("tmdb_release_date", { ascending: false, nullsLast: true })
-    .order("tmdb_first_air_date", { ascending: false, nullsLast: true })
-    .order("tmdb_title", { ascending: true, nullsLast: false });
+      .order("tmdb_release_date", { ascending: false, nullsFirst: false })
+      .order("tmdb_first_air_date", { ascending: false, nullsFirst: false })
+      .order("tmdb_title", { ascending: true, nullsFirst: false });
 
   const { data, error, count } = await builder;
   if (error) return jsonError(error.message, 500, "SEARCH_FAILED");

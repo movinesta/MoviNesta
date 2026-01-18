@@ -370,7 +370,7 @@ async function fetchAndCacheSupportedParametersLive(
   const inflight = supportedParamsInflight.get(key);
   if (inflight) return inflight;
 
-  const p = (async () => {
+  const p = (async (): Promise<{ supported: Set<string> | null; source: SupportedParametersSource }> => {
     const cfg = getConfig();
     const apiKey = cfg.openrouterApiKey;
     if (!apiKey) return { supported: null, source: null as SupportedParametersSource };
@@ -1198,8 +1198,9 @@ export async function openrouterChatStream(opts: OpenRouterChatOptions): Promise
     throw lastErr ?? new Error("OpenRouter request failed");
   }
 
-  let resolveFinal: (value: OpenRouterChatResult) => void;
-  let rejectFinal: (reason?: unknown) => void;
+  const body = res.body;
+  let resolveFinal!: (value: OpenRouterChatResult) => void;
+  let rejectFinal!: (reason?: unknown) => void;
   const result = new Promise<OpenRouterChatResult>((resolve, reject) => {
     resolveFinal = resolve;
     rejectFinal = reject;
@@ -1211,7 +1212,7 @@ export async function openrouterChatStream(opts: OpenRouterChatOptions): Promise
     let model: string | undefined;
     let usage: unknown;
     try {
-      for await (const data of parseSseStream(res.body)) {
+      for await (const data of parseSseStream(body)) {
         if (!data) continue;
         if (data === "[DONE]") break;
         let parsed: any = null;

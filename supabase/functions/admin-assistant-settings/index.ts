@@ -381,7 +381,7 @@ serve(async (req) => {
           culprit = { var: "env.OPENROUTER_API_KEY", source: "env", value_preview: null };
         } else if (lower.includes("no model") || lower.includes("no models") || lower.includes("model is required")) {
           culprit = explicitModel
-            ? { var: "admin_test.model", source: "request", value_preview: explicitModel }
+            ? { var: "admin_test.model", source: "computed", value_preview: explicitModel }
             : { var: modelVarForKey[modelKey] ?? "assistant_settings.model_fast", source: "assistant_settings", value_preview: attemptedModel };
         } else if (status === 404 || lower.includes("not found")) {
           culprit = baseUrlCulprit;

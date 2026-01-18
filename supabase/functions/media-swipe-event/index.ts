@@ -674,18 +674,20 @@ serve(async (req) => {
         }
 
         tastePromises.push(
-          // @ts-ignore
-          supabase
-            .rpc("media_update_taste_vectors_v1", {
-              p_session_id: r.session_id,
-              p_media_item_id: r.media_item_id,
-              p_event_type: et,
-              p_dwell_ms: r.dwell_ms,
-              p_rating_0_10: r.rating_0_10,
-              p_is_strong_signal: Boolean(r.in_watchlist),
-            })
-            .then(() => null)
-            .catch(() => null),
+          (async () => {
+            try {
+              await supabase.rpc("media_update_taste_vectors_v1", {
+                p_session_id: r.session_id,
+                p_media_item_id: r.media_item_id,
+                p_event_type: et,
+                p_dwell_ms: r.dwell_ms,
+                p_rating_0_10: r.rating_0_10,
+                p_is_strong_signal: Boolean(r.in_watchlist),
+              });
+            } catch {
+              // best-effort
+            }
+          })(),
         );
       }
 
@@ -695,7 +697,15 @@ serve(async (req) => {
       if (hasStrongPositive) {
         const shouldRefresh = Math.random() < centroidRefreshSampleRate;
         if (shouldRefresh) {
-          await supabase.rpc("media_refresh_user_centroids_v1", { p_user_id: userId, p_k: centroidK, p_max_items: centroidMaxItems }).catch(() => null);
+          try {
+            await supabase.rpc("media_refresh_user_centroids_v1", {
+              p_user_id: userId,
+              p_k: centroidK,
+              p_max_items: centroidMaxItems,
+            });
+          } catch {
+            // best-effort
+          }
         }
       }
 

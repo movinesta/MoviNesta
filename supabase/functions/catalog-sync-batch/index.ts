@@ -66,9 +66,6 @@ export async function handler(req: Request){
   });
   if (errorResponse) return errorResponse;
 
-  const apiKeyError = requireApiKeyHeader(req);
-  if (apiKeyError) return apiKeyError;
-
   const supabaseAuth = getUserClient(req);
   const auth = await requireUserFromRequest(req, supabaseAuth, { mode: "user" });
   if (auth.errorResponse) return auth.errorResponse;
@@ -85,15 +82,19 @@ export async function handler(req: Request){
 
   const results: SyncBatchResult[] = settledResults.map((result, i) => {
     const inputItem = items[i];
+    const base = {
+      tmdbId: inputItem?.tmdbId ?? null,
+      imdbId: inputItem?.imdbId ?? null,
+    };
     if (result.status === "fulfilled") {
       return {
-        ...inputItem,
+        ...base,
         mediaItemId: result.value.mediaItemId,
         status: "fulfilled",
       };
     } else {
       return {
-        ...inputItem,
+        ...base,
         mediaItemId: null,
         status: "rejected",
         error: result.reason instanceof Error ? result.reason.message : String(result.reason),

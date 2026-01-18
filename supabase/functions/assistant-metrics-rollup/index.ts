@@ -141,6 +141,6 @@ serve(async (req) => {
 
     return jsonResponse(req, { ok: true, day: dayIso, dryRun, rows: (rows ?? []).length, groups: upserts.length });
   } catch (e: any) {
-    return jsonError(req, e);
+    return jsonError(req, e instanceof Error ? e.message : String(e), 500, "INTERNAL_ERROR");
   }
 });

@@ -1,7 +1,8 @@
 import Ajv from "npm:ajv@8.17.1";
 import type { OpenRouterResponseFormat } from "./openrouter.ts";
 
-const ajv = new Ajv({ allErrors: true, strict: false });
+const AjvCtor = Ajv as unknown as { new (opts?: Record<string, unknown>): any };
+const ajv = new AjvCtor({ allErrors: true, strict: false });
 const schemaCache = new Map<string, ReturnType<typeof ajv.compile>>();
 
 export type SchemaRegistryEntry = {

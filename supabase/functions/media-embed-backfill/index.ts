@@ -254,7 +254,7 @@ serve(async (req) => {
     if (usedAfterId) q = q.gt("id", usedAfterId);
     if (kindFilter) q = q.eq("kind", kindFilter);
 
-    const { data: items, error: itemsErr } = await q;
+    const { data: items, error: itemsErr } = await q as { data: any[] | null; error: { message?: string } | null };
     if (itemsErr) return await respondWithLog(500, { ok: false, code: "FETCH_FAILED", message: itemsErr.message });
 
     if (!items?.length) {

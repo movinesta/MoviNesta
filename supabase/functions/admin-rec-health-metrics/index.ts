@@ -1,6 +1,6 @@
 import { serve } from "jsr:@std/http@0.224.0/server";
 import { z } from "zod";
-import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
 
 const BodySchema = z
   .object({
@@ -35,10 +35,10 @@ serve(async (req) => {
       .gte("day", isoDate(since))
       .order("day", { ascending: false });
 
-    if (error) return jsonError(req, 500, { ok: false, code: "QUERY_FAILED", message: error.message });
+    if (error) return json(req, 500, { ok: false, code: "QUERY_FAILED", message: error.message });
 
     return json(req, 200, { ok: true, since: isoDate(since), days, rows: data ?? [] });
   } catch (err) {
-    return jsonError(req, 500, { ok: false, code: "INTERNAL_ERROR", message: String((err as any)?.message ?? err) });
+    return json(req, 500, { ok: false, code: "INTERNAL_ERROR", message: String((err as any)?.message ?? err) });
   }
 });

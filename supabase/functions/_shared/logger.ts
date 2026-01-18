@@ -15,6 +15,7 @@ export type LogContext = {
   runnerJobId?: string | null;
   userId?: string | null;
   conversationId?: string | null;
+  authMode?: "user" | "job";
 };
 
 function env(name: string): string | undefined {
