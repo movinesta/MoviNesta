@@ -13,7 +13,7 @@ import { getConfig } from "../_shared/config.ts";
 import { getAssistantSettings, resolveAssistantBehavior, type AssistantBehavior } from "../_shared/assistantSettings.ts";
 import { openrouterChatWithFallback } from "../_shared/openrouter.ts";
 import { resolveZdrRouting, type ZdrRoutingMeta } from "../_shared/openrouterZdr.ts";
-import { type ActiveGoal, type AssistantPlaybookId } from "../_shared/assistantPlaybooks.ts";
+import { PLAYBOOKS, type ActiveGoal, type AssistantPlaybookId } from "../_shared/assistantPlaybooks.ts";
 import { buildRewriteSystemPrompt, type AssistantSurface } from "./promptPacks.ts";
 import { safeInsertOpenRouterUsageLog } from "../_shared/openrouterUsageLog.ts";
 import type { AssistantAction, AssistantSuggestion, ActiveGoalSummary, DraftSuggestion, AssistantPrefs } from "./lib/types.ts";
@@ -621,8 +621,8 @@ async function maybePlanExtraDraftsWithPlanner(args: {
   const goalText = args.activeGoal
     ? {
       playbookId: args.activeGoal.playbookId,
-      title: args.activeGoal.title,
-      step: args.activeGoal.step,
+      title: PLAYBOOKS[args.activeGoal.playbookId]?.title ?? args.activeGoal.playbookId,
+      listId: args.activeGoal.listId ?? null,
     }
     : null;
 

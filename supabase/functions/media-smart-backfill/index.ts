@@ -853,7 +853,7 @@ async function attachImdbIdSafe(opts: {
     const source = scoreExisting >= scoreRow ? row : existing;
 
     const merged = await mergeRows({ source, target, delete_duplicates: opts.delete_duplicates, counters });
-    return { merged: true, ...merged };
+    return merged;
   }
 
   try {
@@ -868,7 +868,7 @@ async function attachImdbIdSafe(opts: {
         const target = scoreAgain >= scoreRow ? again : row;
         const source = scoreAgain >= scoreRow ? row : again;
         const merged = await mergeRows({ source, target, delete_duplicates: opts.delete_duplicates, counters });
-        return { merged: true, ...merged };
+        return merged;
       }
     }
     throw e;
@@ -892,7 +892,7 @@ async function attachTmdbIdSafe(opts: {
     const source = scoreExisting >= scoreRow ? row : existing;
 
     const merged = await mergeRows({ source, target, delete_duplicates: opts.delete_duplicates, counters });
-    return { merged: true, ...merged };
+    return merged;
   }
 
   // Promote kind from other -> kind if setting tmdb_id
@@ -914,7 +914,7 @@ async function attachTmdbIdSafe(opts: {
         const target = scoreAgain >= scoreRow ? again : row;
         const source = scoreAgain >= scoreRow ? row : again;
         const merged = await mergeRows({ source, target, delete_duplicates: opts.delete_duplicates, counters });
-        return { merged: true, ...merged };
+        return merged;
       }
     }
     throw e;
@@ -1248,11 +1248,12 @@ async function processRow(
   imdbId = row.omdb_imdb_id ? String(row.omdb_imdb_id) : imdbId;
 
   const wantOmdb = opts.include_omdb && imdbId && imdbId.startsWith("tt") && (opts.force_cache_fill || needsOmdbContent(row));
-  if (wantOmdb) {
+  if (wantOmdb && imdbId) {
     try {
       let omdb: any | null = null;
 
-      const ce = opts.use_cache ? await getOmdbCache(imdbId) : null;
+      const imdbIdValue = imdbId;
+      const ce = opts.use_cache ? await getOmdbCache(imdbIdValue) : null;
       const cacheFresh = ce?.fetched_at ? ageDays(ce.fetched_at) <= opts.omdb_ttl_days : false;
       const cacheStaleForRefresh = ce?.fetched_at
         ? ageDays(ce.fetched_at) >= opts.refresh_if_older_than_days
@@ -1282,9 +1283,9 @@ async function processRow(
           const mustRefresh = opts.refresh_cache && cacheStaleForRefresh;
           if (!ce || !cacheFresh || mustRefresh) {
             await sleep(opts.request_delay_ms);
-            omdb = await omdbByImdbId(imdbId, opts.counters);
+            omdb = await omdbByImdbId(imdbIdValue, opts.counters);
             actions.push("omdb(api)");
-            if (omdb) await putOmdbCache(row.kind ?? "other", imdbId, omdb);
+            if (omdb) await putOmdbCache(row.kind ?? "other", imdbIdValue, omdb);
           }
         }
       }
@@ -1429,7 +1430,7 @@ serve(async (req) => {
     const { data: rows, error } = await q;
     if (error) throw error;
 
-    const list = rows ?? [];
+    const list = (rows ?? []) as any[];
     counters.rows_scanned = list.length;
 
     let idx = 0;
@@ -1454,7 +1455,6 @@ serve(async (req) => {
             refresh_cache,
             refresh_if_older_than_days,
             dedupe_scan,
-            cooldown_minutes,
             counters,
           });
         } catch (e: any) {

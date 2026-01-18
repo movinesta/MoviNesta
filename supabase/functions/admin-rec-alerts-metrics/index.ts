@@ -1,6 +1,6 @@
 import { serve } from "jsr:@std/http@0.224.0/server";
 import { z } from "zod";
-import { requireAdmin, json, handleCors, jsonError } from "../_shared/admin.ts";
+import { requireAdmin, json, handleCors } from "../_shared/admin.ts";
 
 const BodySchema = z
   .object({
@@ -21,7 +21,14 @@ serve(async (req) => {
 
     const raw = await req.json().catch(() => ({}));
     const parsed = BodySchema.safeParse(raw);
-    if (!parsed.success) return jsonError(req, 400, "bad_request", "Invalid request body", parsed.error.flatten());
+    if (!parsed.success) {
+      return json(req, 400, {
+        ok: false,
+        code: "bad_request",
+        message: "Invalid request body",
+        details: parsed.error.flatten(),
+      });
+    }
 
     const days = parsed.data.days ?? 30;
     const since = new Date();
@@ -34,8 +41,12 @@ serve(async (req) => {
       svc.from("rec_active_alerts_v1").select("*").gte("day", sinceStr).order("day", { ascending: false }),
     ]);
 
-    if (dailyRes.error) return jsonError(req, 500, "db_error", dailyRes.error.message, dailyRes.error);
-    if (alertsRes.error) return jsonError(req, 500, "db_error", alertsRes.error.message, alertsRes.error);
+    if (dailyRes.error) {
+      return json(req, 500, { ok: false, code: "db_error", message: dailyRes.error.message, details: dailyRes.error });
+    }
+    if (alertsRes.error) {
+      return json(req, 500, { ok: false, code: "db_error", message: alertsRes.error.message, details: alertsRes.error });
+    }
 
     return json(req, 200, {
       ok: true,
@@ -45,6 +56,6 @@ serve(async (req) => {
       alerts: alertsRes.data ?? [],
     });
   } catch (e) {
-    return jsonError(req, 500, "internal_error", e instanceof Error ? e.message : String(e));
+    return json(req, 500, { ok: false, code: "internal_error", message: e instanceof Error ? e.message : String(e) });
   }
 });

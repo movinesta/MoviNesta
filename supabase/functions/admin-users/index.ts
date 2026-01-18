@@ -57,10 +57,9 @@ serve(async (req) => {
       const target = String(body.user_id ?? "");
       if (!target) return json(req, 400, { ok: false, message: "user_id required" });
 
-      const banned_until = action === "ban"
-        ? new Date(Date.now() + 1000 * 60 * 60 * 24 * knobs.banDurationDays).toISOString()
-        : null;
-      const { error } = await svc.auth.admin.updateUserById(target, { banned_until });
+      const banDurationHours = Math.max(1, Math.round(knobs.banDurationDays * 24));
+      const ban_duration = action === "ban" ? `${banDurationHours}h` : "none";
+      const { error } = await svc.auth.admin.updateUserById(target, { ban_duration });
       if (error) return json(req, 500, { ok: false, message: error.message });
 
       await svc.from("admin_audit_log").insert({

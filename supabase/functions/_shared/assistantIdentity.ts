@@ -7,7 +7,7 @@
 // - Let environments configure the assistant by ID *or* username.
 // - Provide a single source of truth for assistant DM checks in edge functions.
 
-import { log } from "./logger.ts";
+import { log, type LogContext } from "./logger.ts";
 
 export type AssistantIdentity = {
   id: string;
@@ -20,7 +20,7 @@ export type AssistantIdentity = {
 export async function resolveAssistantIdentity(
   svc: any,
   cfg: { assistantUserId?: string | null; assistantUsername?: string | null },
-  logCtx: Record<string, unknown>,
+  logCtx: LogContext,
 ): Promise<AssistantIdentity> {
   // Prefer explicit ID (most reliable).
   const assistantUserId = (cfg.assistantUserId ?? "").trim();

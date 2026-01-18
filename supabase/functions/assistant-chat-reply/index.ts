@@ -18,7 +18,7 @@ import {
   jsonResponse,
   validateRequest,
 } from "../_shared/http.ts";
-import { log, logInfo, logWarn } from "../_shared/logger.ts";
+import { log, logInfo, logWarn, type LogContext } from "../_shared/logger.ts";
 import { getAdminClient, getUserClient } from "../_shared/supabase.ts";
 import { requireInternalJob } from "../_shared/internal.ts";
 import { getConfig } from "../_shared/config.ts";
@@ -64,6 +64,10 @@ const FN_NAME = "assistant-chat-reply";
 const BUILD_TAG = "assistant-chat-reply-v3-2026-01-06";
 const CHAT_MEDIA_BUCKET = "chat-media";
 const ASSISTANT_MEDIA_SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
+type MessageMeta = Database["public"]["Tables"]["messages"]["Row"]["meta"];
 
 type OutputValidationMode = "strict" | "lenient";
 type OutputValidationPolicy = {
@@ -317,7 +321,7 @@ function safeJsonParse<T = any>(s: string): T | null {
   }
 }
 
-function withToolEnum(entry: SchemaRegistryEntry, toolNames: string[]): SchemaRegistryEntry {
+function withToolEnum(entry: SchemaRegistryEntry, toolNames: readonly string[]): SchemaRegistryEntry {
   const schema = structuredClone(entry.schema ?? {});
   const toolNode =
     (schema as any)?.properties?.calls?.items?.properties?.tool ??
@@ -745,7 +749,7 @@ async function handler(req: Request) {
 
   const requestId = getRequestId(req);
   const runnerJobId = req.headers.get("x-runner-job-id") ?? undefined;
-  let logCtx = { fn: FN_NAME, requestId, runnerJobId };
+    let logCtx: LogContext = { fn: FN_NAME, requestId, runnerJobId };
 
   // Hard execution budget: avoid edge runtime timeouts (~60s). We aim to respond within 50s.
   const tStart = Date.now();
@@ -1172,6 +1176,10 @@ async function handler(req: Request) {
       (payload.userText && String(payload.userText).trim()) ||
       findLatestUserText(chronological, myUserId) ||
       "";
+    const anchorMessageId =
+      payload.userMessageId ??
+      findLatestUserMessageId(chronological, myUserId) ??
+      null;
 
     const wantsSse = Boolean(payload.stream) && (req.headers.get("accept") ?? "").includes("text/event-stream");
     const streamPassthroughEnabled = Boolean((assistantSettings.params as any)?.stream_passthrough);
@@ -1948,7 +1956,8 @@ async function handler(req: Request) {
                 const handleId = anchorMessageId
                   ? await tryLogToolResult(svc, {
                     userId: myUserId,
-                    anchorMessageId,
+                    conversationId,
+                    messageId: anchorMessageId,
                     tool: String(tcall.tool),
                     args: tcall.args ?? {},
                     result: (toolResult as any)?.result ?? toolResult,
@@ -2237,7 +2246,7 @@ async function handler(req: Request) {
               finalReplyText = await generateChunkedReplyText({
                 timeLeftMs,
                 models,
-                plugins,
+                plugins: plugins ?? [],
                 behavior,
                 sanitizeOpts,
                 defaults: {
@@ -2481,7 +2490,7 @@ async function handler(req: Request) {
       }
     }
 
-    finalReplyText = overrideStrictOutput(latestUserText, toolTrace as any[], finalReplyText);
+    finalReplyText = overrideStrictOutput(latestUserText, toolTrace as any[], String(finalReplyText ?? ""));
     finalReplyText = sanitizeReply(String(finalReplyText ?? ""), sanitizeOpts);
 
     // If web search was used, attach citations (when available) without breaking strict output requests.
@@ -2526,6 +2535,40 @@ async function handler(req: Request) {
     // 6) Insert assistant message.
     const clientId = `assistant_${crypto.randomUUID()}`;
 
+    const meta: MessageMeta = {
+      ai: {
+        provider: "openrouter",
+        kind: "reply",
+        triggeredBy: {
+          userMessageId: payload.userMessageId ?? null,
+        },
+        evidenceRequired: needsEvidence(latestUserText),
+        evidenceGrounded: !needsEvidence(latestUserText) || hasGroundingEvidence(),
+        toolHandles: evidenceHandles.slice(0, 50),
+        toolsUsed: Array.from(
+          new Set(
+            toolTrace
+              .map((x) => x.call?.tool)
+              .filter(Boolean),
+          ),
+        ).slice(0, 50),
+        model: finalModel ?? null,
+        usage: finalUsage ?? null,
+        routing: routingTelemetry,
+        ui: finalUi ?? null,
+        actions: finalActions ?? null,
+        toolTrace: toolTrace.map((t) => ({
+          tool: t.call?.tool ?? "unknown",
+          args: t.call?.args ?? null,
+          ok: (t.result as any)?.ok ?? false,
+        })),
+      },
+      evidence: { handles: evidenceHandles.slice(0, 50) },
+      triggeredBy: {
+        userMessageId: payload.userMessageId ?? null,
+      },
+    } as MessageMeta;
+
     const insertPayload: Database["public"]["Tables"]["messages"]["Insert"] = {
       conversation_id: conversationId,
       user_id: assistantUserId,
@@ -2534,39 +2577,7 @@ async function handler(req: Request) {
       text: replyText,
       body: { type: "text", text: replyText },
       client_id: clientId,
-      meta: {
-        ai: {
-          provider: "openrouter",
-          kind: "reply",
-          triggeredBy: {
-            userMessageId: payload.userMessageId ?? null,
-          },
-          evidenceRequired: needsEvidence(latestUserText),
-          evidenceGrounded: !needsEvidence(latestUserText) || hasGroundingEvidence(),
-          toolHandles: evidenceHandles.slice(0, 50),
-          toolsUsed: Array.from(
-            new Set(
-              toolTrace
-                .map((x) => x.call?.tool)
-                .filter(Boolean),
-            ),
-          ).slice(0, 50),
-          model: finalModel ?? null,
-          usage: finalUsage ?? null,
-          routing: routingTelemetry,
-          ui: finalUi ?? null,
-          actions: finalActions ?? null,
-          toolTrace: toolTrace.map((t) => ({
-            tool: t.call?.tool ?? "unknown",
-            args: t.call?.args ?? null,
-            ok: (t.result as any)?.ok ?? false,
-          })),
-        },
-        evidence: { handles: evidenceHandles.slice(0, 50) },
-        triggeredBy: {
-          userMessageId: payload.userMessageId ?? null,
-        },
-      },
+      meta,
     };
 
     // Set DB-level idempotency key for assistant replies (migration 20260105_120000).
@@ -3120,4 +3131,3 @@ function needsWebSearch(text: string): boolean {
   // Heuristic: only enable web search when the user explicitly asks for recency or external facts.
   return /(latest|today|right now|currently|current|recent|newest|news|update|updated|as of|this week|this month)/i.test(t);
 }
-

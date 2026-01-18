@@ -103,7 +103,6 @@ export async function maybeDeterministicReply(ctx: {
         message: "Invalid tool call",
         code: "INVALID_TOOL_CALL",
       };
-      // @ts-expect-error - trace is best-effort
       ctx.toolTrace.push({ call: safeCall, result: err });
       return err;
     }

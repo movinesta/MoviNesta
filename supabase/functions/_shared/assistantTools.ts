@@ -1199,6 +1199,48 @@ async function toolListAddItems(supabase: any, userId: string, args: any) {
 
   const rawListName = coerceString(args?.listName ?? args?.name ?? args?.list?.name);
   const listName = normalizeListName(rawListName);
+  const maxRaw = Number(args?.max ?? args?.limit ?? 50);
+  const max = Number.isFinite(maxRaw) ? Math.max(1, Math.min(100, Math.trunc(maxRaw))) : 50;
+  const note = coerceString(args?.note);
+  const contentTypeRaw = coerceString(args?.contentType ?? args?.content_type) || null;
+
+  const ids: string[] = [];
+  const itemMeta = new Map<string, { contentType?: string | null; note?: string | null }>();
+  const titleIdsRaw = Array.isArray(args?.titleIds)
+    ? args.titleIds
+    : Array.isArray(args?.title_ids)
+    ? args.title_ids
+    : [];
+  for (const raw of titleIdsRaw) {
+    const tid = coerceString(raw);
+    if (tid) ids.push(tid);
+  }
+
+  if (Array.isArray(args?.items)) {
+    for (const raw of args.items) {
+      if (!raw || typeof raw !== "object") continue;
+      const tid = coerceString(
+        (raw as any).titleId ??
+          (raw as any).title_id ??
+          (raw as any).id ??
+          (raw as any).media_item_id ??
+          (raw as any).title?.id ??
+          (raw as any).title?.titleId ??
+          (raw as any).title?.title_id,
+      );
+      if (!tid) continue;
+      if (!ids.includes(tid)) ids.push(tid);
+      itemMeta.set(tid, {
+        contentType: coerceString((raw as any).contentType ?? (raw as any).content_type) || null,
+        note: coerceString((raw as any).note) || null,
+      });
+    }
+  }
+
+  if (!ids.length && args?.titleId) {
+    const tid = coerceString(args.titleId);
+    if (tid) ids.push(tid);
+  }
 
   if (!listId && listName) {
     const { data: foundExact, error: findExactErr } = await supabase
