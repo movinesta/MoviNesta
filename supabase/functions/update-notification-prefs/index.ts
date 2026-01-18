@@ -56,7 +56,7 @@ export async function handler(req: Request) {
   const logCtx = { fn: FN_NAME, requestId };
 
   try {
-    const apiKeyError = requireApiKeyHeader(req);
+    const apiKeyError = requireApiKeyHeader(req, { allowBearer: true });
     if (apiKeyError) return apiKeyError;
 
     const supabase = getUserClient(req);
