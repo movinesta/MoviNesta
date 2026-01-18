@@ -30,7 +30,8 @@ function json(status: number, body: unknown) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+      "access-control-allow-headers":
+        "authorization, x-client-info, apikey, content-type, x-request-id, x-runner-job-id",
       "access-control-allow-methods": "POST, OPTIONS",
     },
   });
@@ -82,8 +83,11 @@ serve(async (req) => {
     const cfg = getConfig();
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
     const apiKeyHeader = (req.headers.get("apikey") ?? req.headers.get("x-api-key") ?? "").trim();
-    if (!apiKeyHeader || (apiKeyHeader !== cfg.supabaseAnonKey && apiKeyHeader !== cfg.supabaseServiceRoleKey)) {
-      return json(401, { ok: false, code: "INVALID_APIKEY" });
+    const hasBearer = /^Bearer\s+.+/i.test(authHeader.trim());
+    if (!hasBearer) {
+      if (!apiKeyHeader || (apiKeyHeader !== cfg.supabaseAnonKey && apiKeyHeader !== cfg.supabaseServiceRoleKey)) {
+        return json(401, { ok: false, code: "INVALID_APIKEY" });
+      }
     }
 
     const userClient = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
