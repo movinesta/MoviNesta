@@ -27,7 +27,11 @@ export default function AssistantChatPage() {
     (async () => {
       let data: any;
       try {
-        data = await callSupabaseFunction<any>("assistant-get-conversation", {}, { requireAuth: true });
+        data = await callSupabaseFunction<any>(
+          "assistant-get-conversation",
+          {},
+          { requireAuth: true },
+        );
       } catch (e) {
         if (!alive) return;
         console.error("assistant-get-conversation", e);

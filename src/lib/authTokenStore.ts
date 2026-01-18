@@ -43,9 +43,12 @@ export async function initAuthTokenStore(): Promise<void> {
 
   if (!subscribed) {
     subscribed = true;
-    supabase.auth.onAuthStateChange((_event, session) => {
-      updateFromSession(session);
-    });
+    const onAuthStateChange = supabase.auth?.onAuthStateChange;
+    if (typeof onAuthStateChange === "function") {
+      onAuthStateChange((_event, session) => {
+        updateFromSession(session);
+      });
+    }
   }
 }
 
