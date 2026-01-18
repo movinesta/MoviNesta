@@ -82,8 +82,11 @@ serve(async (req) => {
     const cfg = getConfig();
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
     const apiKeyHeader = (req.headers.get("apikey") ?? req.headers.get("x-api-key") ?? "").trim();
-    if (!apiKeyHeader || (apiKeyHeader !== cfg.supabaseAnonKey && apiKeyHeader !== cfg.supabaseServiceRoleKey)) {
-      return json(401, { ok: false, code: "INVALID_APIKEY" });
+    const hasBearer = /^Bearer\s+.+/i.test(authHeader.trim());
+    if (!hasBearer) {
+      if (!apiKeyHeader || (apiKeyHeader !== cfg.supabaseAnonKey && apiKeyHeader !== cfg.supabaseServiceRoleKey)) {
+        return json(401, { ok: false, code: "INVALID_APIKEY" });
+      }
     }
 
     const userClient = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
