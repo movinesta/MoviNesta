@@ -141,7 +141,7 @@ async function loadSchemaRegistryEntryWithFallback(
   client: { from: (table: string) => any },
   key: string,
   fallback: SchemaRegistryEntry,
-  logCtx: Record<string, unknown>,
+  logCtx: LogContext,
 ): Promise<SchemaRegistryEntry> {
   try {
     return await loadSchemaRegistryEntry(client, key);
