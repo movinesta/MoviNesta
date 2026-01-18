@@ -34,7 +34,11 @@ function safeParse(raw: string | null): QueuedEvent[] {
   }
 }
 
-function computeDedupeKey(recRequestId: unknown, position: unknown, mediaItemId: unknown): string | null {
+function computeDedupeKey(
+  recRequestId: unknown,
+  position: unknown,
+  mediaItemId: unknown,
+): string | null {
   const rr = String(recRequestId ?? "").trim();
   const mi = String(mediaItemId ?? "").trim();
   const p = Number(position);
@@ -72,7 +76,9 @@ function normalizeQueue(input: unknown): QueuedEvent[] {
     }
 
     const rawKey = String((ev as any).dedupeKey ?? (ev as any).dedupe_key ?? "").trim();
-    const computed = rawKey || computeDedupeKey((ev as any).recRequestId, (ev as any).position, (ev as any).mediaItemId);
+    const computed =
+      rawKey ||
+      computeDedupeKey((ev as any).recRequestId, (ev as any).position, (ev as any).mediaItemId);
 
     if (computed) {
       (ev as any).dedupeKey = computed;
@@ -81,7 +87,9 @@ function normalizeQueue(input: unknown): QueuedEvent[] {
     }
 
     const hasDeckContext =
-      (ev as any).deckId != null || (ev as any).recRequestId != null || (ev as any).position != null;
+      (ev as any).deckId != null ||
+      (ev as any).recRequestId != null ||
+      (ev as any).position != null;
 
     if (hasDeckContext) {
       // Can't build a served key => downgrade to a non-deck event to prevent poison retries.
@@ -104,7 +112,10 @@ export function loadQueuedEvents(): QueuedEvent[] {
 
   // If normalization changed shape/count, persist it to avoid repeated work.
   try {
-    if (normalized.length !== parsed.length || JSON.stringify(normalized) !== JSON.stringify(parsed)) {
+    if (
+      normalized.length !== parsed.length ||
+      JSON.stringify(normalized) !== JSON.stringify(parsed)
+    ) {
       safeLocalStorageSetItem(STORAGE_KEY, JSON.stringify(normalized));
     }
   } catch {
@@ -113,7 +124,6 @@ export function loadQueuedEvents(): QueuedEvent[] {
 
   return normalized;
 }
-
 
 export function enqueueSwipeEvent(ev: SendMediaSwipeEventInput): void {
   const queue = loadQueuedEvents();
