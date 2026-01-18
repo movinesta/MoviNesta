@@ -61,7 +61,6 @@ import { safeUpsertMessageRowIntoCache } from "./safeUpsertMessageRow";
 import { useAssistantReplyStatus } from "./useAssistantReplyStatus";
 import { createRandomTempId } from "./idUtils";
 import { createClientId } from "./clientId";
-import { supabase } from "@/lib/supabase";
 import { callSupabaseFunction } from "@/lib/callSupabaseFunction";
 import { fetchSupabaseEdgeFunction } from "@/lib/edgeFetch";
 import { useAssistantCache } from "@/lib/useAssistantCache";
@@ -441,7 +440,6 @@ const ConversationPage: React.FC = () => {
       setAssistantReplyFailed(null);
 
       try {
-
         const readErrorPayload = async (res: Response) => {
           const raw = await res.text();
           if (!raw) {

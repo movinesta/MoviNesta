@@ -270,19 +270,6 @@ export function rotateSwipeDeckSeedForMode(
   return seed;
 }
 
-function timeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("Request timed out")), ms);
-    p.then((v) => {
-      clearTimeout(t);
-      resolve(v);
-    }).catch((e) => {
-      clearTimeout(t);
-      reject(e);
-    });
-  });
-}
-
 function ensureClientEventId(value: string | null | undefined): string {
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (value && typeof value === "string" && uuidRe.test(value)) return value;
