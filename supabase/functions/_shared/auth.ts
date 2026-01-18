@@ -30,6 +30,9 @@ export function requireApiKeyHeader(
   options?: { require?: ApiKeyRequirement; allowBearer?: boolean },
 ): Response | null {
   const cfg = getConfig();
+  if (options?.allowBearer && getBearerToken(req)) {
+    return null;
+  }
   const provided = (
     req.headers.get("apikey") ??
     req.headers.get("x-api-key") ??
