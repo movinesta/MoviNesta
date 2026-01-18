@@ -41,6 +41,9 @@ export function requireApiKeyHeader(
   ).trim();
 
   if (!provided) {
+    if (options?.allowBearer && getBearerToken(req)) {
+      return null;
+    }
     return jsonError(req, "Missing apikey header", 401, "MISSING_APIKEY");
   }
 
