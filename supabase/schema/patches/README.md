@@ -37,4 +37,7 @@ This folder contains one-off SQL patches you can run in the Supabase SQL Editor.
 - `20260118_p38_schema_registry_assistant_chunk_outline.sql`
   - Seeds the schema registry with the assistant.chunk_outline response schema.
 
+- `20260118_p39_schema_registry_assistant_agent.sql`
+  - Seeds the schema registry with the assistant.agent response schema.
+
 > Tip: Use Supabase Vault to store `project_url`, `publishable_key`, and `internal_job_token`, then reference them from cron commands.
