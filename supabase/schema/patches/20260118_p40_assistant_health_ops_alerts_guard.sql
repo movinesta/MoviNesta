@@ -65,7 +65,15 @@ begin
     v_failures := '[]'::jsonb;
   end if;
 
-  if to_regclass('public.ops_alerts') is not null then
+  if to_regclass('public.ops_alerts') is not null
+    and exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'ops_alerts'
+        and column_name = 'request_id'
+    )
+  then
     select coalesce(jsonb_agg(jsonb_build_object(
       'id', id,
       'createdAt', created_at,
@@ -78,6 +86,25 @@ begin
     into v_ai_failures
     from (
       select *
+      from public.ops_alerts
+      where kind = 'assistant_failure'
+        and created_at >= (v_now - interval '72 hours')
+      order by created_at desc
+      limit 50
+    ) af;
+  elsif to_regclass('public.ops_alerts') is not null then
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', id,
+      'createdAt', created_at,
+      'requestId', null,
+      'userId', user_id,
+      'code', code,
+      'reason', message,
+      'context', left(context::text, 500)
+    ) order by created_at desc), '[]'::jsonb)
+    into v_ai_failures
+    from (
+      select id, created_at, user_id, code, message, context
       from public.ops_alerts
       where kind = 'assistant_failure'
         and created_at >= (v_now - interval '72 hours')
