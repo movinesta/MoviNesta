@@ -169,7 +169,7 @@ export async function handler(req: Request) {
     return jsonError(req, "Method not allowed", 405, "METHOD_NOT_ALLOWED");
   }
 
-  const apiKeyError = requireApiKeyHeader(req);
+  const apiKeyError = requireApiKeyHeader(req, { allowBearer: true });
   if (apiKeyError) return apiKeyError;
 
   // Require a valid Supabase session.
