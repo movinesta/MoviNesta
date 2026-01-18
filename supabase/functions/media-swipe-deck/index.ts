@@ -989,7 +989,7 @@ serve(async (req) => {
   if (preflight) return preflight;
 
   try {
-    const apiKeyError = requireApiKeyHeader(req);
+    const apiKeyError = requireApiKeyHeader(req, { allowBearer: true });
     if (apiKeyError) return apiKeyError;
 
     const supabase = getUserClient(req);

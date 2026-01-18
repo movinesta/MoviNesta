@@ -51,7 +51,7 @@ export async function handler(req: Request){
     return jsonError("Method not allowed", 405);
   }
 
-  const apiKeyError = requireApiKeyHeader(req);
+  const apiKeyError = requireApiKeyHeader(req, { allowBearer: true });
   if (apiKeyError) return apiKeyError;
 
   const { supabaseUrl, supabaseAnonKey } = getConfig();
