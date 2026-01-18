@@ -46,19 +46,20 @@ function fmtTime(ms: number): string {
 }
 
 export const SwipeDebugPanel: React.FC<Props> = ({ active }) => {
-  const [tick, setTick] = useState(0);
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
-    const t = window.setInterval(() => setTick((x) => x + 1), 1000);
+    const updateNow = () => setNow(Date.now());
+    updateNow();
+    const t = window.setInterval(updateNow, 1000);
     return () => window.clearInterval(t);
   }, []);
 
-  const ingest = useMemo(() => readJson<LastIngest>(LAST_INGEST_KEY), [tick]);
-  const backoff = useMemo(() => readJson<BackoffState>(BACKOFF_KEY), [tick]);
+  const ingest = useMemo(() => readJson<LastIngest>(LAST_INGEST_KEY), [now]);
+  const backoff = useMemo(() => readJson<BackoffState>(BACKOFF_KEY), [now]);
 
   if (!import.meta.env.DEV) return null;
 
-  const now = Date.now();
   const blockedMs = backoff?.nextAt && backoff.nextAt > now ? backoff.nextAt - now : 0;
 
   return (
@@ -116,7 +117,8 @@ export const SwipeDebugPanel: React.FC<Props> = ({ active }) => {
                 <span className="text-foreground">failCount</span>: {backoff.failCount}
               </div>
               <div>
-                <span className="text-foreground">nextAt</span>: {backoff.nextAt ? fmtTime(backoff.nextAt) : "0"}
+                <span className="text-foreground">nextAt</span>:{" "}
+                {backoff.nextAt ? fmtTime(backoff.nextAt) : "0"}
               </div>
               {blockedMs ? (
                 <div>

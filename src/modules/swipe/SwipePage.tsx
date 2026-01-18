@@ -756,7 +756,7 @@ const SwipePage: React.FC = () => {
         sessionId,
         deckId: activeCardRaw.deckId ?? null,
         recRequestId: activeCardRaw.recRequestId ?? null,
-        dedupeKey: (activeCardRaw.dedupeKey ?? (activeCardRaw as any).dedupe_key) ?? null,
+        dedupeKey: activeCardRaw.dedupeKey ?? (activeCardRaw as any).dedupe_key ?? null,
         position: activeCardRaw.position ?? null,
         mediaItemId: activeCardRaw.id,
         source: activeCardRaw.source ?? null,
@@ -2455,14 +2455,18 @@ const SwipePage: React.FC = () => {
         />
 
         <SwipeDebugPanel
-          active={activeCardRaw ? {
-            deckId: activeCardRaw.deckId ?? null,
-            recRequestId: activeCardRaw.recRequestId ?? null,
-            position: activeCardRaw.position ?? null,
-            dedupeKey: (activeCardRaw.dedupeKey ?? (activeCardRaw as any).dedupe_key) ?? null,
-            mediaItemId: activeCardRaw.id ?? null,
-            source: activeCardRaw.source ?? null,
-          } : null}
+          active={
+            activeCardRaw
+              ? {
+                  deckId: activeCardRaw.deckId ?? null,
+                  recRequestId: activeCardRaw.recRequestId ?? null,
+                  position: activeCardRaw.position ?? null,
+                  dedupeKey: activeCardRaw.dedupeKey ?? (activeCardRaw as any).dedupe_key ?? null,
+                  mediaItemId: activeCardRaw.id ?? null,
+                  source: activeCardRaw.source ?? null,
+                }
+              : null
+          }
         />
       </div>
 

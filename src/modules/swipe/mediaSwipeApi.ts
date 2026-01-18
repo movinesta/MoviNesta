@@ -143,7 +143,6 @@ export type SendMediaSwipeEventsBatchInput = {
   events: SendMediaSwipeBatchEvent[];
 };
 
-
 export type SendMediaSwipeEventsMultiResponse = {
   ok: true;
   requestId?: string;
@@ -250,7 +249,6 @@ function persistLastIngestSnapshot(snapshot: SwipeLastIngestSnapshot) {
     // Ignore storage errors (quota/private mode)
   }
 }
-
 
 function deckSeedStorageKey(
   sessionId: string,
@@ -403,7 +401,11 @@ function normalizeEventType(type: unknown): MediaSwipeEventType | LegacyMediaSwi
   return trimmed as MediaSwipeEventType | LegacyMediaSwipeEventType;
 }
 
-function computeDedupeKey(recRequestId: unknown, position: unknown, mediaItemId: unknown): string | null {
+function computeDedupeKey(
+  recRequestId: unknown,
+  position: unknown,
+  mediaItemId: unknown,
+): string | null {
   const rr = String(recRequestId ?? "").trim();
   const mi = String(mediaItemId ?? "").trim();
   const p = Number(position);
@@ -445,14 +447,17 @@ export async function sendMediaSwipeEventsMulti(
       // If we cannot build a served dedupe key, strip deck context so the server won't reject the entire batch.
       // (The event will still be recorded, but it won't join to impressions.)
       const safeDeckId = dedupeKey ? (it?.deckId ?? null) : null;
-      const safeRecRequestId = dedupeKey ? ((it as any)?.recRequestId ?? (it as any)?.rec_request_id ?? null) : null;
+      const safeRecRequestId = dedupeKey
+        ? ((it as any)?.recRequestId ?? (it as any)?.rec_request_id ?? null)
+        : null;
       const safePosition = dedupeKey ? (it?.position ?? null) : null;
 
       return {
         ...it,
         deckId: hasDeckContext && !dedupeKey ? null : safeDeckId,
         recRequestId: hasDeckContext && !dedupeKey ? null : safeRecRequestId,
-        rec_request_id: hasDeckContext && !dedupeKey ? null : ((it as any)?.rec_request_id ?? safeRecRequestId),
+        rec_request_id:
+          hasDeckContext && !dedupeKey ? null : ((it as any)?.rec_request_id ?? safeRecRequestId),
         position: hasDeckContext && !dedupeKey ? null : safePosition,
         dedupeKey: dedupeKey ?? (it as any)?.dedupeKey ?? (it as any)?.dedupe_key ?? null,
         dedupe_key: dedupeKey ?? (it as any)?.dedupe_key ?? (it as any)?.dedupeKey ?? null,
@@ -513,7 +518,13 @@ export async function sendMediaSwipeEventsMulti(
 
     if (data?.ok === false) return { ok: false, message: data?.message };
     // Backwards-compatible: if server returned no envelope, treat as success.
-    return { ok: true, acceptedClientEventIds: [], rejectedClientEventIds: [], retryClientEventIds: [], shouldRetry: false };
+    return {
+      ok: true,
+      acceptedClientEventIds: [],
+      rejectedClientEventIds: [],
+      retryClientEventIds: [],
+      shouldRetry: false,
+    };
   } catch (err) {
     if (err instanceof ApiError) {
       // Preserve historical behavior: app-level (structured) errors return ok:false,
@@ -530,7 +541,7 @@ export async function sendMediaSwipeEventsMulti(
 export async function sendMediaSwipeEventsBatch(
   input: SendMediaSwipeEventsBatchInput,
   opts?: { timeoutMs?: number },
-): Promise<{ ok: true } | { ok: false; message?: string }> {
+): Promise<SendMediaSwipeEventsMultiResult> {
   const events = (Array.isArray((input as any).events) ? (input as any).events : [])
     .map((ev: any) => {
       const eventType = normalizeEventType(ev?.eventType);
@@ -556,14 +567,17 @@ export async function sendMediaSwipeEventsBatch(
     String(anyInput?.dedupeKey ?? anyInput?.dedupe_key ?? "").trim();
 
   const safeDeckId = dedupeKey ? (anyInput?.deckId ?? null) : null;
-  const safeRecRequestId = dedupeKey ? (anyInput?.recRequestId ?? anyInput?.rec_request_id ?? null) : null;
+  const safeRecRequestId = dedupeKey
+    ? (anyInput?.recRequestId ?? anyInput?.rec_request_id ?? null)
+    : null;
   const safePosition = dedupeKey ? (anyInput?.position ?? null) : null;
 
   const payload = {
     ...input,
     deckId: hasDeckContext && !dedupeKey ? null : safeDeckId,
     recRequestId: hasDeckContext && !dedupeKey ? null : safeRecRequestId,
-    rec_request_id: hasDeckContext && !dedupeKey ? null : (anyInput?.rec_request_id ?? safeRecRequestId),
+    rec_request_id:
+      hasDeckContext && !dedupeKey ? null : (anyInput?.rec_request_id ?? safeRecRequestId),
     position: hasDeckContext && !dedupeKey ? null : safePosition,
     dedupeKey: dedupeKey ?? (input as any).dedupeKey ?? null,
     dedupe_key: dedupeKey ?? (input as any).dedupe_key ?? null,
@@ -618,7 +632,13 @@ export async function sendMediaSwipeEventsBatch(
 
     if (data?.ok === false) return { ok: false, message: data?.message };
     // Backwards-compatible: if server returned no envelope, treat as success.
-    return { ok: true, acceptedClientEventIds: [], rejectedClientEventIds: [], retryClientEventIds: [], shouldRetry: false };
+    return {
+      ok: true,
+      acceptedClientEventIds: [],
+      rejectedClientEventIds: [],
+      retryClientEventIds: [],
+      shouldRetry: false,
+    };
   } catch (err) {
     if (err instanceof ApiError) {
       const status = Number(err.status ?? 0);
@@ -633,7 +653,7 @@ export async function sendMediaSwipeEventsBatch(
 export async function sendMediaSwipeEvent(
   input: SendMediaSwipeEventInput,
   opts?: { timeoutMs?: number },
-): Promise<{ ok: true } | { ok: false; message?: string }> {
+): Promise<SendMediaSwipeEventsMultiResult> {
   // Supports both single-event and batch payloads.
   const anyInput: any = input as any;
   if (Array.isArray(anyInput?.events)) {
@@ -653,14 +673,17 @@ export async function sendMediaSwipeEvent(
     String(anyInput?.dedupeKey ?? anyInput?.dedupe_key ?? "").trim();
 
   const safeDeckId = dedupeKey ? (anyInput?.deckId ?? null) : null;
-  const safeRecRequestId = dedupeKey ? (anyInput?.recRequestId ?? anyInput?.rec_request_id ?? null) : null;
+  const safeRecRequestId = dedupeKey
+    ? (anyInput?.recRequestId ?? anyInput?.rec_request_id ?? null)
+    : null;
   const safePosition = dedupeKey ? (anyInput?.position ?? null) : null;
 
   const payload = {
     ...input,
     deckId: hasDeckContext && !dedupeKey ? null : safeDeckId,
     recRequestId: hasDeckContext && !dedupeKey ? null : safeRecRequestId,
-    rec_request_id: hasDeckContext && !dedupeKey ? null : (anyInput?.rec_request_id ?? safeRecRequestId),
+    rec_request_id:
+      hasDeckContext && !dedupeKey ? null : (anyInput?.rec_request_id ?? safeRecRequestId),
     position: hasDeckContext && !dedupeKey ? null : safePosition,
     eventType,
     dedupeKey: dedupeKey ?? input.dedupeKey ?? null,
@@ -688,6 +711,7 @@ export async function sendMediaSwipeEvent(
     throw err;
   }
 }
+
 export type SendOnboardingInitialLikesInput = {
   sessionId: string;
   mediaItemIds: string[];
