@@ -46,6 +46,18 @@ function createRequestId(): string {
   }
 }
 
+function getSupabaseAnonKey(): string {
+  const k =
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ??
+    (import.meta.env.VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY as string | undefined);
+  if (!k) {
+    throw new ApiError("Supabase anonymous key is required.", {
+      code: "MISSING_SUPABASE_ANON_KEY",
+    });
+  }
+  return k;
+}
+
 interface CallSupabaseFunctionOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -115,6 +127,7 @@ export async function callSupabaseFunction<T>(
   const requestId = createRequestId();
   const maxRetries = Math.max(0, Math.min(5, Number(opts?.retries ?? 0)));
   const baseDelayMs = Math.max(0, Math.min(10_000, Number(opts?.retryDelayMs ?? 250)));
+  const anonKey = getSupabaseAnonKey();
 
   // Best-effort: explicitly attach an auth token when available.
   // Prefer an in-memory token cache fed by auth events (reduces getSession() churn).
@@ -136,6 +149,7 @@ export async function callSupabaseFunction<T>(
           body,
           headers: {
             "x-request-id": requestId,
+            apikey: anonKey,
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
           signal: controller.signal,
