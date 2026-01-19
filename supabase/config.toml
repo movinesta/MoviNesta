@@ -1,0 +1,206 @@
+[functions.admin-app-settings]
+verify_jwt = false
+
+[functions.admin-assistant-health]
+verify_jwt = false
+
+[functions.admin-assistant-metrics]
+verify_jwt = false
+
+[functions.admin-assistant-settings]
+verify_jwt = false
+
+[functions.admin-audit]
+verify_jwt = false
+
+[functions.admin-costs]
+verify_jwt = false
+
+[functions.admin-embeddings]
+verify_jwt = false
+
+[functions.admin-jobs]
+verify_jwt = false
+
+[functions.admin-logs]
+verify_jwt = false
+
+[functions.admin-openrouter-circuit]
+verify_jwt = false
+
+[functions.admin-openrouter-credits]
+verify_jwt = false
+
+[functions.admin-openrouter-endpoints]
+verify_jwt = false
+
+[functions.admin-openrouter-key]
+verify_jwt = false
+
+[functions.admin-openrouter-models]
+verify_jwt = false
+
+[functions.admin-openrouter-parameters]
+verify_jwt = false
+
+[functions.admin-openrouter-parameters-refresh]
+verify_jwt = false
+
+[functions.admin-openrouter-refresh]
+verify_jwt = false
+
+[functions.admin-openrouter-requests]
+verify_jwt = false
+
+[functions.admin-openrouter-usage]
+verify_jwt = false
+
+[functions.admin-ops-alerts]
+verify_jwt = false
+
+[functions.admin-overview]
+verify_jwt = false
+
+[functions.admin-rec-alerts-metrics]
+verify_jwt = false
+
+[functions.admin-rec-composition-metrics]
+verify_jwt = false
+
+[functions.admin-rec-genre-metrics]
+verify_jwt = false
+
+[functions.admin-rec-health-metrics]
+verify_jwt = false
+
+[functions.admin-rec-position-metrics]
+verify_jwt = false
+
+[functions.admin-rec-variant-metrics]
+verify_jwt = false
+
+[functions.admin-recsys-assignments-get]
+verify_jwt = false
+
+[functions.admin-recsys-assignments-reset]
+verify_jwt = false
+
+[functions.admin-recsys-assignments-set]
+verify_jwt = false
+
+[functions.admin-recsys-diagnostics]
+verify_jwt = false
+
+[functions.admin-recsys-experiments-activate]
+verify_jwt = false
+
+[functions.admin-recsys-experiments-end]
+verify_jwt = false
+
+[functions.admin-recsys-experiments-list]
+verify_jwt = false
+
+[functions.admin-recsys-experiments-metrics]
+verify_jwt = false
+
+[functions.admin-recsys-experiments-upsert]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.admin-verification]
+verify_jwt = false
+
+[functions.admin-whoami]
+verify_jwt = false
+
+[functions.assistant-chat-reply]
+verify_jwt = false
+
+[functions.assistant-chat-reply-runner]
+verify_jwt = false
+
+[functions.assistant-get-conversation]
+verify_jwt = false
+
+[functions.assistant-goal-sweeper]
+verify_jwt = false
+
+[functions.assistant-message-action]
+verify_jwt = false
+
+[functions.assistant-metrics-rollup]
+verify_jwt = false
+
+[functions.assistant-orchestrator]
+verify_jwt = false
+
+[functions.assistant-suggestion-action]
+verify_jwt = false
+
+[functions.assistant-tool-result]
+verify_jwt = false
+
+[functions.assistant-trigger-runner]
+verify_jwt = false
+
+[functions.catalog-backfill]
+verify_jwt = false
+
+[functions.catalog-sync]
+verify_jwt = false
+
+[functions.catalog-sync-batch]
+verify_jwt = false
+
+[functions.create-direct-conversation]
+verify_jwt = false
+
+[functions.experiment-assign]
+verify_jwt = false
+
+[functions.media-embed-backfill]
+verify_jwt = false
+
+[functions.media-search]
+verify_jwt = false
+
+[functions.media-smart-backfill]
+verify_jwt = false
+
+[functions.media-swipe-deck]
+verify_jwt = false
+
+[functions.media-swipe-event]
+verify_jwt = false
+
+[functions.media-trending-refresh]
+verify_jwt = false
+
+[functions.onboarding-initial-likes]
+verify_jwt = false
+
+[functions.openrouter-circuit-cleanup]
+verify_jwt = false
+
+[functions.openrouter-health-check]
+verify_jwt = false
+
+[functions.openrouter-generation-backfill]
+verify_jwt = false
+
+[functions.openrouter-refresh]
+verify_jwt = false
+
+[functions.public-app-settings]
+verify_jwt = false
+
+[functions.request-verification]
+verify_jwt = false
+
+[functions.tmdb-proxy]
+verify_jwt = false
+
+[functions.update-notification-prefs]
+verify_jwt = false
