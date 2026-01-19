@@ -132,10 +132,14 @@ function bumpSwipeEventsBackoff() {
   // Exponential backoff with FULL jitter (random in [0, cap]) to avoid synchronized retries.
   const base = 1000;
   const cap = 60_000;
-  const exp = Math.min(cap, base * (2 ** (nextFail - 1)));
+  const exp = Math.min(cap, base * 2 ** (nextFail - 1));
   const jitter = Math.floor(Math.random() * exp);
   const delay = Math.max(250, jitter);
-  writeSwipeEventsBackoffState({ failCount: nextFail, nextAt: Date.now() + delay, updatedAt: Date.now() });
+  writeSwipeEventsBackoffState({
+    failCount: nextFail,
+    nextAt: Date.now() + delay,
+    updatedAt: Date.now(),
+  });
 }
 
 function getSwipeEventsBackoffWaitMs(): number {
@@ -241,10 +245,13 @@ export function useMediaSwipeDeck(
       const waitMs = getSwipeEventsBackoffWaitMs();
       if (waitMs > 0) {
         if (backoffQueueTimerRef.current == null) {
-          backoffQueueTimerRef.current = window.setTimeout(() => {
-            backoffQueueTimerRef.current = null;
-            void flush();
-          }, Math.min(waitMs + 50, 65_000));
+          backoffQueueTimerRef.current = window.setTimeout(
+            () => {
+              backoffQueueTimerRef.current = null;
+              void flush();
+            },
+            Math.min(waitMs + 50, 65_000),
+          );
         }
         return;
       }
@@ -325,10 +332,13 @@ export function useMediaSwipeDeck(
     const waitMs = getSwipeEventsBackoffWaitMs();
     if (waitMs > 0) {
       if (backoffBufferedTimerRef.current == null) {
-        backoffBufferedTimerRef.current = window.setTimeout(() => {
-          backoffBufferedTimerRef.current = null;
-          void flushBuffered(forceAll);
-        }, Math.min(waitMs + 50, 65_000));
+        backoffBufferedTimerRef.current = window.setTimeout(
+          () => {
+            backoffBufferedTimerRef.current = null;
+            void flushBuffered(forceAll);
+          },
+          Math.min(waitMs + 50, 65_000),
+        );
       }
       return;
     }
@@ -434,7 +444,9 @@ export function useMediaSwipeDeck(
       if (Array.isArray(ev?.events)) {
         const { events, ...base } = ev as any;
         const basePayload =
-          typeof (base as any).payload === "object" && (base as any).payload ? (base as any).payload : null;
+          typeof (base as any).payload === "object" && (base as any).payload
+            ? (base as any).payload
+            : null;
         for (const e of events) {
           if (!e) continue;
           const evPayload = typeof e?.payload === "object" && e.payload ? e.payload : null;
@@ -442,7 +454,8 @@ export function useMediaSwipeDeck(
             ...base,
             ...e,
             // Merge base payload (e.g., experiments) into each event payload.
-            payload: basePayload || evPayload ? { ...(basePayload ?? {}), ...(evPayload ?? {}) } : null,
+            payload:
+              basePayload || evPayload ? { ...(basePayload ?? {}), ...(evPayload ?? {}) } : null,
             // Ensure each nested event gets its own id.
             clientEventId: e?.clientEventId ?? null,
           });
