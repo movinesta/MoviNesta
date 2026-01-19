@@ -162,7 +162,7 @@ export default function RecsysExperimentDetail() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
-                <Tooltip formatter={(value: number) => fmtPct(value)} />
+                <Tooltip formatter={(value) => fmtPct(typeof value === "number" ? value : 0)} />
                 <Legend />
                 {Array.from(new Set(rows.map((r) => r.variant))).map((variant) => (
                   <Line
