@@ -49,7 +49,9 @@ serve(async (req) => {
     if (provider) qs.push(`provider=${encodeURIComponent(provider)}`);
     const endpoint = `${baseUrl}/parameters/${encodeURIComponent(author)}/${encodeURIComponent(slug)}${qs.length ? `?${qs.join("&")}` : ""}`;
 
-    const referer = String(cfg.openrouterHttpReferer ?? "https://movinesta.app/").trim() || "https://movinesta.app/";
+    const referer =
+      String(cfg.openrouterHttpReferer ?? "https://movinesta.github.io/MoviNesta/").trim() ||
+      "https://movinesta.github.io/MoviNesta/";
     const titleBase = String(cfg.openrouterXTitle ?? "MoviNesta").trim() || "MoviNesta";
 
     const payload = await fetchJsonWithTimeout(

@@ -32,7 +32,9 @@ function parseRetryAfterMs(retryAfter: unknown): number | null {
 
 export function getOpenRouterAttributionHeaders(): Record<string, string> {
   const cfg = getConfig();
-  const referer = String(cfg.openrouterHttpReferer ?? "https://movinesta.app/").trim() || "https://movinesta.app/";
+  const referer =
+    String(cfg.openrouterHttpReferer ?? "https://movinesta.github.io/MoviNesta/").trim() ||
+    "https://movinesta.github.io/MoviNesta/";
   const title = String(cfg.openrouterXTitle ?? "MoviNesta").trim() || "MoviNesta";
   return {
     "HTTP-Referer": referer,
