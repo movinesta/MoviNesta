@@ -113,7 +113,9 @@ serve(async (req) => {
     const timeoutMs = Number(body.timeout_ms ?? 8000);
     const fetchedAt = new Date().toISOString();
 
-    const referer = String(cfg.openrouterHttpReferer ?? "https://movinesta.app/").trim() || "https://movinesta.app/";
+    const referer =
+      String(cfg.openrouterHttpReferer ?? "https://movinesta.github.io/MoviNesta/").trim() ||
+      "https://movinesta.github.io/MoviNesta/";
     const titleBase = String(cfg.openrouterXTitle ?? "MoviNesta").trim() || "MoviNesta";
     const attribution = { http_referer: referer, x_title: titleBase };
 

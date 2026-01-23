@@ -131,7 +131,9 @@ export async function getOpenRouterModelCatalog(opts?: {
   if (cached && Date.now() - cached.atMs <= cacheTtlMs) return cached.models;
   const cfg = getConfig();
   const openrouterApiKey = cfg.openrouterApiKey;
-  const referer = String(cfg.openrouterHttpReferer ?? "https://movinesta.app/").trim() || "https://movinesta.app/";
+  const referer =
+    String(cfg.openrouterHttpReferer ?? "https://movinesta.github.io/MoviNesta/").trim() ||
+    "https://movinesta.github.io/MoviNesta/";
   const titleBase = String(cfg.openrouterXTitle ?? "MoviNesta").trim() || "MoviNesta";
   try {
     const payload = (await fetchJsonWithTimeout(
