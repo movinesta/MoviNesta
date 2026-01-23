@@ -395,8 +395,8 @@ async function fetchAndCacheSupportedParametersLive(
 
       const endpoint = `${baseUrl}/parameters/${encodeURIComponent(author)}/${encodeURIComponent(slug)}${qs.length ? `?${qs.join("&")}` : ""}`;
 
-      const referer = String(cfg.openrouterHttpReferer ?? "https://movinesta.app/").trim() || "https://movinesta.app/";
-      const titleBase = String(cfg.openrouterXTitle ?? "MoviNesta").trim() || "MoviNesta";
+      const referer = String(cfg.openrouterHttpReferer ?? "https://movinesta.github.io/MoviNesta/").trim() || "https://movinesta.github.io/MoviNesta/";
+      const titleBase = String(cfg.openrouterXTitle ?? "MoviNesta Assistant").trim() || "MoviNesta Assistant";
 
       const payload = await fetchJsonWithTimeout(
         endpoint,
