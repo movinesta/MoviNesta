@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta name="theme-color" content="#6f1746" />
+  <title>رسالة رومانسية لك</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:radial-gradient(circle at top,#ba557f 0,#761b4b 45%,#350d29 100%);color:#fff;text-align:center}.card{width:min(560px,100%);padding:34px 24px;border:1px solid rgba(255,255,255,.22);border-radius:28px;background:rgba(38,8,29,.44);box-shadow:0 24px 70px rgba(0,0,0,.35);backdrop-filter:blur(14px)}.heart{font-size:60px;line-height:1;margin-bottom:14px;filter:drop-shadow(0 8px 18px rgba(0,0,0,.25))}h1{font-size:clamp(24px,6vw,38px);margin:0 0 18px}.phrase{min-height:90px;display:grid;place-items:center;font-size:clamp(21px,5vw,30px);line-height:1.65;font-weight:700;margin:0 0 24px}button{width:100%;border:0;border-radius:18px;padding:17px 20px;font:inherit;font-size:20px;font-weight:800;color:#5c123d;background:#fff;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.22)}button:active{transform:scale(.98)}.note{margin:15px 0 0;font-size:14px;opacity:.82;line-height:1.6}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="heart">❤</div>
+    <h1>رسالة رومانسية لك</h1>
+    <div id="phrase" class="phrase" aria-live="polite"></div>
+    <button id="play" type="button">اضغط لسماع الرسالة</button>
+    <p class="note">في كل مرة تفتح الصفحة ستظهر وتُقرأ رسالة مختلفة.</p>
+  </main>
+  <script>
+    const phrases = [
+      "وجودك في حياتي يجعل كل يوم أجمل من الذي قبله.",
+      "أحبك لأنك الأمان الذي أبحث عنه، والفرح الذي لا ينتهي.",
+      "حين أسمع صوتك، أشعر أن العالم أصبح مكانًا أهدأ وأجمل.",
+      "أنت أجمل صدفة، وأغلى شخص اختاره قلبي.",
+      "كل تفاصيلك قريبة من قلبي، حتى الأشياء الصغيرة التي لا يلاحظها أحد.",
+      "قربك يكفيني لأشعر أنني أملك الدنيا كلها.",
+      "لو كان للحب اسم آخر، لاخترت اسمك.",
+      "أنت النور الذي يجعل أيامي أكثر دفئًا ووضوحًا.",
+      "أحب الطريقة التي يصبح بها كل شيء بسيطًا وجميلًا عندما تكون معي.",
+      "مهما تغيّرت الأيام، سيبقى مكانك في قلبي ثابتًا.",
+      "ابتسامتك هي الشيء الذي أود أن أراه في بداية كل يوم.",
+      "معك لا أحتاج إلى أمنيات كثيرة؛ وجودك أجمل أمنية.",
+      "أنت الشخص الذي يجعل قلبي يبتسم من دون سبب.",
+      "أحبك بهدوء عميق، وبقلب يختارك كل مرة.",
+      "حين أفكر في السعادة، أول ما يخطر في بالي هو أنت.",
+      "أنت حكاية جميلة لا أريد لها نهاية.",
+      "صوتك وطن صغير أعود إليه كلما أرهقتني الحياة.",
+      "أحب حضورك الذي يملأ قلبي طمأنينة وحنانًا.",
+      "يكفيني أنك هنا، فهذا وحده يجعل كل شيء أفضل.",
+      "قلبي يعرفك كما لو أنه خُلق ليجدك.",
+      "أنت أجمل جزء في يومي، وألطف فكرة في قلبي.",
+      "أحبك أكثر مما تستطيع الكلمات أن تشرح.",
+      "كل مرة أراك فيها، أشعر أن قلبي اختارك من جديد.",
+      "أنت السبب الجميل خلف كثير من ابتساماتي.",
+      "وجودك بجانبي هو أجمل شكل من أشكال السعادة."
+    ];
+
+    const phraseEl = document.getElementById('phrase');
+    const playButton = document.getElementById('play');
+    let current = '';
+    let lastIndex = -1;
+
+    function choosePhrase() {
+      let index;
+      do index = Math.floor(Math.random() * phrases.length);
+      while (phrases.length > 1 && index === lastIndex);
+      lastIndex = index;
+      current = phrases[index];
+      phraseEl.textContent = current;
+      return current;
+    }
+
+    function getArabicVoice() {
+      const voices = speechSynthesis.getVoices();
+      return voices.find(v => /^ar(-|_)/i.test(v.lang)) || voices.find(v => /Arabic/i.test(v.name)) || null;
+    }
+
+    function speak(changePhrase = false) {
+      if (!('speechSynthesis' in window)) {
+        playButton.textContent = 'الصوت غير مدعوم على هذا الهاتف';
+        return;
+      }
+      if (changePhrase || !current) choosePhrase();
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(current);
+      utterance.lang = 'ar-IQ';
+      utterance.rate = 0.88;
+      utterance.pitch = 1.02;
+      const voice = getArabicVoice();
+      if (voice) utterance.voice = voice;
+      utterance.onstart = () => playButton.textContent = 'جارٍ تشغيل الرسالة…';
+      utterance.onend = () => playButton.textContent = 'رسالة رومانسية أخرى';
+      utterance.onerror = () => playButton.textContent = 'اضغط لسماع الرسالة';
+      speechSynthesis.speak(utterance);
+    }
+
+    choosePhrase();
+    playButton.addEventListener('click', () => speak(true));
+    window.addEventListener('pageshow', () => {
+      choosePhrase();
+      setTimeout(() => speak(false), 300);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        choosePhrase();
+        setTimeout(() => speak(false), 250);
+      }
+    });
+    if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+  </script>
+</body>
+</html>
